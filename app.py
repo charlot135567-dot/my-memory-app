@@ -2,53 +2,56 @@ import streamlit as st
 import pandas as pd
 import random
 
-# 頁面基本設定
 st.set_page_config(page_title="Memory Logic 2025", page_icon="🛡️")
 
 # --- 1. 資料庫串接 ---
-# 請在此處貼上你從 Google Sheets "發布到網路" 取得的網址
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0iqV8nIk_JibUbCPzf8-9SaTP3EexTgF9vce8n-HgKN3QkCDkksMVbZhDmRZY9gushTthKwSPA56A/pubhtml"
+SHEET_URL = "docs.google.com"
 
 def load_data():
     try:
-        # 將網址格式轉換為 CSV 下載格式
         csv_url = SHEET_URL.replace("/pubhtml", "/pub?output=csv")
         data = pd.read_csv(csv_url)
-        # 清除空格
-        data.columns = [c.strip() for c in data.columns]
-        return data
+        # 強制清理所有標題空格，並過濾掉空欄位
+        data.columns = [str(c).strip() for c in data.columns]
+        return data.dropna(how='all', axis=1)
     except Exception as e:
-        st.error(f"資料讀取失敗，請檢查發布網址。錯誤訊息: {e}")
+        st.error(f"資料讀取失敗: {e}")
         return pd.DataFrame()
 
 df = load_data()
 
-# --- 2. 核心邏輯處理 ---
+# --- 2. 核心介面 ---
 st.title("🛡️ Memory Logic 2.0")
 
-# 熱身提醒 (隨機取 3 筆)
-if not df.empty:
+# 檢查必備核心欄位 (確保至少有 English 和 Chinese)
+if 'English' not in df.columns or 'Chinese' not in df.columns:
+    st.warning(f"⚠️ 標題不匹配！偵測到的欄位有: {list(df.columns)}")
+    st.info("請確認 Google Sheets 標題包含: Category, English, Chinese, Note, Japanese")
+else:
+    # 側邊欄熱身
     st.sidebar.subheader("🔥 Daily Warm-up")
     warmup = df.sample(min(len(df), 3))
     for i, row in warmup.iterrows():
         st.sidebar.caption(f"{row['English']}")
 
-# 指令輸入
-cmd = st.text_input("輸入指令 (R: 複習, G: 校對,清單請向下捲動):").strip().upper()
+    # 指令輸入
+    cmd = st.text_input("輸入指令 (R: 複習):").strip().upper()
 
-if cmd == "R":
+    if cmd == "R":
+        st.divider()
+        # 隨機抽取一筆 (Series 物件處理)
+        test_item = df.sample(1).iloc[0]
+        st.subheader("🔄 隨機複習")
+        st.write(f"**中文：** {test_item['Chinese']}")
+        
+        if st.button("查看答案"):
+            st.success(f"**English:** {test_item['English']}")
+            # 如果有日文欄位，自動顯示
+            if 'Japanese' in test_item:
+                st.warning(f"**Japanese:** {test_item['Japanese']}")
+            st.info(f"**Note:** {test_item.get('Note', '')}")
+
+    # 庫存顯示
     st.divider()
-    test_item = df.sample(1).iloc[0]
-    st.subheader("🔄 隨機複習")
-    st.write(f"**中文：** {test_item['Chinese']}")
-    if st.button("查看答案"):
-        st.success(f"**English:** {test_item['English']}")
-        st.info(f"**Note:** {test_item['Note']}")
-
-# --- 3. 庫存顯示 ---
-st.divider()
-st.subheader("📚 複習庫存清單")
-if not df.empty:
+    st.subheader("📚 複習庫存清單")
     st.dataframe(df, use_container_width=True)
-else:
-    st.warning("目前庫存為空，請在 Google Sheets 填入資料並發布。")
