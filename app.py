@@ -1,6 +1,3 @@
-🚀 史努比書桌旗艦版 app.py
-請將 GitHub 上的內容全選刪除，改貼入這份：
-python
 import streamlit as st
 import pandas as pd
 import requests
