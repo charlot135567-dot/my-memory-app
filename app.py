@@ -88,7 +88,7 @@ GIDS = {
 }
 
 def fetch_data(gid):
-    # 【修正】使用正確的導出格式網址
+    # 【最終正確版網址】請直接複製這一行
     url = f"docs.google.com{SHEET_ID}/export?format=csv&gid={gid}"
     try:
         data = pd.read_csv(url)
@@ -154,4 +154,4 @@ if not df.empty:
     with st.expander("📚 查看所有庫存"):
         st.dataframe(df, use_container_width=True)
 else:
-    st.warning("庫存為空，請確認 Sheets 是否發布。")
+    st.warning("目前資料庫為空，請在 Sheets 填入資料並確認已『發布到網路』。")
