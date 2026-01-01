@@ -7,15 +7,26 @@ st.set_page_config(page_title="Memory Logic 2026", layout="wide")
 
 # --- 2. 史努比 × 瑪利歐 視覺注入 (奶油黃、黑粗框、字體大) ---
 st.markdown("""
-    <style>
+   <style>
+    /* 換一個更有手繪感的字體 */
     @import url('fonts.googleapis.com');
-    html, body, [class*="css"] { font-family: 'Comic Neue', cursive; background-color: #FFF9E3; }
-    .stAlert, [data-testid="stSidebar"] { border: 3px solid #000000 !important; border-radius: 20px !important; background-color: #FFFFFF !important; box-shadow: 6px 6px 0px #000000; }
-    div.stButton > button:first-child { background-color: #FFFFFF; border: 3px solid #000000; border-radius: 50px; font-weight: bold; box-shadow: 4px 4px 0px #000000; font-size: 20px; }
-    div.stButton > button:hover { background-color: #000000; color: #FFFFFF; }
-    .verse-text { font-size: 28px; font-weight: bold; color: #2C3E50; border-left: 8px solid #F39C12; padding-left: 15px; margin: 20px 0; }
+    
+    html, body, [class*="css"] {
+        font-family: 'Architects Daughter', cursive;
+        background-color: #FFFFFF; /* 改為純白，像漫畫紙 */
+    }
+
+    /* 讓邊框更像手繪線條（不規則感） */
+    .stAlert, [data-testid="stSidebar"], .stDataFrame {
+        border: 4px solid #000000 !important;
+        border-radius: 2px !important; /* 減少圓角，改為硬邊框 */
+        box-shadow: 8px 8px 0px #000000; /* 更厚重的陰影 */
+    }
     </style>
     """, unsafe_allow_html=True)
+
+# 在標題下方加入一張史努比插圖
+st.sidebar.image("media.giphy.com", width=150)
 
 # --- 3. 多分頁資料讀取邏輯 ---
 # 這是您的 Google Sheets ID
