@@ -9,9 +9,6 @@ import traceback
 # from google.oauth2.service_account import Credentials
 # import gspread
 
-# --- 0. 我是 GPT-5.2 ---
-# 我是 GPT-5.2。
-
 # --- 1. 頁面配置 ---
 st.set_page_config(page_title="Memory Logic 2026", layout="wide")
 
