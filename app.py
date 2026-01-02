@@ -95,23 +95,63 @@ tab_home, tab_play, tab_tool = st.tabs(["🏠 我的書桌", "🎯 隨記挑戰"
 
 # --- TAB 1: 我的書桌 ---
 with tab_home:
-    v1, w1, p1 = st.session_state.verse_data, st.session_state.word_data, st.session_state.phrase_data
-    c1, c2, c3 = st.columns(3)
-    with c1: st.markdown(f'<div class="feature-box"><small>🔤 單字</small><br><b style="font-size:24px;">{w1.get("Vocab","")}</b><br>{w1.get("Definition","")}</div>', unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="feature-box"><small>🔗 片語</small><br><b style="font-size:22px;">{p1.get("Phrase","")}</b><br>{p1.get("Definition","")}</div>', unsafe_allow_html=True)
-    with c3: st.info("🐶 2026 學習進度正常運行中")
-    
-    st.markdown(f'<div class="feature-box"><h3>💡 今日金句</h3><div style="font-size:22px;">{v1.get("Chinese","")}</div><div style="text-align:right;">— {v1.get("Reference","")}</div></div>', unsafe_allow_html=True)
+    v1 = st.session_state.verse_data
+    w1 = st.session_state.word_data
+    p1 = st.session_state.phrase_data
 
+    # 第一排：單字 + 片語 + 史努比圖片
+    c1, c2, c3 = st.columns(3) 
+    with c1:
+        voc = w1.get("Vocab", "Study")
+        st.markdown(f'<div class="feature-box"><a href="dictionary.cambridge.org{quote(str(voc))}" target="_blank" class="dict-btn" style="float:right; font-size:10px; border:1px solid #F06292; padding:2px; border-radius:4px; text-decoration:none; color:#F06292;">🔍 字典</a><small>🔤 單字</small><br><b style="font-size:24px;">{voc}</b><br><small>{w1.get("Definition","")}</small></div>', unsafe_allow_html=True)
+    with c2:
+        phr = p1.get("Phrase", "Keep it up")
+        st.markdown(f'<div class="feature-box"><small>🔗 片語</small><br><b style="font-size:22px;">{phr}</b><br><small>{p1.get("Definition","")}</small></div>', unsafe_allow_html=True)
+    with c3:
+        # 史努比圖 1
+        top_img = "f364bd220887627.67cae1bd07457.jpg"
+        if os.path.exists(top_img):
+            b64 = base64.b64encode(open(top_img, "rb").read()).decode()
+            st.markdown(f'<div class="img-box" style="height:150px; display:flex; justify-content:center;"><img src="data:image/jpeg;base64,{b64}" style="max-height:100%; border-radius:15px;"></div>', unsafe_allow_html=True)
+        else:
+            st.info("🐶 史努比在休息")
+
+    # 第二排：今日金句
+    raw_ch = v1.get("Chinese", "")
+    kw = str(v1.get("Keyword", ""))
+    disp = raw_ch.replace(kw, f'<span class="kw">{kw}</span>') if kw and kw in raw_ch else raw_ch
+    st.markdown(f'<div class="feature-box" style="height: auto !important; min-height:140px;"><h3 style="color:{THEME["sub"]}; margin-top:0;">💡 今日金句</h3><div style="font-size:24px; font-weight:bold;">“{disp}”</div><div style="color:gray; text-align:right;">— {v1.get("Reference","")}</div></div>', unsafe_allow_html=True)
+
+    # 第三排：文法 + 史努比圖 2
+    c4, c5 = st.columns([2, 1]) 
+    with c4:
+        st.markdown(f'<div class="feature-box" style="background-color:#E3F2FD !important; min-height:200px;"><small>📝 關鍵文法</small><br><div style="font-size:15px; margin-top:8px;">{w1.get("Grammar", "保持學習，每天進步！")}</div></div>', unsafe_allow_html=True)
+    with c5:
+        # 史努比圖 2
+        bottom_img = "183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg"
+        if os.path.exists(bottom_img):
+            b64_2 = base64.b64encode(open(bottom_img, "rb").read()).decode()
+            st.markdown(f'<div class="img-box" style="height:200px; display:flex; justify-content:center;"><img src="data:image/jpeg;base64,{b64_2}" style="max-height:100%; border-radius:15px;"></div>', unsafe_allow_html=True)
 # --- TAB 2: 隨記挑戰 ---
 with tab_play:
-    st.subheader("🎯 翻譯挑戰")
-    curr = st.session_state.quiz_data
-    st.write(f"請翻譯：**{curr.get('Text_CN','')}**")
-    ans = st.text_input("輸入翻譯...")
-    if st.button("提交"):
-        if ans: st.success(f"正確答案參考: {curr.get('Text_EN','')}")
-
+    col_txt, col_img = st.columns([3, 2]) 
+    with col_txt:
+        st.subheader("🎯 翻譯挑戰")
+        current_challenge = st.session_state.quiz_data
+        st.markdown(f"請翻譯以下句子：<br><b style='font-size:20px;'>{current_challenge.get('Text_CN', '')}</b>", unsafe_allow_html=True)
+        ans = st.text_area("在此輸入翻譯好的句子...", height=100, key="play_input_sentence").strip()
+        if st.button("提交答案"):
+            if len(ans) > 2:
+                st.balloons()
+                st.success(f"🎉 很好！參考答案: {current_challenge.get('Text_EN','')}")
+                st.session_state.score += 20
+            else:
+                st.error("請輸入內容後再提交唷！")
+    with col_img:
+        # 挑戰區圖片
+        target_img = "68254faebaafed9dafb41918f74c202e.jpg"
+        if os.path.exists(target_img):
+            st.image(target_img, caption="Keep Going!", use_container_width=True)
 # --- TAB 3: 自動分類工具 (整合版) ---
 with tab_tool:
     st.markdown("### 🧪 萬用聖經資料 AI 解析器")
