@@ -6,6 +6,7 @@ import re
 import os
 import random
 import time
+import base64
 from urllib.parse import quote
 
 # --- 1. 頁面基礎配置 ---
@@ -48,26 +49,26 @@ st.markdown(f"""
         background-color: {THEME['box']} !important; border-radius: 18px !important; padding: 18px !important;
         border: 2.5px solid {THEME['accent']} !important; box-shadow: 4px 4px 0px {THEME['accent']} !important;
         margin-bottom: 12px !important; 
-        height: 180px !important; /* 鎖定高度 */
+        height: 150px !important; /* 第一排高度調降為 150px */
         display: flex; flex-direction: column; justify-content: center;
     }}
     
     /* 針對文法框調整高度 */
     .grammar-box {{
-        height: 250px !important; /* 鎖定高度 */
+        height: 220px !important; /* 第三排高度調降為 220px */
         justify-content: flex-start;
     }}
 
     /* 針對圖片容器調整高度 */
     .img-box {{
-        height: 180px !important; /* 鎖定高度 */
+        height: 150px !important; /* 第一排圖片高度對齊 */
         display: flex; justify-content: center; align-items: center;
     }}
     .img-box img {{
         max-height: 100%; width: auto; border-radius: 15px;
     }}
     .img-box.grammar-img {{
-        height: 250px !important; /* 鎖定高度 */
+        height: 220px !important; /* 第三排圖片高度對齊 */
     }}
     
     .kw {{ color: {THEME['keyword']}; font-weight: bolder; font-size: 1.2em; background-color: #FFFF00; padding: 2px 4px; border-radius: 4px; }}
@@ -84,7 +85,7 @@ with tab_home:
     w1 = st.session_state.word_data
     p1 = st.session_state.phrase_data
 
-    # 第一排：單字 (180px H) + 片語 (180px H) + 史努比圖片 (180px H)
+    # 第一排：單字 (150px H) + 片語 (150px H) + 史努比圖片 (150px H)
     c1, c2, c3 = st.columns()
     with c1:
         voc = w1.get("Vocab", "Study")
@@ -103,7 +104,7 @@ with tab_home:
     disp = raw_ch.replace(kw, f'<span class="kw">{kw}</span>') if kw and kw in raw_ch else raw_ch
     st.markdown(f'<div class="feature-box" style="min-height:140px; height: auto !important;"><h3 style="color:{THEME["sub"]}; margin-top:0; font-family: "Gloria Hallelujah", cursive;">💡 今日金句</h3><div style="font-size:26px; line-height:1.4; font-weight:bold;">“{disp}”</div><div style="color:gray; margin-top:10px; text-align:right;">— {v1.get("Reference","")}</div></div>', unsafe_allow_html=True)
 
-    # 第三排：文法 (250px H) + 史努比圖片 (250px H)
+    # 第三排：文法 (220px H) + 史努比圖片 (220px H)
     c4, c5 = st.columns()
     with c4:
         st.markdown(f'<div class="feature-box grammar-box" style="background-color:#E3F2FD !important;"><small>📝 關鍵文法</small><br><div style="font-size:15px; margin-top:8px;">{w1.get("Grammar", "保持學習，每天進步！")}</div></div>', unsafe_allow_html=True)
@@ -111,7 +112,6 @@ with tab_home:
         bottom_img = "183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg"
         if os.path.exists(bottom_img):
              st.markdown(f'<div class="img-box grammar-img"> <img src="data:image/jpeg;base64,{base64.b64encode(open(bottom_img, "rb").read()).decode()}" alt="Snoopy 2" /> </div>', unsafe_allow_html=True)
-
 
 # --- TAB 2: 隨記挑戰 ---
 with tab_play:
@@ -122,7 +122,6 @@ with tab_play:
         st.markdown(f"請翻譯以下句子：<br><b>{current_challenge.get('Text_CN', '')}</b>", unsafe_allow_html=True)
         ans = st.text_area("在此輸入翻譯好的句子...", height=150, key="play_input_sentence").strip()
         if st.button("提交答案"):
-            # 使用簡單的長度檢查作為答案驗證
             if len(ans) > 5 and abs(len(ans) - len(current_challenge.get('Text_EN',''))) < 20:
                 st.balloons()
                 st.session_state.score += 20
@@ -149,18 +148,15 @@ with st.sidebar:
         df_v = fetch_data("1454083804")
         df_p = fetch_data("1657258260")
         
-        # 核心修改：只從經節或片語抽取題目
         source_df = pd.concat([df_v, df_p.rename(columns={'Phrase': 'Chinese', 'Definition': 'English'})], ignore_index=True)
         if not source_df.empty:
-            new_quiz_item = source_df.sample(1).iloc[0] # 使用 [0] 確保是 dict
+            new_quiz_item = source_df.sample(1).iloc
             st.session_state.quiz_data = {
                 "Text_CN": new_quiz_item.get("Chinese", ""),
-                "Text_EN": new_quiz_item.get("English", "") or new_quiz_item.get("Vocab", "") or new_quiz_item.get("Phrase", "") 
+                "Text_EN": new_quiz_item.get("English", "") or new_quiz_item.get("Vocab", "") or new_quiz_item.get("Phrase", "")
             }
         
-        # 更新首頁資料
-        if not df_w.empty: st.session_state.word_data = df_w.sample(1).iloc[0].to_dict()
-        if not df_v.empty: st.session_state.verse_data = df_v.sample(1).iloc[0].to_dict()
-        if not df_p.empty: st.session_state.phrase_data = df_p.sample(1).iloc[0].to_dict()
-        
+        if not df_w.empty: st.session_state.word_data = df_w.sample(1).iloc.to_dict()
+        if not df_v.empty: st.session_state.verse_data = df_v.sample(1).iloc.to_dict()
+        if not df_p.empty: st.session_state.phrase_data = df_p.sample(1).iloc.to_dict()
         st.rerun()
