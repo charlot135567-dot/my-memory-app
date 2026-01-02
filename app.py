@@ -23,18 +23,20 @@ class BibleAutomator:
         """抓取單節或多節經文資料庫"""
         trans = self.lang_map.get(lang_key, "web")
         try:
-            clean_ref = ref.replace(" ", "+”)
-            r = requests.get(f"{self.api_base}{ref}?translation={trans}", timeout=10)
+            # 確保這裡使用的是半形引號 "+"
+            clean_ref = ref.replace(" ", "+")
+            
+            # 確保使用 clean_ref 變數
+            r = requests.get(f"{self.api_base}{clean_ref}?translation={trans}", timeout=10)
+            
             if r.status_code == 200:
                 data = r.json()
-                # 處理多節經文範圍 (如 1-9 節)
                 if 'verses' in data:
                     return {v['verse']: v['text'].strip() for v in data['verses']}
-                # 處理單節經文
                 return {data.get('verse', 0): data.get('text', '').strip()}
         except Exception as e:
             st.error(f"連線 {lang_key} 失敗: {e}")
-        return {}
+        return {}　
 
     def extract_keywords(self, text):
         """選取中高級單字 (6個字母以上)"""
