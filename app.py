@@ -15,7 +15,7 @@ if 'final_df' not in st.session_state:
 # --- 3. 核心工具類別 ---
 class BibleAutomator:
     def __init__(self):
-        self.api_base = "bible-api.com"
+        self.api_base = "https://bible-api.com/"
         # 2026 推薦版本：中(CUV)、英(WEB)、日(JPN)、韓(KOR)、泰(THA)
         self.lang_map = {"CN": "cuv", "EN": "web", "JA": "jpn", "KO": "kor", "TH": "tha"}
 
@@ -23,6 +23,7 @@ class BibleAutomator:
         """抓取單節或多節經文資料庫"""
         trans = self.lang_map.get(lang_key, "web")
         try:
+            clean_ref = ref.replace(" ", "+”)
             r = requests.get(f"{self.api_base}{ref}?translation={trans}", timeout=10)
             if r.status_code == 200:
                 data = r.json()
