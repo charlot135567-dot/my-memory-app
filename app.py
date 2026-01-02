@@ -16,13 +16,14 @@ if 'final_df' not in st.session_state:
 class BibleAutomator:
     def __init__(self):
         self.api_base = "bible-api.com"
-        # 2026 推薦版本：中(CUV)、英(WEB)、日(JPN)、韓(KOR)、泰(THA)
+        # 推薦版本：中(CUV)、英(WEB)、日(JPN)、韓(KOR)、泰(THA)
         self.lang_map = {"CN": "cuv", "EN": "web", "JA": "jpn", "KO": "kor", "TH": "tha"}
 
     def fetch_data(self, ref, lang_key):
         """正確處理多節經文的 API 抓取"""
         trans = self.lang_map.get(lang_key, "web")
         try:
+            # 必須處理網址空格
             clean_ref = ref.replace(" ", "+")
             url = f"{self.api_base}{clean_ref}?translation={trans}"
             r = requests.get(url, timeout=10)
@@ -40,7 +41,7 @@ class BibleAutomator:
         return ", ".join(list(dict.fromkeys(words))[:2])
 
     def process_range(self, ref_input, manual_grammar_map=None):
-        """核心邏輯：整合語言並拆分章節"""
+        """核心邏輯：整合所有語言並拆分章節"""
         with st.spinner("⏳ 正在全球同步中、英、日、韓、泰經文..."):
             en_map = self.fetch_data(ref_input, "EN")
             cn_map = self.fetch_data(ref_input, "CN")
@@ -48,12 +49,15 @@ class BibleAutomator:
             ko_map = self.fetch_data(ref_input, "KO")
             th_map = self.fetch_data(ref_input, "TH")
 
+        # 取得書卷名 (例如 Psalm 20)
         book_part = re.sub(r':\d+.*$', '', ref_input)
         rows = []
+        # 以英文版節號為基準進行拆分
         for v_num in sorted(en_map.keys()):
             ref_str = f"{book_part}:{v_num}"
             eng = en_map.get(v_num, "")
             
+            # 文法優先使用手動貼上的，否則放預設
             grammar = "AI 待分析"
             if manual_grammar_map and v_num in manual_grammar_map:
                 grammar = manual_grammar_map[v_num]
@@ -83,10 +87,10 @@ class BibleAutomator:
             except: continue
         return grammar_map
 
-# --- 4. 實例化工具 (必須在 UI 呼叫之前) ---
+# --- 4. 實例化工具 (解決 NameError) ---
 auto_tool = BibleAutomator()
 
-# --- 5. 資源處理 ---
+# --- 5. 樣式與資源 ---
 @st.cache_data
 def get_img_64(file):
     if os.path.exists(file):
@@ -102,15 +106,16 @@ st.markdown(f"""
         border: 2px solid #FFCDD2; box-shadow: 4px 4px 0px #FFCDD2;
         margin-bottom: 15px;
     }}
-    .grammar-box {{ min-height: 315px; background-color: #F0F7FF !important; }}
+    /* 高度對齊：左側文法框設為與右側兩圖等高 */
+    .grammar-box {{ min-height: 310px; background-color: #F0F7FF !important; }}
     .snoopy-container img {{
         width: 100%; border-radius: 15px; margin-bottom: 12px; border: 2.5px solid #FFCDD2;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 6. UI 介面 ---
-tab1, tab2, tab3 = st.tabs(["🏠 我的書桌", "🎯 挑戰", "🧪 工具"])
+# --- 6. UI 主介面 ---
+tab1, tab2, tab3 = st.tabs(["🏠 我的書桌", "🎯 翻譯挑戰", "🧪 自動工具"])
 
 with tab1:
     col_l, col_r = st.columns([2.5, 1])
@@ -119,7 +124,7 @@ with tab1:
         c1, c2 = st.columns(2)
         c1.markdown('<div class="feature-box">🔤 單字<br><b>Study</b><br>學習</div>', unsafe_allow_html=True)
         c2.markdown('<div class="feature-box">🔗 片語<br><b>Keep it up</b><br>繼續加油</div>', unsafe_allow_html=True)
-        st.markdown('<div class="feature-box grammar-box">📝 文法重點說明<br>此框高度與右側史努比圖片對齊。</div>', unsafe_allow_html=True)
+        st.markdown('<div class="feature-box grammar-box">📝 文法重點說明<br>此框已透過 CSS min-height 確保與右側圖片高度對齊。</div>', unsafe_allow_html=True)
     with col_r:
         img1 = get_img_64("f364bd220887627.67cae1bd07457.jpg")
         if img1: st.markdown(f'<div class="snoopy-container"><img src="{img1}"></div>', unsafe_allow_html=True)
@@ -129,31 +134,30 @@ with tab1:
 with tab2:
     st.subheader("🎯 翻譯挑戰")
     st.info("請翻譯：凡事都有定期，天下萬務都有定時。")
-    st.text_area("輸入翻譯內容...")
-    if st.button("查看參考答案"): st.success("To everything there is a season...")
+    st.text_area("輸入翻譯內容...", key="challenge_input")
+    if st.button("查看參考答案"): 
+        st.balloons()
+        st.success("To everything there is a season, and a time to every purpose under the heaven.")
 
 with tab3:
     st.subheader("🧪 聖經多語言自動分類器")
-    mode = st.radio("模式選擇", ["全自動章節抓取 (支援範圍)", "手動貼上解析內容"], horizontal=True)
+    mode = st.radio("模式", ["全自動章節抓取 (支援範圍)", "手動貼上解析內容"], horizontal=True)
     
     if mode == "全自動章節抓取 (支援範圍)":
         ref_in = st.text_input("輸入範圍 (例: Psalm 20:1-5)", "Psalm 20:1-3")
         if st.button("🔍 開始生成表格"):
-            # 確保這裡名稱與 class 內的函式名稱 process_range 一致
             st.session_state.final_df = auto_tool.process_range(ref_in)
-            st.success("✅ 解析與多國語言抓取完成！")
+            st.success("✅ 抓取完成！")
     
     else:
-        ref_scope = st.text_input("輸入經卷座標範圍 (例: Psalm 19:1-4)")
-        manual_text = st.text_area("貼上文法筆記 (例如: 19:1 主詞是... 19:4 省略句...)", height=200)
-        if st.button("🚀 執行手動解析整合"):
+        ref_scope = st.text_input("輸入經卷座標範圍 (例: Psalm 19:1-2)")
+        manual_text = st.text_area("貼上文法筆記 (需含節號, 如 19:1 主詞...)")
+        if st.button("🚀 執行手動解析"):
             g_map = auto_tool.parse_manual_input(manual_text)
             st.session_state.final_df = auto_tool.process_range(ref_scope, manual_grammar_map=g_map)
-            st.success("✅ 筆記與 API 數據整合成功！")
+            st.success("✅ 手動筆記已合併！")
 
-    # 2026 標準：使用 width="stretch" 代替已棄用的 use_container_width
     st.dataframe(st.session_state.final_df, width="stretch")
-    
     if not st.session_state.final_df.empty:
         csv = st.session_state.final_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button("📥 匯出 CSV 表格", csv, "Bible_Study_2026.csv")
