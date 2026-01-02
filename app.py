@@ -16,6 +16,7 @@ if 'final_df' not in st.session_state:
 class BibleAutomator:
     def __init__(self):
         self.api_base = "bible-api.com"
+        # 2026 推薦版本：中(CUV)、英(WEB)、日(JPN)、韓(KOR)、泰(THA)
         self.lang_map = {"CN": "cuv", "EN": "web", "JA": "jpn", "KO": "kor", "TH": "tha"}
 
     def fetch_data(self, ref, lang_key):
@@ -27,7 +28,6 @@ class BibleAutomator:
             r = requests.get(url, timeout=10)
             if r.status_code == 200:
                 data = r.json()
-                # 關鍵：將多節經文轉為 {節號: 內容} 的字典
                 if 'verses' in data:
                     return {v['verse']: v['text'].strip() for v in data['verses']}
                 return {data.get('verse', 0): data.get('text', '').strip()}
@@ -39,8 +39,8 @@ class BibleAutomator:
         words = re.findall(r'\b[A-Za-z]{6,}\b', text)
         return ", ".join(list(dict.fromkeys(words))[:2])
 
-    def process_data(self, ref_input, manual_grammar_map=None):
-        """核心邏輯：整合所有語言並拆分章節"""
+    def process_range(self, ref_input, manual_grammar_map=None):
+        """核心邏輯：整合語言並拆分章節"""
         with st.spinner("⏳ 正在全球同步中、英、日、韓、泰經文..."):
             en_map = self.fetch_data(ref_input, "EN")
             cn_map = self.fetch_data(ref_input, "CN")
@@ -50,12 +50,10 @@ class BibleAutomator:
 
         book_part = re.sub(r':\d+.*$', '', ref_input)
         rows = []
-        # 以英文版節號為準進行循環，確保每一節獨立成行
         for v_num in sorted(en_map.keys()):
             ref_str = f"{book_part}:{v_num}"
             eng = en_map.get(v_num, "")
             
-            # 文法判斷：優先用手動解析的，若無則放預設
             grammar = "AI 待分析"
             if manual_grammar_map and v_num in manual_grammar_map:
                 grammar = manual_grammar_map[v_num]
@@ -73,8 +71,7 @@ class BibleAutomator:
         return pd.DataFrame(rows)
 
     def parse_manual_input(self, text):
-        """解析手動筆記中的節號 (如 19:4) 並對應文法內容"""
-        # 使用正規表達式切分節號
+        """解析手動筆記中的節號 (如 19:4)"""
         parts = re.split(r'(\d+:\d+)', text)
         grammar_map = {}
         for i in range(1, len(parts), 2):
@@ -86,9 +83,10 @@ class BibleAutomator:
             except: continue
         return grammar_map
 
+# --- 4. 實例化工具 (必須在 UI 呼叫之前) ---
 auto_tool = BibleAutomator()
 
-# --- 4. 樣式與資源 (對齊優化) ---
+# --- 5. 資源處理 ---
 @st.cache_data
 def get_img_64(file):
     if os.path.exists(file):
@@ -104,7 +102,6 @@ st.markdown(f"""
         border: 2px solid #FFCDD2; box-shadow: 4px 4px 0px #FFCDD2;
         margin-bottom: 15px;
     }}
-    /* 高度對齊：左側文法框設為 300px 與右側兩圖對齊 */
     .grammar-box {{ min-height: 315px; background-color: #F0F7FF !important; }}
     .snoopy-container img {{
         width: 100%; border-radius: 15px; margin-bottom: 12px; border: 2.5px solid #FFCDD2;
@@ -112,7 +109,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. UI 介面 ---
+# --- 6. UI 介面 ---
 tab1, tab2, tab3 = st.tabs(["🏠 我的書桌", "🎯 挑戰", "🧪 工具"])
 
 with tab1:
@@ -122,7 +119,7 @@ with tab1:
         c1, c2 = st.columns(2)
         c1.markdown('<div class="feature-box">🔤 單字<br><b>Study</b><br>學習</div>', unsafe_allow_html=True)
         c2.markdown('<div class="feature-box">🔗 片語<br><b>Keep it up</b><br>繼續加油</div>', unsafe_allow_html=True)
-        st.markdown('<div class="feature-box grammar-box">📝 文法重點與說明<br>此框高度已與右側史努比圖片對齊。</div>', unsafe_allow_html=True)
+        st.markdown('<div class="feature-box grammar-box">📝 文法重點說明<br>此框高度與右側史努比圖片對齊。</div>', unsafe_allow_html=True)
     with col_r:
         img1 = get_img_64("f364bd220887627.67cae1bd07457.jpg")
         if img1: st.markdown(f'<div class="snoopy-container"><img src="{img1}"></div>', unsafe_allow_html=True)
@@ -132,29 +129,31 @@ with tab1:
 with tab2:
     st.subheader("🎯 翻譯挑戰")
     st.info("請翻譯：凡事都有定期，天下萬務都有定時。")
-    st.text_area("輸入翻譯...")
-    if st.button("查看答案"): st.success("To everything there is a season...")
+    st.text_area("輸入翻譯內容...")
+    if st.button("查看參考答案"): st.success("To everything there is a season...")
 
 with tab3:
     st.subheader("🧪 聖經多語言自動分類器")
-    mode = st.radio("模式", ["全自動章節抓取 (支援範圍)", "手動貼上解析內容"], horizontal=True)
+    mode = st.radio("模式選擇", ["全自動章節抓取 (支援範圍)", "手動貼上解析內容"], horizontal=True)
     
     if mode == "全自動章節抓取 (支援範圍)":
         ref_in = st.text_input("輸入範圍 (例: Psalm 20:1-5)", "Psalm 20:1-3")
         if st.button("🔍 開始生成表格"):
-            # 修復位置：呼叫 process_data 而非 process_range
-            st.session_state.final_df = auto_tool.process_data(ref_in)
-            st.success("✅ 解析完成！")
+            # 確保這裡名稱與 class 內的函式名稱 process_range 一致
+            st.session_state.final_df = auto_tool.process_range(ref_in)
+            st.success("✅ 解析與多國語言抓取完成！")
     
     else:
-        ref_scope = st.text_input("輸入對應章節範圍 (例: Psalm 19:1-4)")
-        manual_text = st.text_area("貼上含節號的文法筆記 (例: 19:1 主詞是... 19:4 省略句...)", height=200)
-        if st.button("🚀 執行手動解析"):
+        ref_scope = st.text_input("輸入經卷座標範圍 (例: Psalm 19:1-4)")
+        manual_text = st.text_area("貼上文法筆記 (例如: 19:1 主詞是... 19:4 省略句...)", height=200)
+        if st.button("🚀 執行手動解析整合"):
             g_map = auto_tool.parse_manual_input(manual_text)
-            st.session_state.final_df = auto_tool.process_data(ref_scope, manual_grammar_map=g_map)
-            st.success("✅ 手動筆記與經文已成功合併！")
+            st.session_state.final_df = auto_tool.process_range(ref_scope, manual_grammar_map=g_map)
+            st.success("✅ 筆記與 API 數據整合成功！")
 
+    # 2026 標準：使用 width="stretch" 代替已棄用的 use_container_width
     st.dataframe(st.session_state.final_df, width="stretch")
+    
     if not st.session_state.final_df.empty:
         csv = st.session_state.final_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button("📥 匯出 CSV 表格", csv, "Bible_Study_2026.csv")
