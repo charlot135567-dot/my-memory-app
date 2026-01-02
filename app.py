@@ -1,7 +1,3 @@
-*** Begin Patch
-*** Add File: app.py
-+#!/usr/bin/env python3
-+# app.py (patched by GPT-5.2)
 +import streamlit as st
 +import pandas as pd
 +import requests
