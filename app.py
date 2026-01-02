@@ -42,13 +42,14 @@ GIDS = {"📖 經節": "1454083804", "🔤 單字": "1400979824", "🔗 片語":
 
 @st.cache_data(ttl=300)
 def fetch_data(gid):
+    # 確保網址包含 https:// 以及中間的 /d/ 路徑
     url = f"docs.google.com{SHEET_ID}/export?format=csv&gid={gid}"
     try:
         r = requests.get(url, timeout=10)
-        r.raise_for_status()
+        r.raise_for_status() # 檢查請求是否成功
         return pd.read_csv(io.StringIO(r.text)).fillna("")
     except Exception as e:
-        st.sidebar.error(f"資料載入失敗: {e}")
+        st.sidebar.error(f"資料載入失敗，請檢查網路或 Sheet ID")
         return pd.DataFrame()
 
 # --- 5. CSS 注入 (修正字體與按鈕連結效果) ---
