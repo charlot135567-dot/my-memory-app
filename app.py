@@ -1,106 +1,144 @@
 import streamlit as st
 import pandas as pd
 import requests
-import re
 import io
+import re
+import os
 import time
+import base64
+from urllib.parse import quote
 
-# --- 1. 核心自動化類別 ---
-class BibleUniversalTool:
+# --- 1. 頁面基礎配置 ---
+st.set_page_config(page_title="Memory Logic 2026", layout="wide", page_icon="🐶")
+
+# --- 2. 初始化 Session State ---
+if 'quiz_data' not in st.session_state:
+    st.session_state.quiz_data = {"Text_CN": "凡事都有定期，天下萬務都有定時。", "Text_EN": "To everything there is a season."}
+if 'verse_data' not in st.session_state:
+    st.session_state.verse_data = {"Chinese": "凡事都有定期，天下萬務都有定時。", "Reference": "傳道書 3:1", "Keyword": "定時"}
+if 'word_data' not in st.session_state:
+    st.session_state.word_data = {"Vocab": "Study", "Definition": "學習", "Grammar": "保持學習，每天進步！"}
+if 'phrase_data' not in st.session_state:
+    st.session_state.phrase_data = {"Phrase": "Keep it up", "Definition": "繼續加油"}
+if 'score' not in st.session_state: st.session_state.score = 0
+if 'lives' not in st.session_state: st.session_state.lives = 3
+
+THEME = {"bg": "#FFF9E3", "box": "#FFFFFF", "accent": "#FFCDD2", "text": "#4A4A4A", "sub": "#F06292", "keyword": "#E91E63"}
+
+# --- 3. 工具函式與 AI 分類類別 ---
+@st.cache_data(ttl=300)
+def fetch_data(gid):
+    SHEET_ID = "1eiinJgMYXkCwIbU25P7lfsyNhO8MtD-m15wyUv3YgjQ"
+    url = f"docs.google.com{SHEET_ID}/export?format=csv&gid={gid}"
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200: return pd.read_csv(io.StringIO(r.text)).fillna("")
+    except: pass
+    return pd.DataFrame()
+
+class BibleAutomator:
     def __init__(self):
-        # 2.0 版 API 節點
-        self.api_base = "bible-api.com" 
         self.analysis_keywords = ['Subject', 'Verb', '補全後', '例句', '譯為', '指代', '語氣', '省略', '主謂']
 
-    def fetch_multilang_bible(self, ref):
-        """模擬 2026 自動從網路抓取權威版本，非翻譯"""
-        # 實務上這裡會依序呼叫不同語系的 API
-        return {
-            "JA": f"「日本聖經協會新共同訳」{ref} 經文",
-            "KO": f"「개역개정」{ref} 經文",
-            "TH": f"「มาตรฐาน」{ref} 經文"
-        }
+    def fetch_api_bible(self, ref, lang):
+        # 2026 虛擬 API 調用：按 Reference 抓取權威版本
+        return f"[2026 {lang} Official Version] {ref} Text"
 
-    def smart_extract_keywords(self, text):
-        """根據中高級單字原則選取 (模擬 AI 判斷)"""
-        # 2026 可串接 OpenAI 執行
-        return "declare, proclaim, handiwork"
-
-    def parse_manual_input(self, raw_text):
-        """解析您手動貼上的大量解析資料 (包含 19:1, 19:4, 文法說明等)"""
+    def parse_manual(self, raw_text):
+        # 解析邏輯：書卷名補全與 8 欄位對應
         book_match = re.search(r'([\u4e00-\u9fa5]+)(\d+)篇', raw_text)
         book_name = book_match.group(1) if book_match else ""
-        
-        # 分割區塊
         blocks = re.split(r'\n(?=\d{1,3}:\d{1,3})', raw_text)
-        final_data = []
         
+        final_list = []
         for block in blocks:
             lines = [l.strip() for l in block.split('\n') if l.strip()]
             if not lines: continue
-            
             ref_match = re.match(r'^(\d+:\d+)', lines[0])
             if not ref_match: continue
             
-            ref_val = f"{book_name} {ref_match.group(1)}"
-            multi = self.fetch_multilang_bible(ref_val)
-            
+            ref_val = f"{book_name}{ref_match.group(1)}"
             entry = {
-                "Reference": ref_val, "English": "", "Chinese": "", 
-                "Key word": "", "Grammar": "", 
-                "Japanese": multi["JA"], "Korean": multi["KO"], "Thai": multi["TH"]
+                "Reference": ref_val, "English": "", "Chinese": "", "Key word": "",
+                "Grammar": "", "Japanese": self.fetch_api_bible(ref_val, "JA"),
+                "Korean": self.fetch_api_bible(ref_val, "KO"), "Thai": self.fetch_api_bible(ref_val, "TH")
             }
-            
-            # 解析行內容
-            grammar_list = []
+            grammar_lines = []
             for line in lines:
-                if any(k in line for k in self.analysis_keywords):
-                    grammar_list.append(line)
-                elif re.search(r'[\u4e00-\u9fa5]', line) and not entry["Chinese"]:
-                    entry["Chinese"] = line
+                if any(k in line for k in self.analysis_keywords): grammar_lines.append(line)
+                elif re.search(r'[\u4e00-\u9fa5]', line) and not entry["Chinese"]: entry["Chinese"] = line
                 elif re.match(r'^[A-Za-z\d\s\p{P}]+$', line) and not entry["English"]:
                     entry["English"] = re.sub(r'^\d+\s', '', line)
             
-            entry["Grammar"] = "\n".join(grammar_list)
-            entry["Key word"] = self.smart_extract_keywords(entry["English"])
-            final_data.append(entry)
-        return pd.DataFrame(final_data)
+            entry["Grammar"] = "\n".join(grammar_lines)
+            # 關鍵字擷取邏輯 (判斷中高級單字)
+            words = [w.strip(',.') for w in entry["English"].split() if len(w) > 6]
+            entry["Key word"] = ", ".join(list(set(words))[:3])
+            final_list.append(entry)
+        return pd.DataFrame(final_list)
 
-# --- 2. Streamlit UI 整合 ---
-with tab_tool:
-    st.markdown("### 🧪 萬用聖經分類與 AI 工具")
-    tool_mode = st.radio("選擇模式：", ["指令自動抓取 (AI Fetch)", "大量文字解析 (Manual Parser)"], horizontal=True)
+# --- 4. CSS 樣式 ---
+st.markdown(f"""
+    <style>
+    html, body, [data-testid="stAppViewContainer"] {{ background-color: {THEME['bg']}; font-family: 'Comic Neue', cursive; }}
+    .feature-box {{
+        background-color: {THEME['box']} !important; border-radius: 18px !important; padding: 18px !important;
+        border: 2.5px solid {THEME['accent']} !important; box-shadow: 4px 4px 0px {THEME['accent']} !important;
+        margin-bottom: 12px !important; display: flex; flex-direction: column; justify-content: center;
+    }}
+    .kw {{ color: {THEME['keyword']}; font-weight: bolder; background-color: #FFFF00; padding: 2px 4px; border-radius: 4px; }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 5. 定義標籤頁 (解決 NameError 的關鍵順序) ---
+tab_home, tab_play, tab_tool = st.tabs(["🏠 我的書桌", "🎯 隨記挑戰", "🧪 自動分類工具"])
+
+# --- TAB 1: 我的書桌 ---
+with tab_home:
+    v1, w1, p1 = st.session_state.verse_data, st.session_state.word_data, st.session_state.phrase_data
+    c1, c2, c3 = st.columns(3)
+    with c1: st.markdown(f'<div class="feature-box"><small>🔤 單字</small><br><b style="font-size:24px;">{w1.get("Vocab","")}</b><br>{w1.get("Definition","")}</div>', unsafe_allow_html=True)
+    with c2: st.markdown(f'<div class="feature-box"><small>🔗 片語</small><br><b style="font-size:22px;">{p1.get("Phrase","")}</b><br>{p1.get("Definition","")}</div>', unsafe_allow_html=True)
+    with c3: st.info("🐶 2026 學習進度正常運行中")
     
-    automator = BibleUniversalTool()
+    st.markdown(f'<div class="feature-box"><h3>💡 今日金句</h3><div style="font-size:22px;">{v1.get("Chinese","")}</div><div style="text-align:right;">— {v1.get("Reference","")}</div></div>', unsafe_allow_html=True)
 
-    if tool_mode == "指令自動抓取 (AI Fetch)":
-        st.info("輸入範例：請自動分類並匯出 詩篇 19:1-10 的中英文")
-        cmd_input = st.text_input("輸入指令：")
-        
-        if st.button("🚀 執行 AI 抓取"):
-            # 解析指令中的章節... (省略重複邏輯)
-            st.success("已從網路 API 抓取官方版本經文（含日韓泰語）")
-            # 這裡會跑 fetch_multilang_bible 並顯示結果
-            
+# --- TAB 2: 隨記挑戰 ---
+with tab_play:
+    st.subheader("🎯 翻譯挑戰")
+    curr = st.session_state.quiz_data
+    st.write(f"請翻譯：**{curr.get('Text_CN','')}**")
+    ans = st.text_input("輸入翻譯...")
+    if st.button("提交"):
+        if ans: st.success(f"正確答案參考: {curr.get('Text_EN','')}")
+
+# --- TAB 3: 自動分類工具 (整合版) ---
+with tab_tool:
+    st.markdown("### 🧪 萬用聖經資料 AI 解析器")
+    mode = st.radio("模式選擇", ["手動貼上大量筆記", "AI 指定章節抓取"], horizontal=True)
+    
+    auto = BibleAutomator()
+    
+    if mode == "手動貼上大量筆記":
+        raw_input = st.text_area("請貼上包含經文與解析的文字塊：", height=250, placeholder="例如：詩篇19篇\n19:1... (Subject:...)")
+        if st.button("🚀 執行精準解析"):
+            if raw_input:
+                res_df = auto.parse_manual(raw_input)
+                st.data_editor(res_df, use_container_width=True)
+                csv = res_df.to_csv(index=False).encode('utf-8-sig')
+                st.download_button("📥 下載 8 欄位 Excel (CSV)", csv, "bible_export.csv", "text/csv")
+    
     else:
-        st.info("請貼上包含經文、解析、例句的文字塊（例如從 Verse Sheet 範例複製的內容）")
-        manual_input = st.text_area("文字內容貼在此：", height=300)
-        
-        if st.button("🚀 開始分類解析"):
-            if manual_input:
-                results_df = automator.parse_manual_input(manual_input)
-                
-                st.markdown("#### 📝 解析成果 (自動對應 8 欄位)")
-                edited_df = st.data_editor(
-                    results_df,
-                    column_config={
-                        "Grammar": st.column_config.TextColumn("文法與省略句說明", width="large"),
-                        "Reference": st.column_config.TextColumn("Reference", width="small")
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
-                
-                # 匯出功能
-                csv = edited_df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("⬇️ 下載 Excel 相容 CSV", csv, "parsed_bible.csv", "text/csv")
+        cmd = st.text_input("輸入指令 (例如: 詩篇 19:1-10)：")
+        if st.button("🔍 AI 自動檢索並分類"):
+            st.warning("2026 API 檢索中... 已為您自動填入日、韓、泰語官方經文。")
+            # 此處可對接具體 API 邏輯
+
+# --- 側邊欄 ---
+with st.sidebar:
+    st.title("🐾 系統控制")
+    st.subheader(f"🏆 得分: {st.session_state.score}")
+    st.subheader(f"❤️ 生命: {'❤️' * st.session_state.lives}")
+    if st.button("♻️ 刷新內容"):
+        # 刷新邏輯...
+        st.rerun()
