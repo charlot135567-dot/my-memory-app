@@ -26,17 +26,32 @@ if 'lives' not in st.session_state: st.session_state.lives = 3
 
 THEME = {"bg": "#FFF9E3", "box": "#FFFFFF", "accent": "#FFCDD2", "text": "#4A4A4A", "sub": "#F06292", "keyword": "#E91E63"}
 
-# --- 3. 資料抓取函數 ---
-@st.cache_data(ttl=300)
-def fetch_data(gid):
-    SHEET_ID = "1eiinJgMYXkCwIbU25P7lfsyNhO8MtD-m15wyUv3YgjQ"
-    url = f"docs.google.com{SHEET_ID}/export?format=csv&gid={gid}"
-    try:
-        r = requests.get(url, timeout=5)
-        if r.status_code == 200:
-            return pd.read_csv(io.StringIO(r.text)).fillna("")
-    except: pass
-    return pd.DataFrame()
+# --- TAB 3: 自動分類工具 ---
+with tab_tool:
+    st.markdown("### 🧪 AI 自動分類與匯出")
+    input_text = st.text_area("在此貼上整篇文章、多個句子或經節...", height=200)
+    
+    # 您之前的分類邏輯需要放在這裡
+    def heuristic_classify(item):
+        item = item.strip()
+        if re.search(r'\b\d{1,3}:\d{1,3}\b', item): return "Verses"
+        tokens = item.split()
+        if len(tokens) <= 1: return "Words"
+        if 2 <= len(tokens) <= 6: return "Phrases"
+        return "Verses"
+
+    if st.button("🚀 開始分析分類"):
+        lines = re.split(r'\n+|(?<=[。！？\.\?\!;；])\s*', input_text)
+        results = [{"內容": l.strip(), "建議分類": heuristic_classify(l)} for l in lines if l.strip()]
+        if results:
+            st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+            # 匯出 Excel 功能
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                pd.DataFrame(results).to_excel(writer, index=False)
+            
+            st.download_button("⬇️ 下載為 Excel (.xlsx)", data=output.getv
 
 # --- 4. CSS 樣式 (關鍵高度控制) ---
 st.markdown(f"""
