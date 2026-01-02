@@ -42,14 +42,19 @@ GIDS = {"📖 經節": "1454083804", "🔤 單字": "1400979824", "🔗 片語":
 
 @st.cache_data(ttl=300)
 def fetch_data(gid):
-    # 確保網址包含 https:// 以及中間的 /d/ 路徑
-    url = f"docs.google.com{SHEET_ID}/export?format=csv&gid={gid}"
+    # **修正點：確保開頭有 'https://' 且在 SHEET_ID 前有正確的 '/d/'**
+    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={gid}"
     try:
         r = requests.get(url, timeout=10)
-        r.raise_for_status() # 檢查請求是否成功
+        r.raise_for_status() # 檢查請求是否成功 (HTTP 200 OK)
         return pd.read_csv(io.StringIO(r.text)).fillna("")
+    except requests.exceptions.RequestException as e:
+        # 更具體的錯誤訊息
+        st.sidebar.error(f"資料載入失敗: 無法連線至 Google Sheets 或 Sheet ID 錯誤。請檢查共用設定或網路連線。")
+        return pd.DataFrame()
     except Exception as e:
-        st.sidebar.error(f"資料載入失敗，請檢查網路或 Sheet ID")
+        # 其他錯誤
+        st.sidebar.error(f"發生未知錯誤: {e}")
         return pd.DataFrame()
 
 # --- 5. CSS 注入 (修正字體與按鈕連結效果) ---
