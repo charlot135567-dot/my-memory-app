@@ -31,7 +31,7 @@ with tab_tool:
     st.markdown("### 🧪 AI 自動分類與匯出")
     input_text = st.text_area("在此貼上整篇文章、多個句子或經節...", height=200)
     
-    # 您之前的分類邏輯需要放在這裡
+    # 分類邏輯函數
     def heuristic_classify(item):
         item = item.strip()
         if re.search(r'\b\d{1,3}:\d{1,3}\b', item): return "Verses"
@@ -46,12 +46,19 @@ with tab_tool:
         if results:
             st.dataframe(pd.DataFrame(results), use_container_width=True)
 
-            # 匯出 Excel 功能
+            # 匯出 Excel 功能 (括號已修正)
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 pd.DataFrame(results).to_excel(writer, index=False)
+                writer.close() # 確保 ExcelWriter 正常關閉
             
-            st.download_button("⬇️ 下載為 Excel (.xlsx)", data=output.getv
+            st.download_button(
+                label="⬇️ 下載為 Excel (.xlsx)", 
+                data=output.getvalue(), 
+                file_name="classified_items.xlsx", 
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            st.success("分類完成！您可以下載檔案。")
 
 # --- 4. CSS 樣式 (關鍵高度控制) ---
 st.markdown(f"""
