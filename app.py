@@ -49,7 +49,7 @@ st.markdown(f"""
         background-color: {THEME['box']} !important; border-radius: 18px !important; padding: 18px !important;
         border: 2.5px solid {THEME['accent']} !important; box-shadow: 4px 4px 0px {THEME['accent']} !important;
         margin-bottom: 12px !important; 
-        height: 150px !important; /* 第一排高度調降為 150px */
+        height: 150px !important; /* 第一排高度調降為 160px */
         display: flex; flex-direction: column; justify-content: center;
     }}
     
