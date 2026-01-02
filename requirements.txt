@@ -5,3 +5,5 @@ gspread
 google-auth
 requests
 streamlit-lottie
+Pillow
+openpyxl
