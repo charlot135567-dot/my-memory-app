@@ -37,7 +37,7 @@ def fetch_data(gid):
     except: pass
     return pd.DataFrame()
 
-# --- 4. CSS 樣式 (包含所有高度對齊與樣式) ---
+# --- 4. CSS 樣式 ---
 st.markdown(f"""
     <style>
     @import url('fonts.googleapis.com');
@@ -56,17 +56,17 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. 定義分頁標籤 (解決 NameError 的關鍵行！) ---
+# --- 5. 定義分頁標籤 (解決 NameError) ---
 tab_home, tab_play, tab_tool = st.tabs(["🏠 我的書桌", "🎯 隨記挑戰", "🧪 自動分類工具"])
 
-# --- TAB 1: 我的書桌 (排版已穩定) ---
+# --- TAB 1: 我的書桌 ---
 with tab_home:
     v1 = st.session_state.verse_data
     w1 = st.session_state.word_data
     p1 = st.session_state.phrase_data
 
-    # 第一排：單字 + 片語 + 史努比圖片 
-    c1, c2, c3 = st.columns() 
+    # 第一排：單字 + 片語 + 史努比圖片 -> FIX: 使用明確寬度 st.columns(3)
+    c1, c2, c3 = st.columns(3) 
     with c1:
         voc = w1.get("Vocab", "Study")
         st.markdown(f'<div class="feature-box"><a href="dictionary.cambridge.org{quote(str(voc))}" target="_blank" class="dict-btn">🔍 字典</a><small>🔤 單字</small><br><b style="font-size:24px;">{voc}</b><br><small>{w1.get("Definition","")}</small></div>', unsafe_allow_html=True)
@@ -83,8 +83,8 @@ with tab_home:
     disp = raw_ch.replace(kw, f'<span class="kw">{kw}</span>') if kw and kw in raw_ch else raw_ch
     st.markdown(f'<div class="feature-box" style="min-height:140px; height: auto !important;"><h3 style="color:{THEME["sub"]}; margin-top:0; font-family: "Gloria Hallelujah", cursive;">💡 今日金句</h3><div style="font-size:26px; line-height:1.4; font-weight:bold;">“{disp}”</div><div style="color:gray; margin-top:10px; text-align:right;">— {v1.get("Reference","")}</div></div>', unsafe_allow_html=True)
 
-    # 第三排：文法 (左側大框) + 史努比圖片 (右側)
-    c4, c5 = st.columns()
+    # 第三排：文法 (左側大框) + 史努比圖片 (右側) -> FIX: 使用明確寬度 st.columns(2)
+    c4, c5 = st.columns(2) 
     with c4:
         st.markdown(f'<div class="feature-box grammar-box" style="background-color:#E3F2FD !important;"><small>📝 關鍵文法</small><br><div style="font-size:15px; margin-top:8px;">{w1.get("Grammar", "保持學習，每天進步！")}</div></div>', unsafe_allow_html=True)
     with c5:
@@ -93,7 +93,7 @@ with tab_home:
 
 # --- TAB 2: 隨記挑戰 ---
 with tab_play:
-    col_txt, col_img = st.columns()
+    col_txt, col_img = st.columns(2) # FIX: 使用明確寬度 st.columns(2)
     with col_txt:
         st.subheader("🎯 翻譯挑戰 (句子專屬)")
         current_challenge = st.session_state.quiz_data
@@ -129,13 +129,10 @@ with tab_tool:
         results = [{"內容": l.strip(), "建議分類": heuristic_classify(l)} for l in lines if l.strip()]
         if results:
             st.dataframe(pd.DataFrame(results), use_container_width=True)
-
-            # 匯出 Excel 功能 (括號已修正)
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 pd.DataFrame(results).to_excel(writer, index=False)
                 writer.close()
-            
             st.download_button(
                 label="⬇️ 下載為 Excel (.xlsx)", 
                 data=output.getvalue(), 
