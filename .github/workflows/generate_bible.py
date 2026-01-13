@@ -148,6 +148,4 @@ def build_bible_json():
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"✅ Bible JSON saved to {JSON_PATH} with {len(result)} entries")
     return result
-
-if __name__ == "__main__":
-    build_bible_json()
+if name == "main": try: build_bible_json() except Exception as e: import traceback print("Generator failed with exception:", e) traceback.print_exc() # exit non-zero so CI fails (保留失敗狀態以便偵錯) sys.exit(1) # success exit 0
