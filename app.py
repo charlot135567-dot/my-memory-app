@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import streamlit as st
 import json
 import os
@@ -10,6 +8,15 @@ import time
 import random
 import base64
 from datetime import datetime
+import argparse
+
+# =========================
+# CLI 參數解析
+# =========================
+parser = argparse.ArgumentParser()
+parser.add_argument("--no-ui", action="store_true", help="只生成 JSON，不啟動 Streamlit UI")
+args = parser.parse_args()
+
 # =========================
 # Data Layer – GetBible JSON
 # =========================
@@ -27,6 +34,7 @@ BOOKS = {
 }
 DATA_DIR = "data"
 JSON_PATH = os.path.join(DATA_DIR, "bible_multilang.json")
+
 def fetch_chapter(book, chapter, lang):
     url = f"{BASE_URL}/{lang}/{book}/{chapter}"
     r = requests.get(url, timeout=20)
@@ -39,29 +47,31 @@ def build_bible_json():
 
     for book, chapters in BOOKS.items():
         for ch in chapters:
-            st.write(f"📖 Fetching {book} {ch}")
+            print(f"📖 Fetching {book} {ch}")
             for short_lang, api_lang in LANG_MAP.items():
-                data = fetch_chapter(book, ch, api_lang)
+                try:
+                    data = fetch_chapter(book, ch, api_lang)
+                except Exception as e:
+                    print(f"Error fetching {book} {ch} ({short_lang}): {e}")
+                    continue
                 for v in data.get("verses", []):
-                    key = (
-                        f"Psalm {ch}:{v['verse']}"
-                        if book == "Psalms"
-                        else f"Proverbs {ch}:{v['verse']}"
-                    )
+                    key = f"{book[:-1] if book=='Psalms' else book} {ch}:{v['verse']}"
                     result.setdefault(key, {})
                     result[key][short_lang] = v["text"].strip()
                 time.sleep(0.4)
 
     with open(JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
+    print(f"✅ Bible JSON saved to {JSON_PATH}")
     return result
 
 def load_bible_data():
     if not os.path.exists(JSON_PATH):
-        st.warning("Bible JSON 不存在，開始建立（只會跑一次）")
+        print("Bible JSON 不存在，開始建立（只會跑一次）")
         return build_bible_json()
     with open(JSON_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
 # -------------------------
 # Page config
 # -------------------------
@@ -328,5 +338,10 @@ with tab_bible:
 st.markdown("---")
 st.markdown("小提醒：若您要把 JSON 放到 GitHub，建議放到 repo 根目錄或 data/ 資料夾，並使用 Raw URL（例如：https://raw.githubusercontent.com/username/repo/main/bible_multilang.json）。若 repo 為 private，請改為在部署環境包含該檔或上傳到伺服器。")
 
-# End of file
-
+# =========================
+# CLI 模式：只生成 JSON
+# =========================
+if __name__ == "__main__" and args.no_ui:
+    build_bible_json()
+    import sys
+    sys.exit(0)
