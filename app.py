@@ -30,9 +30,7 @@ LANG_MAP = {
     "TH": "tha"
 }
 # Which books / chapters to fetch (example)
-BOOKS = {
-    "Psalms": range(1, 151),
-    "Proverbs": range(1, 32)
+BOOKS = {"Proverbs": range(1, 2)
 }
 DATA_DIR = Path("data")
 JSON_PATH = DATA_DIR / "bible_multilang.json"
