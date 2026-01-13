@@ -1,24 +1,25 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import streamlit as st
-import json
 import os
-import requests
+import json
 import time
 import random
+import requests
 import base64
 from datetime import datetime
-import argparse
+from pathlib import Path
+import sys
+
+import streamlit as st
+
+# -------------------------
+# Page config - must be before any other st.* calls
+# -------------------------
+st.set_page_config(page_title="Memory Bible 2026", layout="wide", page_icon="📖")
 
 # =========================
-# CLI 參數解析
-# =========================
-parser = argparse.ArgumentParser()
-parser.add_argument("--no-ui", action="store_true", help="只生成 JSON，不啟動 Streamlit UI")
-args = parser.parse_args()
-
-# =========================
-# Data Layer – GetBible JSON
+# Config / Constants
 # =========================
 BASE_URL = "https://getbible.net/v2"
 LANG_MAP = {
@@ -28,21 +29,114 @@ LANG_MAP = {
     "KO": "kor",
     "TH": "tha"
 }
+# Which books / chapters to fetch (example)
 BOOKS = {
     "Psalms": range(1, 151),
     "Proverbs": range(1, 32)
 }
-DATA_DIR = "data"
-JSON_PATH = os.path.join(DATA_DIR, "bible_multilang.json")
+DATA_DIR = Path("data")
+JSON_PATH = DATA_DIR / "bible_multilang.json"
 
+# =========================
+# Utility: HTTP get with retry
+# =========================
+def http_get_with_retry(url, timeout=20, retries=3, backoff=1.0):
+    last_exc = None
+    for i in range(retries):
+        try:
+            r = requests.get(url, timeout=timeout)
+            r.raise_for_status()
+            return r
+        except Exception as e:
+            last_exc = e
+            wait = backoff * (i + 1)
+            print(f"[http] attempt {i+1} failed for {url}: {e}. sleeping {wait}s")
+            time.sleep(wait)
+    raise last_exc
+
+def parse_jsonp_or_json(text):
+    text = text.strip()
+    # try direct JSON
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    # try find {...}
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1 and end > start:
+        snippet = text[start:end+1]
+        try:
+            return json.loads(snippet)
+        except Exception:
+            pass
+    # try find [...]
+    start = text.find('[')
+    end = text.rfind(']')
+    if start != -1 and end != -1 and end > start:
+        snippet = text[start:end+1]
+        try:
+            return json.loads(snippet)
+        except Exception:
+            pass
+    return None
+
+# =========================
+# Data Layer – GetBible JSON (robust)
+# =========================
 def fetch_chapter(book, chapter, lang):
     url = f"{BASE_URL}/{lang}/{book}/{chapter}"
-    r = requests.get(url, timeout=20)
-    r.raise_for_status()
-    return r.json()
+    r = http_get_with_retry(url)
+    text = r.text
+    print(f"[fetch] {url} -> {r.status_code} len={len(text)} head={text[:300]!r}")
+    data = parse_jsonp_or_json(text)
+    if data is None:
+        raise ValueError(f"Cannot parse JSON from {url}; head: {text[:800]!r}")
+    return data
+
+def find_verses(data):
+    if not data:
+        return []
+    # common shapes: dict with 'verses', list containing dicts with 'verses', nested
+    if isinstance(data, dict):
+        if "verses" in data and isinstance(data["verses"], list):
+            return data["verses"]
+        # search immediate values
+        for v in data.values():
+            if isinstance(v, list):
+                for it in v:
+                    if isinstance(it, dict) and "verses" in it and isinstance(it["verses"], list):
+                        return it["verses"]
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict) and "verses" in item and isinstance(item["verses"], list):
+                return item["verses"]
+    # deep search
+    def dfs(o):
+        if isinstance(o, dict):
+            for k, vv in o.items():
+                if k == "verses" and isinstance(vv, list):
+                    return vv
+                res = dfs(vv)
+                if res:
+                    return res
+        elif isinstance(o, list):
+            for it in o:
+                res = dfs(it)
+                if res:
+                    return res
+        return None
+    found = dfs(data)
+    return found or []
+
+# map book display names if needed
+BOOK_KEY_MAP = {
+    "Psalms": "Psalm",
+    "Proverbs": "Proverbs"
+}
 
 def build_bible_json():
-    os.makedirs(DATA_DIR, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     result = {}
 
     for book, chapters in BOOKS.items():
@@ -52,65 +146,47 @@ def build_bible_json():
                 try:
                     data = fetch_chapter(book, ch, api_lang)
                 except Exception as e:
-                    print(f"Error fetching {book} {ch} ({short_lang}): {e}")
+                    print(f"  ! fetch error for {book} {ch} ({short_lang}): {e}")
                     continue
-                for v in data.get("verses", []):
-                    key = f"{book[:-1] if book=='Psalms' else book} {ch}:{v['verse']}"
+                verses = find_verses(data)
+                if not verses:
+                    print(f"  ! no verses found in response for {book} {ch} ({short_lang})")
+                    continue
+                display_book = BOOK_KEY_MAP.get(book, book)
+                for v in verses:
+                    # adapt to possible key names
+                    verse_num = v.get("verse") or v.get("verse_number") or v.get("v") or v.get("num")
+                    text = v.get("text") or v.get("content") or v.get("verse_text") or ""
+                    if verse_num is None:
+                        continue
+                    key = f"{display_book} {ch}:{verse_num}"
                     result.setdefault(key, {})
-                    result[key][short_lang] = v["text"].strip()
-                time.sleep(0.4)
+                    result[key][short_lang] = text.strip()
+                time.sleep(0.4 + random.random() * 0.2)
 
     with open(JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
-    print(f"✅ Bible JSON saved to {JSON_PATH}")
+    print(f"✅ Bible JSON saved to {JSON_PATH} with {len(result)} entries")
     return result
 
-def load_bible_data():
-    if not os.path.exists(JSON_PATH):
-        print("Bible JSON 不存在，開始建立（只會跑一次）")
-        return build_bible_json()
-    with open(JSON_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
 # -------------------------
-# Button: Generate Bible JSON (5 languages)
-# -------------------------
-if st.button("📥 生成五種語言 Bible JSON"):
-    with st.spinner("正在抓取資料，請稍候..."):
-        try:
-            result = build_bible_json()
-            st.success(f"✅ Bible JSON 已生成，共 {len(result)} 節經文")
-        except Exception as e:
-            st.error(f"生成失敗：{e}")
-# -------------------------
-# Page config
-# -------------------------
-st.set_page_config(page_title="Memory Bible 2026", layout="wide", page_icon="📖")
-
-# -------------------------
-# Helper: load bible JSON
+# Load bible JSON (local -> remote -> fallback)
 # -------------------------
 @st.cache_data
-def load_bible_json(local_path="bible_multilang.json",
+def load_bible_json(local_path=str(JSON_PATH),
                     raw_url="https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/bible_multilang.json",
                     timeout=8):
-    """
-    Load JSON in order:
-      1) local file (local_path)
-      2) remote raw_url (GitHub raw)
-    Returns dict (possibly empty).
-    """
     # 1) local
-    if os.path.exists(local_path):
-        try:
+    try:
+        if os.path.exists(local_path):
             with open(local_path, "r", encoding="utf-8") as f:
                 text = f.read()
             if text.startswith("\ufeff"):
                 text = text.lstrip("\ufeff")
             data = json.loads(text)
             return data
-        except Exception as e:
-            # fallback to remote
-            print("Error loading local JSON:", e)
+    except Exception as e:
+        print("Error loading local JSON:", e)
 
     # 2) remote
     try:
@@ -124,7 +200,7 @@ def load_bible_json(local_path="bible_multilang.json",
     except Exception as e:
         print("Error fetching remote JSON:", e)
 
-    # 3) fallback built-in sample (minimal)
+    # fallback built-in sample
     return {
       "Genesis 1:1": {
         "CN": "起初，神創造天地。",
@@ -197,7 +273,16 @@ with st.expander("🔧 資料來源設定（點開可更換 raw URL 或上傳 JS
             except Exception as e:
                 st.error(f"上傳 JSON 解析失敗：{e}")
 
-    st.markdown("按「重新載入」會依以下順序載入資料：1. 上傳的 JSON（若有）  2. 本地 bible_multilang.json（若存在）  3. GitHub raw URL（若可取得）  4. 程式內建範例")
+    st.markdown("按「重新載入」會依以下順序載入資料：1. 上傳的 JSON（若有）  2. 本地 data/bible_multilang.json（若存在）  3. GitHub raw URL（若可取得）  4. 程式內建範例")
+    # Manual generate button (local)
+    if st.button("📥 生成五種語言 Bible JSON（本機）"):
+        with st.spinner("正在抓取資料，請稍候..."):
+            try:
+                result = build_bible_json()
+                st.success(f"✅ Bible JSON 已生成，共 {len(result)} 節經文")
+            except Exception as e:
+                st.error(f"生成失敗：{e}")
+
     if st.button("🔄 重新載入"):
         # clear cached load
         load_bible_json.clear()
@@ -207,7 +292,8 @@ with st.expander("🔧 資料來源設定（點開可更換 raw URL 或上傳 JS
 if st.session_state.uploaded_bible:
     bible_data = st.session_state.uploaded_bible
 else:
-    bible_data = load_bible_json(local_path="bible_multilang.json", raw_url=st.session_state.loaded_raw_url)
+    # ensure we read the unified JSON_PATH
+    bible_data = load_bible_json(local_path=str(JSON_PATH), raw_url=st.session_state.loaded_raw_url)
 
 # -------------------------
 # Scheduled verse (hourly)
@@ -244,9 +330,8 @@ with tab_home:
     left, right = st.columns([3,1])
     with left:
         st.markdown("<div class='note-box'><h2 style='margin:6px 0;'>主內平安</h2><p style='margin:6px 0;'>歡迎回來！您可以在「每日筆記」紀錄靈感，或在「待辦與提醒」管理日常事項。</p></div>", unsafe_allow_html=True)
-        st.markdown("<div style='margin-top:12px;'><span class='small-muted'>資料來源：</span> <code>local: bible_multilang.json</code> 或 <code>remote: GitHub raw</code> 或 <code>upload</code></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:12px;'><span class='small-muted'>資料來源：</span> <code>local: data/bible_multilang.json</code> 或 <code>remote: GitHub raw</code> 或 <code>upload</code></div>", unsafe_allow_html=True)
     with right:
-        # cute image placeholder
         img_src = "https://via.placeholder.com/320x200.png?text=🌸+Memory+Bible"
         st.image(img_src, use_column_width=True)
 
@@ -293,7 +378,6 @@ with tab_todo:
             st.session_state.todo_list.pop(i)
             st.experimental_rerun()
 
-# inline edit handler
 if "todo_edit_index" in st.session_state:
     idx = st.session_state.todo_edit_index
     val = st.session_state.get("todo_edit_value", "")
@@ -350,7 +434,12 @@ st.markdown("小提醒：若您要把 JSON 放到 GitHub，建議放到 repo 根
 # =========================
 # CLI 模式：只生成 JSON
 # =========================
-if __name__ == "__main__" and args.no_ui:
-    build_bible_json()
-    import sys
-    sys.exit(0)
+if __name__ == "__main__":
+    # Use parse_known_args to avoid failing on Streamlit's CLI args when run under streamlit
+    import argparse
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--no-ui", action="store_true", help="只生成 JSON，不啟動 Streamlit UI")
+    args, _ = parser.parse_known_args()
+    if args.no_ui:
+        build_bible_json()
+        sys.exit(0)
