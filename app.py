@@ -1,119 +1,114 @@
 import streamlit as st
-import pandas as pd
-import requests
-import re
-import os
-import base64
 import random
-
-# --- 1. 頁面配置 (2026 最新標準) ---
-st.set_page_config(page_title="Memory Logic 2026", layout="wide", page_icon="🐶")
-
-# --- 2. 初始化 Session State (確保功能不消失的核心) ---
-if 'final_df' not in st.session_state:
-    st.session_state.final_df = pd.DataFrame(columns=["Reference", "English", "Chinese", "Key word", "Grammar", "Japanese", "Korean", "Thai"])
-
-# 初始化 5 題挑戰題目 (260103 新增需求)
-if 'quiz_data' not in st.session_state:
-    st.session_state.quiz_data = [
-        {"q": "凡事都有定期，天下萬務都有定時。", "a": "To everything there is a season, and a time to every purpose under the heaven.", "lang": "English (WEB)"},
-        {"q": "神愛世人，甚至將他的獨生子賜給他們。", "a": "For God so loved the world, that he gave his only begotten Son.", "lang": "English (WEB)"},
-        {"q": "起初，神創造天地。", "a": "はじめに、神は天と地を創造された。", "lang": "Japanese (JPN)"},
-        {"q": "耶和華是我的牧者，我必不至缺乏。", "a": "여호와는 나의 목자시니 내게 부족함이 없으리로다.", "lang": "Korean (KOR)"},
-        {"q": "你要專心仰賴耶和華。", "a": "จงวางใจในพระยาห์เวห์ด้วยสุดใจของเจ้า", "lang": "Thai (THA)"}
-    ]
-
-# --- 3. 核心工具類別 ---
-class BibleAutomator:
-    def __init__(self):
-        self.api_base = "bible-api.com"
-        self.lang_map = {"CN": "cuv", "EN": "web", "JA": "jpn", "KO": "kor", "TH": "tha"}
-
-    @st.cache_data(ttl=3600)
-    def fetch_data(_self, ref, lang_key):
-        trans = _self.lang_map.get(lang_key, "web")
-        try:
-            clean_ref = ref.replace(" ", "+")
-            r = requests.get(f"{_self.api_base}{clean_ref}?translation={trans}", timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                return {v['verse']: v['text'].strip() for v in data.get('verses', [])} if 'verses' in data else {data.get('verse', 0): data.get('text', '').strip()}
-        except: pass
-        return {}
-
-    def extract_keywords(self, text):
-        if not text: return ""
-        words = re.findall(r'\b[A-Za-z]{6,}\b', text)
-        return ", ".join(list(dict.fromkeys(words))[:2])
-
-    def process_range(self, ref_input, manual_grammar_map=None):
-        en_map = self.fetch_data(ref_input, "EN")
-        cn_map = self.fetch_data(ref_input, "CN")
-        ja_map = self.fetch_data(ref_input, "JA")
-        ko_map = self.fetch_data(ref_input, "KO")
-        th_map = self.fetch_data(ref_input, "TH")
-        book_part = re.sub(r':\d+.*$', '', ref_input)
-        rows = []
-        for v_num in sorted(en_map.keys()):
-            rows.append({
-                "Reference": f"{book_part}:{v_num}", "English": en_map.get(v_num, ""),
-                "Chinese": cn_map.get(v_num, ""), "Key word": self.extract_keywords(en_map.get(v_num, "")),
-                "Grammar": manual_grammar_map.get(v_num, "AI 待分析") if manual_grammar_map else "AI 待分析",
-                "Japanese": ja_map.get(v_num, "-"), "Korean": ko_map.get(v_num, "-"), "Thai": th_map.get(v_num, "-")
-            })
-        return pd.DataFrame(rows)
-
-auto_tool = BibleAutomator()
-
-# --- 4. 資源定義 (解決圖片不見的問題) ---
-@st.cache_data
-def get_img_64(file):
-    # 如果本地有圖讀本地，沒圖顯示 Placeholder 確保 UI 不跑版
-    if os.path.exists(file):
-        with open(file, "rb") as f:
-            return f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode()}"
-    return "via.placeholder.com"
-
+import time
+# --- 1. 頁面配置 (2026 極簡可愛風設定) ---
+st.set_page_config(
+    page_title="Memory Bible 2026",
+    layout="wide",
+    page_icon="📖"
+)
+# --- 2. 注入 CSS：極簡明亮可愛風 (2026 UI 趨勢) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #FFFDF5; }
-    .feature-box { background: white; border-radius: 12px; padding: 18px; border: 1px solid #E0E0E0; margin-bottom: 15px; }
-    .grammar-box { min-height: 310px; background-color: #F8FBFF !important; border-left: 5px solid #64B5F6 !important; }
-    .snoopy-container img { width: 100%; border-radius: 10px; margin-bottom: 10px; border: 1px solid #DDD; }
+    /* 主背景與字體 */
+    .stApp { background-color: #FDFDFD; }
+    /* 自定義卡片風格 (用於經文、筆記、待辦) */
+    .custom-card {
+        background-color: #FFFFFF;
+        padding: 20px;
+        border-radius: 25px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        margin-bottom: 15px;
+        border-left: 8px solid #FFD1DC; /* 粉嫩邊框 */
+    }  
+    /* 可愛風按鈕 */
+    .stButton>button {
+        border-radius: 50px !important;
+        border: none !important;
+        background-color: #FFD1DC !important;
+        color: #555 !important;
+        font-weight: bold !important;
+        padding: 0.5rem 2rem !important;
+        transition: 0.3s !important;
+    }
+    .stButton>button:hover {
+        transform: scale(1.05);
+        background-color: #FFB7C5 !important;
+    }
+    /* 輸入框美化 */
+    .stTextArea textarea, .stTextInput input {
+        border-radius: 20px !important;
+        border: 2px solid #F0F2F6 !important;
+    }
     </style>
-""", unsafe_allow_html=True)
-
-# --- 5. UI 呈現 ---
-tab_home, tab_play, tab_tool = st.tabs(["🏠 我的書桌", "🎯 翻譯挑戰", "🧪 自動工具"])
-
-with tab_home:
-    col_l, col_r = st.columns([2.5, 1])
-    with col_l:
-        st.markdown('<div class="feature-box"><h3>💡 今日金句</h3>傳道書 3:1<br>凡事都有定期，天下萬務都有定時。</div>', unsafe_allow_html=True)
-        st.markdown('<div class="feature-box grammar-box">📝 <b>文法重點說明</b><br>此框高度與右側史努比圖案齊平。</div>', unsafe_allow_html=True)
-    with col_r:
-        # 確保兩張史努比圖顯示
-        for img_name in ["f364bd220887627.67cae1bd07457.jpg", "183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg"]:
-            img_data = get_img_64(img_name)
-            st.markdown(f'<div class="snoopy-container"><img src="{img_data}"></div>', unsafe_allow_html=True)
-
-with tab_play:
-    st.subheader("🎯 多國語言翻譯挑戰 (5 題版)")
-    for i, item in enumerate(st.session_state.quiz_data):
-        with st.expander(f"第 {i+1} 題：{item['q'][:10]}...", expanded=(i==0)):
-            st.write(f"**題目：** {item['q']}")
-            st.write(f"**目標語言：** {item['lang']}")
-            ans = st.text_input(f"在此輸入翻譯...", key=f"ans_{i}")
-            if st.button(f"檢查第 {i+1} 題答案"):
-                if ans:
-                    st.info(f"💡 參考答案：{item['a']}")
-                    st.balloons()
-                else:
-                    st.warning("請先輸入答案喔！")
-
-with tab_tool:
-    st.subheader("🧪 聖經自動工具")
-    ref_in = st.text_input("輸入範圍", "Psalm 20:1-3")
-    if st.button("🔍 開始生成"):
-        st.session_state.final_df = auto_tool.process_range(ref_in)
-    st.dataframe(st.session_state.final_df, width="stretch")
+    """, unsafe_allow_html=True)
+# --- 3. 初始化 Session State ---
+if 'my_notes' not in st.session_state:
+    st.session_state.my_notes = []
+if 'todo_list' not in st.session_state:
+    st.session_state.todo_list = []
+if 'current_bible' not in st.session_state:
+    # 預設 5 國語言經文資料 JSON 結構
+    st.session_state.current_bible = {
+        "ref": "Psalm 23:1",
+        "translations": {
+            "CN": "耶和華是我的牧者，我必不致缺乏。",
+            "EN": "The Lord is my shepherd; I shall not want.",
+            "KO": "여호와는 나의 목자시니 내게 부족함이 없으리로다.",
+            "JA": "主は私の羊飼い。私は、何も欠けることがありません。",
+            "TH": "พระยาห์เวห์ทรงเลี้ยงดูข้าพเจ้าดั่งเลี้ยงแกะ ข้าพเจ้าจะไม่ขัดสน"
+        }
+    }
+# --- 4. 功能函數 ---
+def get_new_verse():
+    # 模擬 2026 定時更新經文 (這部分可依需求擴充 JSON 資料庫)
+    verses = [
+        {"ref": "John 3:16", "translations": {"CN": "神愛世人...", "EN": "For God so loved...", "KO": "하나님이 세상을...", "JA": "神は、実に...", "TH": "เพราะว่าพระเจ้าทรงรักโลก..."}},
+        {"ref": "Matthew 5:3", "translations": {"CN": "虛心的人有福了...", "EN": "Blessed are the poor...", "KO": "심령이 가난한 자는...", "JA": "心の貧しい者は...", "TH": "คนที่ยากจนด้านจิตวิญญาณ..."}}
+    ]
+    st.session_state.current_bible = random.choice(verses)
+# --- 5. APP 介面佈局 ---
+st.title("📖 Memory Bible 2026")
+st.write("在 2026 年，每天給予自己一點屬靈的可愛能量 ✨")
+# --- 區塊 A: 5 國語言聖經顯示 ---
+st.markdown("### 🕊️ 每日應許")
+with st.container():
+    bible = st.session_state.current_bible
+    content = f"""
+    <div class="custom-card">
+        <h4 style='color: #AEC6CF;'>{bible['ref']}</h4>
+        <p><b>🇨🇳 中文：</b>{bible['translations']['CN']}</p>
+        <p><b>🇺🇸 English：</b>{bible['translations']['EN']}</p>
+        <p><b>🇰🇷 한국어：</b>{bible['translations']['KO']}</p>
+        <p><b>🇯🇵 日本語：</b>{bible['translations']['JA']}</p>
+        <p><b>🇹🇭 ไทย：</b>{bible['translations']['TH']}</p>
+    </div>
+    """
+    st.markdown(content, unsafe_allow_html=True)
+    if st.button("換一則應許"):
+        get_new_verse()
+st.divider()
+# --- 區塊 B: 筆記與待辦 (分欄設計) ---
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("### 📓 靈修筆記")
+    note_text = st.text_area("寫下感動...", height=150, placeholder="今天上帝對我說了什麼？")
+    if st.button("收藏筆記"):
+        if note_text:
+            st.session_state.my_notes.append(note_text)
+            st.toast("已存入可愛小本本！ 💖")
+    # 顯示歷史筆記
+    for n in reversed(st.session_state.my_notes[-3:]): # 顯示最後三則
+        st.info(n)
+with col2:
+    st.markdown("### ✅ 今日待辦")
+    with st.form("todo_form", clear_on_submit=True):
+        new_todo = st.text_input("新增任務", placeholder="例如：讀經 15 分鐘")
+        submitted = st.form_submit_button("添加")
+        if submitted and new_todo:
+            st.session_state.todo_list.append(new_todo)
+    # 顯示待辦清單
+    for i, task in enumerate(st.session_state.todo_list):
+        st.markdown(f"<div style='padding:5px; border-bottom:1px solid #eee;'>📍 {task}</div>", unsafe_allow_html=True)
+# 頁尾
+st.caption(f"© 2026 Memory Bible App | 當前時間: {time.strftime('%Y-%m-%d %H:%M')}")
