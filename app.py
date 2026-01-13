@@ -71,7 +71,16 @@ def load_bible_data():
         return build_bible_json()
     with open(JSON_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
-
+# -------------------------
+# Button: Generate Bible JSON (5 languages)
+# -------------------------
+if st.button("📥 生成五種語言 Bible JSON"):
+    with st.spinner("正在抓取資料，請稍候..."):
+        try:
+            result = build_bible_json()
+            st.success(f"✅ Bible JSON 已生成，共 {len(result)} 節經文")
+        except Exception as e:
+            st.error(f"生成失敗：{e}")
 # -------------------------
 # Page config
 # -------------------------
