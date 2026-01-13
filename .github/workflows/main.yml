@@ -1,28 +1,34 @@
 name: Build Bible JSON
-on: [push] # 當您改程式碼上傳時，它就會自動跑
+on: [push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      
-      # *** 新增此步驟來安裝您的 APP 所需套件 (requests 和 streamlit) ***
-      - name: Install dependencies
-        # 使用 pip 安裝所有需要的套件，包括 streamlit 和 requests
-        run: pip install requests streamlit pandas 
 
-      - name: Run script
-        run: python app.py 
-      - name: Commit files
+      - name: Install dependencies
+        run: pip install requests streamlit pandas
+
+      # 執行 Python 生成 JSON（非 GUI 模式）
+      - name: Run app.py to generate JSON
+        run: python app.py --no-ui  # 你需要在 app.py 支援 --no-ui 參數，避免啟動 Streamlit
+
+      - name: Commit Bible JSON
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "action@github.com"
-          git add bible_data.json
-          git commit -m "Auto-update bible data" || exit 0
-          git push
+          if [ -f "data/bible_multilang.json" ]; then
+            git add data/bible_multilang.json
+            git commit -m "Auto-update Bible JSON" || echo "Nothing to commit"
+            git push
+          else
+            echo "Bible JSON not found, skipping commit"
+
 
 
