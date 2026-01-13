@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import streamlit as st
 import json
 import os
@@ -8,7 +10,58 @@ import time
 import random
 import base64
 from datetime import datetime
+# =========================
+# Data Layer – GetBible JSON
+# =========================
+BASE_URL = "https://getbible.net/v2"
+LANG_MAP = {
+    "EN": "eng",
+    "CN": "chi",
+    "JA": "jpn",
+    "KO": "kor",
+    "TH": "tha"
+}
+BOOKS = {
+    "Psalms": range(1, 151),
+    "Proverbs": range(1, 32)
+}
+DATA_DIR = "data"
+JSON_PATH = os.path.join(DATA_DIR, "bible_multilang.json")
+def fetch_chapter(book, chapter, lang):
+    url = f"{BASE_URL}/{lang}/{book}/{chapter}"
+    r = requests.get(url, timeout=20)
+    r.raise_for_status()
+    return r.json()
 
+def build_bible_json():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    result = {}
+
+    for book, chapters in BOOKS.items():
+        for ch in chapters:
+            st.write(f"📖 Fetching {book} {ch}")
+            for short_lang, api_lang in LANG_MAP.items():
+                data = fetch_chapter(book, ch, api_lang)
+                for v in data.get("verses", []):
+                    key = (
+                        f"Psalm {ch}:{v['verse']}"
+                        if book == "Psalms"
+                        else f"Proverbs {ch}:{v['verse']}"
+                    )
+                    result.setdefault(key, {})
+                    result[key][short_lang] = v["text"].strip()
+                time.sleep(0.4)
+
+    with open(JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    return result
+
+def load_bible_data():
+    if not os.path.exists(JSON_PATH):
+        st.warning("Bible JSON 不存在，開始建立（只會跑一次）")
+        return build_bible_json()
+    with open(JSON_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 # -------------------------
 # Page config
 # -------------------------
