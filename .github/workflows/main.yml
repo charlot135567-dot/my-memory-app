@@ -1,0 +1,27 @@
+name: Build Bible JSON
+on: [push] # 當您改程式碼上傳時,它就會自動跑
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5 # 使用 v5 確保 2026 年相容性
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        # 這裡安裝執行腳本需要的 requests 套件
+        run: pip install requests
+      - name: Run script
+        # 根據您的圖片，您的應用程式主程式是 app.py，
+        # 如果您把抓取腳本的程式碼寫在 app.py 裡面，就用 app.py
+        run: python app.py 
+      - name: Commit files
+        # 這段讓 GitHub 把產生的 JSON 檔案存回倉庫
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "action@github.com"
+          git add bible_data.json # 這是您要產生的 JSON 檔名
+          git commit -m "Auto-update bible data" || exit 0
+          git push
+
