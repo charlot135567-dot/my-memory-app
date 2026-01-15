@@ -99,3 +99,65 @@ with tabs[1]:
     st.caption("（保留原筆記月曆與多語對照結構）")
 with tabs[3]:
     st.caption("（保留原資料庫存檔邏輯）")
+
+# --- TAB2: 每日筆記 ---
+with tabs[1]:
+    col_note_l, col_note_r = st.columns([0.7, 0.3])
+    with col_note_l:
+        st.subheader("📅 筆記月曆")
+        # 此處可整合 streamlit-calendar 組件
+        st.date_input("選擇日期以查看筆記", datetime.now())
+        
+        # 篩選欄位
+        st.text("🔍 篩選與搜尋")
+        c_filter1, c_filter2 = st.columns([3, 1])
+        c_filter1.text_input("搜尋標題/內容/待辦事項", label_visibility="collapsed")
+        c_filter2.link_button("✨ Google AI", "https://gemini.google.com/")
+        
+        # 每日筆記欄位
+        st.text_input("📒 筆記標題")
+        st.text_area("✍️ 筆記內容與待辦事項", height=200)
+
+    with col_note_r:
+        st.subheader("🌏 多語對照 (V2 Sheet)")
+        st.caption("Pro 17:07 對照")
+        st.write("**日文:** すぐれた言葉は...")
+        st.write("**韓文:** 미련한 자에게...")
+        st.write("**泰文:** ริมฝีปากที่ประณีต...")
+
+# --- TAB3: 翻譯挑戰 ---
+with tabs[2]:
+    # 1) 篩選範圍與 AI 連結
+    c_t1, c_t2 = st.columns([3, 1])
+    c_t1.selectbox("翻譯題篩選範圍", ["最新一週", "最新一月", "最新一季"])
+    c_t2.link_button("✨ Google AI", "https://gemini.google.com/")
+    
+    # 2-3) 題目與作答
+    st.subheader("📝 翻譯挑戰 (V1 Sheet)")
+    for i in range(1, 4):
+        st.write(f"題目 {i}: 愚頑人說美言本不相稱...")
+        st.text_input(f"請輸入英文翻譯 ({i})", key=f"ans_{i}")
+
+# --- TAB4: 資料庫 (輸入與連結) ---
+with tabs[3]:
+    # 1) 外部連結區
+    st.subheader("🔗 聖經與 AI 資源")
+    cl1, cl2, cl3, cl4 = st.columns(4)
+    cl1.link_button("ChatGPT", "https://chat.openai.com/")
+    cl2.link_button("Google AI", "https://gemini.google.com/")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+
+    st.divider()
+    
+    # 2) 輸入資料欄位與按鍵
+    input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, help="輸入中文經文(V 卷章節)或英文文稿")
+    
+    btn_l, btn_r = st.columns(2)
+    if btn_l.button("📥 輸入 - 經文/文稿"):
+        st.toast("已讀取文稿，請搭配 AI 指令解析。")
+    if btn_r.button("💾 存檔 - AI 解析完資料"):
+        # 這裡放置寫入 Google Sheets 的邏輯
+        st.success("資料已成功存入雲端資料庫！")
+
+    st.info("💡 提示：請將 AI 產出的表格內容貼入下方對應欄位後按存檔。")
