@@ -53,9 +53,9 @@ with tabs[0]:
             """)
 
     with col_right:
-        # 右半部：史努比照片
-        st.image(IMG_URLS["A"], use_column_width=True, width=300, height=200)
-        st.image(IMG_URLS["B"], use_column_width=True, width=300, height=200)
+         # 右半部：史努比照片
+           st.image(IMG_URLS["A"], caption="Snoopy Helper", width=150, height=100)
+           st.image(IMG_URLS["B"], caption="Snoopy Helper", width=150, height=100)
 
 # --- TAB2: 每日筆記 ---
 with tabs[1]:
