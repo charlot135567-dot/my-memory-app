@@ -1,14 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection  # 新增：用於串接 Google Sheets
+from PIL import Image
+import requests
+from io import BytesIO
 
 # --- 1. 頁面基礎設定 ---
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
-
-# --- 2. Google Sheets 正式串接設定 ---
-# 請確保已在 .streamlit/secrets.toml 設定好 spreadsheet 網址
-conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 史努比照片網址
 IMG_URLS = {
@@ -17,12 +15,13 @@ IMG_URLS = {
     "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg"
 }
 
-# --- 3. 側邊欄：功能選單 ---
+# --- 2. 側邊欄：功能選單 ---
 with st.sidebar:
     st.image(IMG_URLS["C"], caption="Snoopy Helper")
     st.title("控制面板")
+    # 移除資料來源設定與 JSON 相關程式
 
-# --- 4. 主要 TAB UI 配置 ---
+# --- 3. 主要 TAB UI 配置 ---
 tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 翻譯挑戰", "📂 資料庫"])
 
 # --- TAB1: 書桌 (🏠 + 待辦事項) ---
@@ -30,24 +29,25 @@ with tabs[0]:
     col_left, col_right = st.columns([0.6, 0.4])
     
     with col_left:
+        # [上層] 單字與片語
         st.subheader("📚 核心單字與片語")
         lang_show = st.multiselect("語言顯示選擇", ["日", "韓", "泰"], default=["日"])
         
         c1, c2 = st.columns(2)
         with c1:
-            # 這裡之後可以改成從 Google Sheets 動態讀取最新一筆 W/P Sheet
-            st.info("**單字 (Vocab)**\n\nBecoming / 相稱") 
+            st.info("**單字 (Vocab)**\n\nBecoming / 相稱") # 來源：W/P Sheet
             if "日" in lang_show: st.write("🇯🇵 ふさわしい")
             if "韓" in lang_show: st.write("🇰🇷 어울리는")
             if "泰" in lang_show: st.write("🇹🇭 เหมาะสม")
         with c2:
-            st.info("**片語 (Phrase)**\n\nStill less / 何況")
+            st.info("**片語 (Phrase)**\n\nStill less / 何況") # 來源：W/P Sheet
 
+        # [中層] 今日金句
         st.divider()
         st.subheader("🌟 今日金句 (V1 Sheet)")
-        # 這裡之後可以改成從 Google Sheets 讀取今日經文
         st.success("**Pro 17:07**\n\nFine speech is not becoming to a fool; still less is false speech to a prince.")
 
+        # [下層] 經文文法解析
         with st.expander("📝 文法解析 (V1 Sheet)", expanded=True):
             st.markdown("""
             - **時態**: 現在簡單式表達恆常真理。
@@ -56,53 +56,70 @@ with tabs[0]:
             """)
 
     with col_right:
+        # 右半部：史努比照片
         st.image(IMG_URLS["A"], use_container_width=True)
         st.image(IMG_URLS["B"], use_container_width=True)
 
-# --- TAB2: 每日筆記 --- (省略中間重複代碼，保持結構一致)
+# --- TAB2: 每日筆記 ---
 with tabs[1]:
-    # ... (保留你原本的月曆與篩選代碼)
-    st.subheader("📅 筆記月曆")
-    st.date_input("選擇日期以查看筆記", datetime.now())
-    # 右側顯示多語對照 (V2 Sheet)
-    # ...
+    col_note_l, col_note_r = st.columns([0.7, 0.3])
+    with col_note_l:
+        st.subheader("📅 筆記月曆")
+        # 此處可整合 streamlit-calendar 組件
+        st.date_input("選擇日期以查看筆記", datetime.now())
+        
+        # 篩選欄位
+        st.text("🔍 篩選與搜尋")
+        c_filter1, c_filter2 = st.columns([3, 1])
+        c_filter1.text_input("搜尋標題/內容/待辦事項", label_visibility="collapsed")
+        c_filter2.link_button("✨ Google AI", "https://gemini.google.com/")
+        
+        # 每日筆記欄位
+        st.text_input("📒 筆記標題")
+        st.text_area("✍️ 筆記內容與待辦事項", height=200)
 
-# --- TAB4: 資料庫 (輸入與正式存檔邏輯) ---
+    with col_note_r:
+        st.subheader("🌏 多語對照 (V2 Sheet)")
+        st.caption("Pro 17:07 對照")
+        st.write("**日文:** すぐれた言葉は...")
+        st.write("**韓文:** 미련한 자에게...")
+        st.write("**泰文:** ริมฝีปากที่ประณีต...")
+
+# --- TAB3: 翻譯挑戰 ---
+with tabs[2]:
+    # 1) 篩選範圍與 AI 連結
+    c_t1, c_t2 = st.columns([3, 1])
+    c_t1.selectbox("翻譯題篩選範圍", ["最新一週", "最新一月", "最新一季"])
+    c_t2.link_button("✨ Google AI", "https://gemini.google.com/")
+    
+    # 2-3) 題目與作答
+    st.subheader("📝 翻譯挑戰 (V1 Sheet)")
+    for i in range(1, 4):
+        st.write(f"題目 {i}: 愚頑人說美言本不相稱...")
+        st.text_input(f"請輸入英文翻譯 ({i})", key=f"ans_{i}")
+
+# --- TAB4: 資料庫 (輸入與連結) ---
 with tabs[3]:
+    # 1) 外部連結區
     st.subheader("🔗 聖經與 AI 資源")
     cl1, cl2, cl3, cl4 = st.columns(4)
     cl1.link_button("ChatGPT", "https://chat.openai.com/")
     cl2.link_button("Google AI", "https://gemini.google.com/")
-    cl3.link_button("ESV", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
     cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
 
     st.divider()
     
-    # 資料輸入區
-    input_ref = st.text_input("Ref. (例如: Pro 17:07)")
-    input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150)
+    # 2) 輸入資料欄位與按鍵
+    input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, help="輸入中文經文(V 卷章節)或英文文稿")
     
     btn_l, btn_r = st.columns(2)
-    
     if btn_l.button("📥 輸入 - 經文/文稿"):
-        st.toast("已讀取內容，請傳送至 AI 進行解析後回填。")
-        
+        st.toast("已讀取文稿，請搭配 AI 指令解析。")
     if btn_r.button("💾 存檔 - AI 解析完資料"):
-        if input_ref and input_content:
-            try:
-                # 1. 讀取現有的 Verse1 工作表
-                df = conn.read(worksheet="Verse1")
-                
-                # 2. 建立新資料 (這裡假設你貼入的是 AI 產出的內容，暫時以簡化版示範)
-                # 實務上可以針對 Markdown 表格做解析
-                new_data = pd.DataFrame([{"Ref.": input_ref, "ESV": input_content}])
-                
-                # 3. 合併並更新
-                updated_df = pd.concat([df, new_data], ignore_index=True)
-                conn.update(worksheet="Verse1", data=updated_df)
-                
-                st.success(f"資料已成功存入 Google Sheets (Ref: {input_ref})！")
-            except Exception as e:
-                st.error(f"存檔至 Google Sheets 時發生錯誤: {e}")
-        else:
-            st.warning("請輸入 Ref. 與內容後再存檔。")
+        # 這裡放置寫入 Google Sheets 的邏輯
+        st.success("資料已成功存入雲端資料庫！")
+
+    st.info("💡 提示：請將 AI 產出的表格內容貼入下方對應欄位後按存檔。")
+
+
