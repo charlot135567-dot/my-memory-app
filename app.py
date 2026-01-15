@@ -1,9 +1,6 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 from PIL import Image
-import requests
-from io import BytesIO
+from datetime import datetime
 
 # --- 1. 頁面基礎設定 ---
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
@@ -27,20 +24,20 @@ tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 翻譯挑戰", "📂
 # --- TAB1: 書桌 (🏠 + 待辦事項) ---
 with tabs[0]:
     col_left, col_right = st.columns([0.6, 0.4])
-    
+
     with col_left:
         # [上層] 單字與片語
         st.subheader("📚 核心單字與片語")
         lang_show = st.multiselect("語言顯示選擇", ["日", "韓", "泰"], default=["日"])
-        
+
         c1, c2 = st.columns(2)
         with c1:
-            st.info("**單字 (Vocab)**\n\nBecoming / 相稱") # 來源：W/P Sheet
+            st.info("**單字 (Vocab)**\n\nBecoming / 相稱")  # 來源：W/P Sheet
             if "日" in lang_show: st.write("🇯🇵 ふさわしい")
             if "韓" in lang_show: st.write("🇰🇷 어울리는")
             if "泰" in lang_show: st.write("🇹🇭 เหมาะสม")
         with c2:
-            st.info("**片語 (Phrase)**\n\nStill less / 何況") # 來源：W/P Sheet
+            st.info("**片語 (Phrase)**\n\nStill less / 何況")  # 來源：W/P Sheet
 
         # [中層] 今日金句
         st.divider()
@@ -67,13 +64,13 @@ with tabs[1]:
         st.subheader("📅 筆記月曆")
         # 此處可整合 streamlit-calendar 組件
         st.date_input("選擇日期以查看筆記", datetime.now())
-        
+
         # 篩選欄位
         st.text("🔍 篩選與搜尋")
         c_filter1, c_filter2 = st.columns([3, 1])
         c_filter1.text_input("搜尋標題/內容/待辦事項", label_visibility="collapsed")
         c_filter2.link_button("✨ Google AI", "https://gemini.google.com/")
-        
+
         # 每日筆記欄位
         st.text_input("📒 筆記標題")
         st.text_area("✍️ 筆記內容與待辦事項", height=200)
@@ -91,7 +88,7 @@ with tabs[2]:
     c_t1, c_t2 = st.columns([3, 1])
     c_t1.selectbox("翻譯題篩選範圍", ["最新一週", "最新一月", "最新一季"])
     c_t2.link_button("✨ Google AI", "https://gemini.google.com/")
-    
+
     # 2-3) 題目與作答
     st.subheader("📝 翻譯挑戰 (V1 Sheet)")
     for i in range(1, 4):
@@ -109,10 +106,10 @@ with tabs[3]:
     cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
 
     st.divider()
-    
+
     # 2) 輸入資料欄位與按鍵
     input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, help="輸入中文經文(V 卷章節)或英文文稿")
-    
+
     btn_l, btn_r = st.columns(2)
     if btn_l.button("📥 輸入 - 經文/文稿"):
         st.toast("已讀取文稿，請搭配 AI 指令解析。")
@@ -121,5 +118,6 @@ with tabs[3]:
         st.success("資料已成功存入雲端資料庫！")
 
     st.info("💡 提示：請將 AI 產出的表格內容貼入下方對應欄位後按存檔。")
+
 
 
