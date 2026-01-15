@@ -1,13 +1,30 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection  # 新增：用於串接 Google Sheets
+from streamlit_gsheets import GSheetsConnection
+from PIL import Image, ImageChops
+import requests
+from io import BytesIO
 
 # --- 1. 頁面基礎設定 ---
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-# --- 2. Google Sheets 正式串接設定 ---
-# 請確保已在 .streamlit/secrets.toml 設定好 spreadsheet 網址
+# --- 2. 史努比自動裁切函數 (新增部分) ---
+def get_cropped_image(url):
+    try:
+        response = requests.get(url)
+        img = Image.open(BytesIO(response.content)).convert("RGBA")
+        # 建立純白背景作為比對基準
+        bg = Image.new(img.mode, img.size, (255, 255, 255, 255))
+        diff = ImageChops.difference(img, bg)
+        bbox = diff.getbbox() # 尋找非空白邊界
+        if bbox:
+            return img.crop(bbox)
+        return img
+    except:
+        return None
+
+# --- 3. Google Sheets 正式串接設定 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 史努比照片網址
@@ -17,12 +34,12 @@ IMG_URLS = {
     "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg"
 }
 
-# --- 3. 側邊欄：功能選單 ---
+# --- 4. 側邊欄：功能選單 ---
 with st.sidebar:
     st.image(IMG_URLS["C"], caption="Snoopy Helper")
     st.title("控制面板")
 
-# --- 4. 主要 TAB UI 配置 ---
+# --- 5. 主要 TAB UI 配置 ---
 tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 翻譯挑戰", "📂 資料庫"])
 
 # --- TAB1: 書桌 (🏠 + 待辦事項) ---
@@ -35,7 +52,6 @@ with tabs[0]:
         
         c1, c2 = st.columns(2)
         with c1:
-            # 這裡之後可以改成從 Google Sheets 動態讀取最新一筆 W/P Sheet
             st.info("**單字 (Vocab)**\n\nBecoming / 相稱") 
             if "日" in lang_show: st.write("🇯🇵 ふさわしい")
             if "韓" in lang_show: st.write("🇰🇷 어울리는")
@@ -45,7 +61,6 @@ with tabs[0]:
 
         st.divider()
         st.subheader("🌟 今日金句 (V1 Sheet)")
-        # 這裡之後可以改成從 Google Sheets 讀取今日經文
         st.success("**Pro 17:07**\n\nFine speech is not becoming to a fool; still less is false speech to a prince.")
 
         with st.expander("📝 文法解析 (V1 Sheet)", expanded=True):
@@ -56,16 +71,23 @@ with tabs[0]:
             """)
 
     with col_right:
-        st.image(IMG_URLS["A"], use_container_width=True)
-        st.image(IMG_URLS["B"], use_container_width=True)
+        # --- 修正部分：加入自動裁切呼叫 ---
+        img_a = get_cropped_image(IMG_URLS["A"])
+        if img_a:
+            st.image(img_a, use_container_width=True)
+        else:
+            st.image(IMG_URLS["A"], use_container_width=True)
+            
+        img_b = get_cropped_image(IMG_URLS["B"])
+        if img_b:
+            st.image(img_b, use_container_width=True)
+        else:
+            st.image(IMG_URLS["B"], use_container_width=True)
 
-# --- TAB2: 每日筆記 --- (省略中間重複代碼，保持結構一致)
+# --- TAB2: 每日筆記 --- 
 with tabs[1]:
-    # ... (保留你原本的月曆與篩選代碼)
     st.subheader("📅 筆記月曆")
     st.date_input("選擇日期以查看筆記", datetime.now())
-    # 右側顯示多語對照 (V2 Sheet)
-    # ...
 
 # --- TAB4: 資料庫 (輸入與正式存檔邏輯) ---
 with tabs[3]:
@@ -78,7 +100,6 @@ with tabs[3]:
 
     st.divider()
     
-    # 資料輸入區
     input_ref = st.text_input("Ref. (例如: Pro 17:07)")
     input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150)
     
@@ -90,17 +111,10 @@ with tabs[3]:
     if btn_r.button("💾 存檔 - AI 解析完資料"):
         if input_ref and input_content:
             try:
-                # 1. 讀取現有的 Verse1 工作表
                 df = conn.read(worksheet="Verse1")
-                
-                # 2. 建立新資料 (這裡假設你貼入的是 AI 產出的內容，暫時以簡化版示範)
-                # 實務上可以針對 Markdown 表格做解析
                 new_data = pd.DataFrame([{"Ref.": input_ref, "ESV": input_content}])
-                
-                # 3. 合併並更新
                 updated_df = pd.concat([df, new_data], ignore_index=True)
                 conn.update(worksheet="Verse1", data=updated_df)
-                
                 st.success(f"資料已成功存入 Google Sheets (Ref: {input_ref})！")
             except Exception as e:
                 st.error(f"存檔至 Google Sheets 時發生錯誤: {e}")
