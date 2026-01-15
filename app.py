@@ -14,7 +14,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/snoopy.jpg"
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Snoopy.jpg"
 }
 
 # --- 3. 側邊欄：功能選單 ---
