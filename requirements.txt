@@ -1,9 +1,5 @@
 streamlit
 pandas
-openpyxl
-gspread
-google-auth
-requests
-streamlit-lottie
+st-gsheets-connection
 Pillow
-openpyxl
+requests
