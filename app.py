@@ -1,30 +1,61 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection  # 新增：用於串接 Google Sheets
+from streamlit_gsheets import GSheetsConnection
+from PIL import Image, ImageChops
+import requests
+from io import BytesIO
 
 # --- 1. 頁面基礎設定 ---
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-# --- 2. Google Sheets 正式串接設定 ---
-# 請確保已在 .streamlit/secrets.toml 設定好 spreadsheet 網址
+# --- 2. 自動裁切函數：刪除史努比圖片空白處 ---
+def get_cropped_image(url):
+    try:
+        response = requests.get(url)
+        img = Image.open(BytesIO(response.content)).convert("RGBA")
+        # 建立純白背景作為比對基準
+        bg = Image.new(img.mode, img.size, (255, 255, 255, 255))
+        diff = ImageChops.difference(img, bg)
+        bbox = diff.getbbox() # 尋找非空白邊界
+        if bbox:
+            return img.crop(bbox)
+        return img
+    except:
+        return None
+
+# --- 3. Google Sheets 連線 ---
+# 提醒：請確保在 Streamlit Cloud 的 Secrets 設定好連結
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 史努比照片網址
+# 史努比照片網址 (位於根目錄)
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
     "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg"
 }
 
-# --- 3. 側邊欄：功能選單 ---
-with st.sidebar:
-    st.image(IMG_URLS["C"], caption="Snoopy Helper")
-    st.title("控制面板")
-
-# --- 4. 主要 TAB UI 配置 ---
+# --- 4. 主要 UI 配置 ---
 tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 翻譯挑戰", "📂 資料庫"])
+
+with tabs[0]: # TAB1: 書桌
+    col_left, col_right = st.columns([0.6, 0.4])
+    with col_left:
+        st.subheader("📚 核心單字與片語")
+        # 內容省略...
+    
+    with col_right:
+        # 這裡會自動套用裁切邏輯，讓史努比緊貼邊框
+        img_a = get_cropped_image(IMG_URLS["A"])
+        if img_a: st.image(img_a, use_container_width=True)
+        
+        img_b = get_cropped_image(IMG_URLS["B"])
+        if img_b: st.image(img_b, use_container_width=True)
+
+# --- TAB4: 資料庫 (存檔功能) ---
+with tabs[3]:
+    st.subheader("📂 資料存檔")
+    # ... (保留之前的資料庫存檔邏輯代碼)
 
 # --- TAB1: 書桌 (🏠 + 待辦事項) ---
 with tabs[0]:
