@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -17,8 +18,9 @@ IMG_URLS = {
 
 # --- 2. 側邊欄：功能選單 ---
 with st.sidebar:
-    st.image(IMG_URLS["C"], caption="Snoopy Helper", use_column_width=True, width=150, height=100)
-    st.markdown("<h3 style='color: pink;'>힘내세요! 당신은 할 수 있어요!</h3>", unsafe_allow_html=True)
+    st.image(IMG_URLS["C"], caption="Snoopy Helper", use_container_width=True)
+    st.title("控制面板")
+    # 移除資料來源設定與 JSON 相關程式
 
 # --- 3. 主要 TAB UI 配置 ---
 tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 翻譯挑戰", "📂 資料庫"])
@@ -32,9 +34,9 @@ with tabs[0]:
         st.subheader("📚 核心單字與片語")
         c1, c2 = st.columns(2)
         with c1:
-            st.info("**單字 (Vocab)**\n\nBecoming / 相稱\n\n日文: すぐれた言葉\n韓文: 미련한 자에게\n泰文: คำพูดที่ดี")
+            st.info("**單字 (Vocab)**\n\nBecoming / 相稱") # 來源：W/P Sheet
         with c2:
-            st.info("**片語 (Phrase)**\n\nStill less / 何況\n\n日文: まして\n韓文: 더욱이\n泰文: ยิ่งไปกว่านั้น")
+            st.info("**片語 (Phrase)**\n\nStill less / 何況") # 來源：W/P Sheet
 
         # [中層] 今日金句
         st.divider()
@@ -53,9 +55,9 @@ with tabs[0]:
             """)
 
     with col_right:
-         # 右半部：史努比照片
-           st.image(IMG_URLS["A"], caption="Snoopy Helper", width=150, height=100)
-           st.image(IMG_URLS["B"], caption="Snoopy Helper", width=150, height=100)
+        # 右半部：史努比照片
+          st.image(IMG_URLS["A"], caption="Snoopy Helper", width=150, height=100)
+          st.image(IMG_URLS["B"], caption="Snoopy Helper", width=150, height=100)
 
 # --- TAB2: 每日筆記 ---
 with tabs[1]:
