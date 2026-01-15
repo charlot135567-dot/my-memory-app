@@ -138,28 +138,24 @@ with tabs[2]:
 
 # --- TAB4: 資料庫 (輸入與連結) ---
 with tabs[3]:
-    st.subheader("📂 雲端資料庫管理")
-    
-    # 精簡連結區：只保留聖經工具，AI 連結已移至側邊欄與最後一個分頁
-    cl1, cl2 = st.columns(2)
-    cl1.link_button("📖 ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb", use_container_width=True)
-    cl2.link_button("🇹🇭 THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11", use_container_width=True)
+    # 1) 外部連結區
+    st.subheader("🔗 聖經與 AI 資源")
+    cl1, cl2, cl3, cl4 = st.columns(4)
+    cl1.link_button("ChatGPT", "https://chat.openai.com/")
+    cl2.link_button("Google AI", "https://gemini.google.com/")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
 
     st.divider()
     
-    # 輸入資料欄位
-    input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150)
+    # 2) 輸入資料欄位與按鍵
+    input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, help="輸入中文經文(V 卷章節)或英文文稿")
     
     btn_l, btn_r = st.columns(2)
-    if btn_l.button("📥 讀取內容", use_container_width=True):
+    if btn_l.button("📥 輸入 - 經文/文稿"):
         st.toast("已讀取文稿，請搭配 AI 指令解析。")
-    if btn_r.button("💾 正式存檔", use_container_width=True):
+    if btn_r.button("💾 存檔 - AI 解析完資料"):
         # 這裡放置寫入 Google Sheets 的邏輯
         st.success("資料已成功存入雲端資料庫！")
 
-# --- 6) TAB5: Google AI (分頁) ---
-with tabs[4]:
-    # 直接放置最醒目的連結按鈕
-    st.title("🤖 Gemini AI 輔助")
-    st.info("點擊下方按鈕即可開啟 Google Gemini 進行深度經文解析。")
-    st.link_button("🚀 立即開啟 Google Gemini", "https://gemini.google.com/", type="primary", use_container_width=True)
+    st.info("💡 提示：請將 AI 產出的表格內容貼入下方對應欄位後按存檔。")
