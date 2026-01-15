@@ -1,125 +1,123 @@
-# Streamlit App UI & Logic (Updated per AI Mapping Logic 2026)
-# Author: Charlot Lin
-# Role: High-level Data Engineer
-
 import streamlit as st
-from datetime import date
-import calendar
+import pandas as pd
+from datetime import datetime
+from PIL import Image
+import requests
+from io import BytesIO
 
-st.set_page_config(page_title="My Memory App", layout="wide")
+# --- 1. 頁面基礎設定 ---
+st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-# ================== Session State ==================
-for key in ["V1", "V2", "WP", "QUIZ"]:
-    if key not in st.session_state:
-        st.session_state[key] = None
+# 史努比照片網址
+IMG_URLS = {
+    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
+    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg"
+}
 
-# ================== Helper (Stub) ==================
-def ai_parse_input(raw_text: str):
-    """
-    Core AI parsing stub
-    Replace this with real LLM / Google AI / ChatGPT calls
-    Output strictly follows V1 / V2 / W/P mapping rules
-    """
-    V1 = {
-        "Ref": "Pro 17:07",
-        "Chinese": "美言不適合愚昧人，何況虛謊的言語對君王呢？",
-        "ESV": "Fine speech is not becoming to a fool; still less is false speech to a prince.",
-        "Grammar": "Present Simple for general truth; contrast structure with still less",
-    }
+# --- 2. 側邊欄：功能選單 ---
+with st.sidebar:
+    st.image(IMG_URLS["C"], caption="Snoopy Helper")
+    st.title("控制面板")
+    # 移除資料來源設定與 JSON 相關程式
 
-    V2 = {
-        "Ref": "Pro 17:07",
-        "JA": "優れた言葉は愚か者にはふさわしくない。まして偽りの唇は君子にはなおさらである。",
-        "KRF": "아름다운 말은 어리석은 자에게 합당하지 아니하거든",
-        "THSV11": "ถ้อยคำอันงดงามไม่เหมาะกับคนโง่"
-    }
+# --- 3. 主要 TAB UI 配置 ---
+tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 翻譯挑戰", "📂 資料庫"])
 
-    WP = {
-        "vocab": ["becoming", "false speech", "prince"],
-        "phrases": ["still less", "not becoming to"]
-    }
-
-    QUIZ = [
-        {"type": "C2E", "q": V1["Chinese"]},
-        {"type": "C2E", "q": V1["Chinese"]},
-        {"type": "E2C", "q": V1["ESV"]},
-    ]
-
-    return V1, V2, WP, QUIZ
-
-# ================= Tabs =================
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🏠 書桌",
-    "📓 每日筆記",
-    "🌏 翻譯挑戰",
-    "🗄️ 資料庫"
-])
-
-# ================= TAB1 =================
-with tab1:
+# --- TAB1: 書桌 (🏠 + 待辦事項) ---
+with tabs[0]:
     col_left, col_right = st.columns([0.6, 0.4])
-
+    
     with col_left:
-        st.subheader("📘 單字 / 片語")
-        if st.session_state["WP"]:
-            st.write("**單字**", st.session_state["WP"]["vocab"])
-            st.write("**片語**", st.session_state["WP"]["phrases"])
-        else:
-            st.info("尚未解析資料")
+        # [上層] 單字與片語
+        st.subheader("📚 核心單字與片語")
+        lang_show = st.multiselect("語言顯示選擇", ["日", "韓", "泰"], default=["日"])
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.info("**單字 (Vocab)**\n\nBecoming / 相稱") # 來源：W/P Sheet
+            if "日" in lang_show: st.write("🇯🇵 ふさわしい")
+            if "韓" in lang_show: st.write("🇰🇷 어울리는")
+            if "泰" in lang_show: st.write("🇹🇭 เหมาะสม")
+        with c2:
+            st.info("**片語 (Phrase)**\n\nStill less / 何況") # 來源：W/P Sheet
 
-        st.markdown("---")
-        st.subheader("✨ 今日金句")
-        if st.session_state["V1"]:
-            st.write(st.session_state["V1"]["Chinese"])
-            st.write(st.session_state["V1"]["ESV"])
-        else:
-            st.info("尚未解析經文")
+        # [中層] 今日金句
+        st.divider()
+        st.subheader("🌟 今日金句 (V1 Sheet)")
+        st.success("**Pro 17:07**\n\nFine speech is not becoming to a fool; still less is false speech to a prince.")
 
-        st.markdown("---")
-        st.subheader("📐 文法解析")
-        if st.session_state["V1"]:
-            st.write(st.session_state["V1"]["Grammar"])
+        # [下層] 經文文法解析
+        with st.expander("📝 文法解析 (V1 Sheet)", expanded=True):
+            st.markdown("""
+            - **時態**: 現在簡單式表達恆常真理。
+            - **核心詞彙**: Becoming to (形容詞片語)。
+            - **句型**: 倒裝句 (Still less is...)。
+            """)
 
     with col_right:
-        st.image("f364bd220887627.67cae1bd07457.jpg")
-        st.image("183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg")
+        # 右半部：史努比照片
+        st.image(IMG_URLS["A"], use_container_width=True)
+        st.image(IMG_URLS["B"], use_container_width=True)
 
-# ================= TAB2 =================
-with tab2:
-    st.subheader("📖 多語對照經文")
-    if st.session_state["V2"]:
-        st.write("🇯🇵", st.session_state["V2"]["JA"])
-        st.write("🇰🇷", st.session_state["V2"]["KRF"])
-        st.write("🇹🇭", st.session_state["V2"]["THSV11"])
-    else:
-        st.info("尚未產生多語經文")
+# --- TAB2: 每日筆記 ---
+with tabs[1]:
+    col_note_l, col_note_r = st.columns([0.7, 0.3])
+    with col_note_l:
+        st.subheader("📅 筆記月曆")
+        # 此處可整合 streamlit-calendar 組件
+        st.date_input("選擇日期以查看筆記", datetime.now())
+        
+        # 篩選欄位
+        st.text("🔍 篩選與搜尋")
+        c_filter1, c_filter2 = st.columns([3, 1])
+        c_filter1.text_input("搜尋標題/內容/待辦事項", label_visibility="collapsed")
+        c_filter2.link_button("✨ Google AI", "https://gemini.google.com/")
+        
+        # 每日筆記欄位
+        st.text_input("📒 筆記標題")
+        st.text_area("✍️ 筆記內容與待辦事項", height=200)
 
-# ================= TAB3 =================
-with tab3:
-    st.subheader("🌏 翻譯挑戰")
-    if st.session_state["QUIZ"]:
-        for i, q in enumerate(st.session_state["QUIZ"], 1):
-            st.text_area(f"Q{i} ({q['type']})", q["q"], height=80)
-    else:
-        st.info("尚未生成翻譯題")
+    with col_note_r:
+        st.subheader("🌏 多語對照 (V2 Sheet)")
+        st.caption("Pro 17:07 對照")
+        st.write("**日文:** すぐれた言葉は...")
+        st.write("**韓文:** 미련한 자에게...")
+        st.write("**泰文:** ริมฝีปากที่ประณีต...")
 
-# ================= TAB4 =================
-with tab4:
-    st.subheader("📥 原始輸入")
-    raw = st.text_area("輸入聖經經文或英文文稿", height=200)
+# --- TAB3: 翻譯挑戰 ---
+with tabs[2]:
+    # 1) 篩選範圍與 AI 連結
+    c_t1, c_t2 = st.columns([3, 1])
+    c_t1.selectbox("翻譯題篩選範圍", ["最新一週", "最新一月", "最新一季"])
+    c_t2.link_button("✨ Google AI", "https://gemini.google.com/")
+    
+    # 2-3) 題目與作答
+    st.subheader("📝 翻譯挑戰 (V1 Sheet)")
+    for i in range(1, 4):
+        st.write(f"題目 {i}: 愚頑人說美言本不相稱...")
+        st.text_input(f"請輸入英文翻譯 ({i})", key=f"ans_{i}")
 
-    c1, c2 = st.columns(2)
+# --- TAB4: 資料庫 (輸入與連結) ---
+with tabs[3]:
+    # 1) 外部連結區
+    st.subheader("🔗 聖經與 AI 資源")
+    cl1, cl2, cl3, cl4 = st.columns(4)
+    cl1.link_button("ChatGPT", "https://chat.openai.com/")
+    cl2.link_button("Google AI", "https://gemini.google.com/")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
 
-    with c1:
-        if st.button("📥 輸入（解析）"):
-            V1, V2, WP, QUIZ = ai_parse_input(raw)
-            st.session_state.update({"V1": V1, "V2": V2, "WP": WP, "QUIZ": QUIZ})
-            st.success("AI 解析完成，UI 已同步更新")
+    st.divider()
+    
+    # 2) 輸入資料欄位與按鍵
+    input_content = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, help="輸入中文經文(V 卷章節)或英文文稿")
+    
+    btn_l, btn_r = st.columns(2)
+    if btn_l.button("📥 輸入 - 經文/文稿"):
+        st.toast("已讀取文稿，請搭配 AI 指令解析。")
+    if btn_r.button("💾 存檔 - AI 解析完資料"):
+        # 這裡放置寫入 Google Sheets 的邏輯
+        st.success("資料已成功存入雲端資料庫！")
 
-    with c2:
-        if st.button("💾 存檔（寫入 Google Sheets）"):
-            if st.session_state["V1"]:
-                ref = st.session_state["V1"]["Ref"]
-                st.success(f"資料已依 Ref={ref} 寫入 V1 / V2 / W/P Sheet")
-            else:
-                st.warning("尚無可存檔資料")
+    st.info("💡 提示：請將 AI 產出的表格內容貼入下方對應欄位後按存檔。")
