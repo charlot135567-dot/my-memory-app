@@ -57,3 +57,4 @@ with tabs[0]:
         # 右半部：史努比照片
         st.image(IMG_URLS["A"], use_column_width=True)
         st.image(IMG_URLS["B"], use_column_width=True)
+
