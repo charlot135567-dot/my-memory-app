@@ -6,8 +6,9 @@ import requests
 from io import BytesIO
 import datetime as dt  # 使用 dt 作為縮寫來呼叫 time
 from streamlit_calendar import calendar
-from datetime import datetime
-
+from datetime import datetime, time  # 合併引用
+from PIL import Image
+from streamlit_calendar import calendar
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (徹底消除空白暴力版)
 # ==========================================
