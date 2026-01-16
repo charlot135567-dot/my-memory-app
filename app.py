@@ -45,14 +45,23 @@ IMG_URLS = {
     "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
 # ==========================================
-# [區塊 2] 側邊欄 (Sidebar) 控制台(Mashimaro3 縮小)
+# [區塊 2] 側邊欄 (Sidebar) 與 Tabs 定義
 # ==========================================
+
+# 1. 側邊欄內容
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
-    # 控制台圖片縮小
+    # 控制台圖片
     st.image(IMG_URLS["M3"], width=250) 
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
+
+# 2. 定義 Tabs (關鍵：必須在 with tabs[0] 之前定義)
+tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+
+# ==========================================
+# [區塊 3] TAB 1: 書桌主畫面內容
+# ==========================================
 with tabs[0]:
     # 建立兩欄：左邊放經文(0.65)，右邊放圖片與框(0.35)
     col_content, col_m1 = st.columns([0.65, 0.35])
@@ -67,11 +76,11 @@ with tabs[0]:
         """, icon="📖")
 
     with col_m1:
-        # 這裡把圖片和框框鎖在一起
+        # 強力「焊接」HTML：讓 Mashimaro 與框框在同一個容器
         st.markdown(f"""
-            <div style="text-align: center;">
-                <img src="{IMG_URLS['M1']}" style="width: 250px; display: block; margin: 0 auto;">
-                <div style="background-color: #f8f9fa; border-radius: 8px; padding: 12px; border-left: 5px solid #FF8C00; text-align: left; margin-top: -10px;">
+            <div style="text-align: center; width: 100%;">
+                <img src="{IMG_URLS['M1']}" style="width: 250px; display: block; margin: 0 auto -15px auto; position: relative; z-index: 5;">
+                <div style="background-color: #f8f9fa; border-radius: 8px; padding: 12px; border-left: 5px solid #FF8C00; text-align: left; position: relative; z-index: 10;">
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold;">時態: 現在簡單式</p>
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold;">核心片語:</p>
                     <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.3;">
@@ -86,7 +95,6 @@ with tabs[0]:
 
     st.divider()
     st.markdown("### ✍️ 文法運用例句")
-    # 下方例句也用兩欄，這樣手機版會自動疊在一起，電腦版則橫排
     cl1, cl2 = st.columns(2)
     with cl1:
         st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO...* <p class='small-font'>便服對執行長不相稱。</p>", unsafe_allow_html=True)
