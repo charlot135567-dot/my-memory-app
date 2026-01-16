@@ -9,21 +9,27 @@ import datetime as dt  # 使用 dt 作為縮寫來呼叫 time
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式
 # ==========================================
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import datetime as dt 
+
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
     .cute-korean { font-family: 'Gamja+Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
-    .small-font { font-size: 13px; color: #555555; }
+    .small-font { font-size: 13px; color: #555555; margin-top: 5px; }
     
+    /* 移除固定高度，解決手機版空白問題 */
     .grammar-box {
         background-color: #f8f9fa; border-radius: 8px; padding: 15px;
         border-left: 5px solid #FF8C00; font-size: 14px; 
-        height: 200px; 
+        height: auto; 
         display: flex; flex-direction: column; justify-content: center;
     }
-    .stVerticalBlock { gap: 0.5rem !important; }
+    .stVerticalBlock { gap: 0.3rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -32,9 +38,10 @@ IMG_URLS = {
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
     "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
     "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
-    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg"
+    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
+    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
+    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
-
 # ==========================================
 # [區塊 2] 側邊欄 (Sidebar) 控制台(Mashimaro3 縮小)
 # ==========================================
