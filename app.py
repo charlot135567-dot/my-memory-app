@@ -41,13 +41,14 @@ IMG_URLS = {
 }
 
 # ==========================================
-# [區塊 2] 側邊欄 (Sidebar) 控制台
+# [區塊 2] 側邊欄 (Sidebar) 控制台(Mashimaro3 縮小)
 # ==========================================
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
-    st.image(IMG_URLS["M3"], width=100) # 控制台圖示 OK
+    st.image(IMG_URLS["M3"], width=100) # 縮小控制台圖片
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
+
 # ==========================================
 # [區塊 3] TAB 1: 書桌主畫面
 # ==========================================
