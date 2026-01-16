@@ -53,43 +53,45 @@ with st.sidebar:
     st.image(IMG_URLS["M3"], width=250) 
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
-# ==========================================
-# [區塊 3] TAB 1: 書桌主畫面 (結構簡化防錯版)
-# ==========================================
 with tabs[0]:
-    # 1. 頂部金句區 (不分欄，直接平鋪)
-    st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-    st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
-    st.success("""
-    🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.  
-    🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
-    🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
-    """, icon="📖")
+    # 建立兩欄：左邊放經文(0.65)，右邊放圖片與框(0.35)
+    col_content, col_m1 = st.columns([0.65, 0.35])
+    
+    with col_content:
+        st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
+        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
+        st.success("""
+        🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.  
+        🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
+        🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
+        """, icon="📖")
 
-    # 2. 中間圖文區 (將 Mashimaro 放在一個乾淨的容器，徹底解決空白)
-    # 我們不使用 col1, col2，直接在主頁面用 HTML 排版
-    st.markdown(f"""
-        <div style="text-align: center; margin-top: 10px;">
-            <img src="{IMG_URLS["M1"]}" style="width: 200px; margin-bottom: -15px;">
-            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 5px solid #FF8C00; text-align: left; max-width: 450px; margin: 0 auto;">
-                <p style="margin:2px 0; font-size: 14px; font-weight: bold;">時態: 現在簡單式表達恆常真理</p>
-                <p style="margin:2px 0; font-size: 14px; font-weight: bold;">核心片語:</p>
-                <ul style="margin:0; padding-left:20px; font-size: 14px;">
-                    <li>Fine speech (優美言辭)</li>
-                    <li>Becoming to (相稱/合宜)</li>
-                    <li>Still less (何況)</li>
-                    <li>False speech (虛假言辭/謊言)</li>
-                </ul>
+    with col_m1:
+        # 這裡把圖片和框框鎖在一起
+        st.markdown(f"""
+            <div style="text-align: center;">
+                <img src="{IMG_URLS['M1']}" style="width: 250px; display: block; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; border-radius: 8px; padding: 12px; border-left: 5px solid #FF8C00; text-align: left; margin-top: -10px;">
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold;">時態: 現在簡單式</p>
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold;">核心片語:</p>
+                    <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.3;">
+                        <li>Fine speech (優美言辭)</li>
+                        <li>Becoming to (相稱)</li>
+                        <li>Still less (何況)</li>
+                        <li>False speech (虛假言辭)</li>
+                    </ul>
+                </div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # 3. 下方例句區
     st.divider()
     st.markdown("### ✍️ 文法運用例句")
-    # 這裡用簡單的 markdown 顯示，不使用 columns 避免手機版再次撐開
-    st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
-    st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
+    # 下方例句也用兩欄，這樣手機版會自動疊在一起，電腦版則橫排
+    cl1, cl2 = st.columns(2)
+    with cl1:
+        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO...* <p class='small-font'>便服對執行長不相稱。</p>", unsafe_allow_html=True)
+    with cl2:
+        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue...* <p class='small-font'>財富對於無德之人不相稱。</p>", unsafe_allow_html=True)
 # [區塊 4] TAB 2: 筆記與折疊式待辦
 # ==========================================
 with tabs[1]:
