@@ -5,121 +5,122 @@ from PIL import Image
 import requests
 from io import BytesIO
 
-# --- 1. 頁面基礎設定 ---
+# --- 1. 頁面基礎設定 (已取代舊有設定) ---
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-# 自定義 CSS 優化間距與字體
+# 整合原有的 CSS 與新需求 (角色繪圖、佈局優化)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
+    
+    /* 原有的字體樣式 */
     .cute-korean { font-family: 'Gamja+Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
-    .verse-box { line-height: 1.4; margin-top: -15px; }
     .small-font { font-size: 13px; color: #555555; }
-    /* 縮緊所有元件間距 */
-    .stVerticalBlock { gap: 0.5rem !important; }
+    .stVerticalBlock { gap: 0.4rem !important; }
+
+    /* 原創角色繪製 (史努比/賤兔風格) - 用於 TAB1 與側邊欄 */
+    .char-container { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 5px; }
+    .cute-char {
+        width: 38px; height: 30px; background: white; border: 2px solid #333;
+        border-radius: 50% 50% 45% 45%; position: relative;
+    }
+    .cute-char::before, .cute-char::after { /* 賤兔長耳朵感 */
+        content: ''; position: absolute; width: 10px; height: 20px; 
+        background: #333; border-radius: 50%; top: 5px;
+    }
+    .cute-char::before { left: -8px; transform: rotate(-15deg); }
+    .cute-char::after { right: -8px; transform: rotate(15deg); }
+    .eye { position: absolute; width: 3px; height: 3px; background: #333; border-radius: 50%; top: 14px; }
+    .eye.left { left: 11px; } .eye.right { right: 11px; }
+    .nose { position: absolute; width: 5px; height: 3px; background: #333; border-radius: 50%; top: 17px; left: 16.5px; }
+
+    /* Grammar 專屬欄框 */
+    .grammar-box {
+        background-color: #f8f9fa; border-radius: 8px; padding: 10px;
+        border-left: 5px solid #FF8C00; font-size: 13.5px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 圖片路徑設定
+# 圖片路徑 (保留您的原始連結)
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
-    "Helper": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/helper_character.png" # 假設這是新上傳的原創圖
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg"
 }
 
-# --- 2. 側邊欄：原創活潑人物 ---
+# 初始化資料存檔邏輯
+if 'todo_list' not in st.session_state:
+    st.session_state.todo_list = []
+
+# --- 2. 側邊欄 ---
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다<br><span style="font-size:12px;">(你是上帝寶貴的珍寶)</span></p>', unsafe_allow_html=True)
-    # 8) 這裡顯示新設計的原創可愛角色 (生成圖在下方)
-    st.image("https://files.oaiusercontent.com/file-K1mC7fV3A5C9XW7Z4Y2S1Q?se=2024-01-15T15%3A00%3A00Z&sp=r&sv=2021-08-06&sr=b&rscc=max-age%3D31536000%2C%20private%2C%20immutable&rscd=attachment%3B%20filename%3Dcharacter.png", use_container_width=True)
+    # 顯示原創角色 (側邊欄版)
+    st.markdown('<div class="char-container"><div class="cute-char"><div class="eye left"></div><div class="eye right"></div><div class="nose"></div></div></div>', unsafe_allow_html=True)
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 
-# --- 3. 主要 UI 配置 ---
-# 7) 在分頁最後增加一個連結感的分頁 (Streamlit 原生限制，採增加一個分頁顯示連結)
-tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+# --- 3. 主要分頁 ---
+tabs = st.tabs(["🏠 書桌", "📓 每日筆記", "✍️ 挑戰", "📂 資料庫"])
 
-# --- TAB1: 書桌 (🏠) ---
+# --- TAB1: 書桌 ---
 with tabs[0]:
-    # 建立左右兩欄，左邊放置所有文字內容，右邊放置圖 A
-    col_content, col_img_a = st.columns([0.65, 0.35])
-    
-    with col_content:
-        # 1) 單字欄 (一格顯示所有語言，刪除重複中文)
+    col_l, col_r = st.columns([0.65, 0.35])
+    with col_l:
         st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-        
-        # 1) 片語欄 (一格顯示所有語言，刪除重複中文)
-        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況 / 更不用說")
-        
-        # 2, 3, 4) 今日金句：移除標籤碼，緊接在片語下方無空位
-        st.success("""
-        🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.  
-        すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
-        愚頑人說美言本不相稱，何況君王說謊話呢？
-        """, icon="📖")
-
-    with col_img_a:
-        # 4) 確保圖片高度與左側三個欄框對齊
-        st.image(IMG_URLS["A"], use_container_width=True)
-
-    # 5) 文法解析整體往上移，刪除標題與 Grammar Points 字樣
-    st.markdown("---") # 分隔線
-    cg1, cg2 = st.columns(2)
-    with cg1:
+        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
+        st.success("📖 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince. \n\n 愚頑人說美言本不相稱，何況君王說謊話呢？")
+    
+    with col_r:
+        # 13) 角色縮小並工整對齊左方欄位
+        st.markdown('<div class="char-container"><div class="cute-char"><div class="eye left"></div><div class="eye right"></div><div class="nose"></div></div></div>', unsafe_allow_html=True)
+        # 3) 騰出的空間顯示 Grammar
         st.markdown("""
-        **Ex 1:** Casual attire is not becoming to a CEO during a board meeting; still less is unprofessional language to a legal consultant.  
-        <p class="small-font">便服對執行長不相稱；更不用說不專業言語對法律顧問了。</p>
-        """, unsafe_allow_html=True)
-        
-    with cg2:
-        st.markdown("""
-        **Ex 2:** Wealth is not becoming to a man without virtue; still less is power to a person with a cruel heart.  
-        <p class="small-font">財富對於無德之人不相稱；更不用說權力對於內心殘暴之人了。</p>
+        <div class="grammar-box">
+            <b>時態 (Tense):</b> 現在簡單式 (恆常真理)<br>
+            <b>核心片語:</b><br>
+            • Fine speech (優美言辭)<br>
+            • Becoming to (相稱/合宜)<br>
+            • Still less (何況/更不用說)
+        </div>
         """, unsafe_allow_html=True)
 
-# --- 其餘分頁保持邏輯 ---
+# --- TAB2: 每日筆記 (整合待辦與搜尋) ---
 with tabs[1]:
-    st.date_input("選擇日期", datetime.now())
-with tabs[3]:
-    st.subheader("📂 資料庫存檔")
-    input_c = st.text_area("經文輸入", height=100)
-    if st.button("💾 正式存檔"):
-        st.success("已存入 Google Sheets")
+    # 10) 上半部 UI 欄位對稱設計
+    top_l, top_r = st.columns([0.5, 0.5])
+    
+    with top_l:
+        # 2) 縮小日期篩選
+        sel_date = st.date_input("日期", value=datetime(2026, 1, 16), label_visibility="collapsed")
+        # 8) 待辦事項清單
+        st.write("**📝 今日及以後的待辦清單**")
+        # 模擬顯示，實際可從 session_state 讀取
+        st.checkbox("完成提摩太前書查經", value=True)
+        st.checkbox("更新 AI 教材生成指令", value=False)
+        with st.expander("更多待辦事項..."):
+            st.write("• 預習下週主日經文")
 
-# --- TAB2~4 保持原結構 ---
-with tabs[1]:
-    st.caption("（保留原筆記月曆與多語對照結構）")
-with tabs[3]:
-    st.caption("（保留原資料庫存檔邏輯）")
+    with top_r:
+        # 9) 經文全句顯現
+        st.write("**Pro 17:07 多語對照**")
+        st.write("🇯🇵 すぐれた言葉は愚か者にはふさわしくない...")
+        st.write("🇰🇷 미련한 자에게 격에 맞지 않는 말이...")
+        # 6) 角色寬度高度縮減 1/3
+        st.markdown('<div style="transform: scale(0.65); opacity: 0.7;"><div class="char-container"><div class="cute-char"><div class="eye left"></div><div class="eye right"></div><div class="nose"></div></div></div></div>', unsafe_allow_html=True)
 
-# --- TAB2: 每日筆記 ---
-with tabs[1]:
-    col_note_l, col_note_r = st.columns([0.7, 0.3])
-    with col_note_l:
-        st.subheader("📅 筆記月曆")
-        # 此處可整合 streamlit-calendar 組件
-        st.date_input("選擇日期以查看筆記", datetime.now())
-        st.text_area("✍️ 筆記內容", height=200)
-        
-        # 篩選欄位
-        st.text("🔍 篩選與搜尋")
-        c_filter1, c_filter2 = st.columns([3, 1])
-        c_filter1.text_input("搜尋標題/內容/待辦事項", label_visibility="collapsed")
-        c_filter2.link_button("✨ Google AI", "https://gemini.google.com/")
-        
-        # 每日筆記欄位
-        st.text_input("📒 筆記標題")
-        st.text_area("✍️ 筆記內容與待辦事項", height=200)
-
-    with col_note_r:
-        st.subheader("🌏 多語對照 (V2 Sheet)")
-        st.caption("Pro 17:07 對照")
-        st.write("**日文:** すぐれた言葉は...")
-        st.write("**韓文:** 미련한 자에게...")
-        st.write("**泰文:** ริมฝีปากที่ประณีต...")
-        # 7) 側邊欄史努比位置調換到這裡
-        st.image(IMG_URLS["C"], use_container_width=True, caption="Study Partner")
+    st.divider()
+    
+    # 11 & 12) 筆記功能
+    nb_title_col, nb_save_col = st.columns([0.8, 0.2])
+    with nb_title_col:
+        st.text_input("筆記標題 (關鍵字搜尋用)", key="note_title")
+    with nb_save_col:
+        st.write(" ") # 調整按鈕對齊
+        st.button("💾 Save Note", use_container_width=True)
+    
+    st.text_area("待辦事項與筆記內容", height=200, placeholder="在此填寫待辦、提醒或詳細筆記...")
 
 # --- TAB3: 翻譯挑戰 ---
 with tabs[2]:
