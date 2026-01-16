@@ -71,31 +71,23 @@ with tabs[0]:
         🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
         """, icon="📖")
 
-    with col_m1:
-        # 使用表格強制圖片與內容無縫連接，這是最穩定的物理結構
-        st.write(f"""
-            <table style="width:100%; border-collapse: collapse; border: none; margin-top: -10px;">
-                <tr style="border: none;">
-                    <td style="padding: 0; border: none; text-align: center;">
-                        <img src="{IMG_URLS["M1"]}" style="width: 250px; display: block; margin: 0 auto;">
-                    </td>
-                </tr>
-                <tr style="border: none;">
-                    <td style="padding: 0; border: none;">
-                        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 5px solid #FF8C00; margin-top: -10px;">
-                            <p style="margin:2px 0; font-size: 14px; font-weight: bold;">時態: 現在簡單式</p>
-                            <p style="margin:2px 0; font-size: 14px; font-weight: bold;">核心片語:</p>
-                            <ul style="margin:0; padding-left:20px; font-size: 13px; line-height: 1.4;">
-                                <li>Fine speech (優美言辭)</li>
-                                <li>Becoming to (相稱/合宜)</li>
-                                <li>Still less (何況)</li>
-                                <li>False speech (虛假言辭/謊言)</li>
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        """, unsafe_allow_html=True)
+  with col_m1:
+        # 使用 st.container 把兩者包在一起
+        with st.container():
+            st.image(IMG_URLS["M1"], width=250)
+            # 關鍵點：不使用 st.markdown 建立新元件，而是使用 caption 或直接連接 HTML
+            st.write(f"""
+                <div style="background-color: #f8f9fa; border-radius: 8px; padding: 12px; border-left: 5px solid #FF8C00; margin-top: -35px; position: relative; z-index: 10;">
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold;">時態: 現在簡單式</p>
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold;">核心片語:</p>
+                    <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.3;">
+                        <li>Fine speech (優美言辭)</li>
+                        <li>Becoming to (相稱)</li>
+                        <li>Still less (何況)</li>
+                        <li>False speech (虛假言辭)</li>
+                    </ul>
+                </div>
+            """, unsafe_allow_html=True)
 
     st.divider() 
     st.markdown("### ✍️ 文法運用例句")
