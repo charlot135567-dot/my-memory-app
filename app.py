@@ -108,51 +108,97 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 📓筆記內容
 # ==========================================
-with tabs[1]:
-    # --- [保留原有的摺疊區概念，但視覺升級] ---
-    with st.expander("📅 點擊展開：日期篩選與互動月曆", expanded=True):
-        # 1. 月曆元件 (保留 c1 的功能)
-        sel_date = st.date_input("選擇日期", value=datetime(2026, 1, 16))
-        
-        st.divider()
+import streamlit as st
+from streamlit_calendar import calendar
+from datetime import datetime
 
-        # --- [這裡就是你想要的「彈跳窗感」輸入區] ---
-        # 我們把原本的 c2 (任務) 和 c3 (鬧鈴) 裝進史努比背景裡
+# --- 1. 圖片路徑設定 (指向您的 Repo) ---
+REPO_BASE_URL = "https://raw.githubusercontent.com/您的帳號/您的倉庫名/main/" # 請修改此處
+IMG_PAW = f"{REPO_BASE_URL}Mashimaro5.png"  # 腳印
+IMG_CAKE = f"{REPO_BASE_URL}Mashimaro2.png" # 蛋糕兔
+IMG_HEAD = f"{REPO_BASE_URL}Mashimaro1.png" # 大頭
+
+# 初始化資料庫（模擬）
+if 'events' not in st.session_state:
+    st.session_state.events = []
+if 'notes' not in st.session_state:
+    st.session_state.notes = {}
+
+with tabs[1]:
+    # --- 2. 左右分欄 (50:50) ---
+    col_left, col_right = st.columns([0.5, 0.5])
+
+    with col_left:
+        with st.expander("📅 行事", expanded=True):
+            # 月曆組件設定
+            cal_options = {
+                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+                "initialView": "dayGridMonth",
+                "selectable": True,
+                "height": 350,
+            }
+            
+            # 渲染月曆
+            state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_cal")
+            
+            # 選取日期互動
+            selected_date = state.get("dateClick", {"date": str(datetime.now().date())})["date"]
+            st.write(f"📍 已選取：{selected_date}")
+
+    with col_right:
+        # 顯示對照經文 (配合您的 Mashimaro 風格)
         st.markdown(f"""
-            <div style="background-image: url('{IMG_URLS.get('SNOOPY_BG', 'https://example.com/snoopy.jpg')}'); 
-                        background-size: cover; border-radius: 15px; padding: 20px;">
-                <div style="background-color: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 10px; border: 1px solid #ddd;">
-                    <p style="margin:0; font-weight:bold; color:#1E90FF;">📍 {sel_date} 事件設定</p>
-                </div>
+            <div style="background: rgba(255,255,255,0.7); border-radius: 15px; padding: 15px; border: 2px solid #FFB6C1;">
+                <img src="{IMG_HEAD}" width="40" style="float: right;">
+                <p style="font-size:13px; color:#555;"><b>日:</b> 常に喜んでいなさい</p>
+                <p style="font-size:13px; color:#555;"><b>韓:</b> 항상 기뻐하라</p>
+                <p style="font-size:13px; color:#555;"><b>泰:</b> จงชื่นชมยินดีอยู่เสมอ</p>
+                <hr>
+                <p style="font-weight:bold;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
             </div>
         """, unsafe_allow_html=True)
-
-        # 這裡放原本的 c2, c3 元件
-        col_task, col_alarm = st.columns([0.6, 0.4])
-        with col_task:
-            todo_task = st.text_input("在此輸入事件", placeholder="例如：靈修、背經...", label_visibility="collapsed")
-        with col_alarm:
-            alarm_t = st.time_input("設定提醒鬧鈴", dt.time(15, 0), label_visibility="collapsed")
         
-        # 原本的「確認存入」按鈕
-        if st.button("✅ 確認儲存並開啟提醒", use_container_width=True):
-            st.toast(f"已排程 {sel_date} {alarm_t}: {todo_task}")
+        # 快速設定當天行程
+        task_name = st.text_input("輸入計畫事件 (如：靈修)", placeholder="例如：背經")
+        if st.button("🥣 預排行程 (加入蛋糕兔)"):
+            new_event = {
+                "title": f"🍰 {task_name}",
+                "start": selected_date,
+                "end": selected_date,
+                "backgroundColor": "#FFECF0"
+            }
+            st.session_state.events.append(new_event)
+            st.rerun()
 
     st.divider()
 
-    # --- [下方筆記區：保留你原本的右側小提示] ---
-    t2_left, t2_right = st.columns([0.7, 0.3])
-    with t2_left:
-        # 保留你的動態標題邏輯
-        note_name = st.text_input("筆記標題", value=f"{sel_date} 靈修筆記")
-        st.text_area("筆記📝", height=250, placeholder="在此輸入心得...")
-        if st.button(f"💾 存檔筆記", use_container_width=True):
-            st.success("筆記已存檔！")
-            
-    with t2_right:
-        # 保留你精緻的多語系提示與圖片
-        st.write("<span style='font-size:12px;'><b>日:</b> すぐれた言葉は...<br><b>韓:</b> 미련한 자에게...<br><b>泰:</b> ริมฝีปากที่ประเสริฐ...</span>", unsafe_allow_html=True)
-        st.image(IMG_URLS.get("C", "https://via.placeholder.com/80"), width=80)
+    # --- 3. 下半部：合併式回溯筆記 ---
+    st.markdown("### 📓 Mashimaro 靈修筆記本")
+    
+    # 回溯時間 Bar
+    back_date = st.date_input("🔙 欲存檔的日期 (可回溯補寫)", value=datetime.strptime(selected_date[:10], "%Y-%m-%d"))
+    
+    # 筆記內容 (合併標題)
+    note_text = st.text_area(
+        "第一行將作為標題，下方為筆記內容",
+        height=250,
+        placeholder="【1/16 領受心得】\n今天在馬太福音看到...",
+        key="note_area"
+    )
+
+    if st.button("💾 存檔並蓋上腳印 🐾", use_container_width=True):
+        # 1. 儲存文字
+        st.session_state.notes[str(back_date)] = note_text
+        # 2. 自動在月曆加上腳印事件
+        st.session_state.events.append({
+            "title": "🐾 已完成",
+            "start": str(back_date),
+            "end": str(back_date),
+            "backgroundColor": "#FFE4B5",
+            "textColor": "#8B4513"
+        })
+        st.success(f"已將筆記存入 {back_date}，月曆足跡已更新！")
+        st.balloons()
 
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
