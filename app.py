@@ -46,7 +46,7 @@ IMG_URLS = {
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
     # 控制台圖片縮小
-    st.image(IMG_URLS["M3"], width=120) 
+    st.image(IMG_URLS["M3"], width=140) 
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 
