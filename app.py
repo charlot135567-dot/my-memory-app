@@ -70,32 +70,32 @@ with tabs[0]:
         🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
         """, icon="📖")
 
-    with col_m1:
-        # 依照您的設定：使用 M1，寬度 250
-        st.image(IMG_URLS["M1"], width=250) 
-        st.markdown("""
-        <div class="grammar-box" style="height: auto; min-height: 200px;">
-            <b>時態:</b> 現在簡單式表達恆常真理<br>
-            <b>核心片語:</b><br>
-            • Fine speech (優美言辭)<br>
-            • Becoming to (相稱/合宜)<br>
-            • Still less (何況)<br>
-            • False speech (虛假言辭/謊言)
-        </div>
-        """, unsafe_allow_html=True)
+    # --- 修正 1: 緊湊化文法框與消除高度限制 ---
+with col_m1:
+    st.image(IMG_URLS["M1"], width=250) 
+    # 加入 margin-top: -10px 讓圖片與框更緊湊
+    # 高度改為 auto 消除手機版下方大塊空白
+    st.markdown("""
+    <div class="grammar-box" style="height: auto; margin-top: -10px;">
+        <b>時態:</b> 現在簡單式表達恆常真理<br>
+        <b>核心片語:</b><br>
+        • Fine speech (優美言辭)<br>
+        • Becoming to (相稱/合宜)<br>
+        • Still less (何況)<br>
+        • False speech (虛假言辭/謊言)
+    </div>
+    """, unsafe_allow_html=True)
 
     # 第二層：下方英文例句區 (獨立出來確保完整)
-    st.divider() 
-    st.markdown("### ✍️ 文法運用例句 (Usage Examples)")
-    cg1, cg2 = st.columns(2)
-    with cg1:
-        st.markdown("""
-        **Example 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>
-        """, unsafe_allow_html=True)
-    with cg2:
-        st.markdown("""
-        **Example 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
-        """, unsafe_allow_html=True)
+    # --- 修正 2: 獨立例句區標題與完整內容 ---
+st.divider() 
+st.markdown("### ✍️ 文法運用例句 (Usage Examples)")
+cg1, cg2 = st.columns(2)
+with cg1:
+    # 確保英文句子與翻譯在 col 中完整顯示
+    st.markdown("**Example 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
+with cg2:
+    st.markdown("**Example 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 # ==========================================
 # [區塊 4] TAB 2: 筆記與折疊式待辦
 # ==========================================
