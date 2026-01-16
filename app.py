@@ -9,11 +9,6 @@ import datetime as dt  # 使用 dt 作為縮寫來呼叫 time
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式
 # ==========================================
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-import datetime as dt 
-
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 st.markdown("""
