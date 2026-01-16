@@ -53,47 +53,41 @@ with st.sidebar:
     st.image(IMG_URLS["M3"], width=250) 
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
-
 # ==========================================
-# [區塊 3] TAB 1: 書桌主畫面 (終極 HTML 鎖定版)
+# [區塊 3] TAB 1: 書桌主畫面 (手動控制順序：徹底解決空白)
 # ==========================================
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 with tabs[0]:
-    # 第一層：左側內容與右側圖文容器
-    col_content, col_m1 = st.columns([0.6, 0.4])
-    
-    with col_content:
-        st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
-        st.success("""
-        🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.  
-        🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
-        🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
-        """, icon="📖")
+    # --- 上半部：左邊的經文與內容 ---
+    st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
+    st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
+    st.success("""
+    🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.  
+    🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
+    🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
+    """, icon="📖")
 
-    with col_m1:
-        # 直接使用 HTML 把圖片和灰色框框鎖死在一起，完全跳過 Streamlit 的間距控制
-        st.markdown(f"""
-            <div style="display: flex; flex-direction: column; align-items: center;">
-                <img src="{IMG_URLS["M1"]}" style="width: 250px; margin-bottom: -15px;">
-                <div class="grammar-box" style="width: 100%; margin: 0px !important;">
-                    <p style="margin:2px 0;"><b>時態:</b> 現在簡單式表達恆常真理</p>
-                    <p style="margin:2px 0;"><b>核心片語:</b></p>
-                    <ul style="margin:0; padding-left:20px; font-size: 13px;">
-                        <li>Fine speech (優美言辭)</li>
-                        <li>Becoming to (相稱/合宜)</li>
-                        <li>Still less (何況)</li>
-                        <li>False speech (虛假言辭/謊言)</li>
-                    </ul>
-                </div>
+    # --- 中間：把圖片與文法框「焊接」在一起 ---
+    # 我們不使用 col2，直接放在主頁面，這樣手機就不會產生換行空白
+    st.markdown(f"""
+        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px; margin-bottom: 20px;">
+            <img src="{IMG_URLS["M1"]}" style="width: 250px; display: block;">
+            <div class="grammar-box" style="width: 100%; max-width: 500px; margin-top: -5px !important;">
+                <p style="margin:2px 0;"><b>時態:</b> 現在簡單式表達恆常真理</p>
+                <p style="margin:2px 0;"><b>核心片語:</b></p>
+                <ul style="margin:0; padding-left:20px; font-size: 14px;">
+                    <li>Fine speech (優美言辭)</li>
+                    <li>Becoming to (相稱/合宜)</li>
+                    <li>Still less (何況)</li>
+                    <li>False speech (虛假言辭/謊言)</li>
+                </ul>
             </div>
-        """, unsafe_allow_html=True)
+        </div>
+    """, unsafe_allow_html=True)
 
-    # 這裡強制把分界線往上提，縮減與下方例句的距離
-    st.markdown("<div style='margin-top: -20px;'></div>", unsafe_allow_html=True)
+    # --- 下半部：例句區 ---
     st.divider() 
-    
     st.markdown("### ✍️ 文法運用例句")
     cg1, cg2 = st.columns(2)
     with cg1:
