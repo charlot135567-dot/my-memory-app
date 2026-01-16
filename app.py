@@ -46,11 +46,12 @@ with st.sidebar:
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 
 # ==========================================
-# [區塊 3] TAB 1: 書桌主畫面
+# [區塊 3] TAB 1: 書桌主畫面 (修正例句完整度)
 # ==========================================
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 with tabs[0]:
+    # 第一層：上方金句與文法區
     col_content, col_m1 = st.columns([0.65, 0.35])
     
     with col_content:
@@ -63,9 +64,10 @@ with tabs[0]:
         """, icon="📖")
 
     with col_m1:
+        # 依照您的設定：使用 M1，寬度 250
         st.image(IMG_URLS["M1"], width=250) 
         st.markdown("""
-        <div class="grammar-box">
+        <div class="grammar-box" style="height: auto; min-height: 200px;">
             <b>時態:</b> 現在簡單式表達恆常真理<br>
             <b>核心片語:</b><br>
             • Fine speech (優美言辭)<br>
@@ -75,13 +77,18 @@ with tabs[0]:
         </div>
         """, unsafe_allow_html=True)
 
+    # 第二層：下方英文例句區 (獨立出來確保完整)
     st.divider() 
+    st.markdown("### ✍️ 文法運用例句 (Usage Examples)")
     cg1, cg2 = st.columns(2)
     with cg1:
-        st.markdown("**Ex 1:** Casual attire is not becoming to a CEO... <br><p class='small-font'>便服對執行長不相稱；更不用說不專業言語了。</p>", unsafe_allow_html=True)
+        st.markdown("""
+        **Example 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>
+        """, unsafe_allow_html=True)
     with cg2:
-        st.markdown("**Ex 2:** Wealth is not becoming to a man without virtue... <br><p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
-
+        st.markdown("""
+        **Example 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
+        """, unsafe_allow_html=True)
 # ==========================================
 # [區塊 4] TAB 2: 筆記與折疊式待辦
 # ==========================================
