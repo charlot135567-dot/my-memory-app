@@ -63,8 +63,7 @@ with tabs[0]:
         """, icon="📖")
 
     with col_m1:
-        # 修正：圖片與側邊欄一致大小
-        st.image(IMG_URLS["M3"], width=260) 
+        st.image(IMG_URLS["M3"], width=270) 
         st.markdown("""
         <div class="grammar-box">
             <b>時態:</b> 現在簡單式表達恆常真理<br>
