@@ -41,7 +41,7 @@ IMG_URLS = {
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
     # 控制台圖片縮小
-    st.image(IMG_URLS["M3"], width=200) 
+    st.image(IMG_URLS["M3"], width=250) 
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 
@@ -64,7 +64,7 @@ with tabs[0]:
 
     with col_m1:
         # 修正：圖片與側邊欄一致大小
-        st.image(IMG_URLS["M1"], width=180) 
+        st.image(IMG_URLS["M4"], width=200) 
         st.markdown("""
         <div class="grammar-box">
             <b>時態:</b> 現在簡單式表達恆常真理<br>
