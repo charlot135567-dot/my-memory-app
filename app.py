@@ -105,29 +105,54 @@ with tabs[0]:
         st.markdown("""
             **Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
         """, unsafe_allow_html=True)
-# [區塊 4] TAB 2: 筆記與折疊式待辦
+# ==========================================
+# [區塊 4] TAB 2: 📓筆記內容
 # ==========================================
 with tabs[1]:
-    with st.expander("📅 點擊展開：日期篩選、待辦事項與鬧鈴設定", expanded=False):
-        c1, c2, c3 = st.columns([0.3, 0.4, 0.3])
-        sel_date = c1.date_input("選擇日期", value=datetime(2026, 1, 16))
-        todo_task = c2.text_input("待辦事項內容", placeholder="輸入任務...")
-        alarm_t = c3.time_input("設定提醒鬧鈴", dt.time(9, 0))
-        if st.button("➕ 確認存入待辦清單", use_container_width=True):
+    # --- [保留原有的摺疊區概念，但視覺升級] ---
+    with st.expander("📅 點擊展開：日期篩選與互動月曆", expanded=True):
+        # 1. 月曆元件 (保留 c1 的功能)
+        sel_date = st.date_input("選擇日期", value=datetime(2026, 1, 16))
+        
+        st.divider()
+
+        # --- [這裡就是你想要的「彈跳窗感」輸入區] ---
+        # 我們把原本的 c2 (任務) 和 c3 (鬧鈴) 裝進史努比背景裡
+        st.markdown(f"""
+            <div style="background-image: url('{IMG_URLS.get('SNOOPY_BG', 'https://example.com/snoopy.jpg')}'); 
+                        background-size: cover; border-radius: 15px; padding: 20px;">
+                <div style="background-color: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 10px; border: 1px solid #ddd;">
+                    <p style="margin:0; font-weight:bold; color:#1E90FF;">📍 {sel_date} 事件設定</p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # 這裡放原本的 c2, c3 元件
+        col_task, col_alarm = st.columns([0.6, 0.4])
+        with col_task:
+            todo_task = st.text_input("在此輸入事件", placeholder="例如：靈修、背經...", label_visibility="collapsed")
+        with col_alarm:
+            alarm_t = st.time_input("設定提醒鬧鈴", dt.time(15, 0), label_visibility="collapsed")
+        
+        # 原本的「確認存入」按鈕
+        if st.button("✅ 確認儲存並開啟提醒", use_container_width=True):
             st.toast(f"已排程 {sel_date} {alarm_t}: {todo_task}")
 
     st.divider()
 
+    # --- [下方筆記區：保留你原本的右側小提示] ---
     t2_left, t2_right = st.columns([0.7, 0.3])
     with t2_left:
-        note_name = st.text_input("筆記標題", value=f"{sel_date} 靈修筆記", label_visibility="collapsed")
-        if st.button(f"💾 存檔筆記：{note_name[:15]}...", use_container_width=True):
+        # 保留你的動態標題邏輯
+        note_name = st.text_input("筆記標題", value=f"{sel_date} 靈修筆記")
+        st.text_area("筆記📝", height=250, placeholder="在此輸入心得...")
+        if st.button(f"💾 存檔筆記", use_container_width=True):
             st.success("筆記已存檔！")
+            
     with t2_right:
+        # 保留你精緻的多語系提示與圖片
         st.write("<span style='font-size:12px;'><b>日:</b> すぐれた言葉は...<br><b>韓:</b> 미련한 자에게...<br><b>泰:</b> ริมฝีปากที่ประเสริฐ...</span>", unsafe_allow_html=True)
-        st.image(IMG_URLS["C"], width=80)
-
-    st.text_area("筆記📝", height=250, placeholder="", label_visibility="visible")
+        st.image(IMG_URLS.get("C", "https://via.placeholder.com/80"), width=80)
 
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
