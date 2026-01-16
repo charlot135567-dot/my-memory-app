@@ -5,6 +5,8 @@ from PIL import Image
 import requests
 from io import BytesIO
 import datetime as dt  # 使用 dt 作為縮寫來呼叫 time
+from streamlit_calendar import calendar
+from datetime import datetime
 
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (徹底消除空白暴力版)
@@ -108,10 +110,6 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 📓筆記內容
 # ==========================================
-import streamlit as st
-from streamlit_calendar import calendar
-from datetime import datetime
-
 # --- 1. 圖片路徑設定 (指向您的 Repo) ---
 REPO_BASE_URL = "https://raw.githubusercontent.com/您的帳號/您的倉庫名/main/" # 請修改此處
 IMG_PAW = f"{REPO_BASE_URL}Mashimaro5.png"  # 腳印
