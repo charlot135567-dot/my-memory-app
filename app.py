@@ -54,12 +54,12 @@ with st.sidebar:
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 # ==========================================
-# [區塊 3] TAB 1: 書桌主畫面 (位置鎖定 + 焊接消滅空白)
+# [區塊 3] TAB 1: 書桌主畫面 (隱形表格強制鎖定版)
 # ==========================================
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 with tabs[0]:
-    # 恢復原本比例，確保 Mashimaro 在右上角
+    # 保持左右比例
     col_content, col_m1 = st.columns([0.65, 0.35])
     
     with col_content:
@@ -72,24 +72,31 @@ with tabs[0]:
         """, icon="📖")
 
     with col_m1:
-        # 【核心修正】將圖片與框框封裝在同一個 HTML 結構中，不讓 Streamlit 插手間距
-        st.markdown(f"""
-            <div style="display: flex; flex-direction: column; align-items: center;">
-                <img src="{IMG_URLS["M1"]}" style="width: 250px; display: block; margin: 0 auto;">
-                <div class="grammar-box" style="width: 100%; margin-top: -15px !important; padding: 12px !important;">
-                    <p style="margin:2px 0;"><b>時態:</b> 現在簡單式表達恆常真理</p>
-                    <p style="margin:2px 0;"><b>核心片語:</b></p>
-                    <ul style="margin:0; padding-left:20px; font-size: 14px;">
-                        <li>Fine speech (優美言辭)</li>
-                        <li>Becoming to (相稱/合宜)</li>
-                        <li>Still less (何況)</li>
-                        <li>False speech (虛假言辭/謊言)</li>
-                    </ul>
-                </div>
-            </div>
+        # 使用表格強制圖片與內容無縫連接，這是最穩定的物理結構
+        st.write(f"""
+            <table style="width:100%; border-collapse: collapse; border: none; margin-top: -10px;">
+                <tr style="border: none;">
+                    <td style="padding: 0; border: none; text-align: center;">
+                        <img src="{IMG_URLS["M1"]}" style="width: 250px; display: block; margin: 0 auto;">
+                    </td>
+                </tr>
+                <tr style="border: none;">
+                    <td style="padding: 0; border: none;">
+                        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 5px solid #FF8C00; margin-top: -10px;">
+                            <p style="margin:2px 0; font-size: 14px; font-weight: bold;">時態: 現在簡單式</p>
+                            <p style="margin:2px 0; font-size: 14px; font-weight: bold;">核心片語:</p>
+                            <ul style="margin:0; padding-left:20px; font-size: 13px; line-height: 1.4;">
+                                <li>Fine speech (優美言辭)</li>
+                                <li>Becoming to (相稱/合宜)</li>
+                                <li>Still less (何況)</li>
+                                <li>False speech (虛假言辭/謊言)</li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+            </table>
         """, unsafe_allow_html=True)
 
-    # 這裡確保下方的例句區不會跟著縮上去
     st.divider() 
     st.markdown("### ✍️ 文法運用例句")
     cg1, cg2 = st.columns(2)
