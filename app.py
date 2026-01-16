@@ -44,12 +44,10 @@ IMG_URLS = {
 # [區塊 2] 側邊欄 (Sidebar) 控制台
 # ==========================================
 with st.sidebar:
-    st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다<br><span style="font-size:12px;">(你是上帝寶貴的珍寶)</span></p>', unsafe_allow_html=True)
-    # 修正：圖片調回原本剛好的大小
-    st.image(IMG_URLS["M3"], width=130) 
+    st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
+    st.image(IMG_URLS["M3"], width=100) # 控制台圖示 OK
     st.divider()
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
-
 # ==========================================
 # [區塊 3] TAB 1: 書桌主畫面
 # ==========================================
