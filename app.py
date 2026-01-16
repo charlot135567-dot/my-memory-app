@@ -4,6 +4,7 @@ from datetime import datetime
 from PIL import Image
 import requests
 from io import BytesIO
+import datetime as dt  # 使用 dt 作為縮寫來呼叫 time
 
 # --- 1. 頁面基礎設定 ---
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
@@ -98,7 +99,7 @@ with tabs[1]:
         
         c_todo, c_time = st.columns([0.7, 0.3])
         todo_item = c_todo.text_input("填入待辦事項", placeholder="輸入任務...", label_visibility="collapsed")
-        remind_time = c_time.time_input("設定提醒", time(9, 0), label_visibility="collapsed")
+        remind_time = c_time.time_input("設定提醒", dt.time(9, 0), label_visibility="collapsed")
         
         if st.button("🔔 設定提醒並加入清單"):
             st.toast(f"已設定 {remind_time} 提醒：{todo_item}")
