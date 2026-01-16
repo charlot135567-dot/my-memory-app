@@ -60,12 +60,13 @@ with st.sidebar:
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 
 # ==========================================
-# [區塊 3] TAB 1: 書桌主畫面 (暴力消除留白版)
+# [區塊 3] TAB 1: 書桌主畫面 (終極 HTML 鎖定版)
 # ==========================================
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 with tabs[0]:
-    col_content, col_m1 = st.columns([0.65, 0.35])
+    # 第一層：左側內容與右側圖文容器
+    col_content, col_m1 = st.columns([0.6, 0.4])
     
     with col_content:
         st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
@@ -77,31 +78,33 @@ with tabs[0]:
         """, icon="📖")
 
     with col_m1:
-        # 強制移除圖片下方的 Padding
-        st.image(IMG_URLS["M1"], width=250) 
+        # 直接使用 HTML 把圖片和灰色框框鎖死在一起，完全跳過 Streamlit 的間距控制
         st.markdown(f"""
-        <div class="grammar-box" style="margin-top: -30px !important;">
-            <p style="margin:0;"><b>時態:</b> 現在簡單式表達恆常真理</p>
-            <p style="margin:0;"><b>核心片語:</b></p>
-            <ul style="margin:0; padding-left:20px;">
-                <li>Fine speech (優美言辭)</li>
-                <li>Becoming to (相稱/合宜)</li>
-                <li>Still less (何況)</li>
-                <li>False speech (虛假言辭/謊言)</li>
-            </ul>
-        </div>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <img src="{IMG_URLS["M1"]}" style="width: 250px; margin-bottom: -15px;">
+                <div class="grammar-box" style="width: 100%; margin: 0px !important;">
+                    <p style="margin:2px 0;"><b>時態:</b> 現在簡單式表達恆常真理</p>
+                    <p style="margin:2px 0;"><b>核心片語:</b></p>
+                    <ul style="margin:0; padding-left:20px; font-size: 13px;">
+                        <li>Fine speech (優美言辭)</li>
+                        <li>Becoming to (相稱/合宜)</li>
+                        <li>Still less (何況)</li>
+                        <li>False speech (虛假言辭/謊言)</li>
+                    </ul>
+                </div>
+            </div>
         """, unsafe_allow_html=True)
 
-    # 這裡是最關鍵的：把例句區跟上方區塊「縫」起來
-    st.markdown("<div style='margin-top: -30px;'></div>", unsafe_allow_html=True)
+    # 這裡強制把分界線往上提，縮減與下方例句的距離
+    st.markdown("<div style='margin-top: -20px;'></div>", unsafe_allow_html=True)
     st.divider() 
     
     st.markdown("### ✍️ 文法運用例句")
     cg1, cg2 = st.columns(2)
     with cg1:
-        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
+        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO...* <br><p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
     with cg2:
-        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
+        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue...* <br><p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 # [區塊 4] TAB 2: 筆記與折疊式待辦
 # ==========================================
 with tabs[1]:
