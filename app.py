@@ -106,10 +106,9 @@ with tabs[0]:
             **Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
         """, unsafe_allow_html=True)
 # ==========================================
-# [區塊 4] TAB 2: 📓 筆記內容 (圖像顯示終極救援版)
+# [區塊 4] TAB 2: 📓 筆記內容 (上下結構 + Emoji 貼紙化優化版)
 # ==========================================
-
-# --- 1. 初始化與圖片路徑 ---
+# --- 1. 初始化與圖片路徑 (保持 JPG) ---
 if 'events' not in st.session_state:
     st.session_state.events = []
 if 'notes' not in st.session_state:
@@ -120,32 +119,25 @@ IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
 IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
 IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-# --- [關鍵] 強化 CSS：使用背景圖強迫顯示，並加入國旗美化 ---
+# --- [新增] CSS 貼紙化邏輯：讓圖片像 Emoji 一樣對齊 ---
 st.markdown(f"""
 <style>
-    /* 強制月曆事件容器顯示圖片 */
-    .fc-event-main {{
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        height: 40px !important;
+    .mashi-emoji {{
+        width: 38px !important; 
+        height: 38px !important;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto; /* 強制置中 */
     }}
     .fc-event {{
         background-color: transparent !important;
         border: none !important;
     }}
-    /* 讓文字經文框更美觀 */
-    .bible-container {{
-        background: rgba(255,240,245,0.8); 
-        border-radius: 15px; 
-        padding: 25px; 
-        border: 3px solid #FFB6C1;
-    }}
 </style>
 """, unsafe_allow_html=True)
 
 with tabs[1]:
-    # --- 第一層：功能鍵與月曆 ---
+    # --- 第一層：功能鍵與月曆 (橫向拉滿) ---
     col_cal_title, col_btns = st.columns([0.6, 0.4])
     
     with col_cal_title:
@@ -164,10 +156,10 @@ with tabs[1]:
             "initialView": "dayGridMonth",
             "selectable": True,
             "height": 450,
-            "eventContent": { "html": True } 
+            "eventContent": { "html": True } # 確保渲染 HTML 圖片
         }
         
-        state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_final_cal")
+        state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_full_cal")
         
         if state.get("dateClick"):
             selected_date = state["dateClick"]["date"]
@@ -176,10 +168,10 @@ with tabs[1]:
             
         st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
 
-    # 按鈕邏輯：直接將 <img> 標籤嵌入 title
+    # 執行按鈕邏輯 (修改 title 為 CSS 類名模式)
     if btn_add:
         st.session_state.events.append({
-            "title": f'<img src="{IMG_CAKE}" style="width:38px; height:38px; border-radius:5px;">',
+            "title": f'<img src="{IMG_CAKE}" class="mashi-emoji">',
             "start": selected_date,
             "allDay": True
         })
@@ -187,20 +179,21 @@ with tabs[1]:
         
     if btn_clear:
         st.session_state.events = [e for e in st.session_state.events if e['start'] != selected_date]
+        st.toast(f"已清除 {selected_date[:10]} 的所有圖案")
         st.rerun()
 
     st.divider()
 
-    # --- 第二層：經文對照 (補上各國國旗與繁體中文國旗) ---
+    # --- 第二層：經文對照 (平移至下方，字體放大) ---
     st.markdown(f"""
-        <div class="bible-container">
+        <div style="background: rgba(255,240,245,0.8); border-radius: 15px; padding: 25px; border: 3px solid #FFB6C1;">
             <img src="{IMG_HEAD}" width="60" style="float: right;">
-            <h4 style="color:#FF1493; margin-top:0;">📖 每日經文對照</h4>
-            <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">🇹🇼 中文: 要常常喜樂，不住的禱告，凡事謝恩。</p>
+            <h4 style="color:#FF1493; margin-top:0;">📖經文</h4>
+            <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>日:</b> 常に喜んでいなさい</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>韓:</b> 항상 기뻐하라</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>泰:</b> จงชื่นชมยินดีอยู่เสมอ</p>
             <hr style="border: 0.5px solid #FFB6C1;">
-            <p style="font-size:17px; color:#444; margin: 10px 0;">🇯🇵 <b>日本語:</b> 常に喜んでいなさい</p>
-            <p style="font-size:17px; color:#444; margin: 10px 0;">🇰🇷 <b>한국어:</b> 항상 기뻐하라</p>
-            <p style="font-size:17px; color:#444; margin: 10px 0;">🇹🇭 <b>ภาษาไทย:</b> จงชื่นชมยินดีอยู่เสมอ</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -212,20 +205,21 @@ with tabs[1]:
     col_note_date, col_note_txt = st.columns([0.3, 0.7])
     with col_note_date:
         back_date = st.date_input("🔙 選擇存檔日期", value=dt.datetime.strptime(selected_date[:10], "%Y-%m-%d"))
+        st.write("點擊下方按鈕即可在月曆留下足跡圖案！")
 
     with col_note_txt:
-        # 自動抓取已存筆記
-        current_note = st.session_state.notes.get(str(back_date), "")
-        note_text = st.text_area("寫下心得與感悟...", value=current_note, height=180, key="mashi_note")
+        note_text = st.session_state.notes.get(str(back_date), "")
+        note_text = st.text_area("寫下心得與感悟...", value=note_text, height=180, key="mashi_note")
 
     if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
         st.session_state.notes[str(back_date)] = note_text
+        # 修改 title 為 CSS 類名模式
         st.session_state.events.append({
-            "title": f'<img src="{IMG_PAW}" style="width:38px; height:38px; border-radius:5px;">',
+            "title": f'<img src="{IMG_PAW}" class="mashi-emoji">',
             "start": str(back_date),
             "allDay": True
         })
-        st.success(f"已記錄足跡至 {back_date}！")
+        st.success(f"已成功記錄 {back_date} 的靈修筆記！")
         st.balloons()
         st.rerun()
 # ==========================================
