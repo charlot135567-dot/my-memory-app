@@ -108,96 +108,90 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 📓 筆記內容 (Mashimaro 圖像入格版)
 # ==========================================
+# 1. 確保圖片 URL 正確
+REPO_RAW = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
+IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
+IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
+IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-# --- 1. 圖片路徑設定 (確認為 .jpg) ---
-REPO_BASE_URL = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
-
-IMG_PAW  = f"{REPO_BASE_URL}Mashimaro5.jpg"  # 腳印兔
-IMG_CAKE = f"{REPO_BASE_URL}Mashimaro2.jpg"  # 蛋糕兔
-IMG_HEAD = f"{REPO_BASE_URL}Mashimaro1.jpg"  # 大頭兔
-
-# 初始化資料庫
-if 'events' not in st.session_state:
-    st.session_state.events = []
-if 'notes' not in st.session_state:
-    st.session_state.notes = {}
+# 2. 強化 CSS：確保圖片標籤不被月曆預設樣式蓋掉
+st.markdown(f"""
+<style>
+    .fc-event-title {{
+        display: block !important;
+    }}
+    .mashimaro-img {{
+        width: 40px !important;
+        height: auto !important;
+        display: block;
+        margin: 0 auto;
+    }}
+    .fc-event {{
+        background-color: transparent !important;
+        border: none !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
 
 with tabs[1]:
-    # --- 2. 左右分欄 (50:50) ---
     col_left, col_right = st.columns([0.5, 0.5])
 
     with col_left:
         with st.expander("📅 靈修足跡月曆", expanded=True):
-            # 月曆組件設定
             cal_options = {
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "initialView": "dayGridMonth",
                 "selectable": True,
                 "height": 400,
-                "eventContent": {"html": True}, # 核心關鍵：開啟 HTML 渲染功能
+                # 修正：使用字典格式明確指定顯示 HTML
+                "eventContent": { "html": True } 
             }
             
             # 渲染月曆
             state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_cal")
-            
-            # 選取日期互動
             selected_date = state.get("dateClick", {"date": str(datetime.now().date())})["date"]
             st.write(f"📍 目前選取日期：{selected_date[:10]}")
 
     with col_right:
-        # 顯示對照經文 (與月曆高度對齊)
+        # 右上角已經成功的經文框 (保持原樣)
         st.markdown(f"""
-            <div style="background: rgba(255,240,245,0.8); border-radius: 15px; padding: 15px; border: 2px solid #FFB6C1; height: 350px;">
-                <img src="{IMG_HEAD}" width="50" style="float: right; margin-bottom: 10px;">
-                <p style="font-size:14px; color:#555; margin: 5px 0;"><b>日:</b> 常に喜んでいなさい</p>
-                <p style="font-size:14px; color:#555; margin: 5px 0;"><b>韓:</b> 항상 기뻐하라</p>
-                <p style="font-size:14px; color:#555; margin: 5px 0;"><b>泰:</b> จงชื่นชมยินดีอยู่เสมอ</p>
-                <hr style="border: 0.5px solid #FFB6C1;">
-                <p style="font-weight:bold; font-size:16px; color:#333; line-height:1.5;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
+            <div style="background: rgba(255,240,245,0.8); border-radius: 15px; padding: 15px; border: 2px solid #FFB6C1;">
+                <img src="{IMG_HEAD}" width="40" style="float: right;">
+                <p style="font-size:13px; color:#555;"><b>日:</b> 常に喜んでいなさい</p>
+                <p style="font-size:13px; color:#555;"><b>韓:</b> 항상 기뻐하라</p>
+                <p style="font-size:13px; color:#555;"><b>泰:</b> จงชื่นชมยินดีอยู่เสมอ</p>
+                <hr>
+                <p style="font-weight:bold;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
             </div>
         """, unsafe_allow_html=True)
         
-        # 快速設定當天行程
-        task_name = st.text_input("📝 預定計畫", placeholder="例如：背誦箴言 17:07")
+        task_name = st.text_input("📝 預定計畫", placeholder="例如：背誦箴言")
         if st.button("🧁 預排行程 (蛋糕兔)"):
-            new_plan = {
-                "title": f'<img src="{IMG_CAKE}" style="width:35px;">', # 直接顯示圖像
+            # 修正：將 HTML 直接放入 title，並確保這是一個單獨的事件
+            st.session_state.events.append({
+                "title": f'<img src="{IMG_CAKE}" class="mashimaro-img">',
                 "start": selected_date,
                 "end": selected_date,
-                "backgroundColor": "transparent",
-                "borderColor": "transparent"
-            }
-            st.session_state.events.append(new_plan)
+                "allDay": True
+            })
             st.rerun()
 
     st.divider()
-
-    # --- 3. 下半部：筆記與時光回溯存檔 ---
     st.markdown("### 📓 Mashimaro 靈修筆記本")
     
-    col_note_opt, col_note_input = st.columns([0.3, 0.7])
-    
-    with col_note_opt:
-        back_date = st.date_input("🔙 存檔日期 (可選過去日期)", value=datetime.strptime(selected_date[:10], "%Y-%m-%d"))
-        st.info("💡 存檔後月曆會自動出現 Mashimaro 圖像！")
+    back_date = st.date_input("🔙 存檔日期", value=datetime.strptime(selected_date[:10], "%Y-%m-%d"))
+    note_text = st.text_area("寫下心得...", height=150)
 
-    with col_note_input:
-        note_text = st.text_area("寫下今日的領受...", height=200, placeholder="這段經文讓我覺得...")
-
-    if st.button("💾 儲存筆記並蓋上 Mashimaro 足跡 🐾", use_container_width=True):
-        # 儲存文字筆記
+    if st.button("💾 儲存並蓋上足跡 🐾"):
         st.session_state.notes[str(back_date)] = note_text
-        
-        # 在月曆格子內加入 Mashimaro 圖像
+        # 修正：加入腳印圖片
         st.session_state.events.append({
-            "title": f'<img src="{IMG_PAW}" style="width:35px; display:block; margin:auto;">',
+            "title": f'<img src="{IMG_PAW}" class="mashimaro-img">',
             "start": str(back_date),
             "end": str(back_date),
-            "backgroundColor": "transparent",
-            "borderColor": "transparent"
+            "allDay": True
         })
-        st.success(f"已將足跡存入 {back_date}！")
-        st.balloons()
+        st.success("存檔成功！Mashimaro 應該會出現在格子裡了。")
         st.rerun()
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
