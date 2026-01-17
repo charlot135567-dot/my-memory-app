@@ -112,6 +112,9 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 📓 筆記 + Mashimaro 月曆 (手機友好 Emoji 版)
 # ==========================================
+# ==========================================
+# [區塊 4] TAB 2: 📓 筆記 + Mashimaro 月曆 (手機友好 Emoji 版)
+# ==========================================
 with tabs[1]:
 
     # --- 初始化 session_state ---
@@ -193,6 +196,7 @@ with tabs[1]:
     with col_add:
         btn_add = st.button(f"＋{selected_emoji}", use_container_width=True)
     with col_del:
+        # 單筆刪除按鈕
         for i, e in enumerate(st.session_state.events):
             btn_del = st.button(f"🗑 {e['title']}", key=f"del_{i}")
             if btn_del:
@@ -234,11 +238,27 @@ with tabs[1]:
         back_date = st.date_input("", value=dt.datetime.strptime(selected_date_str, "%Y-%m-%d"))
 
     # 筆記框放大，placeholder 在框內
-    current_note = st.session_state.notes.get(selected_date_str, "")
+    current_note = st.session_state.notes.get(str(back_date), "")
     note_text = st.text_area(
-        "",
+        "",  # 文字刪掉
         value=current_note,
         height=250,
+        placeholder="寫下心得與感悟...",
+        key="emoji_note"
+    )
+
+    # 儲存筆記邏輯
+    if btn_save:
+        st.session_state.notes[str(back_date)] = note_text
+        st.session_state.events.append({
+            "title": selected_emoji,
+            "start": str(back_date),
+            "allDay": True
+        })
+        st.success(f"已記錄足跡至 {back_date}！")
+        st.balloons()
+        st.rerun()
+
 
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
