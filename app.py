@@ -106,32 +106,38 @@ with tabs[0]:
             **Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
         """, unsafe_allow_html=True)
 # ==========================================
-# [區塊 4] TAB 2: 📓 筆記內容 (修正 SessionState 錯誤)
+# [區塊 4] TAB 2: 📓 筆記內容 (完整補完 + 刪除功能版)
 # ==========================================
-
-# 1. 把初始化搬到最外面，確保程式一啟動就建立 events
+# --- 1. 初始化與圖片設定 ---
 if 'events' not in st.session_state:
     st.session_state.events = []
 if 'notes' not in st.session_state:
     st.session_state.notes = {}
 
-# 2. 圖片與 CSS 設定 (保持原樣)
 REPO_RAW = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
 IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
 IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
 IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-st.markdown("""
+# 強化 CSS：美化月曆事件與經文框
+st.markdown(f"""
 <style>
-    .mashimaro-img { width: 40px !important; display: block; margin: 0 auto; }
-    .fc-event { background-color: transparent !important; border: none !important; }
+    .mashimaro-img {{ width: 35px !important; display: block; margin: 0 auto; }}
+    .fc-event {{ background-color: transparent !important; border: none !important; }}
+    .bible-box {{
+        background: rgba(255,240,245,0.8); 
+        border-radius: 15px; 
+        padding: 20px; 
+        border: 2px solid #FFB6C1;
+        min-height: 200px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-# 3. 進入 Tab 邏輯
 with tabs[1]:
     col_left, col_right = st.columns([0.5, 0.5])
 
+    # --- 左半部：月曆 ---
     with col_left:
         with st.expander("📅 靈修足跡月曆", expanded=True):
             cal_options = {
@@ -139,33 +145,77 @@ with tabs[1]:
                 "initialView": "dayGridMonth",
                 "selectable": True,
                 "height": 400,
-                "eventContent": { "html": True } 
+                "eventContent": { "html": True } # 修正圖像顯示的關鍵
             }
             
-            # 現在這裡就不會報錯了，因為 events 已經在外面初始化好了
             state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_cal")
             
-            # 安全獲取日期
             if state.get("dateClick"):
                 selected_date = state["dateClick"]["date"]
             else:
-                selected_date = str(datetime.now().date())
+                selected_date = str(dt.date.today())
             st.write(f"📍 目前選取日期：{selected_date[:10]}")
 
+    # --- 右半部：經文與控制 ---
     with col_right:
-        # (這裡維持您原本的經文框內容...)
-        st.markdown(f'<div style="background:rgba(255,240,245,0.8); padding:15px; border-radius:15px; border:2px solid #FFB6C1;"><img src="{IMG_HEAD}" width="40" style="float:right;"><p><b>中:</b> 要常常喜樂...</p></div>', unsafe_allow_html=True)
+        # 救回消失的日韓泰經文
+        st.markdown(f"""
+            <div class="bible-box">
+                <img src="{IMG_HEAD}" width="50" style="float: right;">
+                <p style="color:#555;"><b>日:</b> 常に喜んでいなさい</p>
+                <p style="color:#555;"><b>韓:</b> 항상 기뻐하라</p>
+                <p style="color:#555;"><b>泰:</b> จงชื่นชมยินดีอยู่เสมอ</p>
+                <hr style="border-top: 1px solid #FFB6C1;">
+                <p style="font-weight:bold; font-size:16px;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
+            </div>
+        """, unsafe_allow_html=True)
         
-        task_name = st.text_input("📝 預定計畫", key="task_input")
-        if st.button("🧁 預排行程"):
-            st.session_state.events.append({
-                "title": f'<img src="{IMG_CAKE}" class="mashimaro-img">',
-                "start": selected_date,
-                "allDay": True
-            })
-            st.rerun()
+        task_name = st.text_input("📝 預定計畫", placeholder="例如：背經", key="task_input")
+        
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button("🧁 預排行程", use_container_width=True):
+                st.session_state.events.append({
+                    "title": f'<img src="{IMG_CAKE}" class="mashimaro-img">',
+                    "start": selected_date,
+                    "allDay": True
+                })
+                st.rerun()
+        
+        with btn_col2:
+            # 新增：刪除/取消事件按鈕
+            if st.button("🧹 清空今日", use_container_width=True, help="刪除所選日期的所有 Mashimaro"):
+                # 過濾掉選取日期的所有事件
+                st.session_state.events = [e for e in st.session_state.events if e['start'] != selected_date]
+                st.toast(f"已清空 {selected_date[:10]} 的所有事件")
+                st.rerun()
 
-    # (下方的筆記存檔按鈕也要記得檢查是否有 rerun)
+    st.divider()
+
+    # --- 下半部：回溯筆記 (完整救回) ---
+    st.markdown("### 📓 Mashimaro 靈修筆記本")
+    
+    col_opt, col_input = st.columns([0.3, 0.7])
+    with col_opt:
+        back_date = st.date_input("🔙 補寫日期", value=dt.datetime.strptime(selected_date[:10], "%Y-%m-%d"))
+        st.write("蓋上足跡後，Mashimaro 會在月曆留下足跡兔兔哦！")
+
+    with col_input:
+        note_val = st.session_state.notes.get(str(back_date), "")
+        note_text = st.text_area("寫下今天的收獲...", value=note_val, height=150, key="note_area")
+
+    if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
+        st.session_state.notes[str(back_date)] = note_text
+        # 加入足跡兔兔圖像
+        st.session_state.events.append({
+            "title": f'<img src="{IMG_PAW}" class="mashimaro-img">',
+            "start": str(back_date),
+            "end": str(back_date),
+            "allDay": True
+        })
+        st.success(f"已儲存 {back_date} 的筆記與足跡！")
+        st.balloons()
+        st.rerun()
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
 # ==========================================
