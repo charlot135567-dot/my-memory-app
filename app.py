@@ -110,6 +110,7 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 📓 筆記內容 (Mashimaro 月曆版)
 # ==========================================
+with tabs[1]:
 # --- 初始化 session_state ---
 if 'events' not in st.session_state:
     st.session_state.events = []
