@@ -110,57 +110,50 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 📓 筆記內容 (Mashimaro 月曆版)
 # ==========================================
+# ==========================================
+# [TAB 2] 📓 靈修筆記 + Mashimaro 月曆 (手機友好 Emoji 版)
+# ==========================================
+
+import streamlit as st
+import datetime as dt
+
 # --- 初始化 session_state ---
 if 'events' not in st.session_state:
     st.session_state.events = []
 if 'notes' not in st.session_state:
     st.session_state.notes = {}
 
-# --- 圖片 URL ---
+# --- 圖片 URL (經文區右側圖片) ---
 REPO_RAW = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
-IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
-IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
 IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-# --- 選擇顯示模式 ---
-DISPLAY_MODE = st.radio("📌 選擇月曆事件顯示方式", ["Emoji 🐾", "原圖 JPG"], index=0)
+# --- 可愛 Emoji 清單 (下拉選單) ---
+EMOJI_LIST = [
+    "🐾", "🐰", "🐶", "🐼",
+    "🧁", "🍩", "🍡", "🍉", "🍒", "🍓", "🥰", "💖", "🌸", "🐾💖", "✨", "🥕",
+    "🌟", "🍀", "🎀", "🎉"
+]
 
-# --- Base64 轉換函數 ---
-def img_to_base64(url):
-    with urlopen(url) as f:
-        return base64.b64encode(f.read()).decode()
-
-if DISPLAY_MODE == "原圖 JPG":
-    IMG_PAW_HTML = f'<img src="data:image/jpeg;base64,{img_to_base64(IMG_PAW)}" style="width:38px;height:38px;border-radius:5px;">'
-    IMG_CAKE_HTML = f'<img src="data:image/jpeg;base64,{img_to_base64(IMG_CAKE)}" style="width:38px;height:38px;border-radius:5px;">'
-else:
-    IMG_PAW_HTML = "🐾"
-    IMG_CAKE_HTML = "🧁"
-
-# --- CSS 調整 ---
-st.markdown(f"""
+# --- CSS 調整月曆格子 Emoji 顯示 ---
+st.markdown("""
 <style>
-    .fc-event-main {{
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        height: 50px !important;
-    }}
-    .fc-event {{
-        background-color: transparent !important;
-        border: none !important;
-    }}
-    .fc-event-main img {{
-        max-width: 100%;
-        max-height: 100%;
-        border-radius: 5px;
-    }}
-    .bible-container {{
-        background: rgba(255,240,245,0.8); 
-        border-radius: 15px; 
-        padding: 25px; 
-        border: 3px solid #FFB6C1;
-    }}
+.fc-event-main {
+    font-size: 28px !important;  /* 調整 Emoji 大小 */
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    height: 50px !important;
+}
+.fc-event {
+    background-color: transparent !important;
+    border: none !important;
+}
+.bible-container {
+    background: rgba(255,240,245,0.8); 
+    border-radius: 15px; 
+    padding: 25px; 
+    border: 3px solid #FFB6C1;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -171,7 +164,7 @@ with col_cal_title:
 with col_btns:
     c1, c2 = st.columns(2)
     with c1:
-        btn_add = st.button("🧁 預排行程", use_container_width=True)
+        btn_add = st.button("➕ 新增 Emoji 足跡", use_container_width=True)
     with c2:
         btn_clear = st.button("🧹 清空今日", use_container_width=True)
 
@@ -182,7 +175,7 @@ with st.expander("展開 / 摺疊月曆視窗", expanded=True):
         "initialView": "dayGridMonth",
         "selectable": True,
     }
-    state = calendar(events=st.session_state.events, options=cal_options, key="mashi_v2")
+    state = calendar(events=st.session_state.events, options=cal_options, key="emoji_calendar")
 
     if state.get("dateClick"):
         selected_date = state["dateClick"]["date"]
@@ -191,10 +184,13 @@ with st.expander("展開 / 摺疊月曆視窗", expanded=True):
 
     st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
 
+# --- 下拉選單選 Emoji ---
+selected_emoji = st.selectbox("選擇想要新增的 Emoji", EMOJI_LIST, index=0)
+
 # --- 按鈕邏輯 ---
 if btn_add:
     st.session_state.events.append({
-        "title": IMG_CAKE_HTML,
+        "title": selected_emoji,
         "start": selected_date,
         "allDay": True
     })
@@ -226,12 +222,12 @@ with col_note_date:
     back_date = st.date_input("🔙 選擇存檔日期", value=dt.datetime.strptime(selected_date[:10], "%Y-%m-%d"))
 with col_note_txt:
     current_note = st.session_state.notes.get(str(back_date), "")
-    note_text = st.text_area("寫下心得與感悟...", value=current_note, height=180, key="mashi_note")
+    note_text = st.text_area("寫下心得與感悟...", value=current_note, height=180, key="emoji_note")
 
 if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
     st.session_state.notes[str(back_date)] = note_text
     st.session_state.events.append({
-        "title": IMG_PAW_HTML,
+        "title": selected_emoji,
         "start": str(back_date),
         "allDay": True
     })
