@@ -118,133 +118,131 @@ with tabs[1]:
     if 'notes' not in st.session_state:
         st.session_state.notes = {}
 
-# --- 圖片 URL (經文區右側圖片) ---
-REPO_RAW = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
-IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
+    # --- 圖片 URL ---
+    REPO_RAW = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
+    IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-# --- 可愛 Emoji 清單 (下拉選單) ---
-EMOJI_LIST = [
-    "🐾", "🐰", "🐶", "🐼",
-    "🧁", "🍩", "🍡", "🍉", "🍒", "🍓", "🥰", "💖", "🌸", "🐾💖", "✨", "🥕",
-    "🌟", "🍀", "🎀", "🎉"
-]
-
-# --- CSS 調整月曆格子 Emoji 顯示 ---
-st.markdown("""
-<style>
-.fc-event-main {
-    font-size: 28px !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    height: 50px !important;
-}
-.fc-event {
-    background-color: transparent !important;
-    border: none !important;
-}
-.bible-container {
-    background: rgba(255,240,245,0.8); 
-    border-radius: 15px; 
-    padding: 25px; 
-    border: 3px solid #FFB6C1;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# --- 月曆標題與按鈕 ---
-col_cal_title, col_btns = st.columns([0.6, 0.4])
-with col_cal_title:
-    st.subheader("📅 靈修足跡月曆")
-with col_btns:
-    c1, c2 = st.columns(2)
-    with c1:
-        btn_add = st.button("➕ 新增 Emoji 足跡", use_container_width=True)
-    with c2:
-        btn_clear = st.button("🧹 清空今日", use_container_width=True)
-
-# --- 月曆選擇 ---
-with st.expander("展開 / 摺疊月曆視窗", expanded=True):
-    cal_options = {
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-        "initialView": "dayGridMonth",
-        "selectable": True,
-    }
-    state = calendar(events=st.session_state.events, options=cal_options, key="emoji_calendar")
-
-    if state.get("dateClick"):
-        selected_date = state["dateClick"]["date"]
-    else:
-        selected_date = str(dt.date.today())
-
-    st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
-
-# ✅【新增】統一日期字串（修 Error 關鍵）
-selected_date_str = selected_date[:10]
-
-# --- 下拉選單選 Emoji ---
-selected_emoji = st.selectbox("選擇想要新增的 Emoji", EMOJI_LIST, index=0)
-
-# --- 按鈕邏輯 ---
-if btn_add:
-    st.session_state.events.append({
-        "title": selected_emoji,
-        "start": selected_date_str,
-        "allDay": True
-    })
-    st.rerun()
-
-# ✅【修正】清空今日（避免型別錯誤）
-if btn_clear:
-    st.session_state.events = [
-        e for e in st.session_state.events
-        if e.get("start", "")[:10] != selected_date_str
+    # --- 可愛 Emoji 清單 ---
+    EMOJI_LIST = [
+        "🐾", "🐰", "🐶", "🐼",
+        "🧁", "🍩", "🍡", "🍉", "🍒", "🍓", "🥰", "💖", "🌸", "🐾💖", "✨", "🥕",
+        "🌟", "🍀", "🎀", "🎉"
     ]
-    st.rerun()
 
-# --- 經文顯示 ---
-st.divider()
-st.markdown(f"""
-<div class="bible-container">
-    <img src="{IMG_HEAD}" width="60" style="float: right;">
-    <h4 style="color:#FF1493; margin-top:0;">📖 每日經文對照</h4>
-    <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">🇹🇼 中文: 要常常喜樂，不住的禱告，凡事謝恩。</p>
-    <hr style="border: 0.5px solid #FFB6C1;">
-    <p style="font-size:17px; color:#444; margin: 10px 0;">🇯🇵 <b>日本語:</b> 常に喜んでいなさい</p>
-    <p style="font-size:17px; color:#444; margin: 10px 0;">🇰🇷 <b>한국어:</b> 항상 기뻐하라</p>
-    <p style="font-size:17px; color:#444; margin: 10px 0;">🇹🇭 <b>ภาษาไทย:</b> จงชื่นชมยินดีอยู่เสมอ</p>
-</div>
-""", unsafe_allow_html=True)
+    # --- CSS 調整月曆格子 Emoji 顯示 ---
+    st.markdown("""
+    <style>
+    .fc-event-main {
+        font-size: 28px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        height: 50px !important;
+    }
+    .fc-event {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    .bible-container {
+        background: rgba(255,240,245,0.8); 
+        border-radius: 15px; 
+        padding: 25px; 
+        border: 3px solid #FFB6C1;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- 筆記本與存檔 ---
-st.divider()
-st.markdown("### 📓 靈修筆記本")
-col_note_date, col_note_txt = st.columns([0.3, 0.7])
-with col_note_date:
-    back_date = st.date_input(
-        "🔙 選擇存檔日期",
-        value=dt.datetime.strptime(selected_date_str, "%Y-%m-%d")
-    )
-with col_note_txt:
-    current_note = st.session_state.notes.get(str(back_date), "")
-    note_text = st.text_area(
-        "寫下心得與感悟...",
-        value=current_note,
-        height=180,
-        key="emoji_note"
-    )
+    # --- 月曆標題與按鈕 ---
+    col_cal_title, col_btns = st.columns([0.6, 0.4])
+    with col_cal_title:
+        st.subheader("📅 靈修足跡月曆")
+    with col_btns:
+        c1, c2 = st.columns(2)
+        with c1:
+            btn_add = st.button("➕ 新增 Emoji 足跡", use_container_width=True)
+        with c2:
+            btn_clear = st.button("🧹 清空今日", use_container_width=True)
 
-if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
-    st.session_state.notes[str(back_date)] = note_text
-    st.session_state.events.append({
-        "title": selected_emoji,
-        "start": str(back_date),
-        "allDay": True
-    })
-    st.success(f"已記錄足跡至 {back_date}！")
-    st.balloons()
-    st.rerun()
+    # --- 月曆選擇 ---
+    with st.expander("展開 / 摺疊月曆視窗", expanded=True):
+        cal_options = {
+            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+            "initialView": "dayGridMonth",
+            "selectable": True,
+        }
+        state = calendar(events=st.session_state.events, options=cal_options, key="emoji_calendar")
 
+        if state.get("dateClick"):
+            selected_date = state["dateClick"]["date"]
+        else:
+            selected_date = str(dt.date.today())
+
+        st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
+
+    # ✅ 統一日期字串
+    selected_date_str = selected_date[:10]
+
+    # --- 下拉選單選 Emoji ---
+    selected_emoji = st.selectbox("選擇想要新增的 Emoji", EMOJI_LIST, index=0)
+
+    # --- 按鈕邏輯 ---
+    if btn_add:
+        st.session_state.events.append({
+            "title": selected_emoji,
+            "start": selected_date_str,
+            "allDay": True
+        })
+        st.rerun()
+
+    if btn_clear:
+        st.session_state.events = [
+            e for e in st.session_state.events
+            if e.get("start", "")[:10] != selected_date_str
+        ]
+        st.rerun()
+
+    # --- 經文顯示 ---
+    st.divider()
+    st.markdown(f"""
+    <div class="bible-container">
+        <img src="{IMG_HEAD}" width="60" style="float: right;">
+        <h4 style="color:#FF1493; margin-top:0;">📖 每日經文</h4>
+        <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">🇹🇼</p>
+        <hr style="border: 0.5px solid #FFB6C1;">
+        <p style="font-size:17px; color:#444; margin: 10px 0;">🇯🇵 常に喜んでいなさい</p>
+        <p style="font-size:17px; color:#444; margin: 10px 0;">🇰🇷 항상 기뻐하라</p>
+        <p style="font-size:17px; color:#444; margin: 10px 0;">🇹🇭 จงชื่นชมยินดีอยู่เสมอ</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # --- 筆記本與存檔 ---
+    st.divider()
+    st.markdown("### 筆記")
+    col_note_date, col_note_txt = st.columns([0.3, 0.7])
+    with col_note_date:
+        back_date = st.date_input(
+            "選擇存檔日期",
+            value=dt.datetime.strptime(selected_date_str, "%Y-%m-%d")
+        )
+    with col_note_txt:
+        current_note = st.session_state.notes.get(str(back_date), "")
+        note_text = st.text_area(
+            "寫下心得與感悟...",
+            value=current_note,
+            height=180,
+            key="emoji_note"
+        )
+
+    if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
+        st.session_state.notes[str(back_date)] = note_text
+        st.session_state.events.append({
+            "title": selected_emoji,
+            "start": str(back_date),
+            "allDay": True
+        })
+        st.success(f"已記錄足跡至 {back_date}！")
+        st.balloons()
+        st.rerun()
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
 # ==========================================
