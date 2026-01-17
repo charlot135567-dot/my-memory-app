@@ -167,7 +167,7 @@ with tabs[1]:
             "eventContent": { "html": True } 
         }
         
-        state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_final_cal")
+        state = calendar(events=st.session_state.events, options=cal_options, key="mashi_v2")
         
         if state.get("dateClick"):
             selected_date = state["dateClick"]["date"]
