@@ -6,7 +6,6 @@ from datetime import datetime, time
 from PIL import Image
 from io import BytesIO
 from streamlit_calendar import calendar
-from st_aggrid import GridOptionsBuilder, AgGrid  # 假設你使用 streamlit-calendar 封裝
 
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (徹底消除空白暴力版)
