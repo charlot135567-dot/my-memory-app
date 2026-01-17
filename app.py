@@ -8,6 +8,7 @@ from io import BytesIO
 from streamlit_calendar import calendar
 import base64
 from urllib.request import urlopen
+
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (徹底消除空白暴力版)
 # ==========================================
@@ -112,10 +113,6 @@ with tabs[0]:
 # [區塊 4] TAB 2: 📓 筆記 + Mashimaro 月曆 (手機友好 Emoji 版)
 # ==========================================
 with tabs[1]:
-
-    import streamlit as st
-    import datetime as dt
-    from streamlit_calendar import calendar
 
     # --- 初始化 session_state ---
     if 'events' not in st.session_state:
