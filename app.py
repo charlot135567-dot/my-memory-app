@@ -6,7 +6,8 @@ from datetime import datetime, time
 from PIL import Image
 from io import BytesIO
 from streamlit_calendar import calendar
-
+import base64
+from urllib.request import urlopen
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (徹底消除空白暴力版)
 # ==========================================
@@ -121,14 +122,29 @@ IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
 IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
 IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-# --- CSS: 調整月曆格子與事件圖片 ---
+# --- 選擇顯示模式 ---
+DISPLAY_MODE = st.radio("📌 選擇月曆事件顯示方式", ["Emoji 🐾", "原圖 JPG"], index=0)
+
+# --- Base64 轉換函數 ---
+def img_to_base64(url):
+    with urlopen(url) as f:
+        return base64.b64encode(f.read()).decode()
+
+if DISPLAY_MODE == "原圖 JPG":
+    IMG_PAW_HTML = f'<img src="data:image/jpeg;base64,{img_to_base64(IMG_PAW)}" style="width:38px;height:38px;border-radius:5px;">'
+    IMG_CAKE_HTML = f'<img src="data:image/jpeg;base64,{img_to_base64(IMG_CAKE)}" style="width:38px;height:38px;border-radius:5px;">'
+else:
+    IMG_PAW_HTML = "🐾"
+    IMG_CAKE_HTML = "🧁"
+
+# --- CSS 調整 ---
 st.markdown(f"""
 <style>
     .fc-event-main {{
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        height: 50px !important;  /* 增加格子高度 */
+        height: 50px !important;
     }}
     .fc-event {{
         background-color: transparent !important;
@@ -139,7 +155,6 @@ st.markdown(f"""
         max-height: 100%;
         border-radius: 5px;
     }}
-    /* 經文框美化 */
     .bible-container {{
         background: rgba(255,240,245,0.8); 
         border-radius: 15px; 
@@ -149,91 +164,80 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-with tabs[1]:
-    # --- 上方：月曆標題與按鈕 ---
-    col_cal_title, col_btns = st.columns([0.6, 0.4])
-    
-    with col_cal_title:
-        st.subheader("📅 靈修足跡月曆")
-        
-    with col_btns:
-        c1, c2 = st.columns(2)
-        with c1:
-            btn_add = st.button("🧁 預排行程", use_container_width=True)
-        with c2:
-            btn_clear = st.button("🧹 清空今日", use_container_width=True)
+# --- 月曆標題與按鈕 ---
+col_cal_title, col_btns = st.columns([0.6, 0.4])
+with col_cal_title:
+    st.subheader("📅 靈修足跡月曆")
+with col_btns:
+    c1, c2 = st.columns(2)
+    with c1:
+        btn_add = st.button("🧁 預排行程", use_container_width=True)
+    with c2:
+        btn_clear = st.button("🧹 清空今日", use_container_width=True)
 
-    # --- 月曆顯示 ---
-    with st.expander("展開 / 摺疊月曆視窗", expanded=True):
-        cal_options = {
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-            "initialView": "dayGridMonth",
-            "selectable": True,
-            "height": 450,
-            "eventContent": "function(arg) { return { html: arg.event.title }; }"
-        }
-        
-        # 呼叫自訂 calendar 函數 (假設已封裝)
-        state = calendar(events=st.session_state.events, options=cal_options, key="mashi_v2")
-        
-        if state.get("dateClick"):
-            selected_date = state["dateClick"]["date"]
-        else:
-            selected_date = str(dt.date.today())
-            
-        st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
+# --- 月曆選擇 ---
+with st.expander("展開 / 摺疊月曆視窗", expanded=True):
+    cal_options = {
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+        "initialView": "dayGridMonth",
+        "selectable": True,
+    }
+    state = calendar(events=st.session_state.events, options=cal_options, key="mashi_v2")
 
-    # --- 月曆按鈕邏輯 ---
-    if btn_add:
-        st.session_state.events.append({
-            "title": f'<img src="{IMG_CAKE}" style="width:38px; height:38px; border-radius:5px;">',
-            "start": selected_date,
-            "allDay": True
-        })
-        st.rerun()
-        
-    if btn_clear:
-        st.session_state.events = [e for e in st.session_state.events if e['start'] != selected_date]
-        st.rerun()
+    if state.get("dateClick"):
+        selected_date = state["dateClick"]["date"]
+    else:
+        selected_date = str(dt.date.today())
 
-    st.divider()
+    st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
 
-    # --- 經文顯示 ---
-    st.markdown(f"""
-        <div class="bible-container">
-            <img src="{IMG_HEAD}" width="60" style="float: right;">
-            <h4 style="color:#FF1493; margin-top:0;">📖 每日經文對照</h4>
-            <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">🇹🇼 中文: 要常常喜樂，不住的禱告，凡事謝恩。</p>
-            <hr style="border: 0.5px solid #FFB6C1;">
-            <p style="font-size:17px; color:#444; margin: 10px 0;">🇯🇵 <b>日本語:</b> 常に喜んでいなさい</p>
-            <p style="font-size:17px; color:#444; margin: 10px 0;">🇰🇷 <b>한국어:</b> 항상 기뻐하라</p>
-            <p style="font-size:17px; color:#444; margin: 10px 0;">🇹🇭 <b>ภาษาไทย:</b> จงชื่นชมยินดีอยู่เสมอ</p>
-        </div>
-    """, unsafe_allow_html=True)
+# --- 按鈕邏輯 ---
+if btn_add:
+    st.session_state.events.append({
+        "title": IMG_CAKE_HTML,
+        "start": selected_date,
+        "allDay": True
+    })
+    st.rerun()
 
-    st.divider()
+if btn_clear:
+    st.session_state.events = [e for e in st.session_state.events if e['start'] != selected_date]
+    st.rerun()
 
-    # --- 筆記本與存檔 ---
-    st.markdown("### 📓 靈修筆記本")
-    
-    col_note_date, col_note_txt = st.columns([0.3, 0.7])
-    with col_note_date:
-        back_date = st.date_input("🔙 選擇存檔日期", value=dt.datetime.strptime(selected_date[:10], "%Y-%m-%d"))
+# --- 經文顯示 ---
+st.divider()
+st.markdown(f"""
+<div class="bible-container">
+    <img src="{IMG_HEAD}" width="60" style="float: right;">
+    <h4 style="color:#FF1493; margin-top:0;">📖 每日經文對照</h4>
+    <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">🇹🇼 中文: 要常常喜樂，不住的禱告，凡事謝恩。</p>
+    <hr style="border: 0.5px solid #FFB6C1;">
+    <p style="font-size:17px; color:#444; margin: 10px 0;">🇯🇵 <b>日本語:</b> 常に喜んでいなさい</p>
+    <p style="font-size:17px; color:#444; margin: 10px 0;">🇰🇷 <b>한국어:</b> 항상 기뻐하라</p>
+    <p style="font-size:17px; color:#444; margin: 10px 0;">🇹🇭 <b>ภาษาไทย:</b> จงชื่นชมยินดีอยู่เสมอ</p>
+</div>
+""", unsafe_allow_html=True)
 
-    with col_note_txt:
-        current_note = st.session_state.notes.get(str(back_date), "")
-        note_text = st.text_area("寫下心得與感悟...", value=current_note, height=180, key="mashi_note")
+# --- 筆記本與存檔 ---
+st.divider()
+st.markdown("### 📓 靈修筆記本")
+col_note_date, col_note_txt = st.columns([0.3, 0.7])
+with col_note_date:
+    back_date = st.date_input("🔙 選擇存檔日期", value=dt.datetime.strptime(selected_date[:10], "%Y-%m-%d"))
+with col_note_txt:
+    current_note = st.session_state.notes.get(str(back_date), "")
+    note_text = st.text_area("寫下心得與感悟...", value=current_note, height=180, key="mashi_note")
 
-    if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
-        st.session_state.notes[str(back_date)] = note_text
-        st.session_state.events.append({
-            "title": f'<img src="{IMG_PAW}" style="width:38px; height:38px; border-radius:5px;">',
-            "start": str(back_date),
-            "allDay": True
-        })
-        st.success(f"已記錄足跡至 {back_date}！")
-        st.balloons()
-        st.rerun()
+if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
+    st.session_state.notes[str(back_date)] = note_text
+    st.session_state.events.append({
+        "title": IMG_PAW_HTML,
+        "start": str(back_date),
+        "allDay": True
+    })
+    st.success(f"已記錄足跡至 {back_date}！")
+    st.balloons()
+    st.rerun()
 
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
