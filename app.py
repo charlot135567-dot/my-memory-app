@@ -174,7 +174,7 @@ with tabs[1]:
     st.markdown(f"""
         <div style="background: rgba(255,240,245,0.8); border-radius: 15px; padding: 25px; border: 3px solid #FFB6C1;">
             <img src="{IMG_HEAD}" width="60" style="float: right;">
-            <h4 style="color:#FF1493; margin-top:0;">📖 今日靈修經文對照</h4>
+            <h4 style="color:#FF1493; margin-top:0;">📖</h4>
             <p style="font-size:16px; color:#444; margin: 8px 0;"><b>日語:</b> 常に喜んでいなさい</p>
             <p style="font-size:16px; color:#444; margin: 8px 0;"><b>韓語:</b> 항상 기뻐하라</p>
             <p style="font-size:16px; color:#444; margin: 8px 0;"><b>泰語:</b> จงชื่นชมยินดีอยู่เสมอ</p>
@@ -186,7 +186,7 @@ with tabs[1]:
     st.divider()
 
     # --- 第三層：靈修筆記與存檔 ---
-    st.markdown("### 📓 Mashimaro 靈修筆記本")
+    st.markdown("### 📓 靈修筆記本")
     
     col_note_date, col_note_txt = st.columns([0.3, 0.7])
     with col_note_date:
