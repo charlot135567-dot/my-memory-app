@@ -6,6 +6,8 @@ from datetime import datetime, time
 from PIL import Image
 from io import BytesIO
 from streamlit_calendar import calendar
+from st_aggrid import GridOptionsBuilder, AgGrid  # 假設你使用 streamlit-calendar 封裝
+
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (徹底消除空白暴力版)
 # ==========================================
@@ -106,35 +108,39 @@ with tabs[0]:
             **Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
         """, unsafe_allow_html=True)
 # ==========================================
-# [區塊 4] TAB 2: 📓 筆記內容 (圖像顯示終極救援版)
+# [區塊 4] TAB 2: 📓 筆記內容 (Mashimaro 月曆版)
 # ==========================================
-
-# --- 1. 初始化與圖片路徑 ---
+# --- 初始化 session_state ---
 if 'events' not in st.session_state:
     st.session_state.events = []
 if 'notes' not in st.session_state:
     st.session_state.notes = {}
 
+# --- 圖片 URL ---
 REPO_RAW = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
 IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
 IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
 IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
-# --- [關鍵] 強化 CSS：使用背景圖強迫顯示，並加入國旗美化 ---
+# --- CSS: 調整月曆格子與事件圖片 ---
 st.markdown(f"""
 <style>
-    /* 強制月曆事件容器顯示圖片 */
     .fc-event-main {{
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        height: 40px !important;
+        height: 50px !important;  /* 增加格子高度 */
     }}
     .fc-event {{
         background-color: transparent !important;
         border: none !important;
     }}
-    /* 讓文字經文框更美觀 */
+    .fc-event-main img {{
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 5px;
+    }}
+    /* 經文框美化 */
     .bible-container {{
         background: rgba(255,240,245,0.8); 
         border-radius: 15px; 
@@ -145,7 +151,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 with tabs[1]:
-    # --- 第一層：功能鍵與月曆 ---
+    # --- 上方：月曆標題與按鈕 ---
     col_cal_title, col_btns = st.columns([0.6, 0.4])
     
     with col_cal_title:
@@ -158,15 +164,17 @@ with tabs[1]:
         with c2:
             btn_clear = st.button("🧹 清空今日", use_container_width=True)
 
+    # --- 月曆顯示 ---
     with st.expander("展開 / 摺疊月曆視窗", expanded=True):
         cal_options = {
             "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
             "initialView": "dayGridMonth",
             "selectable": True,
             "height": 450,
-            "eventContent": { "html": True } 
+            "eventContent": "function(arg) { return { html: arg.event.title }; }"
         }
         
+        # 呼叫自訂 calendar 函數 (假設已封裝)
         state = calendar(events=st.session_state.events, options=cal_options, key="mashi_v2")
         
         if state.get("dateClick"):
@@ -176,7 +184,7 @@ with tabs[1]:
             
         st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
 
-    # 按鈕邏輯：直接將 <img> 標籤嵌入 title
+    # --- 月曆按鈕邏輯 ---
     if btn_add:
         st.session_state.events.append({
             "title": f'<img src="{IMG_CAKE}" style="width:38px; height:38px; border-radius:5px;">',
@@ -191,7 +199,7 @@ with tabs[1]:
 
     st.divider()
 
-    # --- 第二層：經文對照 (補上各國國旗與繁體中文國旗) ---
+    # --- 經文顯示 ---
     st.markdown(f"""
         <div class="bible-container">
             <img src="{IMG_HEAD}" width="60" style="float: right;">
@@ -206,7 +214,7 @@ with tabs[1]:
 
     st.divider()
 
-    # --- 第三層：靈修筆記與存檔 ---
+    # --- 筆記本與存檔 ---
     st.markdown("### 📓 靈修筆記本")
     
     col_note_date, col_note_txt = st.columns([0.3, 0.7])
@@ -214,7 +222,6 @@ with tabs[1]:
         back_date = st.date_input("🔙 選擇存檔日期", value=dt.datetime.strptime(selected_date[:10], "%Y-%m-%d"))
 
     with col_note_txt:
-        # 自動抓取已存筆記
         current_note = st.session_state.notes.get(str(back_date), "")
         note_text = st.text_area("寫下心得與感悟...", value=current_note, height=180, key="mashi_note")
 
@@ -228,6 +235,7 @@ with tabs[1]:
         st.success(f"已記錄足跡至 {back_date}！")
         st.balloons()
         st.rerun()
+
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
 # ==========================================
