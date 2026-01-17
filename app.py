@@ -176,9 +176,9 @@ with tabs[1]:
             <img src="{IMG_HEAD}" width="60" style="float: right;">
             <h4 style="color:#FF1493; margin-top:0;">📖經文</h4>
             <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
-            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>日語:</b> 常に喜んでいなさい</p>
-            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>韓語:</b> 항상 기뻐하라</p>
-            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>泰語:</b> จงชื่นชมยินดีอยู่เสมอ</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>:</b> 常に喜んでいなさい</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>:</b> 항상 기뻐하라</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>:</b> จงชื่นชมยินดีอยู่เสมอ</p>
             <hr style="border: 0.5px solid #FFB6C1;">
         </div>
     """, unsafe_allow_html=True)
