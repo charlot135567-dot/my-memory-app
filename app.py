@@ -174,7 +174,7 @@ with tabs[1]:
     st.markdown(f"""
         <div style="background: rgba(255,240,245,0.8); border-radius: 15px; padding: 25px; border: 3px solid #FFB6C1;">
             <img src="{IMG_HEAD}" width="60" style="float: right;">
-            <h4 style="color:#FF1493; margin-top:0;">經文</h4>
+            <h4 style="color:#FF1493; margin-top:0;">📖經文</h4>
             <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
             <p style="font-size:16px; color:#444; margin: 8px 0;"><b>日語:</b> 常に喜んでいなさい</p>
             <p style="font-size:16px; color:#444; margin: 8px 0;"><b>韓語:</b> 항상 기뻐하라</p>
