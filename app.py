@@ -106,7 +106,7 @@ with tabs[0]:
             **Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>
         """, unsafe_allow_html=True)
 # ==========================================
-# [區塊 4] TAB 2: 📓 筆記內容 (上下結構優化版)
+# [區塊 4] TAB 2: 📓 筆記內容 (上下結構 + Emoji 貼紙化優化版)
 # ==========================================
 
 # --- 1. 初始化與圖片路徑 (保持 JPG) ---
@@ -120,6 +120,23 @@ IMG_PAW  = f"{REPO_RAW}Mashimaro5.jpg"
 IMG_CAKE = f"{REPO_RAW}Mashimaro2.jpg"
 IMG_HEAD = f"{REPO_RAW}Mashimaro1.jpg"
 
+# --- [新增] CSS 貼紙化邏輯：讓圖片像 Emoji 一樣對齊 ---
+st.markdown(f"""
+<style>
+    .mashi-emoji {{
+        width: 38px !important; 
+        height: 38px !important;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto; /* 強制置中 */
+    }}
+    .fc-event {{
+        background-color: transparent !important;
+        border: none !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
 with tabs[1]:
     # --- 第一層：功能鍵與月曆 (橫向拉滿) ---
     col_cal_title, col_btns = st.columns([0.6, 0.4])
@@ -128,7 +145,6 @@ with tabs[1]:
         st.subheader("📅 靈修足跡月曆")
         
     with col_btns:
-        # 功能鍵直接放在月曆標題旁邊，方便操作
         c1, c2 = st.columns(2)
         with c1:
             btn_add = st.button("🧁 預排行程", use_container_width=True)
@@ -141,12 +157,11 @@ with tabs[1]:
             "initialView": "dayGridMonth",
             "selectable": True,
             "height": 450,
-            "eventContent": { "html": True } 
+            "eventContent": { "html": True } # 確保渲染 HTML 圖片
         }
         
         state = calendar(events=st.session_state.events, options=cal_options, key="mashimaro_full_cal")
         
-        # 獲取點擊日期
         if state.get("dateClick"):
             selected_date = state["dateClick"]["date"]
         else:
@@ -154,10 +169,10 @@ with tabs[1]:
             
         st.write(f"📍 目前選取日期：**{selected_date[:10]}**")
 
-    # 執行按鈕邏輯
+    # 執行按鈕邏輯 (修改 title 為 CSS 類名模式)
     if btn_add:
         st.session_state.events.append({
-            "title": f'<img src="{IMG_CAKE}" style="width:45px; margin:auto; display:block;">',
+            "title": f'<img src="{IMG_CAKE}" class="mashi-emoji">',
             "start": selected_date,
             "allDay": True
         })
@@ -176,9 +191,9 @@ with tabs[1]:
             <img src="{IMG_HEAD}" width="60" style="float: right;">
             <h4 style="color:#FF1493; margin-top:0;">📖經文</h4>
             <p style="font-size:20px; font-weight:bold; color:#000; line-height:1.6;">中: 要常常喜樂，不住的禱告，凡事謝恩。</p>
-            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>:</b> 常に喜んでいなさい</p>
-            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>:</b> 항상 기뻐하라</p>
-            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>:</b> จงชื่นชมยินดีอยู่เสมอ</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>日:</b> 常に喜んでいなさい</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>韓:</b> 항상 기뻐하라</p>
+            <p style="font-size:16px; color:#444; margin: 8px 0;"><b>泰:</b> จงชื่นชมยินดีอยู่เสมอ</p>
             <hr style="border: 0.5px solid #FFB6C1;">
         </div>
     """, unsafe_allow_html=True)
@@ -194,12 +209,14 @@ with tabs[1]:
         st.write("點擊下方按鈕即可在月曆留下足跡圖案！")
 
     with col_note_txt:
-        note_text = st.text_area("寫下心得與感悟...", height=180, key="mashi_note")
+        note_text = st.session_state.notes.get(str(back_date), "")
+        note_text = st.text_area("寫下心得與感悟...", value=note_text, height=180, key="mashi_note")
 
     if st.button("💾 儲存筆記並蓋上足跡 🐾", use_container_width=True):
         st.session_state.notes[str(back_date)] = note_text
+        # 修改 title 為 CSS 類名模式
         st.session_state.events.append({
-            "title": f'<img src="{IMG_PAW}" style="width:45px; margin:auto; display:block;">',
+            "title": f'<img src="{IMG_PAW}" class="mashi-emoji">',
             "start": str(back_date),
             "allDay": True
         })
