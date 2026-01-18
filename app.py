@@ -94,87 +94,125 @@ with tabs[1]:
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
 
-    # 1. 靈修工具箱 🧰 (重新設計佈局：今日提醒, 腳印, Emoji 同一行)
+    # 1. 靈修工具箱 🧰
     with st.expander("🛠️ 靈修工具箱 (提醒與 Emoji 管理)", expanded=True):
-        # 第一行：今日提醒標籤, 腳印選擇, +/- Emoji 欄位
         row1_col1, row1_col2, row1_col3 = st.columns([0.3, 0.25, 0.45])
         
         with row1_col1:
             st.markdown("#### 今日提醒 🔔")
         
         with row1_col2:
-            # 選擇足跡 (使用 session 裡的 custom_emojis)
-            selected_emoji = st.selectbox("🐾 足跡", st.session_state.custom_emojis, 
-                                        index=0, label_visibility="collapsed")
+            # 選擇足跡 Emoji
+            selected_emoji = st.selectbox(
+                "🐾 足跡",
+                st.session_state.custom_emojis,
+                index=0,
+                label_visibility="collapsed"
+            )
         
         with row1_col3:
-            # 實際執行的 +/- Emoji
-            new_emo_action = st.text_input("➕/➖ Emoji", placeholder="輸入以新增/刪除...", label_visibility="collapsed")
-            if new_emo_action:
-                if new_emo_action in st.session_state.custom_emojis:
-                    st.session_state.custom_emojis.remove(new_emo_action)
-                else:
-                    st.session_state.custom_emojis.append(new_emo_action)
-                st.rerun()
+            # ★修改 ①：手機可點選「是否使用 Emoji」
+            emoji_mode = st.selectbox(
+                "",
+                ["🐾 使用 Emoji", "🚫 不使用 Emoji"],
+                label_visibility="collapsed"
+            )
 
-        # 第二行：待辦事項📋 (佔用下面全部空間)
+        # 第二行：待辦事項
         current_todo = st.session_state.todo.get(st.session_state.sel_date, "")
-        new_todo = st.text_area("📋 待辦事項清單 (自動存檔)", value=current_todo, height=120)
+        new_todo = st.text_area(
+            "📋 待辦事項清單 (自動存檔)",
+            value=current_todo,
+            height=120
+        )
         
         if new_todo != current_todo:
             st.session_state.todo[st.session_state.sel_date] = new_todo
-            # 自動連動足跡邏輯
+
+            # ★修改 ②：真正套用 emoji_mode
             if new_todo.strip():
-                if not any(e['start'] == st.session_state.sel_date for e in st.session_state.events):
-                    st.session_state.events.append({"title": selected_emoji, "start": st.session_state.sel_date})
+                if not any(e["start"] == st.session_state.sel_date for e in st.session_state.events):
+                    event_title = selected_emoji if emoji_mode == "🐾 使用 Emoji" else ""
+                    st.session_state.events.append({
+                        "title": event_title,
+                        "start": st.session_state.sel_date,
+                        "allDay": True
+                    })
             st.rerun()
 
-    # 2. 月曆視窗 (修正為全月顯示)
+    # 2. 月曆視窗（全月）
     with st.expander("📅 檢視靈修月曆", expanded=False):
         cal_options = {
-            "initialView": "dayGridMonth",  # 強制全月視圖
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,timeGridWeek"},
+            "initialView": "dayGridMonth",
+            "headerToolbar": {
+                "left": "prev,next today",
+                "center": "title",
+                "right": "dayGridMonth,timeGridWeek"
+            },
             "selectable": True,
         }
-        state = calendar(events=st.session_state.events, options=cal_options, key="bible_cal_v4")
+        state = calendar(
+            events=st.session_state.events,
+            options=cal_options,
+            key="bible_cal_v4"
+        )
         
-        # 點擊日期後更新
         if state.get("dateClick"):
             clicked_date = state["dateClick"]["date"][:10]
             if clicked_date != st.session_state.sel_date:
                 st.session_state.sel_date = clicked_date
                 st.rerun()
 
-    # 3. 三語經文恢復
+    # 3. 經文區（不放大、只留國旗＋經文）
     st.markdown(f"""
-    <div style="display: flex; background: #FFF0F5; border-radius: 15px; padding: 15px; align-items: center; margin-top: 10px; border-left: 5px solid #FF1493;">
-        <div style="flex: 2;">
-            <h4 style="color:#FF1493; margin:0;">ข้อพระคัมภีร์ประจำวันนี้</h4>
-            <p style="font-size:16px; margin:5px 0;"><b>🇨🇳 應當常歡喜，不已禱告，凡事謝恩。</b></p>
-            <p style="font-size:14px; color:#666;">🇯🇵 常に喜んでいなさい | 🇰🇷 항상 기뻐하라 | 🇹🇭 จงชื่นชมยินดีอยู่เสมอ</p>
+    <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
+        <div style="flex:2;">
+            <p style="margin:4px 0;">🇨🇳 應當常常喜樂，不住地禱告，凡事謝恩。</p>
+            <p style="margin:4px 0; color:#666;">
+                🇯🇵 常に喜んでいなさい ｜ 🇰🇷 항상 기뻐하라 ｜ 🇹🇭 <span style="font-size:18px;">จงชื่นชมยินดีอยู่เสมอ</span>
+            </p>
         </div>
-        <div style="flex: 1; text-align: right;"><img src="{IMG_URLS['M1']}" width="80"></div>
+        <div style="flex:1; text-align:right;">
+            <img src="{IMG_URLS['M1']}" width="80">
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 4. 筆記區：搜尋、日期、存檔拉平
+    # 4. 筆記區
     st.divider()
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([0.2, 0.3, 0.5])
+
     with ctrl_col1:
         btn_save = st.button("💾 存檔", key="save_note_tab2")
+
     with ctrl_col2:
-        # 使用 strptime 確保日期格式正確
         default_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d")
-        b_date = st.date_input("日期", value=default_date, label_visibility="collapsed", key="date_picker_tab2")
+        b_date = st.date_input(
+            "日期",
+            value=default_date,
+            label_visibility="collapsed",
+            key="date_picker_tab2"
+        )
+
     with ctrl_col3:
-        search_q = st.text_input("🔍 搜尋", placeholder="關鍵字...", label_visibility="collapsed", key="search_tab2")
+        search_q = st.text_input(
+            "🔍 搜尋",
+            placeholder="關鍵字...",
+            label_visibility="collapsed",
+            key="search_tab2"
+        )
 
     note_val = st.session_state.notes.get(str(b_date), "")
-    note_text = st.text_area("心得感悟", value=note_val, height=250, key="note_area_tab2")
+    note_text = st.text_area(
+        "",
+        value=note_val,
+        height=250,
+        placeholder="寫下心得與感悟...",
+        key="note_area_tab2"
+    )
 
     if btn_save:
         st.session_state.notes[str(b_date)] = note_text
-        st.snow()
         st.toast("🐾 腳印已留下！")
 
 # ==========================================
