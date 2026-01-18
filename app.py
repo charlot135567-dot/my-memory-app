@@ -58,6 +58,7 @@ tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"]
 # [區塊 3] TAB 1: 書桌主畫面內容 (修復渲染整合版)
 # ==========================================
 with tabs[0]:
+    # 建立兩欄：左邊放經文，右邊放圖片與框
     col_content, col_m1 = st.columns([0.65, 0.35])
     
     with col_content:
@@ -68,6 +69,28 @@ with tabs[0]:
             🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
             🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
             """, icon="📖")
+
+    with col_m1:
+        # 使用 Flex 佈局強制讓 Mashimaro 在上，框框在下且底部對齊
+        st.markdown(f"""
+            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 250px; text-align: center;">
+                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+                    <img src="{IMG_URLS['M1']}" style="width: 200px; margin-bottom: 10px;">
+                </div>
+                <div class="grammar-box-container" style="margin-top: auto;">
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
+                    <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
+                        <li>Fine speech (優美言辭)</li>
+                        <li>Becoming to (相稱)</li>
+                        <li>Still less (何況)</li>
+                        <li>False speech (虛假言辭)</li>
+                    </ul>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
 
     with col_m1:
         # 修正重點：圖片往上拉 (margin-bottom 負值)，框框往下拉 (margin-top 正值)
