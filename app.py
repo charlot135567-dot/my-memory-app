@@ -145,10 +145,10 @@ with tabs[2]:
         st.write("題目 1: 愚頑人說美言本不相稱...")
         st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
     with col_deco:
-        st.image(IMG_URLS["B"], width=150, caption="Keep Going!")
+        st.image(IMG_URLS["M1"], width=150, caption="Keep Going!")
 
 with tabs[3]:
-    st.subheader("🔗 聖經與 AI 資源")
+    st.subheader("🔗 聖經與AI 資源")
     cl1, cl2, cl3, cl4 = st.columns(4)
     cl1.link_button("ChatGPT", "https://chat.openai.com/")
     cl2.link_button("Google AI", "https://gemini.google.com/")
