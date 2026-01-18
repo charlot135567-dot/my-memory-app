@@ -71,13 +71,15 @@ with tabs[0]:
             """, icon="📖")
 
     with col_m1:
-        # 使用 Flex 佈局強制讓 Mashimaro 在上，框框在下且底部對齊
+        # 修復對齊核心：使用一個滿高的 Flex 容器，並設定內容靠底對齊 (flex-end)
         st.markdown(f"""
-            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 250px; text-align: center;">
-                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
-                    <img src="{IMG_URLS['M1']}" style="width: 200px; margin-bottom: 10px;">
+            <div style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%; min-height: 380px; text-align: center;">
+                
+                <div style="margin-bottom: -15px;">
+                    <img src="{IMG_URLS['M1']}" style="width: 200px; display: block; margin: 0 auto; position: relative; z-index: 15;">
                 </div>
-                <div class="grammar-box-container" style="margin-top: auto;">
+                
+                <div class="grammar-box-container" style="position: relative; z-index: 10;">
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
                     <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
@@ -89,8 +91,6 @@ with tabs[0]:
                 </div>
             </div>
         """, unsafe_allow_html=True)
-
-    st.divider()
 
     st.divider()
     st.markdown("### ✍️ 文法運用例句")
