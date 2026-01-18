@@ -71,15 +71,12 @@ with tabs[0]:
             """, icon="📖")
 
     with col_m1:
-        # 修復對齊核心：使用一個滿高的 Flex 容器，並設定內容靠底對齊 (flex-end)
+        # 修正重點：圖片往上拉 (margin-bottom 負值)，框框往下拉 (margin-top 正值)
         st.markdown(f"""
-            <div style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%; min-height: 380px; text-align: center;">
+            <div style="text-align: center; width: 100%;">
+                <img src="{IMG_URLS['M1']}" style="width: 210px; display: block; margin: 0 auto -45px auto; position: relative; z-index: 15;">
                 
-                <div style="margin-bottom: -15px;">
-                    <img src="{IMG_URLS['M1']}" style="width: 200px; display: block; margin: 0 auto; position: relative; z-index: 15;">
-                </div>
-                
-                <div class="grammar-box-container" style="position: relative; z-index: 10;">
+                <div class="grammar-box-container" style="margin-top: 55px; position: relative; z-index: 10;">
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
                     <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
