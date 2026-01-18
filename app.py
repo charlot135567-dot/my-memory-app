@@ -1,6 +1,9 @@
-import streamlit as st
-import datetime as dt
-from streamlit_calendar import calendar
+try:
+    from streamlit_calendar import calendar
+    CALENDAR_OK = True
+except ModuleNotFoundError:
+    CALENDAR_OK = False
+    calendar = None
 
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS (完全保留原稿)
