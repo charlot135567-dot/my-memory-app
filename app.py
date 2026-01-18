@@ -42,6 +42,7 @@ IMG_URLS = {
     "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
     "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
+
 # ==========================================
 # [區塊 2] 側邊欄 (Sidebar) 與 Tabs 定義
 # ==========================================
@@ -52,6 +53,7 @@ with st.sidebar:
     st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+
 # ==========================================
 # [區塊 3] TAB 1: 書桌主畫面內容 (修復渲染整合版)
 # ==========================================
@@ -67,13 +69,12 @@ with tabs[0]:
             🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
             """, icon="📖")
 
-with col_m1:
-        # 修正版：增加 margin-top 讓框框下移與左側齊平，並微調圖片位置
+    with col_m1:
+        # 解決手機端空白原因：將圖片與文字「一體化」渲染
         st.markdown(f"""
-            <div style="text-align: center; width: 100%; padding-top: 5px;">
-                <img src="{IMG_URLS['M1']}" style="width: 210px; display: block; margin: 0 auto -25px auto; position: relative; z-index: 15;">
-                
-                <div class="grammar-box-container" style="margin-top: 15px; position: relative; z-index: 10;">
+            <div style="text-align: center; width: 100%;">
+                <img src="{IMG_URLS['M1']}" style="width: 250px; display: block; margin: 0 auto -10px auto; position: relative; z-index: 5;">
+                <div class="grammar-box-container">
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
                     <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
