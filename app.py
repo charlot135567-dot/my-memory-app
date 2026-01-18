@@ -143,22 +143,39 @@ with tabs[1]:
                 })
             st.rerun()
 
-    # 2. 月曆（可切週/月，預設整月）
+       # 2. 月曆（可切週/月，手機友善）
     with st.expander("📅 檢視靈修月曆", expanded=False):
         cal_options = {
-            "initialView": "dayGridMonth",               # 預設整月
+            "initialView": "dayGridMonth",
             "headerToolbar": {
                 "left": "prev,next today",
                 "center": "title",
-                "right": "dayGridMonth,timeGridWeek"     # 保留切換鈕
+                "right": "dayGridMonth,timeGridWeek"
             },
             "selectable": True,
         }
-        state = calendar(
-            events=st.session_state.events,
-            options=cal_options,
-            key="bible_cal_final"
+        # 手機專用：外層寬度鎖定 + 卷軸
+        st.markdown(
+            """
+            <style>
+            .mobile-cal-wrapper {
+                width: 100%;
+                max-width: 900px;
+                overflow-x: auto;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
         )
+        with st.container():
+            st.markdown('<div class="mobile-cal-wrapper">', unsafe_allow_html=True)
+            state = calendar(
+                events=st.session_state.events,
+                options=cal_options,
+                key="bible_cal_final",
+                height=500          # 固定高度，避免手機算不出來
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
 
         if state.get("dateClick"):
             clicked_date = state["dateClick"]["date"][:10]
