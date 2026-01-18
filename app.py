@@ -1,3 +1,4 @@
+import streamlit as st
 try:
     from streamlit_calendar import calendar
     CALENDAR_OK = True
