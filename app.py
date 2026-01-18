@@ -100,50 +100,77 @@ with tabs[0]:
     st.divider()
 
 # ==========================================
-# [區塊 4] TAB 2: 新增功能與佈局優化版
+# [區塊 4] TAB 2: 全面修復 (問題 1-9)
 # ==========================================
 with tabs[1]:
-    if 'events' not in st.session_state: st.session_state.events = []
-    if 'notes' not in st.session_state: st.session_state.notes = {}
-    if 'todo' not in st.session_state: st.session_state.todo = {}
-    if 'custom_emojis' not in st.session_state: st.session_state.custom_emojis = ["🐾", "🐰", "🐼", "🥰", "✨", "🥕"]
-
-    # 標題與操作按鈕對齊 (問題 3)
-    t_col, e_col, a_col, d_col = st.columns([0.4, 0.2, 0.2, 0.2])
+    # 標題與按鈕同行 (問題 1, 5)
+    t_col, e_col, td_col = st.columns([0.3, 0.2, 0.5])
     with t_col: st.subheader("📅 靈修足跡")
     with e_col: sel_emoji = st.selectbox("", st.session_state.custom_emojis, label_visibility="collapsed")
-    with a_col: btn_add = st.button("＋足跡", use_container_width=True)
-    with d_col: 
-        if st.button("🗑️清空", use_container_width=True): 
-            st.session_state.events = []; st.rerun()
-
-    state = calendar(events=st.session_state.events, options={"height": 350}, key="calendar")
+    
+    # 恢復月曆折疊 (問題 2)
+    with st.expander("📅 展開月曆視窗", expanded=True):
+        state = calendar(events=st.session_state.events, options={"height": 380}, key="calendar")
+    
     sel_date = state.get("dateClick", {"date": str(dt.date.today())})["date"][:10]
 
-    # 待辦與增減 Emoji (問題 4, 2)
-    with st.expander(f"📝 {sel_date} 待辦與提醒", expanded=True):
-        st.session_state.todo[sel_date] = st.text_input("輸入事項", value=st.session_state.todo.get(sel_date, ""))
-    
-    # 經文欄框 2/3 分欄 + 恢復中文 (問題 5, 6)
+    # 待辦與提醒欄位移至標題同行下方 (問題 4, 5)
+    with td_col:
+        current_todo = st.session_state.todo.get(sel_date, "")
+        new_todo = st.text_input("⏰ 待辦提醒 (輸入即存)", value=current_todo, key=f"todo_{sel_date}", placeholder="今日計畫...")
+        
+        # 邏輯合併：輸入待辦自動帶入 Emoji (問題 4)
+        if new_todo and new_todo != current_todo:
+            st.session_state.todo[sel_date] = new_todo
+            # 檢查是否已存在 Emoji，若無則新增
+            if not any(e['start'] == sel_date for e in st.session_state.events):
+                st.session_state.events.append({"title": sel_emoji, "start": sel_date, "allDay": True})
+            st.rerun()
+
+    # 神祕單筆刪除 (問題 3)
+    if current_todo:
+        if st.button(f"🗑️ 刪除 {sel_date} 事項", use_container_width=False):
+            st.session_state.todo.pop(sel_date); st.rerun()
+
+    # 自定義 Emoji 追加 (問題 1)
+    with st.expander("➕ 追加手機 Emoji"):
+        added_emo = st.text_input("貼上 Emoji 並按 Enter:")
+        if added_emo and added_emo not in st.session_state.custom_emojis:
+            st.session_state.custom_emojis.append(added_emo); st.rerun()
+
+    # 搜尋過往筆記 (問題 9)
+    search_q = st.text_input("🔍 搜尋歷史筆記關鍵字", placeholder="輸入文字...")
+
+    # 今日經文恢復 (問題 6, 7, 8)
     st.markdown(f"""
-    <div style="display: flex; background: #FFF0F5; border-radius: 15px; padding: 15px; align-items: center; margin-top: 10px;">
+    <div style="display: flex; background: #FFF0F5; border-radius: 15px; padding: 15px; align-items: center;">
         <div style="flex: 2;">
-            <h4 style="color:#FF1493; margin:0;">📖 今日經文</h4>
+            <h4 style="color:#FF1493; margin:0;">ข้อพระคัมภีร์ประจำวันนี้</h4>
             <p style="font-size:16px; margin:5px 0;"><b>🇨🇳 應當常歡喜，不已禱告，凡事謝恩。</b></p>
-            <p style="font-size:14px; color:#666;">🇯🇵 常に喜んでいなさい | 🇰🇷 항상 기뻐하라</p>
+            <p style="font-size:14px; color:#666; margin:0;">🇹🇭 จงชื่นชมยินดีอยู่เสมอ | 🇰🇷 항상 기뻐하라</p>
         </div>
-        <div style="flex: 1; text-align: right;"><img src="{IMG_URLS['M1']}" width="70"></div>
+        <div style="flex: 1; text-align: right;"><img src="{IMG_URLS['M1']}" width="80"></div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 筆記區最大化 (問題 7)
+    # 筆記區對齊與最大化 (問題 2, 7)
     st.divider()
-    s_col, d_col, _ = st.columns([0.2, 0.3, 0.5])
-    with s_col: btn_save = st.button("💾 儲存", use_container_width=True)
+    s_col, d_col, _ = st.columns([0.15, 0.25, 0.6])
+    with s_col: btn_save = st.button("💾 存檔", use_container_width=True)
     with d_col: b_date = st.date_input("", value=dt.datetime.strptime(sel_date, "%Y-%m-%d"), label_visibility="collapsed")
     
-    st.session_state.notes[str(b_date)] = st.text_area("", value=st.session_state.notes.get(str(b_date), ""), height=250, placeholder="寫下感悟...", key="note")
-    if btn_save: st.success("已存檔！"); st.balloons()
+    # 筆記內容 (包含搜尋邏輯)
+    note_val = st.session_state.notes.get(str(b_date), "")
+    if search_q: # 搜尋模式
+        found = [v for k, v in st.session_state.notes.items() if search_q in v]
+        note_val = found[0] if found else "未找到相關筆記"
+    
+    note_text = st.text_area("", value=note_val, height=250, placeholder="寫下感悟...", key="note")
+    
+    if btn_save: 
+        st.session_state.notes[str(b_date)] = note_text
+        st.snow() # 更可愛的特效 (問題 4)
+        st.success("平安！已儲存")
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
 # ==========================================
