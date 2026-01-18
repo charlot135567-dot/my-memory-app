@@ -71,12 +71,13 @@ with tabs[0]:
             """, icon="📖")
 
     with col_m1:
-        # 修正重點：圖片往上拉 (margin-bottom 負值)，框框往下拉 (margin-top 正值)
+        # 使用 Flex 佈局強制讓 Mashimaro 在上，框框在下且底部對齊
         st.markdown(f"""
-            <div style="text-align: center; width: 100%;">
-                <img src="{IMG_URLS['M1']}" style="width: 210px; display: block; margin: 0 auto -45px auto; position: relative; z-index: 15;">
-                
-                <div class="grammar-box-container" style="margin-top: 55px; position: relative; z-index: 10;">
+            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 250px; text-align: center;">
+                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+                    <img src="{IMG_URLS['M1']}" style="width: 200px; margin-bottom: 10px;">
+                </div>
+                <div class="grammar-box-container" style="margin-top: auto;">
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
                     <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
                     <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
@@ -97,12 +98,6 @@ with tabs[0]:
     with cl2:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
     st.divider()
-    st.markdown("### ✍️ 文法運用例句")
-    cl1, cl2 = st.columns(2)
-    with cl1:
-        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
-    with cl2:
-        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 # ==========================================
 # [區塊 4] TAB 2: 📓 筆記 + Mashimaro 月曆 (手機友好 Emoji 版)
 # ==========================================
