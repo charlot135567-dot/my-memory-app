@@ -1,199 +1,140 @@
 import streamlit as st
-import pandas as pd
-import requests
 import datetime as dt
-from datetime import datetime, time
-from PIL import Image
-from io import BytesIO
 from streamlit_calendar import calendar
-import base64
-from urllib.request import urlopen
 
 # ==========================================
-# [區塊 1] 環境匯入與全域 CSS 樣式 (精煉修復版)
+# [1] 全域初始化：必須位於最頂端，解決 AttributeError
 # ==========================================
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
-    .cute-korean { font-family: 'Gamja+Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
-    .small-font { font-size: 13px; color: #555555; margin-top: 5px !important; }
-    
-    /* 語法框樣式：確保在手機與桌面端皆能正確填充內容 */
-    .grammar-box-container {
-        background-color: #f8f9fa; 
-        border-radius: 8px; 
-        padding: 12px; 
-        border-left: 5px solid #FF8C00; 
-        text-align: left;
-        margin-top: 0px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# 統一圖片資源管理 (URL 方式)
-IMG_URLS = {
-    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
-    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
-    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
-    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
-    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
-    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
-}
-
-# ==========================================
-# [區塊 2] 側邊欄 (Sidebar) 與 Tabs 定義
-# ==========================================
-with st.sidebar:
-    st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
-    st.image(IMG_URLS["M3"], width=250) 
-    st.divider()
-    st.link_button("✨ 快速開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
-
-tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
-
-# ==========================================
-# [區塊 3] TAB 1: 書桌主畫面內容 (修復渲染整合版)
-# ==========================================
-with tabs[0]:
-    # 建立兩欄：左邊放經文，右邊放圖片與框
-    col_content, col_m1 = st.columns([0.65, 0.35])
-    
-    with col_content:
-        st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
-        st.success("""
-            🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.  
-            🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。  
-            🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
-            """, icon="📖")
-
-    with col_m1:
-        # 使用 Flex 佈局強制讓 Mashimaro 在上，框框在下且底部對齊
-        st.markdown(f"""
-            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 250px; text-align: center;">
-                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
-                    <img src="{IMG_URLS['M1']}" style="width: 200px; margin-bottom: 10px;">
-                </div>
-                <div class="grammar-box-container" style="margin-top: auto;">
-                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
-                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
-                    <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
-                        <li>Fine speech (優美言辭)</li>
-                        <li>Becoming to (相稱)</li>
-                        <li>Still less (何況)</li>
-                        <li>False speech (虛假言辭)</li>
-                    </ul>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### ✍️ 文法運用例句")
-    cl1, cl2 = st.columns(2)
-    with cl1:
-        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
-    with cl2:
-        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
-    st.divider()
-
-# ==========================================
-# [全域初始化] - 請務必放在 Tabs 定義之前，防止 AttributeError！
-# ==========================================
 if 'events' not in st.session_state: st.session_state.events = []
 if 'notes' not in st.session_state: st.session_state.notes = {}
 if 'todo' not in st.session_state: st.session_state.todo = {}
 if 'custom_emojis' not in st.session_state:
     st.session_state.custom_emojis = ["🐾", "🐰", "🥰", "✨", "🥕", "🌟"]
 
-# ... 這裡接您的 Tabs 定義 ...
-# tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+# 樣式定義
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
+    .cute-korean { font-family: 'Gamja+Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
+    .grammar-box-container {
+        background-color: #f8f9fa; border-radius: 8px; padding: 12px; 
+        border-left: 5px solid #FF8C00; text-align: left;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+IMG_URLS = {
+    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
+    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg"
+}
+
 # ==========================================
-# [區塊 4] TAB 2: 📓 筆記 + 智能月曆 (最終優化版)
+# [2] 側邊欄與 Tab 定義
+# ==========================================
+with st.sidebar:
+    st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
+    st.image(IMG_URLS["M3"], width=250)
+    st.divider()
+    st.link_button("✨ 開啟 Google AI", "https://gemini.google.com/", use_container_width=True)
+
+tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+
+# ==========================================
+# [3] TAB 1: 修正對齊與 HTML 字串
+# ==========================================
+with tabs[0]:
+    col_content, col_m1 = st.columns([0.65, 0.35])
+    with col_content:
+        st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
+        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
+        st.success("""
+            🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince. 
+            """, icon="📖")
+
+    with col_m1:
+        # 使用 justify-content: flex-end 確保框框在底部對齊
+        st.markdown(f"""
+            <div style="display: flex; flex-direction: column; justify-content: flex-end; height: 320px; text-align: center;">
+                <div style="margin-bottom: 20px;">
+                    <img src="{IMG_URLS['M1']}" style="width: 180px;">
+                </div>
+                <div class="grammar-box-container">
+                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
+                    <ul style="margin:0; padding-left:18px; font-size: 13px; color: #555;">
+                        <li>Fine speech (優美言辭)</li>
+                        <li>Becoming to (相稱)</li>
+                        <li>Still less (何況)</li>
+                    </ul>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    st.divider()
+
+# ==========================================
+# [4] TAB 2: 解決 NameError 與所有需求整合
 # ==========================================
 with tabs[1]:
-    # 1. 整合控制中心 (問題 9: 整合按鈕與 Emoji 管理)
-    with st.expander("🛠️ 靈修工具箱 (+/- Emoji & 提醒設定)", expanded=True):
-        col_emo_mgt, col_todo_mgt = st.columns([0.4, 0.6])
-        
-        with col_emo_mgt:
-            # 問題 3: 合併 +/- Emoji 功能
-            selected_emoji = st.selectbox("👣 選擇或追加圖示", st.session_state.custom_emojis, index=0)
-            new_emo_input = st.text_input("手機貼上新 Emoji 追加/刪除 (Enter確認)", placeholder="在此輸入 Emoji...")
-            if new_emo_input:
-                if new_emo_input in st.session_state.custom_emojis:
-                    st.session_state.custom_emojis.remove(new_emo_input)
-                else:
-                    st.session_state.custom_emojis.append(new_emo_input)
-                st.rerun()
+    # 安全門神：預先定義 sel_date 避免 NameError
+    if 'temp_date' not in st.session_state: st.session_state.temp_date = str(dt.date.today())
+    sel_date = st.session_state.temp_date
 
-        with col_todo_mgt:
-            # 問題 4 & 5: 待辦事項改為 text_area 支援換行且不佔空間
+    # 1. 整合工具箱 (問題 3, 4, 5, 9)
+    with st.expander("🛠️ 靈修工具箱 (+/- Emoji & 提醒設定)", expanded=True):
+        c1, c2 = st.columns([0.4, 0.6])
+        with c1:
+            selected_emoji = st.selectbox("👣 選擇足跡", st.session_state.custom_emojis, index=0)
+            new_emo = st.text_input("追加/刪除 Emoji (Enter)", placeholder="貼上符號...")
+            if new_emo:
+                if new_emo in st.session_state.custom_emojis: st.session_state.custom_emojis.remove(new_emo)
+                else: st.session_state.custom_emojis.append(new_emo)
+                st.rerun()
+        with c2:
             current_todo = st.session_state.todo.get(sel_date, "")
-            new_todo = st.text_area("📝 今日待辦/提醒 (自動存檔)", value=current_todo, 
-                                   height=100, placeholder="在此輸入事項，按鍵盤外框自動儲存...")
-            
+            new_todo = st.text_area("📝 今日提醒 (自動存檔)", value=current_todo, height=100)
             if new_todo != current_todo:
                 st.session_state.todo[sel_date] = new_todo
-                # 問題 4 邏輯：有內容且有選 Emoji 就自動帶入月曆
                 if new_todo.strip() and selected_emoji:
                     if not any(e['start'] == sel_date for e in st.session_state.events):
                         st.session_state.events.append({"title": selected_emoji, "start": sel_date, "allDay": True})
-                elif not new_todo.strip(): # 若內容刪空則移除足跡
-                    st.session_state.events = [e for e in st.session_state.events if e['start'] != sel_date]
                 st.rerun()
 
-    # 2. 月曆視窗 (問題 2: 保持折疊)
+    # 2. 月曆視窗 (折疊)
     with st.expander("📅 檢視靈修月曆", expanded=False):
-        state = calendar(events=st.session_state.events, options={"height": 380}, key="calendar_v2")
-    sel_date = state.get("dateClick", {"date": str(dt.date.today())})["date"][:10]
+        cal_state = calendar(events=st.session_state.events, key="cal_final")
+        if cal_state.get("dateClick"):
+            st.session_state.temp_date = cal_state["dateClick"]["date"][:10]
+            st.rerun()
 
-    # 3. 今日經文：恢復泰/日/韓三語 (問題 6, 7, 8)
+    # 3. 三語經文 (問題 6, 7, 8)
     st.markdown(f"""
     <div style="display: flex; background: #FFF0F5; border-radius: 15px; padding: 15px; align-items: center; margin-top: 10px; border-left: 5px solid #FF1493;">
         <div style="flex: 2;">
-            <h4 style="color:#FF1493; margin:0;">ข้อพระคัมภีร์ประจำวันนี้ (今日經文)</h4>
+            <h4 style="color:#FF1493; margin:0;">ข้อพระคัมภีร์ประจำวันนี้</h4>
             <p style="font-size:16px; margin:5px 0;"><b>🇨🇳 應當常歡喜，不已禱告，凡事謝恩。</b></p>
-            <p style="font-size:14px; color:#666; margin:0;">
-                🇯🇵 常に喜んでいなさい | 🇰🇷 항상 기뻐하라 | 🇹🇭 จงชื่นชมยินดีอยู่เสมอ
-            </p>
+            <p style="font-size:14px; color:#666;">🇯🇵 常に喜んでいなさい | 🇰🇷 항상 기뻐하라 | 🇹🇭 จงชื่นชมยินดีอยู่เสมอ</p>
         </div>
-        <div style="flex: 1; text-align: right;">
-            <img src="{IMG_URLS['M1']}" width="80">
-        </div>
+        <div style="flex: 1; text-align: right;"><img src="{IMG_URLS['M1']}" width="80"></div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 4. 筆記區：搜尋列下移與存檔對齊 (問題 11, 10)
+    # 4. 筆記區：搜尋、存檔對齊 (問題 10, 11)
     st.divider()
-    
-    # 問題 11: 將搜尋、存檔、日期拉平在同一列
-    ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([0.2, 0.3, 0.5])
-    with ctrl_col1:
-        btn_save = st.button("💾 存檔", use_container_width=True)
-    with ctrl_col2:
-        b_date = st.date_input("日期", value=dt.datetime.strptime(sel_date, "%Y-%m-%d"), label_visibility="collapsed")
-    with ctrl_col3:
-        search_q = st.text_input("🔍 搜尋歷史筆記", placeholder="關鍵字...", label_visibility="collapsed")
+    ctrl1, ctrl2, ctrl3 = st.columns([0.2, 0.3, 0.5])
+    with ctrl1: btn_save = st.button("💾 存檔", use_container_width=True)
+    with ctrl2: b_date = st.date_input("日期", value=dt.datetime.strptime(sel_date, "%Y-%m-%d"), label_visibility="collapsed")
+    with ctrl3: search_q = st.text_input("🔍 搜尋筆記", placeholder="關鍵字...", label_visibility="collapsed")
 
-    # 搜尋與顯示邏輯
     note_val = st.session_state.notes.get(str(b_date), "")
     if search_q:
         found = [v for k, v in st.session_state.notes.items() if search_q in v]
-        if found: 
-            note_val = found[0]
-            st.caption("✨ 顯示搜尋結果...")
+        if found: note_val = found[0]; st.caption("✨ 顯示搜尋結果")
 
-    note_text = st.text_area("心得感悟", value=note_val, height=300, placeholder="在此寫下您的看見...", key="note_area_v2")
-
+    note_text = st.text_area("感悟", value=note_val, height=250, key="note_v_final")
     if btn_save:
         st.session_state.notes[str(b_date)] = note_text
-        # 問題 10: 恢復可愛腳印 + 下雪特效
-        st.snow()
-        st.toast("🐾 腳印已留下，主恩滿溢！") 
-        st.success("存檔成功！")
+        st.snow(); st.toast("🐾 腳印已留下！"); st.success("儲存成功")
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
 # ==========================================
