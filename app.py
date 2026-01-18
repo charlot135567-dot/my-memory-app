@@ -9,17 +9,6 @@ from streamlit_calendar import calendar
 import base64
 from urllib.request import urlopen
 
-import streamlit as st
-import pandas as pd
-import requests
-import datetime as dt
-from datetime import datetime, time
-from PIL import Image
-from io import BytesIO
-from streamlit_calendar import calendar
-import base64
-from urllib.request import urlopen
-
 # ==========================================
 # [區塊 1] 環境匯入與全域 CSS 樣式 (精煉修復版)
 # ==========================================
