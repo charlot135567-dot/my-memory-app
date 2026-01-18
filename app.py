@@ -143,22 +143,13 @@ with tabs[1]:
                 })
             st.rerun()
 
-       # 2. 月曆（可切週/月，手機友善）
+    # 2. 月曆（整月/週切換 + 手機橫滑）
     with st.expander("📅 檢視靈修月曆", expanded=False):
-        cal_options = {
-            "initialView": "dayGridMonth",
-            "headerToolbar": {
-                "left": "prev,next today",
-                "center": "title",
-                "right": "dayGridMonth,timeGridWeek"
-            },
-            "selectable": True,
-        }
-        # 手機專用：外層寬度鎖定 + 卷軸
+        # ① 用 CSS 限制外層寬度，讓手機能算版面
         st.markdown(
             """
             <style>
-            .mobile-cal-wrapper {
+            .cal-wrapper {
                 width: 100%;
                 max-width: 900px;
                 overflow-x: auto;
@@ -167,15 +158,21 @@ with tabs[1]:
             """,
             unsafe_allow_html=True,
         )
+        # ② 直接把 calendar 放在 container 裡，不包額外 div
         with st.container():
-            st.markdown('<div class="mobile-cal-wrapper">', unsafe_allow_html=True)
             state = calendar(
                 events=st.session_state.events,
-                options=cal_options,
-                key="bible_cal_final",
-                height=500          # 固定高度，避免手機算不出來
+                options={
+                    "initialView": "dayGridMonth",
+                    "headerToolbar": {
+                        "left": "prev,next today",
+                        "center": "title",
+                        "right": "dayGridMonth,timeGridWeek"
+                    },
+                    "selectable": True,
+                },
+                key="bible_cal_final"
             )
-            st.markdown('</div>', unsafe_allow_html=True)
 
         if state.get("dateClick"):
             clicked_date = state["dateClick"]["date"][:10]
