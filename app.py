@@ -145,27 +145,30 @@ with tabs[1]:
                     "allDay": True
                 })
             st.rerun()
-
-import streamlit as st
-from streamlit_calendar import calendar
-
-st.set_page_config(layout="wide")
-if "events" not in st.session_state:
-    st.session_state.events = [{"title": "🐾", "start": "2026-01-20", "allDay": True}]
-
-st.markdown("## 最小日曆測試")
-state = calendar(
-    events=st.session_state.events,
-    options={
-        "initialView": "dayGridMonth",
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,timeGridWeek"},
-        "selectable": True,
-    },
-    key="cal_min"
-)
-
-if state.get("dateClick"):
-    st.write("你點了：", state["dateClick"]["date"][:10])
+            
+    # 2. 月曆（可切週/月，手機友善）
+    with st.expander("📅 檢視靈修月曆", expanded=False):
+        if CALENDAR_OK:
+            state = calendar(
+                events=st.session_state.events,
+                options={
+                    "initialView": "dayGridMonth",
+                    "headerToolbar": {
+                        "left": "prev,next today",
+                        "center": "title",
+                        "right": "dayGridMonth,timeGridWeek"
+                    },
+                    "selectable": True,
+                },
+                key="bible_cal_final"
+            )
+            if state.get("dateClick"):
+                clicked_date = state["dateClick"]["date"][:10]
+                if clicked_date != st.session_state.sel_date:
+                    st.session_state.sel_date = clicked_date
+                    st.rerun()
+        else:
+            st.info("月曆元件尚未安裝，請稍後再試。")
 
     # 3. 經文區
     st.markdown(f"""
