@@ -113,9 +113,17 @@ with tabs[1]:
 
             # ── ① 背景桌布（上傳即套用，可隨時更換）──
             bg_col1, bg_col2, bg_col3 = st.columns([1, 2, 1])
-            with bg_col2:
-                uploaded_bg = st.file_uploader("📷", type=["jpg", "jpeg"], key="bg_week", label_visibility="collapsed")
-            if uploaded_bg:
+with bg_col2:
+    uploaded_bg = st.file_uploader(
+        "📷",
+        type=["jpg", "jpeg"],
+        key="bg_week",
+        label_visibility="collapsed"
+    )
+     # ⭐ 上傳後，立刻覆蓋舊背景（這一行很關鍵）
+        if uploaded_bg:
+        st.session_state.bg_image = uploaded_bg
+
                 b64 = base64.b64encode(uploaded_bg.getvalue()).decode()
                 st.markdown(
                     f"""
