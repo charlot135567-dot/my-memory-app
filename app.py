@@ -149,18 +149,23 @@ with tabs[1]:
                 st.session_state.sel_date = clicked
                 st.rerun()
 
-            # ── ④ 緊湊並排快速鍵（3 鍵）──
-            st.write("")  # ↑ 留白
-            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1], gap="small")  # gap 讓間距更小
-            with btn_col1:
-                st.button("📷", key="bg_btn", help="更換桌布", use_container_width=True)
-            with btn_col2:
-                st.button("➕", key="quick_diary", help="新增靈修筆記", use_container_width=True)
-            with btn_col3:
-                st.button("🔔", key="quick_todo", help="新增待辦提醒", use_container_width=True)
-            st.write("")  # ↓ 留白
+            # ④ 獨立按鈕（保證可點）＋最簡互斥
+            c1, c2, c3 = st.columns([1, 1, 1], gap="small")
+            with c1:
+                if st.button("📷", key="bg_btn", help="更換桌布"):
+                    st.session_state.show_bg = not st.session_state.get("show_bg", False)
+            with c2:
+                if st.button("➕", key="quick_diary", help="新增靈修筆記"):
+                    # 先關待辦，再切換自己
+                    st.session_state.show_todo = False
+                    st.session_state.show_diary = not st.session_state.get("show_diary", False)
+            with c3:
+                if st.button("🔔", key="quick_todo", help="新增待辦提醒"):
+                    # 先關筆記，再切換自己
+                    st.session_state.show_diary = False
+                    st.session_state.show_todo = not st.session_state.get("show_todo", False)
 
-            # ── ⑤ 動態表單（平行欄位＋一鍵收合）──
+            # ⑤ 動態表單（獨立於按鈕外）──
             if st.session_state.get("show_diary"):
                 with st.form("diary_form"):
                     d1, d2 = st.columns([1, 1])
