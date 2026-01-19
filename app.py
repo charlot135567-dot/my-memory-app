@@ -99,160 +99,46 @@ with tabs[1]:
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
             
-    # 2. 本週靈修 glance ─ 手機專用折疊週曆＋活潑配色＋雙 Emoji 標記
+       # 2. 本週靈修 glance ─ 手機一週曆＋雙 Emoji＋互斥表單
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
             today = dt.date.today()
-
-            # ── ① 背景桌布（上傳即套用，可隨時更換）──
-            bg_col1, bg_col2, bg_col3 = st.columns([1, 2, 1])
-            with bg_col2:
-                uploaded_bg = st.file_uploader("📷", type=["jpg", "jpeg"], key="bg_week", label_visibility="collapsed")
-            if uploaded_bg:
-                b64 = base64.b64encode(uploaded_bg.getvalue()).decode()
-                st.markdown(
-                    f"""
-                    <style>
-                    .week-cal{{background:url(data:image/jpeg;base64,{b64});
-                    background-size:cover;border-radius:16px;padding:8px;}}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            # ── ② 懸浮快速鍵（3 鍵並排）──
-            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
-            with btn_col1:
-                if st.button("📷", key="bg_btn"):  # 更換桌布
-                    st.session_state.show_bg = not st.session_state.get("show_bg", False)
-            with btn_col2:
-                if st.button("➕", key="quick_diary"):
-                    st.session_state.show_diary = not st.session_state.get("show_diary", False)
-                    st.session_state.show_todo = False  # 互斥收合
-            with btn_col3:
-                if st.button("🔔", key="quick_todo"):
-                    st.session_state.show_todo = not st.session_state.get("show_todo", False)
-                    st.session_state.show_diary = False  # 互斥收合
-
-            # ── ③ 一週無限捲動日曆（活潑配色）──
             week_start = today - dt.timedelta(days=today.weekday())
             week_end = week_start + dt.timedelta(days=6)
             week_events = [
                 e for e in st.session_state.events
                 if week_start <= dt.date.fromisoformat(e["start"]) <= week_end
             ]
-
-            # 幫每一天加上「雙 Emoji 標記」：左=待辦🔔，右=筆記📝
+            # 雙 Emoji 標記：左=待辦🔔，右=筆記📝
             for e in week_events:
                 d = dt.date.fromisoformat(e["start"])
                 todo_emoji = "🔔" if str(d) in st.session_state.todo else ""
                 note_emoji = "📝" if str(d) in st.session_state.notes else ""
                 e["title"] = f"{todo_emoji} {e['title']} {note_emoji}"
 
-            st.markdown(
-                """
-                <style>
-                .fc-daygrid-day-frame{border-radius:12px;}
-                .fc-day-today{background:#fff7d6!important;}
-                .fc-daygrid-day-number{color:#333;font-weight:600}
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                """
-                <style>
-                /* 圓角卡片 */
-                .fc-daygrid-day-frame{
-                    border-radius: 16px;
-                    margin: 2px;
-                    background: linear-gradient(135deg, #fff9f0 0%, #ffdbea 100%);
-                    box-shadow: 0 2px 6px rgba(0,0,0,.05);
-                }
-                /* 今天特別粉嫩 */
-                .fc-day-today .fc-daygrid-day-frame{
-                    background: linear-gradient(135deg, #ffe4f0 0%, #ffc2d8 100%);
-                    border: 2px dashed #ff8ab4;
-                }
-                /* 日期數字可愛粗體 */
-                .fc-daygrid-day-number{
-                    font-weight: 700;
-                    font-size: 15px;
-                    color: #5c3c50;
-                }
-                /* Emoji 氣泡 */
-                .fc-event{
-                    border-radius: 12px;
-                    font-size: 18px;
-                    padding: 2px 6px;
-                    margin: 1px;
-                    background: #ffffffcc;
-                    backdrop-filter: blur(4px);
-                    border: 1px solid #ffffff99;
-                }
-                /* 整體圓角 */
-                .fc-daygrid-body, .fc-scrollgrid {
-                    border-radius: 20px;
-                    overflow: hidden;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )   
-            st.markdown(
-                """
-                <style>
-                /* 每一天強制粉嫩圓角 */
-                .fc-daygrid-day-frame{
-                    border-radius: 16px !important;
-                    margin: 2px !important;
-                    background: linear-gradient(135deg, #ffe8f5 0%, #ffd0e6 100%) !important;
-                    box-shadow: 0 2px 8px rgba(0,0,0,.08) !important;
-                }
-                /* 今天特別桃色邊框 */
-                .fc-day-today .fc-daygrid-day-frame{
-                    background: linear-gradient(135deg, #ffc2d8 0%, #ffa6c1 100%) !important;
-                    border: 2px dashed #ff6ba4 !important;
-                }
-                /* 日期數字可愛粗體 */
-                .fc-daygrid-day-number{
-                    font-weight: 700 !important;
-                    font-size: 16px !important;
-                    color: #5c3c50 !important;
-                }
-                /* Emoji 氣泡 */
-                .fc-event{
-                    border-radius: 12px !important;
-                    font-size: 18px !important;
-                    padding: 2px 6px !important;
-                    margin: 1px !important;
-                    background: #ffffffcc !important;
-                    backdrop-filter: blur(4px) !important;
-                    border: 1px solid #ffffff99 !important;
-                }
-                /* 整體外框大圓角 */
-                .fc-daygrid-body, .fc-scrollgrid {
-                    border-radius: 20px !important;
-                    overflow: hidden !important;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
             cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
             }
             state = calendar(events=week_events, options=cal_options, key="week_cal_mobile")
-
-            # ── ④ 點擊日期 → 即時顯示當日筆記 ──
             if state.get("dateClick"):
                 clicked = state["dateClick"]["date"][:10]
                 st.session_state.sel_date = clicked
                 st.rerun()
 
-            # ── ⑤ 動態表單（平行欄位＋一鍵收合）──
+            # 懸浮快速鍵
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                if st.button("➕", key="quick_diary"):
+                    st.session_state.show_diary = not st.session_state.get("show_diary", False)
+                    st.session_state.show_todo = False
+            with c2:
+                if st.button("🔔", key="quick_todo"):
+                    st.session_state.show_todo = not st.session_state.get("show_todo", False)
+                    st.session_state.show_diary = False
+
+            # 動態表單（平行欄位＋一鍵收合）
             if st.session_state.get("show_diary"):
                 with st.form("diary_form"):
                     d1, d2 = st.columns([1, 1])
@@ -264,14 +150,13 @@ with tabs[1]:
                     if st.form_submit_button("保存"):
                         key = str(d_date)
                         st.session_state.notes[key] = d_text
-                        # 同時寫入日曆格子（右側 Emoji）
                         st.session_state.events.append({
                             "title": d_emoji or "📝",
                             "start": str(d_date),
                             "allDay": True,
                         })
                         st.success("已保存")
-                        st.session_state.show_diary = False  # 自動收合
+                        st.session_state.show_diary = False
                         st.rerun()
 
             if st.session_state.get("show_todo"):
@@ -285,14 +170,13 @@ with tabs[1]:
                     t_text = st.text_area("待辦事項", height=120)
                     if st.form_submit_button("設定提醒"):
                         st.session_state.todo[str(t_date)] = t_text
-                        # 同時寫入日曆格子（左側 Emoji）
                         st.session_state.events.append({
                             "title": "🔔",
                             "start": str(t_date),
                             "allDay": t_all_day,
                         })
                         st.success("已設定")
-                        st.session_state.show_todo = False  # 自動收合
+                        st.session_state.show_todo = False
                         st.rerun()
 
         else:
@@ -316,9 +200,7 @@ with tabs[1]:
     # 4. 下半部 UI ── 當日筆記即時顯示＋搜尋欄
     st.divider()
     st.markdown("#### 今日靈修筆記 ✍️")
-    # ── 搜尋欄 ──
-    search_q = st.text_input("🔍 關鍵字搜尋", placeholder="輸入經文、筆記、待辦關鍵字...")
-    # ── 當日筆記即時顯示 ──
+    search_q = st.text_input("🔍 關鍵字搜尋", placeholder="輸入經文、筆記、待辦關鍵字...", key="search_note")
     note_val = st.session_state.notes.get(st.session_state.sel_date, "")
     if note_val:
         st.success(f"{st.session_state.sel_date} 筆記")
