@@ -148,27 +148,92 @@ with tabs[1]:
                 })
             st.rerun()
             
-      # 2. 月曆（可切週/月，手機友善）
-    with st.expander("📅 檢視靈修月曆", expanded=False):
+      # 2. 手機一週曆＋懸浮按鈕＋背景桌布
+    with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
-            state = calendar(
-                events=st.session_state.events,
-                options={
-                    "initialView": "dayGridMonth",
-                    "headerToolbar": {
-                        "left": "prev,next today",
-                        "center": "title",
-                        "right": "dayGridMonth,timeGridWeek"
-                    },
-                    "selectable": True,
+            # ── ① 只載入「本週」事件 ──
+            today = dt.date.today()
+            week_start = today - dt.timedelta(days=today.weekday())  # 週一
+            week_end = week_start + dt.timedelta(days=6)
+            week_events = [
+                e for e in st.session_state.events
+                if week_start <= dt.date.fromisoformat(e["start"]) <= week_end
+            ]
+
+            # ── ② 背景桌布（可上傳自訂 JPG）──
+            uploaded_bg = st.file_uploader("📷 背景桌布 (JPG)", type=["jpg", "jpeg"], key="bg_week")
+            if uploaded_bg:
+                st.markdown(
+                    f"""
+                    <style>
+                    .week-calendar{{
+                        background:url(data:image/jpeg;base64,{uploaded_bg.getvalue().hex()});
+                        background-size:cover;border-radius:12px;padding:8px;
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            # ── ③ 一週檢視 (Infinite scroll 模式) ──
+            st.markdown('<div class="week-calendar">', unsafe_allow_html=True)
+            cal_options = {
+                "initialView": "dayGridWeek",  # 只給一週
+                "headerToolbar": {
+                    "left": "prev,next today",
+                    "center": "title",
+                    "right": "",  # 不給切月
                 },
-                key="bible_cal_final"
+                "height": "auto",  # 手機自適高
+            }
+            state = calendar(
+                events=week_events,
+                options=cal_options,
+                key="week_cal_mobile",
             )
-            if state.get("dateClick"):
-                clicked_date = state["dateClick"]["date"][:10]
-                if clicked_date != st.session_state.sel_date:
-                    st.session_state.sel_date = clicked_date
-                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # ── ④ 懸浮快速鍵 ──
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("➕", key="quick_diary"):
+                    st.session_state.show_diary_form = True
+            with col2:
+                if st.button("🔔", key="quick_todo"):
+                    st.session_state.show_todo_form = True
+
+            # ── ⑤ 動態表單區 ──
+            if st.session_state.get("show_diary_form"):
+                with st.form("diary_form"):
+                    d_date = st.date_input("日期", value=today)
+                    d_emoji = st.selectbox("Emoji", st.session_state.custom_emojis)
+                    d_text = st.text_area("靈修筆記", height=120)
+                    if st.form_submit_button("保存"):
+                        key = str(d_date)
+                        st.session_state.notes[key] = d_text
+                        if d_emoji:
+                            st.session_state.events.append({
+                                "title": d_emoji,
+                                "start": str(d_date),
+                                "allDay": True,
+                            })
+                        st.success("已保存")
+                        st.session_state.show_diary_form = False
+                        st.rerun()
+
+            if st.session_state.get("show_todo_form"):
+                with st.form("todo_form"):
+                    t_date = st.date_input("日期", value=today)
+                    t_time = st.time_input("時間", value=None)
+                    t_all_day = st.checkbox("全天提醒", value=True)
+                    t_text = st.text_input("待辦事項")
+                    if st.form_submit_button("設定提醒"):
+                        # 這裡先簡單存進 events，未來可接第三方提醒 API
+                        st.session_state.todo[str(t_date)] = t_text
+                        st.success("已設定")
+                        st.session_state.show_todo_form = False
+                        st.rerun()
+
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
 
