@@ -182,7 +182,7 @@ with tabs[1]:
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
 
-    # 3. 經文區（維持原樣）
+ # 3. 經文區（維持原樣）
     st.markdown(f"""
     <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
         <div style="flex:2;">
@@ -196,6 +196,17 @@ with tabs[1]:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # 4. 下半部 UI ── 當日筆記即時顯示＋搜尋欄
+    st.divider()
+    st.markdown("#### 今日靈修筆記 ✍️")
+    search_q = st.text_input("🔍 關鍵字搜尋", placeholder="輸入經文、筆記、待辦關鍵字...", key="search_note")
+    note_val = st.session_state.notes.get(st.session_state.sel_date, "")
+    if note_val:
+        st.success(f"{st.session_state.sel_date} 筆記")
+        st.write(note_val)
+    else:
+        st.info("當日尚無筆記，點 ➕ 新增！")
 
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
