@@ -98,55 +98,6 @@ with tabs[1]:
     # 0. 防閃爍：保證一定有 sel_date
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
-
-    # 1. 靈修工具箱 🧰
-    with st.expander("🛠️ 靈修工具箱 (提醒與 Emoji 管理)", expanded=True):
-        row1_col1, row1_col2, row1_col3 = st.columns([0.3, 0.25, 0.45])
-
-        with row1_col1:
-            st.markdown("#### 今日提醒 🔔")
-
-        with row1_col2:
-            # 手機友善：直接用 radio 就能點
-            selected_emoji = st.radio(
-                "🐾 足跡",
-                st.session_state.custom_emojis,
-                horizontal=True,
-                label_visibility="collapsed"
-            )
-
-        with row1_col3:
-            emoji_mode = st.selectbox(
-                "",
-                ["🐾 使用 Emoji", "🚫 不使用 Emoji"],
-                label_visibility="collapsed"
-            )
-
-        # 待辦事項
-        current_todo = st.session_state.todo.get(st.session_state.sel_date, "")
-        new_todo = st.text_area(
-            "📋 待辦事項清單 (自動存檔)",
-            value=current_todo,
-            height=120
-        )
-
-        if new_todo != current_todo:
-            st.session_state.todo[st.session_state.sel_date] = new_todo
-
-            # --- Emoji 事件：先清後補 ---
-            # 1. 刪掉當日所有「純 Emoji」事件
-            st.session_state.events = [
-                e for e in st.session_state.events
-                if not (e["start"] == st.session_state.sel_date and e["title"] in st.session_state.custom_emojis)
-            ]
-            # 2. 若有內容且開啟 Emoji，就補上
-            if new_todo.strip() and emoji_mode == "🐾 使用 Emoji":
-                st.session_state.events.append({
-                    "title": selected_emoji,
-                    "start": st.session_state.sel_date,
-                    "allDay": True
-                })
-            st.rerun()
             
       # 2. 手機一週曆＋懸浮按鈕＋背景桌布
     with st.expander("📅 本週靈修 glance", expanded=True):
