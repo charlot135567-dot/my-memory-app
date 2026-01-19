@@ -199,7 +199,7 @@ with tabs[1]:
                 """,
                 unsafe_allow_html=True,
             )   
-                cal_options = {
+            cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
