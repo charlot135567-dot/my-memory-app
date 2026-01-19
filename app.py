@@ -121,7 +121,7 @@ with bg_col2:
         label_visibility="collapsed"
     )
      # ⭐ 上傳後，立刻覆蓋舊背景（這一行很關鍵）
-        if uploaded_bg:
+    if uploaded_bg:
         st.session_state.bg_image = uploaded_bg
 
                 b64 = base64.b64encode(uploaded_bg.getvalue()).decode()
