@@ -202,33 +202,43 @@ with tabs[1]:
             st.markdown(
                 """
                 <style>
-                /* ① 每一天粉嫩圓角卡片 */
+                /* 每一天強制粉嫩圓角 */
                 .fc-daygrid-day-frame{
-                    border-radius: 16px;
-                    margin: 2px;
-                    background: linear-gradient(135deg, #fff9f0 0%, #ffdbea 100%);
-                    box-shadow: 0 2px 6px rgba(0,0,0,.05);
+                    border-radius: 16px !important;
+                    margin: 2px !important;
+                    background: linear-gradient(135deg, #ffe8f5 0%, #ffd0e6 100%) !important;
+                    box-shadow: 0 2px 8px rgba(0,0,0,.08) !important;
                 }
-                /* 今天特別桃色 */
+                /* 今天特別桃色邊框 */
                 .fc-day-today .fc-daygrid-day-frame{
-                    background: linear-gradient(135deg, #ffe4f0 0%, #ffc2d8 100%);
-                    border: 2px dashed #ff8ab4;
+                    background: linear-gradient(135deg, #ffc2d8 0%, #ffa6c1 100%) !important;
+                    border: 2px dashed #ff6ba4 !important;
                 }
                 /* 日期數字可愛粗體 */
                 .fc-daygrid-day-number{
-                    font-weight: 700;
-                    font-size: 15px;
-                    color: #5c3c50;
+                    font-weight: 700 !important;
+                    font-size: 16px !important;
+                    color: #5c3c50 !important;
                 }
-                /* 整體外框圓角（你原本就有）*/
+                /* Emoji 氣泡 */
+                .fc-event{
+                    border-radius: 12px !important;
+                    font-size: 18px !important;
+                    padding: 2px 6px !important;
+                    margin: 1px !important;
+                    background: #ffffffcc !important;
+                    backdrop-filter: blur(4px) !important;
+                    border: 1px solid #ffffff99 !important;
+                }
+                /* 整體外框大圓角 */
                 .fc-daygrid-body, .fc-scrollgrid {
-                    border-radius: 20px;
-                    overflow: hidden;
+                    border-radius: 20px !important;
+                    overflow: hidden !important;
                 }
                 </style>
                 """,
                 unsafe_allow_html=True,
-            )            
+            )
             cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
