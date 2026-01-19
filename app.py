@@ -208,33 +208,6 @@ with tabs[1]:
     else:
         st.info("當日尚無筆記，點 ➕ 新增！")
 
-    # 3. 經文區（維持原樣）
-    st.markdown(f"""
-    <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
-        <div style="flex:2;">
-            <p style="margin:4px 0;">🇨🇳 應當常常喜樂，不住地禱告，凡事謝恩。</p>
-            <p style="margin:4px 0; color:#666;">
-                🇯🇵 常に喜んでいなさい ｜ 🇰🇷 항상 기뻐하라 ｜ 🇹🇭 <span style="font-size:18px;">จงชื่นชมยินดีอยู่เสมอ</span>
-            </p>
-        </div>
-        <div style="flex:1; text-align:right;">
-            <img src="{IMG_URLS['M1']}" width="80">
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # 4. 下半部 UI ── 當日筆記即時顯示＋搜尋欄
-    st.divider()
-    st.markdown("#### 今日靈修筆記 ✍️")
-   
-    # ── 當日筆記即時顯示 ──
-    note_val = st.session_state.notes.get(st.session_state.sel_date, "")
-    if note_val:
-        st.success(f"{st.session_state.sel_date} 筆記")
-        st.write(note_val)
-    else:
-        st.info("當日尚無筆記，點 ➕ 新增！")
-
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫
 # ==========================================
