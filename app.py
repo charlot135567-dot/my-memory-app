@@ -159,7 +159,46 @@ with tabs[1]:
                 """,
                 unsafe_allow_html=True,
             )
-            cal_options = {
+                        st.markdown(
+                """
+                <style>
+                /* 圓角卡片 */
+                .fc-daygrid-day-frame{
+                    border-radius: 16px;
+                    margin: 2px;
+                    background: linear-gradient(135deg, #fff9f0 0%, #ffdbea 100%);
+                    box-shadow: 0 2px 6px rgba(0,0,0,.05);
+                }
+                /* 今天特別粉嫩 */
+                .fc-day-today .fc-daygrid-day-frame{
+                    background: linear-gradient(135deg, #ffe4f0 0%, #ffc2d8 100%);
+                    border: 2px dashed #ff8ab4;
+                }
+                /* 日期數字可愛粗體 */
+                .fc-daygrid-day-number{
+                    font-weight: 700;
+                    font-size: 15px;
+                    color: #5c3c50;
+                }
+                /* Emoji 氣泡 */
+                .fc-event{
+                    border-radius: 12px;
+                    font-size: 18px;
+                    padding: 2px 6px;
+                    margin: 1px;
+                    background: #ffffffcc;
+                    backdrop-filter: blur(4px);
+                    border: 1px solid #ffffff99;
+                }
+                /* 整體圓角 */
+                .fc-daygrid-body, .fc-scrollgrid {
+                    border-radius: 20px;
+                    overflow: hidden;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )            cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
