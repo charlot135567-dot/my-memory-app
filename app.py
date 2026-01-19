@@ -98,15 +98,14 @@ with tabs[1]:
     # 0. 防閃爍：保證一定有 sel_date
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
-        st.session_state.bg_image
 
-    # ===== 背景桌布狀態初始化（一定要先有）=====
+    # ===== 背景桌布狀態初始化 =====
     if "show_bg" not in st.session_state:
         st.session_state.show_bg = True
 
     if "bg_image" not in st.session_state:
         st.session_state.bg_image = None
-            
+
     # 2. 本週靈修 glance ─ 手機專用折疊週曆＋活潑配色＋雙 Emoji 標記
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
@@ -114,16 +113,16 @@ with tabs[1]:
 
             # ── ① 背景桌布（上傳即套用，可隨時更換）──
             bg_col1, bg_col2, bg_col3 = st.columns([1, 2, 1])
-with bg_col2:
-    uploaded_bg = st.file_uploader(
-        "📷",
-        type=["jpg", "jpeg"],
-        key="bg_week",
-        label_visibility="collapsed"
-    )
-if uploaded_bg:
-    st.session_state.bg_image = uploaded_bg
-    
+            with bg_col2:
+                uploaded_bg = st.file_uploader(
+                    "📷",
+                    type=["jpg", "jpeg"],
+                    key="bg_week",
+                    label_visibility="collapsed"
+                )
+                if uploaded_bg:
+                    st.session_state.bg_image = uploaded_bg
+
             # ── ② 懸浮快速鍵（3 鍵並排）──
             btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
             with btn_col1:
@@ -152,6 +151,9 @@ if uploaded_bg:
                 todo_emoji = "🔔" if str(d) in st.session_state.todo else ""
                 note_emoji = "📝" if str(d) in st.session_state.notes else ""
                 e["title"] = f"{todo_emoji} {e['title']} {note_emoji}"
+
+            # ...（後面日曆 CSS、日曆初始化、表單、筆記、待辦保持原樣）
+
 
             st.markdown(
                 """
