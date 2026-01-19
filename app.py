@@ -135,8 +135,7 @@ with tabs[1]:
                 .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
                 </style>
                 """,
-                unsafe.allow_html=True,
-            )
+                unsafe_allow_html=True,            )
             cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
