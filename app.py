@@ -99,7 +99,7 @@ with tabs[1]:
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
             
-       # 2. 本週靈修 glance ─ 手機一週曆＋雙 Emoji＋互斥表單
+    # 2. 本週靈修 glance ─ 手機一週曆＋雙 Emoji＋互斥表單
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
             today = dt.date.today()
@@ -182,7 +182,7 @@ with tabs[1]:
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
 
- # 3. 經文區（維持原樣）
+    # 3. 經文區（維持原樣）
     st.markdown(f"""
     <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
         <div style="flex:2;">
