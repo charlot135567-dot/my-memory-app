@@ -99,7 +99,7 @@ with tabs[1]:
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
             
-      # 2. 本週靈修 glance ─ 手機一週曆＋數字氣泡＋26/1/19 格式
+    # 2. 本週靈修 glance ─ 手機一週曆＋數字氣泡＋26/1/19 格式
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
             today = dt.date.today()
@@ -135,7 +135,8 @@ with tabs[1]:
                 .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
                 </style>
                 """,
-                unsafe_allow_html=True,            )
+                unsafe_allow_html=True,
+            )
             cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
@@ -202,7 +203,7 @@ with tabs[1]:
 
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
-
+            
     # 3. 經文區（維持原樣）
     st.markdown(f"""
     <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
