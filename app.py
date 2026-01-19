@@ -98,6 +98,13 @@ with tabs[1]:
     # 0. 防閃爍：保證一定有 sel_date
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
+
+    # 背景桌布狀態初始化
+    if "show_bg" not in st.session_state:
+        st.session_state.show_bg = True
+
+    if "bg_image" not in st.session_state:
+        st.session_state.bg_image = None
             
     # 2. 本週靈修 glance ─ 手機專用折疊週曆＋活潑配色＋雙 Emoji 標記
     with st.expander("📅 本週靈修 glance", expanded=True):
