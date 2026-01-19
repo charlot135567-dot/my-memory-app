@@ -344,8 +344,7 @@ with tabs[1]:
     # 4. 下半部 UI ── 當日筆記即時顯示＋搜尋欄
     st.divider()
     st.markdown("#### 今日靈修筆記 ✍️")
-    # ── 搜尋欄 ──
-    search_q = st.text_input("🔍 關鍵字搜尋", placeholder="輸入經文、筆記、待辦關鍵字...")
+   
     # ── 當日筆記即時顯示 ──
     note_val = st.session_state.notes.get(st.session_state.sel_date, "")
     if note_val:
