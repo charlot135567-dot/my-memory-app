@@ -98,14 +98,7 @@ with tabs[1]:
     # 0. 防閃爍：保證一定有 sel_date
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
-
-    # ===== 背景桌布狀態初始化 =====
-    if "show_bg" not in st.session_state:
-        st.session_state.show_bg = True
-
-    if "bg_image" not in st.session_state:
-        st.session_state.bg_image = None
-
+            
     # 2. 本週靈修 glance ─ 手機專用折疊週曆＋活潑配色＋雙 Emoji 標記
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
@@ -114,14 +107,18 @@ with tabs[1]:
             # ── ① 背景桌布（上傳即套用，可隨時更換）──
             bg_col1, bg_col2, bg_col3 = st.columns([1, 2, 1])
             with bg_col2:
-                uploaded_bg = st.file_uploader(
-                    "📷",
-                    type=["jpg", "jpeg"],
-                    key="bg_week",
-                    label_visibility="collapsed"
+                uploaded_bg = st.file_uploader("📷", type=["jpg", "jpeg"], key="bg_week", label_visibility="collapsed")
+            if uploaded_bg:
+                b64 = base64.b64encode(uploaded_bg.getvalue()).decode()
+                st.markdown(
+                    f"""
+                    <style>
+                    .week-cal{{background:url(data:image/jpeg;base64,{b64});
+                    background-size:cover;border-radius:16px;padding:8px;}}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
                 )
-                if uploaded_bg:
-                    st.session_state.bg_image = uploaded_bg
 
             # ── ② 懸浮快速鍵（3 鍵並排）──
             btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
@@ -151,9 +148,6 @@ with tabs[1]:
                 todo_emoji = "🔔" if str(d) in st.session_state.todo else ""
                 note_emoji = "📝" if str(d) in st.session_state.notes else ""
                 e["title"] = f"{todo_emoji} {e['title']} {note_emoji}"
-
-            # ...（後面日曆 CSS、日曆初始化、表單、筆記、待辦保持原樣）
-
 
             st.markdown(
                 """
@@ -303,6 +297,34 @@ with tabs[1]:
 
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
+
+    # 3. 經文區（維持原樣）
+    st.markdown(f"""
+    <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
+        <div style="flex:2;">
+            <p style="margin:4px 0;">🇨🇳 應當常常喜樂，不住地禱告，凡事謝恩。</p>
+            <p style="margin:4px 0; color:#666;">
+                🇯🇵 常に喜んでいなさい ｜ 🇰🇷 항상 기뻐하라 ｜ 🇹🇭 <span style="font-size:18px;">จงชื่นชมยินดีอยู่เสมอ</span>
+            </p>
+        </div>
+        <div style="flex:1; text-align:right;">
+            <img src="{IMG_URLS['M1']}" width="80">
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 4. 下半部 UI ── 當日筆記即時顯示＋搜尋欄
+    st.divider()
+    st.markdown("#### 今日靈修筆記 ✍️")
+    # ── 搜尋欄 ──
+    search_q = st.text_input("🔍 關鍵字搜尋", placeholder="輸入經文、筆記、待辦關鍵字...")
+    # ── 當日筆記即時顯示 ──
+    note_val = st.session_state.notes.get(st.session_state.sel_date, "")
+    if note_val:
+        st.success(f"{st.session_state.sel_date} 筆記")
+        st.write(note_val)
+    else:
+        st.info("當日尚無筆記，點 ➕ 新增！")
 
     # 3. 經文區（維持原樣）
     st.markdown(f"""
