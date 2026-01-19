@@ -199,7 +199,36 @@ with tabs[1]:
                 """,
                 unsafe_allow_html=True,
             )   
-            cal_options = {
+            st.markdown(
+                """
+                <style>
+                /* ① 每一天粉嫩圓角卡片 */
+                .fc-daygrid-day-frame{
+                    border-radius: 16px;
+                    margin: 2px;
+                    background: linear-gradient(135deg, #fff9f0 0%, #ffdbea 100%);
+                    box-shadow: 0 2px 6px rgba(0,0,0,.05);
+                }
+                /* 今天特別桃色 */
+                .fc-day-today .fc-daygrid-day-frame{
+                    background: linear-gradient(135deg, #ffe4f0 0%, #ffc2d8 100%);
+                    border: 2px dashed #ff8ab4;
+                }
+                /* 日期數字可愛粗體 */
+                .fc-daygrid-day-number{
+                    font-weight: 700;
+                    font-size: 15px;
+                    color: #5c3c50;
+                }
+                /* 整體外框圓角（你原本就有）*/
+                .fc-daygrid-body, .fc-scrollgrid {
+                    border-radius: 20px;
+                    overflow: hidden;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )            cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
