@@ -138,17 +138,22 @@ with tabs[1]:
                 st.session_state.sel_date = clicked
                 st.rerun()
 
-            # 懸浮快速鍵
-            c1, c2 = st.columns([1, 1])
-            with c1:
-                if st.button("➕", key="quick_diary"):
+            # ② 手機專用並排快速鍵（3 鍵）
+            st.write("")  # ↑ 留白
+            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+            with btn_col1:
+                if st.button("📷", key="bg_btn", help="更換桌布"):
+                    st.session_state.show_bg = not st.session_state.get("show_bg", False)
+            with btn_col2:
+                if st.button("➕", key="quick_diary", help="新增靈修筆記"):
                     st.session_state.show_diary = not st.session_state.get("show_diary", False)
                     st.session_state.show_todo = False
-            with c2:
-                if st.button("🔔", key="quick_todo"):
+            with btn_col3:
+                if st.button("🔔", key="quick_todo", help="新增待辦提醒"):
                     st.session_state.show_todo = not st.session_state.get("show_todo", False)
                     st.session_state.show_diary = False
-
+            st.write("")  # ↓ 留白
+            
             # 動態表單（平行欄位＋一鍵收合）
             if st.session_state.get("show_diary"):
                 with st.form("diary_form"):
