@@ -99,24 +99,34 @@ with tabs[1]:
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
             
-    # 2. 本週靈修 glance ─ 手機一週曆＋雙 Emoji＋互斥表單
+      # 2. 本週靈修 glance ─ 手機一週曆＋數字氣泡＋26/1/19 格式
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
             today = dt.date.today()
             week_start = today - dt.timedelta(days=today.weekday())  # 週一
             week_end = week_start + dt.timedelta(days=6)
+
+            # ── ① 每週事件 ──
             week_events = [
                 e for e in st.session_state.events
                 if week_start <= dt.date.fromisoformat(e["start"]) <= week_end
             ]
-            # 雙 Emoji 標記：左=待辦🔔，右=筆記📝
+
+            # ── ② 數字氣泡＋簡短內容 ──
             for e in week_events:
                 d = dt.date.fromisoformat(e["start"])
-                todo_emoji = "🔔" if str(d) in st.session_state.todo else ""
-                note_emoji = "📝" if str(d) in st.session_state.notes else ""
-                e["title"] = f"{todo_emoji} {e['title']} {note_emoji}"
+                todo_list = st.session_state.todo.get(str(d), "").splitlines()[:3]  # 最多 3 筆
+                note_txt  = st.session_state.notes.get(str(d), "")[:10]            # 前 10 字
+                count = len(todo_list)
+                if count:
+                    titles = " ".join([f"{i+1}-{t[:6]}" for i, t in enumerate(todo_list)])
+                    e["title"] = f"{count}⚡{titles}"
+                elif note_txt:
+                    e["title"] = f"📝{note_txt}"
+                else:
+                    e["title"] = ""
 
-            # 輕量圓角（先不上漸層，避免閃爍）
+            # ── ③ 輕量圓角 + 26/1/19 格式 ──
             st.markdown(
                 """
                 <style>
@@ -125,12 +135,13 @@ with tabs[1]:
                 .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
                 </style>
                 """,
-                unsafe_allow_html=True,
+                unsafe.allow_html=True,
             )
             cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
+                "locale": "zh-tw",  # → 日期呈現 26/1/19
             }
             state = calendar(events=week_events, options=cal_options, key="week_cal_mobile")
             if state.get("dateClick"):
@@ -138,23 +149,18 @@ with tabs[1]:
                 st.session_state.sel_date = clicked
                 st.rerun()
 
-            # ② 手機專用並排快速鍵（3 鍵）
+            # ── ④ 緊湊並排快速鍵（3 鍵）──
             st.write("")  # ↑ 留白
-            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1], gap="small")  # gap 讓間距更小
             with btn_col1:
-                if st.button("📷", key="bg_btn", help="更換桌布"):
-                    st.session_state.show_bg = not st.session_state.get("show_bg", False)
+                st.button("📷", key="bg_btn", help="更換桌布", use_container_width=True)
             with btn_col2:
-                if st.button("➕", key="quick_diary", help="新增靈修筆記"):
-                    st.session_state.show_diary = not st.session_state.get("show_diary", False)
-                    st.session_state.show_todo = False
+                st.button("➕", key="quick_diary", help="新增靈修筆記", use_container_width=True)
             with btn_col3:
-                if st.button("🔔", key="quick_todo", help="新增待辦提醒"):
-                    st.session_state.show_todo = not st.session_state.get("show_todo", False)
-                    st.session_state.show_diary = False
+                st.button("🔔", key="quick_todo", help="新增待辦提醒", use_container_width=True)
             st.write("")  # ↓ 留白
-            
-            # 動態表單（平行欄位＋一鍵收合）
+
+            # ── ⑤ 動態表單（平行欄位＋一鍵收合）──
             if st.session_state.get("show_diary"):
                 with st.form("diary_form"):
                     d1, d2 = st.columns([1, 1])
