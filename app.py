@@ -148,7 +148,7 @@ with tabs[1]:
                 })
             st.rerun()
             
-    # 2. 月曆（可切週/月，手機友善）
+      # 2. 月曆（可切週/月，手機友善）
     with st.expander("📅 檢視靈修月曆", expanded=False):
         if CALENDAR_OK:
             state = calendar(
