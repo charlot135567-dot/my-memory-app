@@ -120,21 +120,6 @@ with bg_col2:
         key="bg_week",
         label_visibility="collapsed"
     )
-     # ⭐ 上傳後，立刻覆蓋舊背景（這一行很關鍵）
-    if uploaded_bg:
-        st.session_state.bg_image = uploaded_bg
-
-                b64 = base64.b64encode(uploaded_bg.getvalue()).decode()
-                st.markdown(
-                    f"""
-                    <style>
-                    .week-cal{{background:url(data:image/jpeg;base64,{b64});
-                    background-size:cover;border-radius:16px;padding:8px;}}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
             # ── ② 懸浮快速鍵（3 鍵並排）──
             btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
             with btn_col1:
