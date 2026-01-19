@@ -98,7 +98,7 @@ with tabs[1]:
     # 0. 防閃爍：保證一定有 sel_date
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
-st.session_state.bg_image
+        st.session_state.bg_image
 
     # ===== 背景桌布狀態初始化（一定要先有）=====
     if "show_bg" not in st.session_state:
