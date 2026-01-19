@@ -103,7 +103,7 @@ with tabs[1]:
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
             today = dt.date.today()
-            week_start = today - dt.timedelta(days=today.weekday())
+            week_start = today - dt.timedelta(days=today.weekday())  # 週一
             week_end = week_start + dt.timedelta(days=6)
             week_events = [
                 e for e in st.session_state.events
@@ -116,6 +116,17 @@ with tabs[1]:
                 note_emoji = "📝" if str(d) in st.session_state.notes else ""
                 e["title"] = f"{todo_emoji} {e['title']} {note_emoji}"
 
+            # 輕量圓角（先不上漸層，避免閃爍）
+            st.markdown(
+                """
+                <style>
+                .fc-daygrid-day-frame{border-radius:12px;}
+                .fc-day-today{background:#fff7d6!important;}
+                .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
             cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
