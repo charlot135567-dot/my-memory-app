@@ -1,6 +1,5 @@
 import streamlit as st
 import datetime as dt
-streamlit-calendar==0.6.1
 try:
     from streamlit_calendar import calendar
     CALENDAR_OK = True
