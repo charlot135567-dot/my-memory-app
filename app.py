@@ -228,7 +228,8 @@ with tabs[1]:
                 </style>
                 """,
                 unsafe_allow_html=True,
-            )            cal_options = {
+            )            
+            cal_options = {
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
