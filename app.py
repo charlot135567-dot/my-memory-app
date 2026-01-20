@@ -125,7 +125,7 @@ with tabs[0]:
                 else:
                     e["title"] = ""
 
-            # ── 輕量圓角 + 26/1/19 格式 ──
+            # ── 最輕量圓角（正確語法）──
             st.markdown(
                 """
                 <style>
@@ -134,7 +134,7 @@ with tabs[0]:
                 .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
                 </style>
                 """,
-                unsafe.allow_html=True,
+                unsafe_allow_html=True,
             )
             cal_options = {
                 "initialView": "dayGridWeek",
