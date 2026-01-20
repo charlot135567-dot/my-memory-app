@@ -93,31 +93,29 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ==========================================
-# [區塊 4] TAB 2: 最終整合版（多筆＋編輯＋清單版）
+# [區塊 4] TAB 2:本週靈修 glance ─ 初始關閉＋點格子才開
 # ==========================================
-with tabs[1]:
-    # 0. 防閃爍：保證一定有 sel_date
-    if 'sel_date' not in st.session_state:
-        st.session_state.sel_date = str(dt.date.today())
-
-    # 2. 本週靈修 glance ─ 手機一週曆＋數字氣泡＋26/1/19 格式
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
+            # ── 初始關閉（保證一開始只出現按鈕）──
+            st.session_state.show_diary = st.session_state.get("show_diary", False)
+            st.session_state.show_todo = st.session_state.get("show_todo", False)
+            st.session_state.show_bg = st.session_state.get("show_bg", False)
+
+            # ── 每週事件 ──
             today = dt.date.today()
             week_start = today - dt.timedelta(days=today.weekday())  # 週一
             week_end = week_start + dt.timedelta(days=6)
-
-            # ── ① 每週事件 ──
             week_events = [
                 e for e in st.session_state.events
                 if week_start <= dt.date.fromisoformat(e["start"]) <= week_end
             ]
 
-            # ── ② 數字氣泡＋簡短內容 ──
+            # ── 數字氣泡＋簡短內容 ──
             for e in week_events:
                 d = dt.date.fromisoformat(e["start"])
-                todo_list = st.session_state.todo.get(str(d), "").splitlines()[:3]  # 最多 3 筆
-                note_txt  = st.session_state.notes.get(str(d), "")[:10]            # 前 10 字
+                todo_list = st.session_state.todo.get(str(d), "").splitlines()[:3]
+                note_txt = st.session_state.notes.get(str(d), "")[:10]
                 count = len(todo_list)
                 if count:
                     titles = " ".join([f"{i+1}-{t[:6]}" for i, t in enumerate(todo_list)])
@@ -127,7 +125,7 @@ with tabs[1]:
                 else:
                     e["title"] = ""
 
-            # ── ③ 輕量圓角 + 26/1/19 格式 ──
+            # ── 輕量圓角 + 26/1/19 格式 ──
             st.markdown(
                 """
                 <style>
@@ -136,7 +134,7 @@ with tabs[1]:
                 .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
                 </style>
                 """,
-                unsafe_allow_html=True,
+                unsafe.allow_html=True,
             )
             cal_options = {
                 "initialView": "dayGridWeek",
@@ -148,68 +146,63 @@ with tabs[1]:
             if state.get("dateClick"):
                 clicked = state["dateClick"]["date"][:10]
                 st.session_state.sel_date = clicked
-                # ── 彈出選擇（必須在 rerun 之前）──
-                choice = st.radio("", ["➕ 靈修筆記", "🔔 待辦提醒"], horizontal=True)
-                if choice == "➕ 靈修筆記":
-                    st.session_state.show_diary = True
-                else:
-                    st.session_state.show_todo = True
-                st.rerun()
+                # ── 獨立表單區塊（填完才收合）──
+                def toggle_diary():
+                    st.session_state.show_todo = False
+                    st.session_state.show_diary = not st.session_state.get("show_diary", False)
 
-            # ✅ ④ 獨立按鈕（保證可點）＋最簡互斥
-            def toggle_diary():
-                st.session_state.show_todo = False
-                st.session_state.show_diary = not st.session_state.get("show_diary", False)
+                def toggle_todo():
+                    st.session_state.show_diary = False
+                    st.session_state.show_todo = not st.session_state.get("show_todo", False)
 
-            def toggle_todo():
-                st.session_state.show_diary = False
-                st.session_state.show_todo = not st.session_state.get("show_todo", False)
+                def toggle_bg():
+                    st.session_state.show_bg = not st.session_state.get("show_bg", False)
 
-            c1, c2, c3 = st.columns(3, gap="small")
-            c1.button("📷", on_click=toggle_diary, help="更換桌布", use_container_width=True)
-            c2.button("➕", on_click=toggle_diary, help="新增靈修筆記", use_container_width=True)
-            c3.button("🔔", on_click=toggle_todo, help="新增待辦提醒", use_container_width=True)
+                c1, c2, c3 = st.columns(3, gap="small")
+                c1.button("📷", on_click=toggle_bg, help="更換桌布", use_container_width=True)
+                c2.button("➕", on_click=toggle_diary, help="新增靈修筆記", use_container_width=True)
+                c3.button("🔔", on_click=toggle_todo, help="新增待辦提醒", use_container_width=True)
 
-            # ⑤ 動態表單（多筆＋追加）──
-            if st.session_state.get("show_diary"):
-                with st.form("diary_form"):
-                    d_date = st.date_input("日期", value=dt.date.fromisoformat(st.session_state.sel_date))
-                    d_emoji = st.selectbox("Emoji", st.session_state.custom_emojis)
-                    d_text = st.text_area("靈修筆記", height=250)
-                    if st.form_submit_button("追加"):
-                        key = str(d_date)
-                        old = st.session_state.notes.get(key, "").splitlines()
-                        new_item = f"{d_emoji} {d_text}"
-                        st.session_state.notes[key] = "\n".join(old + [new_item])
-                        st.session_state.events.append({
-                            "title": d_emoji or "📝",
-                            "start": str(d_date),
-                            "allDay": True,
-                        })
-                        st.success("已追加")
-                        st.session_state.show_diary = False
-                        st.rerun()
+                # ── 多筆表單（填完才收合）──
+                if st.session_state.get("show_diary"):
+                    with st.form("diary_form"):
+                        d_date = st.date_input("日期", value=dt.date.fromisoformat(st.session_state.sel_date))
+                        d_emoji = st.selectbox("Emoji", st.session_state.custom_emojis)
+                        d_text = st.text_area("靈修筆記", height=250)
+                        if st.form_submit_button("追加"):
+                            key = str(d_date)
+                            old = st.session_state.notes.get(key, "").splitlines()
+                            new_item = f"{d_emoji} {d_text}"
+                            st.session_state.notes[key] = "\n".join(old + [new_item])
+                            st.session_state.events.append({
+                                "title": d_emoji or "📝",
+                                "start": str(d_date),
+                                "allDay": True,
+                            })
+                            st.success("已追加")
+                            st.session_state.show_diary = False
+                            st.rerun()
 
-            if st.session_state.get("show_todo"):
-                with st.form("todo_form"):
-                    t_date = st.date_input("日期", value=dt.date.fromisoformat(st.session_state.sel_date))
-                    t_time = st.time_input("時間", value=None)
-                    t_all_day = st.checkbox("全天提醒", value=True)
-                    t_emoji = st.selectbox("Emoji", st.session_state.custom_emojis)
-                    t_text = st.text_area("待辦事項", height=120)
-                    if st.form_submit_button("追加"):
-                        key = str(t_date)
-                        old = st.session_state.todo.get(key, "").splitlines()
-                        new_item = f"{t_emoji} {t_text}"
-                        st.session_state.todo[key] = "\n".join(old + [new_item])
-                        st.session_state.events.append({
-                            "title": t_emoji or "🔔",
-                            "start": str(t_date),
-                            "allDay": t_all_day,
-                        })
-                        st.success("已追加")
-                        st.session_state.show_todo = False
-                        st.rerun()
+                if st.session_state.get("show_todo"):
+                    with st.form("todo_form"):
+                        t_date = st.date_input("日期", value=dt.date.fromisoformat(st.session_state.sel_date))
+                        t_time = st.time_input("時間", value=None)
+                        t_all_day = st.checkbox("全天提醒", value=True)
+                        t_emoji = st.selectbox("Emoji", st.session_state.custom_emojis)
+                        t_text = st.text_area("待辦事項", height=120)
+                        if st.form_submit_button("追加"):
+                            key = str(t_date)
+                            old = st.session_state.todo.get(key, "").splitlines()
+                            new_item = f"{t_emoji} {t_text}"
+                            st.session_state.todo[key] = "\n".join(old + [new_item])
+                            st.session_state.events.append({
+                                "title": t_emoji or "🔔",
+                                "start": str(t_date),
+                                "allDay": t_all_day,
+                            })
+                            st.success("已追加")
+                            st.session_state.show_todo = False
+                            st.rerun()
 
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
