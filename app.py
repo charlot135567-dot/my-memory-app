@@ -222,10 +222,11 @@ with tabs[0]:
     </div>
     """, unsafe_allow_html=True)
 
-    # 4. 下半部 UI ── 當日筆記＋搜尋＋待辦清單 ──
+    # 4. 下半部 UI ── 先給預設值＋當日筆記＋搜尋＋待辦清單 ──
     st.divider()
     st.markdown("#### 今日靈修筆記 ✍️")
-    search_q = st.text_input("🔍 關鍵字搜尋", placeholder="輸入經文、筆記、待辦關鍵字...", key="search_note")
+    # ── 先給預設值（保證第一次不報錯）──
+    st.session_state.sel_date = st.session_state.get("sel_date", str(dt.date.today()))
     note_val = st.session_state.notes.get(st.session_state.sel_date, "")
     if note_val:
         st.success(f"{st.session_state.sel_date} 筆記")
@@ -235,6 +236,26 @@ with tabs[0]:
             st.rerun()
     else:
         st.info("當日尚無筆記，點 ➕ 新增！")
+
+    # ── 本日～明日待辦清單（即使 expander 收起也能看到）──
+    st.markdown("### 本日～明日待辦")
+    now = dt.date.today()
+    tomorrow = now + dt.timedelta(days=1)
+    for d in [now, tomorrow]:
+        items = st.session_state.todo.get(str(d), "").splitlines()
+        if items:
+            st.write(f"**{d}**")
+            for it in items:
+                st.write(f"- {it}")
+
+    # ── 筆記蒐尋欄位（獨立折疊）──
+    with st.expander("🔍 筆記蒐尋"):
+        search_q = st.text_input("關鍵字", key="note_search")
+        if search_q:
+            hits = [d for d, txt in st.session_state.notes.items() if search_q in txt]
+            for d in hits:
+                st.write(f"**{d}**")
+                st.write(st.session_state.notes[d])
 
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫（保持不變）
