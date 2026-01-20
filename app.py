@@ -148,6 +148,12 @@ with tabs[1]:
             if state.get("dateClick"):
                 clicked = state["dateClick"]["date"][:10]
                 st.session_state.sel_date = clicked
+                # ── 彈出選擇（必須在 rerun 之前）──
+                choice = st.radio("", ["➕ 靈修筆記", "🔔 待辦提醒"], horizontal=True)
+                if choice == "➕ 靈修筆記":
+                    st.session_state.show_diary = True
+                else:
+                    st.session_state.show_todo = True
                 st.rerun()
 
             # ✅ ④ 獨立按鈕（保證可點）＋最簡互斥
