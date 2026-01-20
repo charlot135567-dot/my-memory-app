@@ -93,19 +93,21 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ==========================================
-# [區塊 4] TAB 2:本週靈修 glance ─ 初始關閉＋點格子才開
+# [區塊 4] TAB 2: 最終可上線版（語法修正＋不閃＋多筆）
 # ==========================================
+with tabs[1]:
+    # 0. 先給預設值（保證第一次不報錯）
+    if 'sel_date' not in st.session_state:
+        st.session_state.sel_date = str(dt.date.today())
+
+    # 2. 本週靈修 glance ─ 不閃＋26/1/19＋多筆
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
-            # ── 初始關閉（保證一開始只出現按鈕）──
-            st.session_state.show_diary = st.session_state.get("show_diary", False)
-            st.session_state.show_todo = st.session_state.get("show_todo", False)
-            st.session_state.show_bg = st.session_state.get("show_bg", False)
-
-            # ── 每週事件 ──
             today = dt.date.today()
             week_start = today - dt.timedelta(days=today.weekday())  # 週一
             week_end = week_start + dt.timedelta(days=6)
+
+            # ── 每週事件 ──
             week_events = [
                 e for e in st.session_state.events
                 if week_start <= dt.date.fromisoformat(e["start"]) <= week_end
@@ -125,7 +127,7 @@ with tabs[0]:
                 else:
                     e["title"] = ""
 
-            # ── 最輕量圓角（正確語法）──
+            # ── 最輕量圓角（不含漸層，避免閃爍）──
             st.markdown(
                 """
                 <style>
@@ -163,7 +165,7 @@ with tabs[0]:
                 c2.button("➕", on_click=toggle_diary, help="新增靈修筆記", use_container_width=True)
                 c3.button("🔔", on_click=toggle_todo, help="新增待辦提醒", use_container_width=True)
 
-                # ── 多筆表單（填完才收合）──
+                # ── 多筆表單（追加才收合）──
                 if st.session_state.get("show_diary"):
                     with st.form("diary_form"):
                         d_date = st.date_input("日期", value=dt.date.fromisoformat(st.session_state.sel_date))
@@ -206,21 +208,6 @@ with tabs[0]:
 
         else:
             st.info("月曆元件尚未安裝，請稍後再試。")
-
-    # 3. 經文區（維持原樣）
-    st.markdown(f"""
-    <div style="display:flex; background:#FFF0F5; border-radius:15px; padding:15px; margin-top:10px;">
-        <div style="flex:2;">
-            <p style="margin:4px 0;">🇨🇳 應當常常喜樂，不住地禱告，凡事謝恩。</p>
-            <p style="margin:4px 0; color:#666;">
-                🇯🇵 常に喜んでいなさい ｜ 🇰🇷 항상 기뻐하라 ｜ 🇹🇭 <span style="font-size:18px;">จงชื่นชมยินดีอยู่เสมอ</span>
-            </p>
-        </div>
-        <div style="flex:1; text-align:right;">
-            <img src="{IMG_URLS['M1']}" width="80">
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
     # 4. 下半部 UI ── 先給預設值＋當日筆記＋搜尋＋待辦清單 ──
     st.divider()
