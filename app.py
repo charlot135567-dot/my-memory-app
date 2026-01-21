@@ -159,57 +159,57 @@ with tabs[1]:
             if st.button(em, key=f"quick_emoji_{i}", use_container_width=True):
                 st.session_state.selected_emoji = em
 
-    # 2. 本週靈修 glance ─ 不閃＋多筆＋Emoji
+        # 2. 本週靈修 glance ─ 純原生版本（相容所有版本）
     with st.expander("📅 本週靈修 glance", expanded=st.session_state.expander_open):
         if CALENDAR_OK:
             today = dt.date.today()
             
-            # 確保事件格式正確
-            events_data = build_events()
-            if events_data is None:
-                events_data = []
+            # 建立事件資料
+            events_data = []
+            for date_key, note in st.session_state.notes.items():
+                emoji = note.get('emoji', '📓')
+                events_data.append({
+                    "title": f"{emoji}{note['title'][:6]}",
+                    "start": date_key
+                })
+            for date_key, todo in st.session_state.todo.items():
+                emoji = todo.get('emoji', '🔔')
+                events_data.append({
+                    "title": f"{todo['title'][:6]}{emoji}",
+                    "start": date_key
+                })
             
-            # 除錯資訊（部署後可刪除）
-            if st.session_state.get('debug'):
-                st.json(events_data[:3])  # 只顯示前3個事件
-            
-            try:
-                cal = calendar(
-                    events=events_data,
-                    options={
-                        "initialDate": str(today),
-                        "initialView": "timeGridWeek",
-                        "locale": "zh-tw",
-                        "firstDay": 1,
-                        "headerToolbar": {"start": "", "center": "title", "end": ""},
-                        "height": "auto",
-                        "selectable": True,
-                        "dateClick": True
-                    },
-                    callbacks=['dateClick'],
-                    key="cal"
-                )
-                # 立即處理點擊
-                handle_cal_click()
-            except Exception as e:
-                st.error(f"日曆載入失敗: {str(e)}")
-                st.info("💡 請在終端機執行: `pip install streamlit-calendar==1.2.0`")
-                cal = None
-                
-    # 3. 日期選擇與功能區
+            # 最簡化日曆
+            cal = calendar(
+                events=events_data,
+                options={
+                    "initialDate": str(today),
+                    "initialView": "timeGridWeek",
+                    "locale": "zh-tw",
+                    "firstDay": 1,
+                    "headerToolbar": {"start": "", "center": "title", "end": ""},
+                    "height": "auto"
+                },
+                key="cal"
+            )
+    
+    # 3. 日期與功能區
     st.divider()
     
-    # 3.1 三欄佈局：日期 + Emoji + 追加按鈕
+    # 3.1 三欄佈局
+    def on_date_change():
+        st.session_state.sel_date = str(st.session_state.date_picker_widget)
+        st.session_state.expander_open = True
+
     col_date, col_emoji, col_btn = st.columns([1.5, 2, 1])
     with col_date:
-        st.session_state.date_picker = st.date_input(
+        st.date_input(
             "📅 日期",
-            value=st.session_state.date_picker,
+            value=dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
             format="YYYY/MM/DD",
-            label_visibility="visible"
+            on_change=on_date_change,
+            key="date_picker_widget"
         )
-        # 同步sel_date
-        st.session_state.sel_date = str(st.session_state.date_picker)
     
     with col_emoji:
         emoji_options = ["無"] + st.session_state.custom_emojis
@@ -223,12 +223,12 @@ with tabs[1]:
             st.session_state.selected_emoji = selected_emoji
     
     with col_btn:
-        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)  # 對齊按鈕
+        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
         add_clicked = st.button("➕ 追加", use_container_width=True)
 
-    # 3.2 筆記與待辦切換
+    # 3.2 筆記與待辦
     tab_note, tab_todo = st.tabs(["📝 筆記", "🔔 待辦"])
-
+    
     with tab_note:
         note_title = st.text_input("標題", placeholder="輸入筆記標題")
         note_content = st.text_area("內容", placeholder="記錄靈修心得...")
