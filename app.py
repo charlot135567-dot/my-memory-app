@@ -95,9 +95,6 @@ with tabs[0]:
 # ==========================================
 # [區塊 4] TAB 2: 最終可上線版（語法修正＋不閃＋多筆）
 # ==========================================
-# ==========================================
-# [區塊 4] TAB 2: 最終可上線版（語法修正＋不閃＋多筆）
-# ==========================================
 with tabs[1]:
     # 0. 先給預設值（保證第一次不報錯）
     if 'sel_date' not in st.session_state:
@@ -123,8 +120,8 @@ with tabs[1]:
                 note_txt = st.session_state.notes.get(str(d), "")[:10]
                 count = len(todo_list)
                 if count:
-                    titles = " ".join([f"{i+1}-{t[:6]}" for i, t in enumerate(todo_list)])
-                    e["title"] = f"{count}⚡{titles}"
+                    titles = " ".join([f"{i+1}-{t[:4]}" for i, t in enumerate(todo_list)])
+                    e["title"] = f"🔔{count} {titles}"
                 elif note_txt:
                     e["title"] = f"📝{note_txt}"
                 else:
