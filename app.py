@@ -94,95 +94,95 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 2. TAB 2：📓 筆記（整合「圖1→圖2→圖1」流程）
+# TAB 2：📓 筆記（保證折疊區一定出現）
 # ===================================================================
 with tabs[1]:
-    # ---- 2.1 建構日曆事件（Emoji 左右分離）----
+    # ---- 0. 先給「手動開關」以防 dateClick 失靈 ----
+    if 'expander' not in st.session_state:
+        st.session_state.expander = True          # 預設展開
+    # 手動開關按鈕（放在最上面）
+    c_top, _ = st.columns([1, 4])
+    with c_top:
+        if st.button("📅 開啟編輯區", key='open_editor'):
+            st.session_state.expander = not st.session_state.expander
+
+    # ---- 1. 建構事件 ----
     def build_events():
-        ev=[]
-        for d,n in st.session_state.notes.items():
-            emoji=n.get('emoji','📝')
-            ev.append({"title":f"{emoji} {n['title'][:5]}","start":d})
-        for d,t in st.session_state.todo.items():
-            emoji=t.get('emoji','🔔')
-            ev.append({"title":f"{t['title'][:5]} {emoji}","start":d})
+        ev = []
+        for d, n in st.session_state.notes.items():
+            ev.append({"title": f"{n.get('emoji','📝')} {n['title'][:5]}", "start": d})
+        for d, t in st.session_state.todo.items():
+            ev.append({"title": f"{t['title'][:5]} {t.get('emoji','🔔')}", "start": d})
         return ev
 
-    # ---- 2.2 點日曆格子 → 取日期 → 開選擇器 ----
+    # ---- 2. 日曆點擊（能點就開） ----
     if CALENDAR_OK:
-        cal=calendar(
+        cal = calendar(
             events=build_events(),
-            options={"initialView":"dayGridMonth","locale":"zh-tw","dateClick":True,"height":"auto"},
+            options={"initialView": "dayGridMonth", "locale": "zh-tw", "dateClick": True, "height": "auto"},
             key="cal"
         )
         if cal and cal.get("dateClick"):
-            d=cal["dateClick"]["date"][:10]
-            st.session_state.sel_date=d
-            st.session_state.modal='picker'   # 彈出選擇器
+            d = cal["dateClick"]["date"][:10]
+            st.session_state.sel_date = d
+            st.session_state.modal = 'picker'      # 打開選擇器
+            st.session_state.expander = True       # 強制展開
 
-    # ---- 2.3 統一「選擇器」折疊區 ----
-    if st.session_state.modal=='picker':
-        with st.expander("📅 選擇操作", expanded=True):
-            c1,c2=st.columns(2)
-            with c1:
-                if st.button("📝 新增筆記", use_container_width=True):
-                    st.session_state.modal='note'; st.rerun()
-            with c2:
-                if st.button("🔔 新增待辦", use_container_width=True):
-                    st.session_state.modal='todo'; st.rerun()
+    # ---- 3. 統一「選擇器」折疊區（保證出現） ----
+    with st.expander("📅 新增筆記 / 待辦", expanded=st.session_state.expander):
+        # 3-1 選擇器
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("📝 新增筆記", use_container_width=True):
+                st.session_state.modal = 'note'; st.rerun()
+        with c2:
+            if st.button("🔔 新增待辦", use_container_width=True):
+                st.session_state.modal = 'todo'; st.rerun()
 
-    # ---- 2.4 「筆記📝」Modal 折疊區 ----
-    if st.session_state.modal=='note':
-        with st.expander("📝 編輯筆記", expanded=True):
-            # 第一行：日期 + Emoji + 右上角保存
-            d1,d2,d3=st.columns([2,2,1])
+        # 3-2 根據選擇顯示對應表單
+        if st.session_state.modal == 'note':
+            st.markdown("----")
+            d1, d2, d3 = st.columns([2, 2, 1])
             with d1:
-                new_date=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
+                new_date = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed")
             with d2:
-                emoji=st.selectbox("Emoji",["📝"]+st.session_state.custom_emojis,label_visibility="collapsed")
+                emoji = st.selectbox("Emoji", ["📝"] + st.session_state.custom_emojis, label_visibility="collapsed")
             with d3:
-                if st.button("💾",key="save_note",help="保存筆記"):
-                    k=str(new_date)
-                    st.session_state.notes[k]={"title":st.session_state.get('note_title',''),"content":st.session_state.get('note_content',''),"emoji":emoji}
-                    st.session_state.modal=None; st.rerun()
-            # 第二行：標題 & 內容
-            st.text_input("標題",placeholder="筆記標題",key="note_title")
-            st.text_area("內容",placeholder="記錄靈修心得...",key="note_content")
-            if st.button("取消"): st.session_state.modal=None; st.rerun()
+                if st.button("💾 保存", key="save_note"):
+                    k = str(new_date)
+                    st.session_state.notes[k] = {"title": st.session_state.get('note_title', ''), "content": st.session_state.get('note_content', ''), "emoji": emoji}
+                    st.session_state.modal = None; st.rerun()
+            st.text_input("標題", placeholder="筆記標題", key="note_title")
+            st.text_area("內容", placeholder="記錄靈修心得...", key="note_content")
+            if st.button("取消", key="cancel_note"): st.session_state.modal = None; st.rerun()
 
-    # ---- 2.5 「待辦🔔」Modal 折疊區 ----
-    if st.session_state.modal=='todo':
-        with st.expander("🔔 新增待辦", expanded=True):
-            d1,d2,d3=st.columns([2,2,1])
+        if st.session_state.modal == 'todo':
+            st.markdown("----")
+            d1, d2, d3 = st.columns([2, 2, 1])
             with d1:
-                new_date=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
-                new_time=st.time_input("時間",dt.time(9,0),label_visibility="collapsed")
+                new_date = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed")
+                new_time = st.time_input("時間", dt.time(9, 0), label_visibility="collapsed")
             with d2:
-                emoji=st.selectbox("Emoji",["🔔"]+st.session_state.custom_emojis,label_visibility="collapsed")
+                emoji = st.selectbox("Emoji", ["🔔"] + st.session_state.custom_emojis, label_visibility="collapsed")
             with d3:
-                if st.button("💾",key="save_todo",help="保存待辦"):
-                    k=str(new_date)
-                    st.session_state.todo[k]={"title":st.session_state.get('todo_title',''),"time":str(new_time),"emoji":emoji}
-                    st.session_state.modal=None; st.rerun()
-            st.text_input("待辦事項",placeholder="輸入待辦標題",key="todo_title")
-            if st.button("取消",key="cancel_todo"): st.session_state.modal=None; st.rerun()
+                if st.button("💾 保存", key="save_todo"):
+                    k = str(new_date)
+                    st.session_state.todo[k] = {"title": st.session_state.get('todo_title', ''), "time": str(new_time), "emoji": emoji}
+                    st.session_state.modal = None; st.rerun()
+            st.text_input("待辦事項", placeholder="輸入待辦標題", key="todo_title")
+            if st.button("取消", key="cancel_todo"): st.session_state.modal = None; st.rerun()
 
-    # ---- 2.6 折疊區下方：當日清單（待辦🔔先 / 筆記📝後）----
+    # ---- 4. 當日清單（折疊區下方） ----
     st.divider()
     st.markdown(f"**📍 {st.session_state.sel_date} 的內容**")
-# ---------- 當日清單（下方呈現） ----------
-st.divider()
-st.markdown(f"**📍 {st.session_state.sel_date} 的內容**")
-# 待辦
-if st.session_state.sel_date in st.session_state.todo:
-    t = st.session_state.todo[st.session_state.sel_date]
-    st.markdown(f"🔔 **{t.get('emoji','🔔')} {t['title']}** ・`{t.get('time','--:--')}`")
-# 筆記
-if st.session_state.sel_date in st.session_state.notes:
-    n = st.session_state.notes[st.session_state.sel_date]
-    with st.container():
-        st.markdown(f"📝 **{n.get('emoji','📝')} {n['title']}**")
-        st.caption(n.get('content', ''))
+    if st.session_state.sel_date in st.session_state.todo:
+        t = st.session_state.todo[st.session_state.sel_date]
+        st.markdown(f"🔔 **{t.get('emoji','🔔')} {t['title']}** ・`{t.get('time','--:--')}`")
+    if st.session_state.sel_date in st.session_state.notes:
+        n = st.session_state.notes[st.session_state.sel_date]
+        with st.container():
+            st.markdown(f"📝 **{n.get('emoji','📝')} {n['title']}**")
+            st.caption(n.get('content', ''))
 
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
