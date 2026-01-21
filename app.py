@@ -163,27 +163,39 @@ with tabs[1]:
     with st.expander("📅 本週靈修 glance", expanded=st.session_state.expander_open):
         if CALENDAR_OK:
             today = dt.date.today()
-            week_start = today - dt.timedelta(days=today.weekday())
-            week_end = week_start + dt.timedelta(days=6)
-
-            cal = calendar(
-                events=build_events(),
-                options={
-                    "initialDate": str(today),
-                    "initialView": "timeGridWeek",
-                    "locale": "zh-tw",
-                    "firstDay": 1,
-                    "headerToolbar": {"start": "", "center": "title", "end": ""},
-                    "height": "auto",
-                    "selectable": True,
-                    "dateClick": True
-                },
-                callbacks=['dateClick'],
-                key="cal"
-            )
-            # 立即處理點擊
-            handle_cal_click()
-
+            
+            # 確保事件格式正確
+            events_data = build_events()
+            if events_data is None:
+                events_data = []
+            
+            # 除錯資訊（部署後可刪除）
+            if st.session_state.get('debug'):
+                st.json(events_data[:3])  # 只顯示前3個事件
+            
+            try:
+                cal = calendar(
+                    events=events_data,
+                    options={
+                        "initialDate": str(today),
+                        "initialView": "timeGridWeek",
+                        "locale": "zh-tw",
+                        "firstDay": 1,
+                        "headerToolbar": {"start": "", "center": "title", "end": ""},
+                        "height": "auto",
+                        "selectable": True,
+                        "dateClick": True
+                    },
+                    callbacks=['dateClick'],
+                    key="cal"
+                )
+                # 立即處理點擊
+                handle_cal_click()
+            except Exception as e:
+                st.error(f"日曆載入失敗: {str(e)}")
+                st.info("💡 請在終端機執行: `pip install streamlit-calendar==1.2.0`")
+                cal = None
+                
     # 3. 日期選擇與功能區
     st.divider()
     
