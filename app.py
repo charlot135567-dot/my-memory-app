@@ -226,7 +226,7 @@ with tabs[1]:
                 """
                 <style>
                 .fc-daygrid-day-frame{border-radius:12px;}
-                .fc-day-today{background:#fff7d6!important;}
+                .fc-day-today{background:#ffe4f0!important;}
                 .fc-daygrid-day-number{font-weight:700;font-size:15px;color:#333;}
                 </style>
                 """,
@@ -236,7 +236,7 @@ with tabs[1]:
                 "initialView": "dayGridWeek",
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "height": "auto",
-                "locale": "zh-tw",  # → 日期呈現 26/1/19
+                "locale": "zh-tw",  # → 日期呈現 26/1/19"
             }
             state = calendar(events=week_events, options=cal_options, key="week_cal_mobile")
             if state.get("dateClick"):
@@ -330,13 +330,13 @@ with tabs[1]:
                 st.write(f"- {it}")
 
     # ── 筆記蒐尋欄位（獨立折疊）──
-    with st.expander("🔍 筆記蒐尋"):
+    with st.expander("🔍 筆記蒐尋")
         search_q = st.text_input("關鍵字", key="note_search")
         if search_q:
             hits = [d for d, txt in st.session_state.notes.items() if search_q in txt]
             for d in hits:
                 st.write(f"**{d}**")
-                st.write(st.session_state.notes[d])
+                st.write(st.session_state.notes[d]")
 # ==========================================
 # [區塊 5] TAB 3 & 4: 挑戰與資料庫（保持不變）
 # ==========================================
