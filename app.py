@@ -1,3 +1,6 @@
+# ===================================================================
+# 0. 套件與全域設定（保留你原封不動的區塊 1~5）
+# ===================================================================
 import streamlit as st
 import datetime as dt
 try:
@@ -167,16 +170,19 @@ with tabs[1]:
     # ---- 2.6 折疊區下方：當日清單（待辦🔔先 / 筆記📝後）----
     st.divider()
     st.markdown(f"**📍 {st.session_state.sel_date} 的內容**")
+    # ---------- 當日清單（下方呈現） ----------
+    st.divider()
+    st.markdown(f"**📍 {st.session_state.sel_date} 的內容**")
     # 待辦
     if st.session_state.sel_date in st.session_state.todo:
-        t=st.session_state.todo[st.session_state.sel_date]
-        st.markdown(f"🔔 **{t.get('emoji','🔔')} {t['title']}** ・`{t.get('time','--:--')}`")
+    t = st.session_state.todo[st.session_state.sel_date]
+    st.markdown(f"🔔 **{t.get('emoji','🔔')} {t['title']}** ・`{t.get('time','--:--')}`")
     # 筆記
     if st.session_state.sel_date in st.session_state.notes:
-        n=st.session_state.notes[st.session_state.sel_date]
-        with st.container():
-            st.markdown(f"📝 **{n.get('emoji','📝')} {n['title']}**")
-            st.caption(n['content"])
+    n = st.session_state.notes[st.session_state.sel_date]
+    with st.container():
+    st.markdown(f"📝 **{n.get('emoji','📝')} {n['title']}**")
+    st.caption(n.get('content', ''))
 
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
@@ -204,4 +210,3 @@ with tabs[3]:
         st.toast("已讀取文稿")
     if btn_r.button("💾 存檔至資料庫"):
         st.success("資料已成功存入雲端資料庫！")
-    
