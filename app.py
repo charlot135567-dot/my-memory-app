@@ -96,105 +96,113 @@ with tabs[0]:
 # ===================================================================
 # TAB 2：📓 筆記（一週捲動 + 大格子 + 多筆待辦 + 當日筆記即點即現）
 # ===================================================================
+# ===================================================================
+# TAB 2：📓 筆記（月曆捲動 + 大格子 + 左右 Emoji + 多筆待辦 + 編輯舊筆記）
+# ===================================================================
 with tabs[1]:
-    # ---- 0. 手動開關（保險） ----
-    if 'expander' not in st.session_state:
-        st.session_state.expander = True
-    c_top, _ = st.columns([1, 4])
-    with c_top:
-        if st.button("📅 開啟編輯區", key='open_editor'):
-            st.session_state.expander = not st.session_state.expander
+    # ---- 0. 初始 ----
+    if 'modal' not in st.session_state: st.session_state.modal = None
+    if 'sel_date' not in st.session_state: st.session_state.sel_date = str(dt.date.today())
 
-    # ---- 1. 事件建構（照你原邏輯） ----
+    # ---- 1. 事件建構（左待辦🔔 / 右筆記📝） ----
     def build_events():
-        ev = []
-        for d, n in st.session_state.notes.items():
-            ev.append({"title": f"{n.get('emoji','📝')} {n['title'][:8]}", "start": d})
-        for d, t in st.session_state.todo.items():
-            ev.append({"title": f"{t['title'][:8]} {t.get('emoji','🔔')}", "start": d})
+        ev=[]
+        # 待辦放左
+        for d,t in st.session_state.todo.items():
+            ev.append({"title":f"{t.get('emoji','🔔')} {t['title'][:8]}","start":d})
+        # 筆記放右
+        for d,n in st.session_state.notes.items():
+            ev.append({"title":f"{n['title'][:8]} {n.get('emoji','📝')}","start":d})
         return ev
 
-    # ---- 2. 一週視圖 + 固定高度捲動 ----
+    # ---- 2. 月曆 + 固定高度捲動 ----
     if CALENDAR_OK:
-        cal = calendar(
+        cal=calendar(
             events=build_events(),
             options={
-                "initialView": "timeGridWeek",   # 一週視圖
-                "locale": "zh-tw",
-                "firstDay": 1,
-                "headerToolbar": {"start": "", "center": "title", "end": ""},
-                "height": 400,                   # 固定高度 → 出現捲軸
-                "dateClick": True
+                "initialView":"dayGridMonth",
+                "locale":"zh-tw",
+                "firstDay":1,
+                "headerToolbar":{"start":"","center":"title","end":""},
+                "height":500,               # 整月上下捲動
+                "dateClick":True
             },
             key="cal"
         )
-        # 點格子 → 記錄日期 → 下方即時刷新
         if cal and cal.get("dateClick"):
-            d = cal["dateClick"]["date"][:10]
-            st.session_state.sel_date = d
-            st.session_state.expander = True
+            d=cal["dateClick"]["date"][:10]
+            st.session_state.sel_date=d
+            st.session_state.modal='picker'
 
-    # ---- 3. 統一折疊區（保證出現） ----
-    with st.expander("📅 新增筆記 / 待辦", expanded=st.session_state.expander):
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("📝 新增筆記", use_container_width=True):
-                st.session_state.modal = 'note'; st.rerun()
-        with c2:
-            if st.button("🔔 新增待辦", use_container_width=True):
-                st.session_state.modal = 'todo'; st.rerun()
+    # ---- 3. 點格子後：選擇器 Modal ----
+    if st.session_state.modal=='picker':
+        with st.expander("📅 選擇操作", expanded=True):
+            c1,c2=st.columns(2)
+            with c1:
+                if st.button("📝 新增筆記", use_container_width=True):
+                    st.session_state.modal='note'; st.rerun()
+            with c2:
+                if st.button("🔔 新增待辦", use_container_width=True):
+                    st.session_state.modal='todo'; st.rerun()
 
-        # 3-1 筆記 Modal
-        if st.session_state.modal == 'note':
-            d1, d2, d3 = st.columns([2, 2, 1])
+    # ---- 4. 「筆記📝」Modal（含「編輯已存在」邏輯） ----
+    if st.session_state.modal=='note':
+        with st.expander("📝 編輯筆記", expanded=True):
+            d1,d2,d3=st.columns([2,2,1])
             with d1:
-                new_date = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed")
+                # 允許改日期 → 可編輯過往
+                new_date=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
             with d2:
-                emoji = st.selectbox("Emoji", ["📝"] + st.session_state.custom_emojis, label_visibility="collapsed")
+                # 若當天已有筆記，自動帶入
+                exist=st.session_state.notes.get(str(new_date),{})
+                emoji=st.selectbox("Emoji",["📝"]+st.session_state.custom_emojis,
+                                   index=["📝"]+st.session_state.custom_emojis.index(exist.get('emoji','📝')) if exist.get('emoji') in st.session_state.custom_emojis else 0,
+                                   label_visibility="collapsed")
             with d3:
-                if st.button("💾 保存", key="save_note"):
-                    k = str(new_date)
-                    st.session_state.notes[k] = {"title": st.session_state.get('note_title', ''), "content": st.session_state.get('note_content', ''), "emoji": emoji}
-                    st.session_state.modal = None; st.rerun()
-            st.text_input("標題", placeholder="筆記標題", key="note_title")
-            st.text_area("內容", placeholder="記錄靈修心得...", key="note_content")
-            if st.button("取消", key="cancel_note"): st.session_state.modal = None; st.rerun()
+                if st.button("💾 保存",key="save_note"):
+                    k=str(new_date)
+                    st.session_state.notes[k]={"title":st.session_state.get('note_title',exist.get('title','')),"content":st.session_state.get('note_content',exist.get('content','')),"emoji":emoji}
+                    st.session_state.modal=None; st.rerun()
+            # 帶入已存在內容
+            st.text_input("標題",value=exist.get('title',''),placeholder="筆記標題",key="note_title")
+            st.text_area("內容",value=exist.get('content',''),placeholder="記錄靈修心得...",key="note_content")
+            if st.button("取消"): st.session_state.modal=None; st.rerun()
 
-        # 3-2 待辦 Modal
-        if st.session_state.modal == 'todo':
-            d1, d2, d3 = st.columns([2, 2, 1])
+    # ---- 5. 「待辯🔔」Modal（多筆） ----
+    if st.session_state.modal=='todo':
+        with st.expander("🔔 新增待辦", expanded=True):
+            d1,d2,d3=st.columns([2,2,1])
             with d1:
-                new_date = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed")
-                new_time = st.time_input("時間", dt.time(9, 0), label_visibility="collapsed")
+                new_date=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
+                new_time=st.time_input("時間",dt.time(9,0),label_visibility="collapsed")
             with d2:
-                emoji = st.selectbox("Emoji", ["🔔"] + st.session_state.custom_emojis, label_visibility="collapsed")
+                emoji=st.selectbox("Emoji",["🔔"]+st.session_state.custom_emojis,label_visibility="collapsed")
             with d3:
-                if st.button("💾 保存", key="save_todo"):
-                    k = str(new_date)
-                    st.session_state.todo[k] = {"title": st.session_state.get('todo_title', ''), "time": str(new_time), "emoji": emoji}
-                    st.session_state.modal = None; st.rerun()
-            st.text_input("待辦事項", placeholder="輸入待辦標題", key="todo_title")
-            if st.button("取消", key="cancel_todo"): st.session_state.modal = None; st.rerun()
+                if st.button("💾 保存",key="save_todo"):
+                    # 同一天可多筆：用「日期+時間」當 key
+                    k=f"{new_date}T{new_time}"
+                    st.session_state.todo[k]={"title":st.session_state.get('todo_title',''),"time":str(new_time),"emoji":emoji}
+                    st.session_state.modal=None; st.rerun()
+            st.text_input("待辦事項",placeholder="輸入待辦標題",key="todo_title")
+            if st.button("取消"): st.session_state.modal=None; st.rerun()
 
-    # ---- 4. 日曆下方：多筆待辦（依時間）+ 當日所有筆記 ----
+    # ---- 6. 下方清單：多筆待辦（依時間）+ 當日所有筆記 ----
     st.divider()
     st.markdown(f"**📍 {st.session_state.sel_date} 的內容**")
 
-    # 4-1 待辦：同一日可能有多筆 → 先轉時間再排序
-    todo_list = [
-        (t['time'], t.get('emoji', '🔔'), t['title'])
-        for d, t in st.session_state.todo.items()
-        if d == st.session_state.sel_date
-    ]
-    for tm, em, tit in sorted(todo_list):
+    # 6-1 待辦：同一天可多筆 → 依時間排
+    todo_list=[(t['time'],t.get('emoji','🔔'),t['title'])
+               for k,t in st.session_state.todo.items()
+               if k.startswith(st.session_state.sel_date)]   # 只取當天
+    for tm,em,tit in sorted(todo_list):
         st.markdown(f"🔔 **{em} {tit}** ・`{tm}`")
 
-    # 4-2 筆記：當日全部列出
-    for d, n in st.session_state.notes.items():
-        if d == st.session_state.sel_date:
+    # 6-2 筆記：當日全部
+    for k,n in st.session_state.notes.items():
+        if k==st.session_state.sel_date:
             with st.container():
-                st.markdown(f"📝 **{n.get('emoji', '📝')} {n['title']}**")
-                st.caption(n.get('content', ''))
+                st.markdown(f"📝 **{n.get('emoji','📝')} {n['title']}**")
+                st.caption(n.get('content',''))
                 
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
