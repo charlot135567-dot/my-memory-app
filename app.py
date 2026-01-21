@@ -94,23 +94,24 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB 2：📓 靈修足跡月曆（整合版 ─ 覆蓋原 tabs[1] 全部）
+# TAB 2：📓 靈修足跡月曆（1-4 完整覆蓋版）
 # ===================================================================
 with tabs[1]:
 
-    # ---------- 0. session_state 保險 ----------
+    # ---------- 1. session_state 保險 ----------
     if 'events'   not in st.session_state:  st.session_state.events   = []
-    if 'notes'    not in st.session_state:  st.session_state.notes    = {}   # {date: {title,content,emoji}}
-    if 'todo'     not in st.session_state:  st.session_state.todo     = {}   # {date: [{title,time,emoji}, ...]}
+    if 'notes'    not in st.session_state:  st.session_state.notes    = {}
+    if 'todo'     not in st.session_state:  st.session_state.todo     = {}
     if 'sel_date' not in st.session_state:  st.session_state.sel_date = str(dt.date.today())
     if 'edit_mode'not in st.session_state:  st.session_state.edit_mode= False
+    if 'cal_key'  not in st.session_state:  st.session_state.cal_key  = 0   # 強迫重繪計數器
 
-    # ---------- 1. 圖片 & Emoji ----------
+    # ---------- 2. 圖片 & Emoji ----------
     REPO_RAW  = "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/"
     IMG_HEAD  = f"{REPO_RAW}Mashimaro1.jpg"
     EMOJI_LIST= ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
-    # ---------- 2. 月曆專用 CSS（保留你超大 Emoji + 去底） ----------
+    # ---------- 3. CSS（超大 Emoji + 去底 + 左右定位） ----------
     st.markdown("""
     <style>
     .fc-event-main {
@@ -124,13 +125,12 @@ with tabs[1]:
         background-color: transparent !important;
         border: none !important;
     }
-    /* 待辦🔔靠左  /  筆記📝靠右 */
     .todo-left  { justify-content: flex-start !important; padding-left: 4px; }
     .note-right { justify-content: flex-end !important;  padding-right: 4px; }
     </style>
     """, unsafe_allow_html=True)
 
-    # ---------- 3. 組建事件（待辦左 / 筆記右） ----------
+    # ---------- 4. 組建事件 + 月曆（含強迫重繪） ----------
     def build_events():
         ev=[]
         # 筆記 → 靠右
@@ -148,7 +148,6 @@ with tabs[1]:
                            "start":d,"classNames":"todo-left"})
         return ev
 
-    # ---------- 4. 月曆本體（整月格狀 + 點擊日期） ----------
     st.subheader("📅 靈修足跡月曆")
     with st.expander("展開 / 摺疊月曆視窗", expanded=True):
         cal_opt = {
@@ -158,11 +157,17 @@ with tabs[1]:
             "height":500,
             "dateClick":True
         }
-        state = calendar(events=build_events(), options=cal_opt, key="emoji_calendar")
-        # 點格 → 同步下方
+        # 關鍵：key 帶變數 → 資料異動就強迫重繪
+        state = calendar(
+            events=build_events(),
+            options=cal_opt,
+            key=f"emoji_calendar_{st.session_state.get('cal_key', 0)}"
+        )
         if state.get("dateClick"):
             st.session_state.sel_date = state["dateClick"]["date"][:10]
         st.write(f"📍 目前選取日期：**{st.session_state.sel_date}**")
+
+    # （以下 5. 新增 / 顯示 / 編輯區 保持你上一版不變，可直接沿用）
 
     # ---------- 5. 下方編輯 / 顯示區 ----------
     st.divider()
