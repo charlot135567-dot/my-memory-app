@@ -194,7 +194,7 @@ with tabs[1]:
     if 'sel_date' not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
 
-    # 2. 本週靈修 glance ─ 不閃＋26/1/19＋多筆
+    # 2. 本週靈修 glance ─ 不閃＋26/1/19＋多筆）
     with st.expander("📅 本週靈修 glance", expanded=True):
         if CALENDAR_OK:
             today = dt.date.today()
@@ -330,7 +330,7 @@ with tabs[1]:
                 st.write(f"- {it}")
 
     # ── 筆記蒐尋欄位（獨立折疊）──
-    with st.expander("🔍 筆記蒐尋")
+    with st.expander("🔍 筆記蒐尋"):
         search_q = st.text_input("關鍵字", key="note_search")
         if search_q:
             hits = [d for d, txt in st.session_state.notes.items() if search_q in txt]
