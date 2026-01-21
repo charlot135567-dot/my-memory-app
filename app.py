@@ -7,50 +7,33 @@ except ModuleNotFoundError:
     CALENDAR_OK = False
     calendar = None
 
-# ==========================================
-# [區塊 1] 環境匯入與全域 CSS + 點擊動畫
-# ==========================================
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-# 初始化Session State（保證不報錯）
+# ---------- Session 初始 ----------
 if 'events' not in st.session_state: st.session_state.events = []
 if 'notes' not in st.session_state: st.session_state.notes = {}
 if 'todo' not in st.session_state: st.session_state.todo = {}
-if 'custom_emojis' not in st.session_state:
-    st.session_state.custom_emojis = ["🐾", "🐰", "🥰", "✨", "🥕", "🌟"]
-if 'sel_date' not in st.session_state:
-    st.session_state.sel_date = str(dt.date.today())
-if 'date_picker' not in st.session_state:
-    st.session_state.date_picker = dt.date.today()
-if 'expander_open' not in st.session_state:
-    st.session_state.expander_open = True
+if 'custom_emojis' not in st.session_state: st.session_state.custom_emojis = ["🐾", "🐰", "🥰", "✨", "🥕", "🌟"]
+if 'sel_date' not in st.session_state: st.session_state.sel_date = str(dt.date.today())
+if 'modal' not in st.session_state: st.session_state.modal = None   # 新增：控制彈窗
 
+# ---------- 你原有的 CSS ----------
 st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
-    .cute-korean { font-family: 'Gamja+Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
-    .small-font { font-size: 13px; color: #555555; margin-top: 5px !important; }
-    .grammar-box-container {
-        background-color: #f8f9fa; border-radius: 8px; padding: 12px; 
-        border-left: 5px solid #FF8C00; text-align: left; margin-top: 0px;
-    }
-    /* 日曆格子點擊動畫 */
-    .fc-daygrid-day-frame:hover {
-        background-color: #FFF3CD !important;
-        cursor: pointer;
-        transform: scale(1.03);
-        transition: all 0.2s ease;
-    }
-    .fc-daygrid-day-frame:active {
-        transform: scale(0.98);
-        background-color: #FFE69C !important;
-    }
-    /* 筆記(左)與待辦(右)分離顯示 */
-    .note-emoji { color: #FF8C00; font-size: 12px; }
-    .todo-emoji { color: #17A2B8; font-size: 12px; float: right; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
+.cute-korean { font-family: 'Gamja+Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
+.small-font { font-size: 13px; color: #555555; margin-top: 5px !important; }
+.grammar-box-container {
+    background-color: #f8f9fa; border-radius: 8px; padding: 12px; 
+    border-left: 5px solid #FF8C00; text-align: left; margin-top: 0px;
+}
+/* 日曆格子點擊回饋 */
+.fc-daygrid-day-frame:hover {background-color: #FFF3CD !important; cursor: pointer; transform: scale(1.03); transition: .2s}
+.fc-daygrid-day-frame:active {transform: scale(0.98); background-color: #FFE69C !important}
+</style>
+""", unsafe_allow_html=True)
 
+# ---------- IMG & Sidebar（原樣） ----------
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
@@ -60,10 +43,6 @@ IMG_URLS = {
     "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
     "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
-
-# ==========================================
-# [區塊 2] 側邊欄與 Tabs
-# ==========================================
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
     st.image(IMG_URLS["M3"], width=250)
@@ -72,9 +51,9 @@ with st.sidebar:
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
-# ==========================================
-# [區塊 3] TAB 1: 完整版內容恢復
-# ==========================================
+# ===================================================================
+# 1. TAB 1：書桌（你原來的內容，完全沒動）
+# ===================================================================
 with tabs[0]:
     col_content, col_m1 = st.columns([0.65, 0.35])
     with col_content:
@@ -85,7 +64,6 @@ with tabs[0]:
             🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。   
             🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
             """, icon="📖")
-
     with col_m1:
         st.markdown(f"""
             <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 250px; text-align: center;">
@@ -104,7 +82,6 @@ with tabs[0]:
                 </div>
             </div>
         """, unsafe_allow_html=True)
-
     st.divider()
     st.markdown("### ✍️ 文法運用例句")
     cl1, cl2 = st.columns(2)
@@ -113,166 +90,97 @@ with tabs[0]:
     with cl2:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
-# ==========================================
-# [區塊 4] TAB 2: 最終可上線版（語法修正＋不閃＋多筆＋Emoji）
-# ==========================================
+# ===================================================================
+# 2. TAB 2：📓 筆記（整合「圖1→圖2→圖1」流程）
+# ===================================================================
 with tabs[1]:
-    # 建立事件清單（包含Emoji分離顯示）
+    # ---- 2.1 建構日曆事件（Emoji 左右分離）----
     def build_events():
-        events = []
-        # 筆記事件（靠左，用📓）
-        for date_key, note in st.session_state.notes.items():
-            emoji = note.get('emoji', '📓')
-            events.append({
-                "title": f"{emoji} {note['title'][:6]}",
-                "start": date_key,
-                "classNames": ["note-emoji"]
-            })
-        # 待辦事件（靠右，用🔔）
-        for date_key, todo in st.session_state.todo.items():
-            emoji = todo.get('emoji', '🔔')
-            events.append({
-                "title": f"{todo['title'][:6]} {emoji}",
-                "start": date_key,
-                "classNames": ["todo-emoji"]
-            })
-        return events
+        ev=[]
+        for d,n in st.session_state.notes.items():
+            emoji=n.get('emoji','📝')
+            ev.append({"title":f"{emoji} {n['title'][:5]}","start":d})
+        for d,t in st.session_state.todo.items():
+            emoji=t.get('emoji','🔔')
+            ev.append({"title":f"{t['title'][:5]} {emoji}","start":d})
+        return ev
 
-    # 處理日曆點擊（修復時區Bug）
-    def handle_cal_click():
-        if "cal" in st.session_state and st.session_state.cal:
-            e = st.session_state.cal
-            if 'dateClick' in e:
-                clicked = e['dateClick']
-                if clicked and 'date' in clicked:
-                    # 關鍵修正：直接取日期部分，忽略時間
-                    date_str = clicked['date'][:10]
-                    st.session_state.sel_date = date_str
-                    st.session_state.date_picker = dt.datetime.strptime(date_str, "%Y-%m-%d").date()
-                    st.session_state.expander_open = True
-
-    # 1. 快速Emoji選擇器
-    st.markdown("#### 🏷️ 快速選擇Emoji")
-    emoji_cols = st.columns(6)
-    for i, em in enumerate(st.session_state.custom_emojis):
-        with emoji_cols[i]:
-            if st.button(em, key=f"quick_emoji_{i}", use_container_width=True):
-                st.session_state.selected_emoji = em
-
-        # 2. 本週靈修 glance ─ 純原生版本（相容所有版本）
-    with st.expander("📅 本週靈修 glance", expanded=st.session_state.expander_open):
-        if CALENDAR_OK:
-            today = dt.date.today()
-            
-            # 建立事件資料
-            events_data = []
-            for date_key, note in st.session_state.notes.items():
-                emoji = note.get('emoji', '📓')
-                events_data.append({
-                    "title": f"{emoji}{note['title'][:6]}",
-                    "start": date_key
-                })
-            for date_key, todo in st.session_state.todo.items():
-                emoji = todo.get('emoji', '🔔')
-                events_data.append({
-                    "title": f"{todo['title'][:6]}{emoji}",
-                    "start": date_key
-                })
-            
-            # 最簡化日曆
-            cal = calendar(
-                events=events_data,
-                options={
-                    "initialDate": str(today),
-                    "initialView": "timeGridWeek",
-                    "locale": "zh-tw",
-                    "firstDay": 1,
-                    "headerToolbar": {"start": "", "center": "title", "end": ""},
-                    "height": "auto"
-                },
-                key="cal"
-            )
-    
-    # 3. 日期與功能區
-    st.divider()
-    
-    # 3.1 三欄佈局
-    def on_date_change():
-        st.session_state.sel_date = str(st.session_state.date_picker_widget)
-        st.session_state.expander_open = True
-
-    col_date, col_emoji, col_btn = st.columns([1.5, 2, 1])
-    with col_date:
-        st.date_input(
-            "📅 日期",
-            value=dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
-            format="YYYY/MM/DD",
-            on_change=on_date_change,
-            key="date_picker_widget"
+    # ---- 2.2 點日曆格子 → 取日期 → 開選擇器 ----
+    if CALENDAR_OK:
+        cal=calendar(
+            events=build_events(),
+            options={"initialView":"dayGridMonth","locale":"zh-tw","dateClick":True,"height":"auto"},
+            key="cal"
         )
-    
-    with col_emoji:
-        emoji_options = ["無"] + st.session_state.custom_emojis
-        selected_emoji = st.selectbox(
-            "🏷️ Emoji",
-            options=emoji_options,
-            format_func=lambda x: "選擇Emoji" if x=="無" else x,
-            label_visibility="visible"
-        )
-        if selected_emoji != "無":
-            st.session_state.selected_emoji = selected_emoji
-    
-    with col_btn:
-        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-        add_clicked = st.button("➕ 追加", use_container_width=True)
+        if cal and cal.get("dateClick"):
+            d=cal["dateClick"]["date"][:10]
+            st.session_state.sel_date=d
+            st.session_state.modal='picker'   # 彈出選擇器
 
-    # 3.2 筆記與待辦
-    tab_note, tab_todo = st.tabs(["📝 筆記", "🔔 待辦"])
-    
-    with tab_note:
-        note_title = st.text_input("標題", placeholder="輸入筆記標題")
-        note_content = st.text_area("內容", placeholder="記錄靈修心得...")
-        if st.button("💾 儲存筆記") or add_clicked:
-            if note_title:
-                date_key = st.session_state.sel_date
-                emoji = getattr(st.session_state, 'selected_emoji', '📓')
-                st.session_state.notes[date_key] = {
-                    "title": note_title,
-                    "content": note_content,
-                    "emoji": emoji
-                }
-                st.success(f"✅ 筆記已儲存至 {date_key}")
-                st.rerun()
+    # ---- 2.3 統一「選擇器」折疊區 ----
+    if st.session_state.modal=='picker':
+        with st.expander("📅 選擇操作", expanded=True):
+            c1,c2=st.columns(2)
+            with c1:
+                if st.button("📝 新增筆記", use_container_width=True):
+                    st.session_state.modal='note'; st.rerun()
+            with c2:
+                if st.button("🔔 新增待辦", use_container_width=True):
+                    st.session_state.modal='todo'; st.rerun()
 
-    with tab_todo:
-        todo_title = st.text_input("待辦事項", placeholder="輸入待辦標題")
-        if st.button("➕ 新增待辦"):
-            if todo_title:
-                date_key = st.session_state.sel_date
-                emoji = getattr(st.session_state, 'selected_emoji', '🔔')
-                st.session_state.todo[date_key] = {
-                    "title": todo_title,
-                    "emoji": emoji
-                }
-                st.success(f"✅ 待辦已新增至 {date_key}")
-                st.rerun()
+    # ---- 2.4 「筆記📝」Modal 折疊區 ----
+    if st.session_state.modal=='note':
+        with st.expander("📝 編輯筆記", expanded=True):
+            # 第一行：日期 + Emoji + 右上角保存
+            d1,d2,d3=st.columns([2,2,1])
+            with d1:
+                new_date=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
+            with d2:
+                emoji=st.selectbox("Emoji",["📝"]+st.session_state.custom_emojis,label_visibility="collapsed")
+            with d3:
+                if st.button("💾",key="save_note",help="保存筆記"):
+                    k=str(new_date)
+                    st.session_state.notes[k]={"title":st.session_state.get('note_title',''),"content":st.session_state.get('note_content',''),"emoji":emoji}
+                    st.session_state.modal=None; st.rerun()
+            # 第二行：標題 & 內容
+            st.text_input("標題",placeholder="筆記標題",key="note_title")
+            st.text_area("內容",placeholder="記錄靈修心得...",key="note_content")
+            if st.button("取消"): st.session_state.modal=None; st.rerun()
 
-    # 3.3 顯示當日紀錄
+    # ---- 2.5 「待辦🔔」Modal 折疊區 ----
+    if st.session_state.modal=='todo':
+        with st.expander("🔔 新增待辦", expanded=True):
+            d1,d2,d3=st.columns([2,2,1])
+            with d1:
+                new_date=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
+                new_time=st.time_input("時間",dt.time(9,0),label_visibility="collapsed")
+            with d2:
+                emoji=st.selectbox("Emoji",["🔔"]+st.session_state.custom_emojis,label_visibility="collapsed")
+            with d3:
+                if st.button("💾",key="save_todo",help="保存待辦"):
+                    k=str(new_date)
+                    st.session_state.todo[k]={"title":st.session_state.get('todo_title',''),"time":str(new_time),"emoji":emoji}
+                    st.session_state.modal=None; st.rerun()
+            st.text_input("待辦事項",placeholder="輸入待辦標題",key="todo_title")
+            if st.button("取消",key="cancel_todo"): st.session_state.modal=None; st.rerun()
+
+    # ---- 2.6 折疊區下方：當日清單（待辦🔔先 / 筆記📝後）----
     st.divider()
-    current_date = st.session_state.sel_date
-    if current_date in st.session_state.notes:
+    st.markdown(f"**📍 {st.session_state.sel_date} 的內容**")
+    # 待辦
+    if st.session_state.sel_date in st.session_state.todo:
+        t=st.session_state.todo[st.session_state.sel_date]
+        st.markdown(f"🔔 **{t.get('emoji','🔔')} {t['title']}** ・`{t.get('time','--:--')}`")
+    # 筆記
+    if st.session_state.sel_date in st.session_state.notes:
+        n=st.session_state.notes[st.session_state.sel_date]
         with st.container():
-            note = st.session_state.notes[current_date]
-            st.markdown(f"**{note['emoji']} 筆記：** {note['title']}")
-            st.caption(note['content'])
-    if current_date in st.session_state.todo:
-        with st.container():
-            todo = st.session_state.todo[current_date]
-            st.markdown(f"**{todo['emoji']} 待辦：** {todo['title']}")
+            st.markdown(f"📝 **{n.get('emoji','📝')} {n['title']}**")
+            st.caption(n['content"])
 
-# ==========================================
-# [區塊 5] TAB 3 & 4: 挑戰與資料庫（保持不變）
-# ==========================================
+# ===================================================================
+# 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
+# ===================================================================
 with tabs[2]:
     col_challenge, col_deco = st.columns([0.7, 0.3])
     with col_challenge:
@@ -285,10 +193,10 @@ with tabs[2]:
 with tabs[3]:
     st.subheader("🔗 聖經與AI 資源")
     cl1, cl2, cl3, cl4 = st.columns(4)
-    cl1.link_button("ChatGPT", "https://chat.openai.com/ ")
-    cl2.link_button("Google AI", "https://gemini.google.com/ ")
-    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
-    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
+    cl1.link_button("ChatGPT", "https://chat.openai.com/")
+    cl2.link_button("Google AI", "https://gemini.google.com/")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
     st.divider()
     input_content_final = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, key="db_input_area")
     btn_l, btn_r = st.columns(2)
@@ -296,5 +204,4 @@ with tabs[3]:
         st.toast("已讀取文稿")
     if btn_r.button("💾 存檔至資料庫"):
         st.success("資料已成功存入雲端資料庫！")
-                    
     
