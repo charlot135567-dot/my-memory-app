@@ -92,7 +92,8 @@ with tabs[0]:
         st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
     with cl2:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
-        
+
+if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 # ===================================================================
 # TAB 2：📅 靈修足跡月曆（完整修正版）
 # ===================================================================
