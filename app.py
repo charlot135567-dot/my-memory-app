@@ -146,17 +146,18 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
         # ❌ 刪除：不再顯示「目前選取日期」這行
 
-    # ---------- 5. 下方顯示區（待辦 3 天 + 筆記當天 + 奶油/粉底） ----------
+    # ---------- 5. 下方顯示區（保留全部功能，只改 1-4 點） ----------
     st.divider()
     from datetime import timedelta
 
     cur = st.session_state.sel_date          # 當天
+    base = dt.datetime.strptime(cur, "%Y-%m-%d").date()
 
-    # 5-0 待辦：今・明・後（3 天）
+    # ① 待辦：今・明・後 3 天（奶油底）
     st.markdown("#### 🔔 待辦事項（今明後）")
     has_todo = False
     for i in range(3):
-        dd = dt.datetime.strptime(cur, "%Y-%m-%d").date() + timedelta(days=i)
+        dd = base + timedelta(days=i)
         ds = str(dd)
         if ds not in st.session_state.todo: continue
         has_todo = True
@@ -177,7 +178,7 @@ with tabs[1]:
                     else: st.empty()   # 保持直線
     if not has_todo: st.info("今明後尚無待辦")
 
-    # 5-1 筆記：只顯示「選取當天」
+    # ② 筆記：只顯示「選取當天」+ 奶油底 + 最右對齊
     if cur in st.session_state.notes:
         st.markdown("#### 📝 筆記")
         n = st.session_state.notes[cur]
@@ -201,7 +202,7 @@ with tabs[1]:
                         st.session_state.cal_key += 1; st.rerun()
         st.caption(n.get('content', ''))
 
-    # 5-2 編輯展開表單（同你上一版，無改動）
+    # ③ 編輯展開表單（與你上一版完全相同，無改動）
     if st.session_state.get('edit_mode'):
         st.divider()
         st.markdown("#### ✏️ 編輯筆記")
@@ -216,12 +217,14 @@ with tabs[1]:
             if st.button("💾 更新", key="do_update"):
                 st.session_state.notes[cur] = {"title": new_ttl, "content": new_cont, "emoji": new_emo}
                 st.session_state.edit_mode = False
-                st.session_state.cal_key += 1
-                st.rerun()
+                st.session_state.cal_key += 1; st.rerun()
         with c_cancel:
             if st.button("取消", key="cancel_edit"):
-                st.session_state.edit_mode = False
-                st.rerun()
+                st.session_state.edit_mode = False; st.rerun()
+
+    # ④ 無資料提示
+    if cur not in st.session_state.notes and not has_todo:
+        st.info("當天尚無紀錄，請從上方新增")
 
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
