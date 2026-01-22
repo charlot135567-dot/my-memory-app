@@ -188,9 +188,9 @@ with tabs[1]:
             if not ttl:
                 st.error("請輸入標題")
                 st.stop()
-            import emoji
-            emo_found = emoji.emoji_list(ttl)[0]["emoji"] if emoji.emoji_list(ttl) else ph_emo
-            ttl_clean = emoji.replace_emoji(ttl, replace='').strip()
+            # 純 Python 版 Emoji 處理
+            emo_found = first_emoji(ttl) or ph_emo
+            ttl_clean = remove_emoji(ttl)
             if mode == "📝 新增筆記":
                 st.session_state.notes[str(d)] = {"title": ttl_clean, "content": cont, "emoji": emo_found}
             else:
