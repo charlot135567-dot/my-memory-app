@@ -145,91 +145,134 @@ with tabs[1]:
         if state.get("dateClick"):
             st.session_state.sel_date = state["dateClick"]["date"][:10]
         # ❌ 刪除：不再顯示「目前選取日期」這行
-
-    # ---------- 5. 下方顯示區（保留全部功能，只改 1-4 點） ----------
+    # ---------- 5. 下方編輯 / 顯示區（無「📍 的內容」標題） ----------
     st.divider()
-    from datetime import timedelta
 
-    st.write("📊 除錯資訊")
-    st.write("待辦資料：", st.session_state.todo)
-    st.write("選取日期：", st.session_state.sel_date)
+    # 5-1 新增區（保持不變）
+    with st.expander("➕ 新增筆記 / 待辦", expanded=True):
+        mode = st.radio("模式",["📝 新增筆記","🔔 新增待辦"],horizontal=True)
+        c1,c2,c3=st.columns([2,1,3])
+        with c1: d=st.date_input("日期",dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date(),label_visibility="collapsed")
+        with c2: emo=st.selectbox("Emoji",["📝","🔔"]+EMOJI_LIST,label_visibility="collapsed")
+        with c3: ttl=st.text_input("標題",placeholder="輸入標題...",label_visibility="collapsed")
+        if mode=="📝 新增筆記":
+            cont=st.text_area("內容",placeholder="記錄靈修心得...")
+            if st.button("💾 儲存筆記",use_container_width=True):
+                if ttl:
+                    st.session_state.notes[str(d)]={"title":ttl,"content":cont,"emoji":emo}
+                    st.session_state.cal_key += 1
+                    st.rerun()
+                else: st.error("請輸入標題")
+        else:
+            tm=st.time_input("⏰ 時間",dt.time(9,0))
+            if st.button("💾 新增待辦",use_container_width=True):
+                if ttl:
+                    k=str(d)
+                    if k not in st.session_state.todo: st.session_state.todo[k]=[]
+                    st.session_state.todo[k].append({"title":ttl,"time":str(tm),"emoji":emo})
+                    st.session_state.cal_key += 1
+                    st.rerun()
+                else: st.error("請輸入待辦標題")
 
-    # 檢查近3天是否有資料
-    base = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
-    for i in range(3):
-        dd = base + timedelta(days=i)
-        ds = str(dd)
-        st.write(f"{ds} 有資料？", ds in st.session_state.todo)
+    # 5-2 待辦列表（顯示3天 + 粉紅色背景）
+    # ✅ 修改1：計算3天日期
+    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    dates_to_show = [base_date + dt.timedelta(days=i) for i in range(3)]
+    
+    has_any_todo = False
+    for date_obj in dates_to_show:
+        date_str = str(date_obj)
+        if date_str in st.session_state.todo and st.session_state.todo[date_str]:
+            has_any_todo = True
+            # ✅ 修改2：添加日期標題
+            if date_obj == base_date:
+                st.markdown("#### 🔔 待辦事項（今天）")
+            else:
+                st.markdown(f"#### 🔔 {date_obj.strftime('%m/%d')} 待辦")
+            
+            # ✅ 修改3：粉紅色背景容器
+            for t in sorted(st.session_state.todo[date_str], key=lambda x:x.get('time','00:00:00')):
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style="background-color: #FFE4E1; padding: 10px; border-radius: 5px; margin: 5px 0;">
+                        """, 
+                        unsafe_allow_html=True
+                    )
+                    col1, col2, col3 = st.columns([1, 6, 2])  # ✅ 修改4：調整欄寬
+                    with col1:
+                        st.caption(t.get('time', ''))
+                    with col2:
+                        st.markdown(f"{t.get('emoji','🔔')} **{t['title']}**")
+                    with col3:
+                        # ✅ 修改5：只有今天可刪除
+                        if date_obj == base_date:
+                            if st.button("🗑️", key=f"del_todo_{date_str}_{hash(t['title'])}"):
+                                st.session_state.todo[date_str].remove(t)
+                                if not st.session_state.todo[date_str]: 
+                                    del st.session_state.todo[date_str]
+                                st.session_state.cal_key += 1
+                                st.rerun()
+                        else:
+                            st.write("")  # 占位保持對齊
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-    # 5-2 待辦列表（擴充為 3 天，其餘不變）
-    st.markdown("#### 🔔 待辦事項（今明後）")
-    from datetime import timedelta
-    base = dt.datetime.strptime(cur, "%Y-%m-%d").date()
-    has_todo = False
-    for i in range(3):                      # 0=今天,1=明天,2=後天
-        dd = base + timedelta(days=i)
-        ds = str(dd)
-        if ds not in st.session_state.todo: continue
-        has_todo = True
-        # 原「單日迴圈」完全保留，只加「日期小標」
-        for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00:00')):
-            c_tm, c_ttl, c_del = st.columns([1, 4, 1])
-            with c_tm: st.caption(f"{dd.month}/{dd.day} {t.get('time','')}")
-            with c_ttl:
-                # ① 粉紅底重點
-                st.markdown(f"<span style='background-color:#FFE4E1;border-radius:4px;padding:2px 6px;'>{t.get('emoji','🔔')} {t['title']}</span>", unsafe_allow_html=True)
-            with c_del:
-                if ds == cur:   # 只有「當天」可刪
-                    if st.button("🗑️", key=f"del_todo_{ds}_{hash(t['title'])}"):
-                        st.session_state.todo[ds].remove(t)
-                        if not st.session_state.todo[ds]: del st.session_state.todo[ds]
-                        st.session_state.cal_key += 1; st.rerun()
-                else: st.empty()  # 非當天空格對齊
-    if not has_todo: st.info("近 3 日尚無待辦")
-
-    # 5-3 筆記卡片（只當天 + 奶油底，其餘不變）
+    # 5-3 筆記卡片（奶油色背景 + 按鈕對齊）
+    cur = st.session_state.sel_date
     if cur in st.session_state.notes:
         st.markdown("#### 📝 筆記")
         n = st.session_state.notes[cur]
-        c_ttl, c_ed, c_del = st.columns([5, 1, 1])
-        with c_ttl:
-            # ② 奶油底重點
-            st.markdown(f"<span style='background-color:#FFF8DC;border-radius:4px;padding:2px 6px;'>{n.get('emoji','📝')} {n['title']}</span>", unsafe_for_html=True)
-        with c_ed:
-            if st.button("✏️", key=f"edit_note_{cur}"):
-                st.session_state.edit_mode = True
-                st.session_state.edit_ttl = n['title']
-                st.session_state.edit_cont = n.get('content', '')
-                st.session_state.edit_emo = n.get('emoji', '📝')
-                st.rerun()
-        with c_del:
-            if st.button("🗑️", key=f"del_note_{cur}"):
-                del st.session_state.notes[cur]
-                st.session_state.cal_key += 1; st.rerun()
-        st.caption(n.get('content', ''))
+        
+        # ✅ 修改6：奶油色背景容器
+        with st.container():
+            st.markdown(
+                f"""
+                <div style="background-color: #FFF8DC; padding: 10px; border-radius: 5px; margin: 5px 0;">
+                """, 
+                unsafe_allow_html=True
+            )
+            col_ttl, col_ed, col_del = st.columns([6, 1, 1])  # ✅ 修改7：調整欄寬讓按鈕靠右
+            with col_ttl:
+                st.markdown(f"{n.get('emoji','📝')} **{n['title']}**")
+            with col_ed:
+                if st.button("✏️", key=f"edit_note_{cur}"):
+                    st.session_state.edit_mode = True
+                    st.session_state.edit_ttl = n['title']
+                    st.session_state.edit_cont = n.get('content','')
+                    st.session_state.edit_emo = n.get('emoji','📝')
+                    st.rerun()
+            with col_del:
+                if st.button("🗑️", key=f"del_note_{cur}"):
+                    del st.session_state.notes[cur]
+                    st.session_state.cal_key += 1
+                    st.rerun()
+            st.caption(n.get('content', ''))
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    # ③ 編輯展開表單（與你上一版完全相同，無改動）
+    # 5-4 編輯表單（保持不變）
     if st.session_state.get('edit_mode'):
         st.divider()
         st.markdown("#### ✏️ 編輯筆記")
         new_ttl = st.text_input("標題", value=st.session_state.edit_ttl, key="edit_ttl_inp")
         new_cont = st.text_area("內容", value=st.session_state.edit_cont, key="edit_cont_inp")
-        new_emo = st.selectbox("Emoji", ["📝"] + EMOJI_LIST,
-                               index=EMOJI_LIST.index(st.session_state.edit_emo) + 1
-                               if st.session_state.edit_emo in EMOJI_LIST else 0,
-                               key="edit_emo_inp")
+        new_emo = st.selectbox("Emoji", ["📝"]+EMOJI_LIST, 
+                              index=EMOJI_LIST.index(st.session_state.edit_emo)+1 
+                              if st.session_state.edit_emo in EMOJI_LIST else 0, 
+                              key="edit_emo_inp")
         c_save, c_cancel = st.columns([1, 4])
         with c_save:
             if st.button("💾 更新", key="do_update"):
                 st.session_state.notes[cur] = {"title": new_ttl, "content": new_cont, "emoji": new_emo}
                 st.session_state.edit_mode = False
-                st.session_state.cal_key += 1; st.rerun()
+                st.session_state.cal_key += 1
+                st.rerun()
         with c_cancel:
             if st.button("取消", key="cancel_edit"):
-                st.session_state.edit_mode = False; st.rerun()
+                st.session_state.edit_mode = False
+                st.rerun()
 
-    # ④ 無資料提示
-    if cur not in st.session_state.notes and not has_todo:
+    # 5-5 無資料提示（保持不變）
+    if not has_any_todo and cur not in st.session_state.notes:
         st.info("當天尚無紀錄，請從上方新增")
 
 # ===================================================================
