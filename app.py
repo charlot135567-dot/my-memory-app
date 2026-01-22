@@ -150,8 +150,16 @@ with tabs[1]:
     st.divider()
     from datetime import timedelta
 
-    cur = st.session_state.sel_date          # 當天
-    base = dt.datetime.strptime(cur, "%Y-%m-%d").date()
+    st.write("📊 除錯資訊")
+    st.write("待辦資料：", st.session_state.todo)
+    st.write("選取日期：", st.session_state.sel_date)
+
+    # 檢查近3天是否有資料
+    base = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    for i in range(3):
+        dd = base + timedelta(days=i)
+        ds = str(dd)
+        st.write(f"{ds} 有資料？", ds in st.session_state.todo)
 
     # 5-2 待辦列表（擴充為 3 天，其餘不變）
     st.markdown("#### 🔔 待辦事項（今明後）")
