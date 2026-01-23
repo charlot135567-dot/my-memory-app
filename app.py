@@ -98,48 +98,24 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：除錯版 - 先讓格子出現，再補功能
+# TAB 2：最小測試 - 保證跑出 14 行
 # ===================================================================
 with tabs[1]:
-
     import datetime as dt
-    # ---- 最小雙週日期 ----
-    if "start_week" not in st.session_state:
-        today = dt.date.today()
-        st.session_state.start_week = today - dt.timedelta(days=today.weekday())
-    start = st.session_state.start_week
+
+    # ---- 硬給 14 個日期 ----
+    today = dt.date.today()
+    start = today - dt.timedelta(days=today.weekday())
     dates = [start + dt.timedelta(days=i) for i in range(14)]
 
-    # ---- 摺疊區：先讓格子出現 ----
-    with st.expander("📅 雙週靈修足跡（除錯中）", expanded=True):
-
-        # 除錯：印出日期範圍
-        st.caption(f"除錯：start_week = {start} ，共 {len(dates)} 天")
-
-        # 最小週切換
-        c_prev, c_next = st.columns(2)
-        with c_prev:
-            if st.button("⬆ 上一週", key="prev_w"):
-                st.session_state.start_week -= dt.timedelta(days=7)
-                st.rerun()
-        with c_next:
-            if st.button("⬇ 下一週", key="next_w"):
-                st.session_state.start_week += dt.timedelta(days=7)
-                st.rerun()
-
-        # ---- 最簡格子：保證一定出現 ----
-        for i, d in enumerate(dates):
-            wd = d.strftime("%a")
-            col1, col2 = st.columns([1, 9])
-            with col1:
-                st.caption(f"{wd}")
-                st.caption(f"{d.day}")
-            with col2:
-                # 最小內容：先讓格子有字
-                st.caption("📅 測試格子")
-
-    # ---- 先不放任何功能，確認格子穩定後再逐步加回 ----
-    st.info("✅ 若上面出現 14 行格子，請回覆「有格子」；若仍空白，請截圖給我。")
+    # ---- 硬印出：保證一定看得到 ----
+    st.write("除錯：共", len(dates), "天")
+    for i, d in enumerate(dates):
+        col1, col2 = st.columns([1, 9])
+        with col1:
+            st.text(f"{d.strftime('%a')}\n{d.day}")
+        with col2:
+            st.text("📅 測試內容")
         
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
