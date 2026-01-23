@@ -98,39 +98,90 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：Step1 - 放 Emoji 按鈕（每顆 1 行，保證可動）
+# TAB 2：Step2 - 把硬編碼換成真資料（每步 3~5 行，保證可動）
 # ===================================================================
 with tabs[1]:
     import datetime as dt
-    today = dt.date.today()
-    start = today - dt.timedelta(days=today.weekday())
+
+    # ---- 工具 ----
+    _EMOJI_RE = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"
+        "\U0001F300-\U0001F5FF"
+        "\U0001F680-\U0001F6FF"
+        "\U0001F1E0-\U0001F1FF"
+        "\U00002702-\U000027B0"
+        "\U000024C2-\U0001F251"
+        "]+", flags=re.UNICODE
+    )
+    def first_emoji(text: str) -> str:
+        m = _EMOJI_RE.search(text)
+        return m.group(0) if m else ""
+    def remove_emoji(text: str) -> str:
+        return _EMOJI_RE.sub("", text).strip()
+
+    # ---- 雙週日期 ----
+    if "start_week" not in st.session_state:
+        today = dt.date.today()
+        st.session_state.start_week = today - dt.timedelta(days=today.weekday())
+    start = st.session_state.start_week
     dates = [start + dt.timedelta(days=i) for i in range(14)]
 
-    # ---- 只放「單顆 Emoji 按鈕」：每顆 1 行，先不連資料 ----
-    with st.expander("📅 雙週靈修足跡（Step1：放 Emoji 按鈕）", expanded=True):
+    # ---- 摺疊雙週格（手機捲動） ----
+    with st.expander("📅 雙週靈修足跡（Step2：接真資料）", expanded=True):
         # 上下週按鈕
         c_prev, c_next = st.columns(2)
         with c_prev:
             if st.button("⬆ 上一週", key="prev_w"):
-                start -= dt.timedelta(days=7)
+                st.session_state.start_week -= dt.timedelta(days=7)
                 st.rerun()
         with c_next:
             if st.button("⬇ 下一週", key="next_w"):
-                start += dt.timedelta(days=7)
+                st.session_state.start_week += dt.timedelta(days=7)
                 st.rerun()
 
-        # ---- 逐日格子：每行只放 1 顆 Emoji 按鈕 ----
+        # ---- 逐日格子：接真資料（每步只改這裡） ----
         for i, d in enumerate(dates):
+            wd = d.strftime("%a")
             col1, col2 = st.columns([1, 9])
             with col1:
-                # 每行只放 1 顆按鈕：先硬編碼，確認能點
-                if st.button("📝", key=f"note_{i}"):
-                    st.success("你點了 📝")
-                if st.button("🔔", key=f"todo_{i}"):
-                    st.success("你點了 🔔")
+                # ① 待辦 Emoji：有資料才出現，點了就能刪
+                ds = str(d)
+                if ds in st.session_state.todo and st.session_state.todo[ds]:
+                    for idx, t in enumerate(st.session_state.todo[ds]):
+                        if st.button(f"{t.get('emoji','🔔')}", key=f"td_{d}_{idx}"):
+                            st.session_state.del_target = {"date": ds, "index": idx, "title": t['title']}
+                            st.session_state.show_del = True
+                # ② 筆記 Emoji：有資料才出現，點了帶出當天筆記
+                if ds in st.session_state.notes:
+                    n = st.session_state.notes[ds]
+                    if st.button(f"{n.get('emoji','📝')}", key=f"nt_{d}"):
+                        st.session_state.sel_date = ds
             with col2:
-                st.caption(f"{d.strftime('%a')} {d.day}")
-                st.caption("（Step1：先讓按鈕能點）")
+                st.caption(f"{wd} {d.day}")
+                # ③ 待辦標題：>10 字才列
+                if ds in st.session_state.todo and st.session_state.todo[ds]:
+                    for t in st.session_state.todo[ds]:
+                        if len(t['title']) > 10:
+                            st.caption(f"🔔 {t.get('time','')}　{t['title'][:20]}")
+
+    # ---- 單 Emoji 點刪確認 ----
+    if st.session_state.get("show_del"):
+        t = st.session_state.del_target
+        st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
+        c1, c2 = st.columns([1, 4])
+        with c1:
+            if st.button("確認", type="primary", key="del_ok"):
+                d, idx = t["date"], t["index"]
+                del st.session_state.todo[d][idx]
+                if not st.session_state.todo[d]: del st.session_state.todo[d]
+                st.session_state.cal_key += 1
+                st.session_state.show_del = False
+                st.rerun()
+        with c2:
+            if st.button("取消", key="del_no"):
+                st.session_state.show_del = False
+                st.rerun()
 
     # ---- 5-1 新增區（同前版） ----
     st.divider()
