@@ -98,7 +98,7 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：再減一步 - 只放純文字（保證可動）
+# TAB 2：Step1 - 放 Emoji 按鈕（每顆 1 行，保證可動）
 # ===================================================================
 with tabs[1]:
     import datetime as dt
@@ -106,10 +106,121 @@ with tabs[1]:
     start = today - dt.timedelta(days=today.weekday())
     dates = [start + dt.timedelta(days=i) for i in range(14)]
 
-    # ---- 只放純文字：保證一定看得到 ----
-    st.write("除錯：共", len(dates), "天")
-    for i, d in enumerate(dates):
-        st.text(f"{i+1:02}  {d.strftime('%a')}  {d.day}  測試文字")
+    # ---- 只放「單顆 Emoji 按鈕」：每顆 1 行，先不連資料 ----
+    with st.expander("📅 雙週靈修足跡（Step1：放 Emoji 按鈕）", expanded=True):
+        # 上下週按鈕
+        c_prev, c_next = st.columns(2)
+        with c_prev:
+            if st.button("⬆ 上一週", key="prev_w"):
+                start -= dt.timedelta(days=7)
+                st.rerun()
+        with c_next:
+            if st.button("⬇ 下一週", key="next_w"):
+                start += dt.timedelta(days=7)
+                st.rerun()
+
+        # ---- 逐日格子：每行只放 1 顆 Emoji 按鈕 ----
+        for i, d in enumerate(dates):
+            col1, col2 = st.columns([1, 9])
+            with col1:
+                # 每行只放 1 顆按鈕：先硬編碼，確認能點
+                if st.button("📝", key=f"note_{i}"):
+                    st.success("你點了 📝")
+                if st.button("🔔", key=f"todo_{i}"):
+                    st.success("你點了 🔔")
+            with col2:
+                st.caption(f"{d.strftime('%a')} {d.day}")
+                st.caption("（Step1：先讓按鈕能點）")
+
+    # ---- 5-1 新增區（同前版） ----
+    st.divider()
+    with st.expander("➕ 新增筆記 / 待辦", expanded=True):
+        mode = st.radio("模式", ["📝 新增筆記", "🔔 新增待辦"], horizontal=True, key="mode_radio_1")
+        ph_emo = "📝" if mode == "📝 新增筆記" else "🔔"
+        if mode == "📝 新增筆記":
+            c1, c2 = st.columns([2, 8])
+            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed")
+            with c2: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋標題", label_visibility="collapsed")
+            cont = st.text_area("內容", placeholder="記錄靈修心得...")
+        else:
+            c1, c2, c3 = st.columns([2, 2, 6])
+            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed")
+            with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed")
+            with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦", label_visibility="collapsed")
+
+        if st.button("💾 儲存", use_container_width=True):
+            if not ttl:
+                st.error("請輸入標題")
+                st.stop()
+            emo_found = first_emoji(ttl) or ph_emo
+            ttl_clean = remove_emoji(ttl)
+            if mode == "📝 新增筆記":
+                st.session_state.notes[str(d)] = {"title": ttl_clean, "content": cont, "emoji": emo_found}
+            else:
+                k = str(d)
+                if k not in st.session_state.todo: st.session_state.todo[k] = []
+                st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
+            st.session_state.cal_key += 1
+            st.rerun()
+
+    # ---- 5-2 待辦列表（只列 >10 字） ----
+    start = st.session_state.start_week
+    dates_show = [start + dt.timedelta(days=i) for i in range(14)]
+    has_long = False
+    for d in dates_show:
+        ds = str(d)
+        if ds in st.session_state.todo and st.session_state.todo[ds]:
+            for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00:00')):
+                if len(t['title']) > 10:
+                    has_long = True
+                    st.caption(f"🔔 {d.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
+    if has_long:
+        st.markdown("---")
+
+    # ---- 5-3 點格帶出當天筆記（編/刪靠最右） ----
+    cur = st.session_state.sel_date
+    if cur in st.session_state.notes:
+        n = st.session_state.notes[cur]
+        st.caption(f"📝 {dt.datetime.strptime(cur, '%Y-%m-%d').strftime('%m/%d')}　**{n['title']}**")
+        if n.get('content'):
+            st.caption(f"　{n['content']}")
+        # 按鈕緊貼最右
+        c_ed, c_del = st.columns([1, 1])
+        with c_ed:
+            if st.button("✏️", key=f"edit_note_{cur}"):
+                st.session_state.edit_mode = True
+                st.session_state.edit_ttl = n['title']
+                st.session_state.edit_cont = n.get('content', '')
+                st.session_state.edit_emo = n.get('emoji', '📝')
+                st.rerun()
+        with c_del:
+            if st.button("🗑️", key=f"del_note_{cur}"):
+                del st.session_state.notes[cur]
+                st.session_state.cal_key += 1
+                st.rerun()
+
+    # ---- 5-4 編輯表單（同前版） ----
+    if st.session_state.get('edit_mode'):
+        st.divider()
+        st.markdown("#### ✏️ 編輯筆記")
+        new_ttl = st.text_input("標題", value=st.session_state.edit_ttl, key="edit_ttl_inp")
+        new_cont = st.text_area("內容", value=st.session_state.edit_cont, key="edit_cont_inp")
+        new_emo = st.selectbox("Emoji", EMOJI_LIST, index=EMOJI_LIST.index(st.session_state.edit_emo) if st.session_state.edit_emo in EMOJI_LIST else 0, key="edit_emo_inp")
+        c_save, c_cancel = st.columns([1, 4])
+        with c_save:
+            if st.button("💾 更新", key="do_update"):
+                st.session_state.notes[cur] = {"title": new_ttl, "content": new_cont, "emoji": new_emo}
+                st.session_state.edit_mode = False
+                st.session_state.cal_key += 1
+                st.rerun()
+        with c_cancel:
+            if st.button("取消", key="cancel_edit"):
+                st.session_state.edit_mode = False
+                st.rerun()
+
+    # ---- 5-5 無資料提示 ----
+    if not has_long and cur not in st.session_state.notes:
+        st.info("當天尚無紀錄，請從上方新增")
         
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
