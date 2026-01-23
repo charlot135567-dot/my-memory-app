@@ -98,11 +98,11 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：0.5 版相容 - 雙週滑動 + Emoji點刪 + >10字才列 + 按鈕靠右
+# TAB 2：0.5 版極簡 - 手機捲動 + Emoji點刪 + >10字才列 + 編刪靠右
 # ===================================================================
 with tabs[1]:
 
-    # ---- 工具函式 ----
+    # ---- 工具 ----
     import re, datetime as dt
     _EMOJI_RE = re.compile("[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+",flags=re.UNICODE)
     def first_emoji(text: str) -> str:
@@ -111,7 +111,7 @@ with tabs[1]:
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    # ---- 雙週區間 ----
+    # ---- 只給兩週事件 ----
     if "start_week" not in st.session_state:
         today = dt.date.today()
         st.session_state.start_week = today - dt.timedelta(days=today.weekday())
@@ -121,7 +121,7 @@ with tabs[1]:
         start = st.session_state.start_week
         for i in range(14):
             d=str(start + dt.timedelta(days=i))
-            # 筆記（單格）
+            # 筆記
             if d in st.session_state.notes:
                 n=st.session_state.notes[d]
                 ev.append({"title":f"{n.get('emoji','📝')} {n['title'][:10]}","start":d,
@@ -134,12 +134,19 @@ with tabs[1]:
                               "extendedProps":{"type":"todo","date":d,"title":t['title'],"index":idx}})
         return ev
 
-    # ---- 摺疊雙週曆（手機滑動） ----
+    # ---- 手機原生捲動雙週曆（0.5 版語法）----
     with st.expander("📅 雙週靈修足跡（捲動換週，點 Emoji 刪除）", expanded=True):
+        # 讓容器可捲動＋手機高度
+        st.markdown("""
+        <style>
+        .stExpander .fc-scroller{overflow-y:auto!important;height:45vh!important;}
+        .fc-event{background:transparent;border:none;justify-content:center;}
+        </style>
+        """, unsafe_allow_html=True)
         state=calendar(events=build_events(),options={
             "initialView":"dayGridWeek",
             "weeks":2,
-            "height":240,
+            "height":250,
             "dateClick":True,
             "eventClick":True,
             "headerToolbar":False
