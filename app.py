@@ -98,75 +98,72 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：Step2 - 把硬編碼換成真資料（每步 3~5 行，保證可動）
+# TAB 2：原版 + 補丁 - Emoji單點刪 + >10字才列 + 靠右鍵
 # ===================================================================
 with tabs[1]:
-    import datetime as dt
 
-# ---- 工具 ----
-import re
-_EMOJI_RE = re.compile(
-    "["
-    "\U0001F600-\U0001F64F"
-    "\U0001F300-\U0001F5FF"
-    "\U0001F680-\U0001F6FF"
-    "\U0001F1E0-\U0001F1FF"
-    "\U00002702-\U000027B0"
-    "\U000024C2-\U0001F251"
-    "]+", flags=re.UNICODE
-)
-def first_emoji(text: str) -> str:
-    m = _EMOJI_RE.search(text)
-    return m.group(0) if m else ""
-def remove_emoji(text: str) -> str:
-    return _EMOJI_RE.sub("", text).strip()
+    # ---- 零相依 Emoji 工具（避開 \U 轉義） ----
+    import re
+    _EMOJI_RE = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"
+        "\U0001F300-\U0001F5FF"
+        "\U0001F680-\U0001F6FF"
+        "\U0001F1E0-\U0001F1FF"
+        "\U00002702-\U000027B0"
+        "\U000024C2-\U0001F251"
+        "]+", flags=re.UNICODE
+    )
+    def first_emoji(text: str) -> str:
+        m = _EMOJI_RE.search(text)
+        return m.group(0) if m else ""
+    def remove_emoji(text: str) -> str:
+        return _EMOJI_RE.sub("", text).strip()
 
-    # ---- 雙週日期 ----
-    if "start_week" not in st.session_state:
-        today = dt.date.today()
-        st.session_state.start_week = today - dt.timedelta(days=today.weekday())
-    start = st.session_state.start_week
-    dates = [start + dt.timedelta(days=i) for i in range(14)]
+    def build_events():
+        ev = []
+        for d, n in st.session_state.notes.items():
+            ev.append({
+                "title": f"{n.get('emoji','📝')} {n['title'][:6]}",
+                "start": d,
+                "backgroundColor": "#FFF8DC", "borderColor": "#FFF8DC", "textColor": "#333",
+                "extendedProps": {"type": "note", "date": d}
+            })
+        for d, todos in st.session_state.todo.items():
+            if isinstance(todos, list):
+                for idx, t in enumerate(todos):
+                    ev.append({
+                        "title": f"{t.get('emoji','🔔')}",
+                        "start": d,
+                        "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
+                        "extendedProps": {"type": "todo", "date": d, "title": t['title'], "time": t.get('time', ''), "index": idx}
+                    })
+        return ev
 
-    # ---- 摺疊雙週格（手機捲動） ----
-    with st.expander("📅 雙週靈修足跡（Step2：接真資料）", expanded=True):
-        # 上下週按鈕
-        c_prev, c_next = st.columns(2)
-        with c_prev:
-            if st.button("⬆ 上一週", key="prev_w"):
-                st.session_state.start_week -= dt.timedelta(days=7)
-                st.rerun()
-        with c_next:
-            if st.button("⬇ 下一週", key="next_w"):
-                st.session_state.start_week += dt.timedelta(days=7)
-                st.rerun()
+    # ---- 原版月曆（0.5 版語法） ----
+    st.subheader("📅 靈修足跡月曆")
+    with st.expander("展開 / 折曆視窗", expanded=True):
+        state = calendar(
+            events=build_events(),
+            options={
+                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+                "initialView": "dayGridMonth",
+                "height": 500,
+                "dateClick": True,
+                "eventClick": True,
+                "eventDisplay": "block"
+            },
+            key=f"emoji_cal_{st.session_state.cal_key}"
+        )
+        if state.get("dateClick"):
+            st.session_state.sel_date = state["dateClick"]["date"][:10]
+        if state.get("eventClick"):
+            ext = state["eventClick"]["event"]["extendedProps"]
+            if ext.get("type") == "todo":
+                st.session_state.del_target = ext
+                st.session_state.show_del = True
 
-        # ---- 逐日格子：接真資料（每步只改這裡） ----
-        for i, d in enumerate(dates):
-            wd = d.strftime("%a")
-            col1, col2 = st.columns([1, 9])
-            with col1:
-                # ① 待辦 Emoji：有資料才出現，點了就能刪
-                ds = str(d)
-                if ds in st.session_state.todo and st.session_state.todo[ds]:
-                    for idx, t in enumerate(st.session_state.todo[ds]):
-                        if st.button(f"{t.get('emoji','🔔')}", key=f"td_{d}_{idx}"):
-                            st.session_state.del_target = {"date": ds, "index": idx, "title": t['title']}
-                            st.session_state.show_del = True
-                # ② 筆記 Emoji：有資料才出現，點了帶出當天筆記
-                if ds in st.session_state.notes:
-                    n = st.session_state.notes[ds]
-                    if st.button(f"{n.get('emoji','📝')}", key=f"nt_{d}"):
-                        st.session_state.sel_date = ds
-            with col2:
-                st.caption(f"{wd} {d.day}")
-                # ③ 待辦標題：>10 字才列
-                if ds in st.session_state.todo and st.session_state.todo[ds]:
-                    for t in st.session_state.todo[ds]:
-                        if len(t['title']) > 10:
-                            st.caption(f"🔔 {t.get('time','')}　{t['title'][:20]}")
-
-    # ---- 單 Emoji 點刪確認 ----
+    # ---- 單 Emoji 點刪確認（原版基礎上補丁） ----
     if st.session_state.get("show_del"):
         t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
@@ -184,7 +181,7 @@ def remove_emoji(text: str) -> str:
                 st.session_state.show_del = False
                 st.rerun()
 
-    # ---- 5-1 新增區（同前版） ----
+    # ---- 5-1 新增區（同你原版） ----
     st.divider()
     with st.expander("➕ 新增筆記 / 待辦", expanded=True):
         mode = st.radio("模式", ["📝 新增筆記", "🔔 新增待辦"], horizontal=True, key="mode_radio_1")
@@ -215,21 +212,21 @@ def remove_emoji(text: str) -> str:
             st.session_state.cal_key += 1
             st.rerun()
 
-    # ---- 5-2 待辦列表（只列 >10 字） ----
-    start = st.session_state.start_week
-    dates_show = [start + dt.timedelta(days=i) for i in range(14)]
-    has_long = False
-    for d in dates_show:
-        ds = str(d)
-        if ds in st.session_state.todo and st.session_state.todo[ds]:
-            for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00:00')):
-                if len(t['title']) > 10:
-                    has_long = True
-                    st.caption(f"🔔 {d.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
-    if has_long:
+    # ---- 5-2 待辦列表（>10 字才列） ----
+    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    dates_to_show = [base_date + dt.timedelta(days=i) for i in range(3)]
+    has_any_todo = False
+    for date_obj in dates_to_show:
+        date_str = str(date_obj)
+        if date_str in st.session_state.todo and st.session_state.todo[date_str]:
+            has_any_todo = True
+            for t in sorted(st.session_state.todo[date_str], key=lambda x: x.get('time', '00:00:00')):
+                if len(t['title']) > 10:  # 只列長標題
+                    st.caption(f"🔔 {date_obj.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
+    if has_any_todo:
         st.markdown("---")
 
-    # ---- 5-3 點格帶出當天筆記（編/刪靠最右） ----
+    # ---- 5-3 筆記卡片（編/刪鍵靠最右） ----
     cur = st.session_state.sel_date
     if cur in st.session_state.notes:
         n = st.session_state.notes[cur]
@@ -251,7 +248,7 @@ def remove_emoji(text: str) -> str:
                 st.session_state.cal_key += 1
                 st.rerun()
 
-    # ---- 5-4 編輯表單（同前版） ----
+    # ---- 5-4 編輯表單（同你原版） ----
     if st.session_state.get('edit_mode'):
         st.divider()
         st.markdown("#### ✏️ 編輯筆記")
@@ -271,7 +268,7 @@ def remove_emoji(text: str) -> str:
                 st.rerun()
 
     # ---- 5-5 無資料提示 ----
-    if not has_long and cur not in st.session_state.notes:
+    if not has_any_todo and cur not in st.session_state.notes:
         st.info("當天尚無紀錄，請從上方新增")
         
 # ===================================================================
