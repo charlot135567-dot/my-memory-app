@@ -98,7 +98,7 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：0.5 版極簡 - 手機捲動 + Emoji點刪 + >10字才列 + 編刪靠右
+# TAB 2：純 Streamlit 雙週格 + Emoji 點選 + >10 字才列 + 編刪靠右
 # ===================================================================
 with tabs[1]:
 
@@ -111,78 +111,80 @@ with tabs[1]:
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    # ---- 只給兩週事件 ----
+    # ---- 雙週區間 ----
     if "start_week" not in st.session_state:
         today = dt.date.today()
         st.session_state.start_week = today - dt.timedelta(days=today.weekday())
 
-    def build_events():
-        ev=[]
-        start = st.session_state.start_week
-        for i in range(14):
-            d=str(start + dt.timedelta(days=i))
-            # 筆記
-            if d in st.session_state.notes:
-                n=st.session_state.notes[d]
-                ev.append({"title":f"{n.get('emoji','📝')} {n['title'][:10]}","start":d,
-                          "backgroundColor":"#FFF8DC","borderColor":"#FFF8DC","textColor":"#333"})
-            # 待辦（每條獨立 Emoji 事件）
-            if d in st.session_state.todo:
-                for idx,t in enumerate(st.session_state.todo[d]):
-                    ev.append({"title":f"{t.get('emoji','🔔')}","start":d,
-                              "backgroundColor":"#FFE4E1","borderColor":"#FFE4E1","textColor":"#333",
-                              "extendedProps":{"type":"todo","date":d,"title":t['title'],"index":idx}})
-        return ev
+    start = st.session_state.start_week
+    dates = [start + dt.timedelta(days=i) for i in range(14)]  # 本週+下週
 
-    # ---- 手機原生捲動雙週曆（0.5 版語法）----
-    with st.expander("📅 雙週靈修足跡（捲動換週，點 Emoji 刪除）", expanded=True):
+    # ---- 手機原生捲動：兩週格 ----
+    with st.expander("📅 雙週靈修足跡（捲動換週，點 Emoji 操作）", expanded=True):
         # 讓容器可捲動＋手機高度
         st.markdown("""
         <style>
-        .stExpander .fc-scroller{overflow-y:auto!important;height:45vh!important;}
-        .fc-event{background:transparent;border:none;justify-content:center;}
+        .stExpander .stBlock{overflow-y:auto!important;max-height:45vh!important;}
         </style>
         """, unsafe_allow_html=True)
-        state=calendar(events=build_events(),options={
-            "initialView":"dayGridWeek",
-            "weeks":2,
-            "height":250,
-            "dateClick":True,
-            "eventClick":True,
-            "headerToolbar":False
-        },key=f"biweek_cal_{st.session_state.cal_key}")
-        # 捲動換週：點任意天 → 以該週一為新起點
-        if state.get("dateClick"):
-            clicked=dt.datetime.strptime(state["dateClick"]["date"][:10],"%Y-%m-%d").date()
-            st.session_state.start_week=clicked - dt.timedelta(days=clicked.weekday())
-            st.session_state.sel_date=str(clicked)
-            st.session_state.cal_key+=1
-            st.rerun()
-        if state.get("eventClick"):
-            ext=state["eventClick"]["event"]["extendedProps"]
-            if ext and ext.get("type")=="todo":
-                st.session_state.del_target=ext
-                st.session_state.show_del=True
+
+        # 逐日格子（一行一天）
+        for i, d in enumerate(dates):
+            wd = d.strftime("%a")
+            col_emoji, col_txt = st.columns([1, 9])
+            with col_emoji:
+                # 當天筆記
+                if str(d) in st.session_state.notes:
+                    n = st.session_state.notes[str(d)]
+                    if st.button(f"{n.get('emoji','📝')}", key=f"note_{d}"):
+                        st.session_state.sel_date = str(d)
+                # 當天待辦（每條獨立 Emoji 按鈕）
+                if str(d) in st.session_state.todo:
+                    for idx, t in enumerate(st.session_state.todo[str(d)]):
+                        if st.button(f"{t.get('emoji','🔔')}", key=f"todo_{d}_{idx}"):
+                            st.session_state.del_target = {"date": str(d), "index": idx, "title": t['title']}
+                            st.session_state.show_del = True
+            with col_txt:
+                st.caption(f"{wd} {d.day}")
+                # 筆記標題
+                if str(d) in st.session_state.notes:
+                    st.caption(f"📝 {st.session_state.notes[str(d)]['title'][:12]}")
+                # 待辦標題（≤10 字不列，>10 字才列）
+                if str(d) in st.session_state.todo:
+                    for t in st.session_state.todo[str(d)]:
+                        if len(t['title']) > 10:
+                            st.caption(f"🔔 {t.get('time','')}　{t['title'][:20]}")
+
+        # 捲動換週：點「換週」按鈕
+        c_prev, c_next = st.columns(2)
+        with c_prev:
+            if st.button("⬆ 上一週", key="prev_w"):
+                st.session_state.start_week -= dt.timedelta(days=7)
+                st.rerun()
+        with c_next:
+            if st.button("⬇ 下一週", key="next_w"):
+                st.session_state.start_week += dt.timedelta(days=7)
+                st.rerun()
 
     # ---- 單 Emoji 點刪確認 ----
     if st.session_state.get("show_del"):
-        t=st.session_state.del_target
+        t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
-        c1,c2=st.columns([1,4])
+        c1, c2 = st.columns([1, 4])
         with c1:
-            if st.button("確認",type="primary",key="del_ok"):
-                d,idx=t["date"],t["index"]
+            if st.button("確認", type="primary", key="del_ok"):
+                d, idx = t["date"], t["index"]
                 del st.session_state.todo[d][idx]
                 if not st.session_state.todo[d]: del st.session_state.todo[d]
-                st.session_state.cal_key+=1
-                st.session_state.show_del=False
+                st.session_state.cal_key += 1
+                st.session_state.show_del = False
                 st.rerun()
         with c2:
-            if st.button("取消",key="del_no"):
-                st.session_state.show_del=False
+            if st.button("取消", key="del_no"):
+                st.session_state.show_del = False
                 st.rerun()
 
-    # ---- 5-1 新增區（同前） ----
+    # ---- 5-1 新增區（同前版） ----
     st.divider()
     with st.expander("➕ 新增筆記 / 待辦", expanded=True):
         mode = st.radio("模式", ["📝 新增筆記", "🔔 新增待辦"], horizontal=True, key="mode_radio_1")
