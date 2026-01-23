@@ -248,7 +248,7 @@ with tabs[1]:
             st.rerun()
 
     # ---- 5-2 待辦列表（只顯示 >10 字） ----
-    base_date = dt.datetime.strptime(st.session_state.start_week, "%Y-%m-%d").date()
+    base_date = st.session_state.start_week  # 已是 date 物件
     dates_to_show = [base_date + dt.timedelta(days=i) for i in range(14)]
     has_long_todo = False
     for date_obj in dates_to_show:
