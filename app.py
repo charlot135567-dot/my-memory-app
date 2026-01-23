@@ -163,18 +163,18 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- 兩週日曆本體 ----
+     # ---- 兩週日曆本體 + 週切換按鈕 ----
     st.subheader("📅 雙週靈修足跡")
     col_prev, col_title, col_next = st.columns([1, 4, 1])
     with col_prev:
         if st.button("⬆️ 上一週", key="prev_w"):
-            st.session_state.start_week = str(dt.datetime.strptime(st.session_state.start_week, "%Y-%m-%d").date() - dt.timedelta(days=7))
+            st.session_state.start_week -= dt.timedelta(days=7)
             st.rerun()
     with col_title:
         st.caption(f"{st.session_state.start_week}　起雙週")
     with col_next:
         if st.button("⬇️ 下一週", key="next_w"):
-            st.session_state.start_week = str(dt.datetime.strptime(st.session_state.start_week, "%Y-%m-%d").date() + dt.timedelta(days=7))
+            st.session_state.start_week += dt.timedelta(days=7)
             st.rerun()
 
     state = calendar(
