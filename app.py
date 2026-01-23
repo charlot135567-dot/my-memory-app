@@ -141,37 +141,6 @@ with tabs[1]:
                     })
         return ev
 
-    st.subheader("📅 靈修足跡月曆")
-    with st.expander("展開 / 折曆視窗", expanded=True):
-        state = calendar(events=build_events(), options={
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-            "initialView": "dayGridMonth", "height": 500, "dateClick": True, "eventClick": True, "eventDisplay": "block"
-        }, key=f"cal_{st.session_state.cal_key}")
-        if state.get("dateClick"):
-            st.session_state.sel_date = state["dateClick"]["date"][:10]
-        if state.get("eventClick"):
-            ext = state["eventClick"]["event"]["extendedProps"]
-            if ext.get("type") == "todo":
-                st.session_state.del_target = ext
-                st.session_state.show_del = True
-
-    if st.session_state.get("show_del"):
-        t = st.session_state.del_target
-        st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
-        c1, c2 = st.columns([1, 4])
-        with c1:
-            if st.button("確認", type="primary", key="del_ok"):
-                d, idx = t["date"], t["index"]
-                del st.session_state.todo[d][idx]
-                if not st.session_state.todo[d]: del st.session_state.todo[d]
-                st.session_state.cal_key += 1
-                st.session_state.show_del = False
-                st.rerun()
-        with c2:
-            if st.button("取消", key="del_no"):
-                st.session_state.show_del = False
-                st.rerun()
-
     st.divider()
     with st.expander("➕ 新增筆記 / 待辦", expanded=True):
         mode = st.radio("模式", ["📝 新增筆記", "🔔 新增待辦"], horizontal=True)
