@@ -166,10 +166,10 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4：AI 控制台（嵌腳本）- 一鍵下載 Excel
+# TAB4：AI 控制台（完整替換版）
 # ===================================================================
 with tabs[3]:
-    import streamlit as st
+    import json   # 別忘了補這一行
     import subprocess, sys, os, datetime as dt, pandas as pd, io
 
     st.title("📚 多語聖經控制台")
@@ -177,18 +177,31 @@ with tabs[3]:
 
     # ---------- ① 貼經文 ----------
     with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
+        # 快速測試按鈕
+        if st.button("🧪 快速測試（載入範例）"):
+            st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
+
         input_text = st.text_area("經文/講稿", height=200, key="input_text")
+
+        # 進階設定
+        with st.expander("⚙️ 進階設定"):
+            c_opt1, c_opt2 = st.columns(2)
+            with c_opt1:
+                st.selectbox("分析深度", ["標準", "詳細", "簡易"], key="analysis_depth")
+            with c_opt2:
+                st.selectbox("輸出語言", ["中英日韓泰", "中英", "中日"], key="output_langs")
+
         c1, c2 = st.columns([1, 1])
         with c1:
             if st.button("🤖 AI 分析", type="primary"):
                 if not input_text:
                     st.error("請先貼經文")
                     st.stop()
-                # 背後跑 analyze_to_excel.py
                 with st.spinner("AI 分析中，約 10 秒…"):
                     try:
-                        result = run_analysis(input_text)   # 見下方函式
+                        result = run_analysis(input_text)
                         st.session_state["analysis"] = result
+                        save_analysis_result(result, input_text)  # 存歷史
                         st.success("分析完成！")
                     except Exception as e:
                         st.error(f"分析失敗：{e}")
@@ -205,40 +218,84 @@ with tabs[3]:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-    # ---------- ④ 控制台連結 ----------
+    # ---------- ② 輸入範例提示 ----------
+    with st.expander("📋 輸入範例"):
+        st.markdown("**中文經文範例：**")
+        st.code("馬太福音 5:3 虛心的人有福了，因為天國是他們的。", language="text")
+        st.markdown("**英文講稿範例：**")
+        st.code("Today we will explore the meaning of true wisdom...", language="text")
+
+    # ---------- ③ 分析歷史 ----------
+    if st.checkbox("顯示分析歷史（最近10筆）"):
+        for item in st.session_state.get("analysis_history", []):
+            st.caption(item["date"])
+            st.code(item["input_preview"])
+
+    # ---------- ④ 控制台連結（僅兩顆） ----------
     st.markdown("---")
     st.subheader("🔗 聖經連結控制台")
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.link_button("中文 和合本", "https://www.bible.com/zh-TW/bible/46/GEN.1.CUV")
-    c2.link_button("英文 ESV", "https://www.bible.com/zh-TW/bible/59/GEN.1.ESV")
-    c3.link_button("日文 口語訳", "https://www.bible.com/zh-TW/bible/313/GEN.1.JCB")
-    c4.link_button("韓文 KRF", "https://www.bible.com/zh-TW/bible/1353/GEN.1.KRF")
-    c5.link_button("泰文 THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    cl3, cl4 = st.columns(2)
+    with cl3:
+        st.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    with cl4:
+        st.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
 
-    # ---------- 背後函式：你零修改 ----------
+# ---------- 背後函式：強化版 ----------
 def run_analysis(text: str) -> dict:
-    """
-    呼叫外部 analyze_to_excel.py → 回傳結構化 dict
-    """
-    # 把輸入寫成暫存檔
-    with open("temp_input.txt", "w", encoding="utf-8") as f:
-        f.write(text)
-    # 執行外部腳本（你放同目錄）
-    subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"], check=True)
-    # 讀回結果 JSON
-    with open("temp_result.json", "r", encoding="utf-8") as f:
-        return json.load(f)
-
+    try:
+        with open("temp_input.txt", "w", encoding="utf-8") as f:
+            f.write(text.strip())
+        result = subprocess.run(
+            [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr)
+        with open("temp_result.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for tmp in ["temp_input.txt", "temp_result.json"]:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        return data
+    except subprocess.TimeoutExpired:
+        st.error("分析超時（30秒），請檢查輸入內容")
+        raise
+    except FileNotFoundError:
+        st.error("找不到 analyze_to_excel.py 腳本")
+        raise
+    except Exception as e:
+        st.error(f"分析過程錯誤：{str(e)}")
+        raise
 
 def to_excel(result: dict) -> bytes:
-    """把結構化 dict → Excel 位元組 → st.download_button"""
-    df_words = pd.DataFrame(result["words"])
-    df_phrases = pd.DataFrame(result["phrases"])
-    df_grammar = pd.DataFrame(result["grammar"])
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df_words.to_excel(writer, sheet_name='Words', index=False)
-        df_phrases.to_excel(writer, sheet_name='Phrases', index=False)
-        df_grammar.to_excel(writer, sheet_name='Grammar', index=False)
+        for sheet, key in [("Words", "words"), ("Phrases", "phrases"), ("Grammar", "grammar")]:
+            if key in result and result[key]:
+                pd.DataFrame(result[key]).to_excel(writer, sheet_name=sheet, index=False)
+        # 統計頁
+        stats = pd.DataFrame({
+            "項目": ["總字彙數", "總片語數", "文法點數", "分析日期"],
+            "數值": [
+                len(result.get("words", [])),
+                len(result.get("phrases", [])),
+                len(result.get("grammar", [])),
+                dt.date.today().strftime("%Y-%m-%d")
+            ]
+        })
+        stats.to_excel(writer, sheet_name="統計", index=False)
     buffer.seek(0)
     return buffer.getvalue()
+
+# ---------- Session 初始化（放在最上方一起） ----------
+if "analysis_history" not in st.session_state:
+    st.session_state.analysis_history = []
+
+def save_analysis_result(result, input_text):
+    st.session_state.analysis_history.append({
+        "date": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
+        "result": result
+    })
+    if len(st.session_state.analysis_history) > 10:
+        st.session_state.analysis_history.pop(0)
