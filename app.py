@@ -213,7 +213,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4：AI 控制台（精簡＋側邊控制台）
+# TAB4：AI 控制台（最終精簡版）
 # ===================================================================
 with tabs[3]:
     import subprocess, sys, os, datetime as dt, pandas as pd, io, json
@@ -266,8 +266,24 @@ with tabs[3]:
             st.caption(item["date"])
             st.code(item["input_preview"])
 
-# 側邊隱藏控制台
+# ---------- 側邊平行 4 連結 ----------
 with st.sidebar:
-    with st.expander("🔗 聖經連結控制台（點我展開）"):
-        st.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
-        st.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    st.divider()
+    c1, c2 = st.columns(2)
+    c1.link_button("✨ Google AI", "https://gemini.google.com/")
+    c2.link_button("🤖 Kimi K2",   "https://kimi.moonshot.cn/")
+    c3, c4 = st.columns(2)
+    c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    c4.link_button("THSV11",    "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+
+# ---------- 全域函式 ----------
+def save_analysis_result(result, input_text):
+    if "analysis_history" not in st.session_state:
+        st.session_state.analysis_history = []
+    st.session_state.analysis_history.append({
+        "date": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
+        "result": result
+    })
+    if len(st.session_state.analysis_history) > 10:
+        st.session_state.analysis_history.pop(0)
