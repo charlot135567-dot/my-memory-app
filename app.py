@@ -213,32 +213,21 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4：AI 控制台（完整替換版）
+# TAB4：AI 控制台（精簡＋側邊控制台）
 # ===================================================================
 with tabs[3]:
-    import json   # 別忘了補這一行
-    import subprocess, sys, os, datetime as dt, pandas as pd, io
+    import subprocess, sys, os, datetime as dt, pandas as pd, io, json
 
     st.title("📚 多語聖經控制台")
     st.markdown("① 貼經文 → ② 一鍵分析 → ③ 下載 Excel → ④ 離線使用")
 
-    # ---------- ① 貼經文 ----------
+    # ① 貼經文
     with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
-        # 快速測試按鈕
         if st.button("🧪 快速測試（載入範例）"):
             st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
-
         input_text = st.text_area("經文/講稿", height=200, key="input_text")
 
-        # 進階設定
-        with st.expander("⚙️ 進階設定"):
-            c_opt1, c_opt2 = st.columns(2)
-            with c_opt1:
-                st.selectbox("分析深度", ["標準", "詳細", "簡易"], key="analysis_depth")
-            with c_opt2:
-                st.selectbox("輸出語言", ["中英日韓泰", "中英", "中日"], key="output_langs")
-
-        c1, c2 = st.columns([1, 1])
+        c1, c2 = st.columns(2)
         with c1:
             if st.button("🤖 AI 分析", type="primary"):
                 if not input_text:
@@ -246,12 +235,16 @@ with tabs[3]:
                     st.stop()
                 with st.spinner("AI 分析中，約 10 秒…"):
                     try:
-                        result = run_analysis(input_text)
-                        st.session_state["analysis"] = result
-                        save_analysis_result(result, input_text)  # 存歷史
+                        subprocess.run(
+                            [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                            check=True, timeout=30
+                        )
+                        with open("temp_result.json", "r", encoding="utf-8") as f:
+                            st.session_state["analysis"] = json.load(f)
+                        save_analysis_result(st.session_state["analysis"], input_text)
                         st.success("分析完成！")
                     except Exception as e:
-                        st.error(f"分析失敗：{e}")
+                        st.error(f"分析過程錯誤：{e}")
         with c2:
             if st.button("📥 下載 Excel"):
                 if "analysis" not in st.session_state:
@@ -265,39 +258,16 @@ with tabs[3]:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-    # ---------- ② 輸入範例提示 ----------
+    # ② 範例與歷史
     with st.expander("📋 輸入範例"):
-        st.markdown("**中文經文範例：**")
         st.code("馬太福音 5:3 虛心的人有福了，因為天國是他們的。", language="text")
-        st.markdown("**英文講稿範例：**")
-        st.code("Today we will explore the meaning of true wisdom...", language="text")
-
-    # ---------- ③ 分析歷史 ----------
     if st.checkbox("顯示分析歷史（最近10筆）"):
         for item in st.session_state.get("analysis_history", []):
             st.caption(item["date"])
             st.code(item["input_preview"])
 
-    # ---------- ④ 控制台連結（僅兩顆） ----------
-    st.markdown("---")
-    st.subheader("🔗 聖經連結控制台")
-    cl3, cl4 = st.columns(2)
-    with cl3:
+# 側邊隱藏控制台
+with st.sidebar:
+    with st.expander("🔗 聖經連結控制台（點我展開）"):
         st.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
-    with cl4:
         st.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
-
-# ---------- Session 初始化（最上方） ----------
-if "analysis_history" not in st.session_state:
-    st.session_state.analysis_history = []
-
-def save_analysis_result(result, input_text):
-    # 存一筆
-    st.session_state.analysis_history.append({
-        "date": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
-        "result": result
-    })
-    # 只留最近 10 筆
-    if len(st.session_state.analysis_history) > 10:
-        st.session_state.analysis_history.pop(0)
