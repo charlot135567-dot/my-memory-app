@@ -186,9 +186,12 @@ with tabs[2]:
 # ===================================================================
 # 6. TAB4 ─ AI 控制台（精簡最終版）
 # ===================================================================
+# ===================================================================
+# TAB4 ─ AI 控制台（不產 Excel，直接呈現）
+# ===================================================================
 with tabs[3]:
     st.title("📚 多語聖經控制台")
-    st.markdown("① 貼經文 → ② 一鍵分析 → ③ 下載 Excel → ④ 離線使用")
+    st.markdown("① 貼經文 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用")
 
     with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
         if st.button("🧪 快速測試（載入範例）"):
@@ -203,15 +206,13 @@ with tabs[3]:
                     st.stop()
                 with st.spinner("AI 分析中，約 10 秒…"):
                     try:
-                        # 寫入暫存
+                        # 寫暫存 → 呼叫外部腳本
                         with open("temp_input.txt", "w", encoding="utf-8") as f:
                             f.write(input_text.strip())
-                        # 呼叫外部腳本
                         subprocess.run(
                             [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
                             check=True, timeout=30
                         )
-                        # 讀回結果
                         with open("temp_result.json", "r", encoding="utf-8") as f:
                             st.session_state["analysis"] = json.load(f)
                         save_analysis_result(st.session_state["analysis"], input_text)
@@ -219,17 +220,28 @@ with tabs[3]:
                     except Exception as e:
                         st.error(f"分析過程錯誤：{e}")
         with c2:
-            if st.button("📥 下載 Excel"):
+            # ② 直接呈現結果（不產 Excel）
+            if st.button("📊 顯示分析結果"):
                 if "analysis" not in st.session_state:
                     st.error("請先按『AI 分析』")
                     st.stop()
-                excel_bytes = to_excel(st.session_state["analysis"])
-                st.download_button(
-                    label="📊 下載 Excel",
-                    data=excel_bytes,
-                    file_name=f"{dt.date.today()}-analysis.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                data = st.session_state["analysis"]
+                col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
+                with col_w:
+                    if data.get("words"):
+                        st.dataframe(pd.DataFrame(data["words"]))
+                    else:
+                        st.info("本次無單字分析")
+                with col_p:
+                    if data.get("phrases"):
+                        st.dataframe(pd.DataFrame(data["phrases"]))
+                    else:
+                        st.info("本次無片語分析")
+                with col_g:
+                    if data.get("grammar"):
+                        st.table(pd.DataFrame(data["grammar"]))
+                    else:
+                        st.info("本次無文法點")
 
     with st.expander("📋 輸入範例"):
         st.code("馬太福音 5:3 虛心的人有福了，因為天國是他們的。", language="text")
