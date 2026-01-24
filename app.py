@@ -193,36 +193,59 @@ with tabs[3]:
 # ---------- ① 貼經文 expander ----------
 with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
     if st.button("🧪 快速測試（載入範例）"):
-        st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
+        st.session_state.input_text = "馬太福音 5:3 虚心的人有福了，因為天國是他們的。"
+
     input_text = st.text_area("經文/講稿", height=200, key="input_text")
 
-    # AI 分析按鈕（在 expander 內）
-    if st.button("🤖 AI 分析", type="primary"):
-        ...  # 原分析邏輯不變
+    # 並排按鈕
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🤖 AI 分析", type="primary"):
+            if not input_text:
+                st.error("請先貼經文")
+                st.stop()
+            with st.spinner("AI 分析中，約 10 秒…"):
+                try:
+                    # 寫暫存 → 呼叫外部腳本
+                    with open("temp_input.txt", "w", encoding="utf-8") as f:
+                        f.write(input_text.strip())
+                    subprocess.run(
+                        [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                        check=True, timeout=30
+                    )
+                    with open("temp_result.json", "r", encoding="utf-8") as f:
+                        st.session_state["analysis"] = json.load(f)
+                    save_analysis_result(st.session_state["analysis"], input_text)
+                    st.success("分析完成！")
+                except Exception as e:
+                    st.error(f"分析過程錯誤：{e}")
 
-# ② 顯示分析結果（拉出 expander，同層）
-if st.button("📊 顯示分析結果"):
-    if "analysis" not in st.session_state:
-        st.error("請先按『AI 分析』")
-        st.stop()
+    with col2:
+        if st.button("📊 顯示分析結果"):
+            if "analysis" not in st.session_state:
+                st.error("請先按『AI 分析』")
+                st.stop()
+            st.session_state["show_result"] = True
+
+# ② 結果呈現（滿寬，與 expander 同層）
+if st.session_state.get("show_result", False):
     data = st.session_state["analysis"]
-
-    # Ref. 原文跳轉列
-    st.session_state["ref_no"] = data.get("ref_no", "")
+    # --- Ref. 原文跳轉列 ---
+    st.session_state["ref_no"]      = data.get("ref_no", "")
     st.session_state["ref_article"] = data.get("ref_article", "")
     st.markdown(f"**Ref. No.** `{st.session_state['ref_no']}`")
-    col_jump, col_copy = st.columns(2)
-    with col_jump:
+    c_jump, c_copy = st.columns(2)
+    with c_jump:
         if st.button("📄 檢視原文"):
             st.session_state["show_article"] = True
-    with col_copy:
+    with c_copy:
         st.copy_button("複製 Ref.", st.session_state["ref_no"])
 
     if st.session_state.get("show_article", False):
         with st.expander("📘 中英精煉文章", expanded=True):
             st.markdown(st.session_state["ref_article"])
 
-    # 表格呈現（滿寬）
+    # --- 表格（滿寬）---
     col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
     with col_w:
         if data.get("words"):
