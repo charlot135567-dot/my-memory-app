@@ -24,3 +24,11 @@ if __name__ == "__main__":
     ap.add_argument("--file", required=True, help="輸入檔")
     args = ap.parse_args()
     main(args.file)
+
+{
+  "ref_no": "20240708001",
+  "ref_article": "# 1\\n**Becoming** (相稱)... \\n# 2\\n**Still less** (何況)... ",
+  "words":  [...],
+  "phrases":[...],
+  "grammar":[...]
+}
