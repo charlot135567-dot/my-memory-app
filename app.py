@@ -119,8 +119,9 @@ with tabs[1]:
         </style>
     """, unsafe_allow_html=True) # 確保屬性名稱正確
 
-    # ---- 零相依 Emoji 工具 ----
-    # (接續後續代碼...)
+# ---- 零相依 Emoji 工具 ----
+    # 確保前面有變數名稱與 re.compile
+    _EMOJI_RE = re.compile(
         "["
         "\U0001F600-\U0001F64F"
         "\U0001F300-\U0001F5FF"
@@ -129,9 +130,11 @@ with tabs[1]:
         "\U00002702-\U000027B0"
         "\U000024C2-\U0001F251"
         "]+", flags=re.UNICODE)
+
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
+
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
