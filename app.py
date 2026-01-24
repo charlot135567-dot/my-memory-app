@@ -149,44 +149,48 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB2 ─ 金句集（14 句一次呈現，日期經文同框，刪滑動區）
+# TAB2 ─ 金句集（原名「筆記」已改，無 14 天字樣，中英整句，英文 3 組折疊當解答）
 # ===================================================================
 with tabs[1]:
     import datetime as dt
 
-    # ---- 14 句預載（中英對照）----
     today = dt.date.today()
-    PRELOAD = {
-        str(today - dt.timedelta(days=i)): [
-            "2Ti 3:10 🔥 You, however, have followed my teaching... 然而，你已追隨了我的教導...",
-            "2Ti 3:11 ⚔️ My persecutions & sufferings... 我在安提阿、以哥念、呂斯特拉所遭遇的逼迫...",
-            "2Ti 3:12 🕊️ Indeed, all who desire... 其實，凡立志在基督耶穌裡過敬虔生活的人...",
-            "2Ti 3:13 😈 while evil people... 但惡人和騙子必變本加厲...",
-            "2Ti 3:14 📖 But as for you... 至於你，要持守你所學習的...",
-            "2Ti 3:15 👶 and how from childhood... 並且你從小就明白聖經...",
-            "2Ti 3:16 🌬️ All Scripture is breathed out... 聖經都是神所默示的...",
-            "2Ti 3:17 ✅ that the man of God... 叫屬神的人得以完全...",
-            "高階詞彙 📚 Conduct (品行): Your daily conduct should reflect your faith. / 你的日常品行應反映信心。",
-            "高階詞彙 ⚔️ Persecution (逼迫): The early church endured much persecution. / 早期教會忍受了許多逼迫。",
-            "高階詞彙 🕊️ Godly (敬虔): Those who desire to live a godly life will suffer. / 凡立志過敬虔生活的人都要受苦。",
-            "高階詞彙 😈 Impostors (騙子): Beware of impostors in the marketplace. / 提防市井中的騙子。",
-            "高階詞彙 📖 Acquainted (熟悉): Be acquainted with the truth from childhood. / 從小就熟悉真理。",
-            "高階詞彙 🌬️ Breathed out (默示): Scripture is breathed out by God for our benefit. / 聖經是上帝所默示的，為了我們的益處。"
-        ][i] for i in range(14)
-    }
+    # ---- 14 句預載（整句聖經內容，中英並列）----
+    VERSES = [
+        {"ref": "2Ti 3:10-11", "en": "You, however, have followed my teaching, my conduct, my aim in life, my faith, my patience, my love, my steadfastness, my persecutions and sufferings that happened to me at Antioch, at Iconium, and at Lystra—which persecutions I endured; yet from them all the Lord rescued me.",
+         "zh": "但你已經追隨了我的教導、品行、志向、信心、寬容、愛心、忍耐，以及我在安提阿、以哥念、呂斯特拉所遭遇的逼迫和苦難；我所忍受的是何等的逼迫！但從這一切當中，主都把我救了出來。"},
+        {"ref": "2Ti 3:12", "en": "Indeed, all who desire to live a godly life in Christ Jesus will be persecuted,",
+         "zh": "不但如此，凡立志在基督耶穌裡敬虔度日的，也都要受逼迫。"},
+        {"ref": "2Ti 3:13", "en": "while evil people and impostors will go on from bad to worse, deceiving and being deceived.",
+         "zh": "但惡人和騙子必變本加厲，迷惑人也受迷惑。"},
+        {"ref": "2Ti 3:14", "en": "But as for you, continue in what you have learned and have firmly believed, knowing from whom you learned it",
+         "zh": "至於你，要持守你所學習的、所確信的，因為你知道是跟誰學的。"},
+        {"ref": "2Ti 3:15", "en": "and how from childhood you have been acquainted with the sacred writings, which are able to make you wise for salvation through faith in Christ Jesus.",
+         "zh": "並且你從小就明白聖經，這聖經能使你因信基督耶穌而有得救的智慧。"},
+        {"ref": "2Ti 3:16", "en": "All Scripture is breathed out by God and profitable for teaching, for reproof, for correction, and for training in righteousness,",
+         "zh": "聖經都是神所默示的，於教訓、督責、使人歸正、教導人學義都是有益的。"},
+        {"ref": "2Ti 3:17", "en": "that the man of God may be complete, equipped for every good work.",
+         "zh": "叫屬神的人得以完全，預備行各樣的善事。"},
+        {"ref": "2Ti 3:10-11", "en": "High-Word: Conduct (品行) / Persecution (逼迫) / Steadfastness (堅忍)", "zh": "高階詞彙：品行、逼迫、堅忍 —— 你已追隨了我的教導與品行；我所忍受的逼迫，主都救我脫離。"},
+        {"ref": "2Ti 3:12-13", "en": "High-Word: Godly (敬虔) / Impostors (騙子)", "zh": "高階詞彙：敬虔、騙子 —— 凡立志過敬虔生活的都要受逼迫；惡人與騙子變本加厲。"},
+        {"ref": "2Ti 3:14-15", "en": "High-Word: Acquainted (熟悉) / Salvation (救恩)", "zh": "高階詞彙：熟悉、救恩 —— 從小熟悉聖經，使你因信基督而有得救智慧。"},
+        {"ref": "2Ti 3:16-17", "en": "High-Word: Breathed out (默示) / Equipped (裝備)", "zh": "高階詞彙：默示、裝備 —— 聖經皆神所默示，使屬神之人得以完全，裝備行善。"}
+    ]
 
-    # 只載一次，當永久複習庫
+    # 只載一次，當永久庫
     if "sentences" not in st.session_state:
-        st.session_state.sentences = PRELOAD
+        st.session_state.sentences = {str(today - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
 
-    # ---- 一次呈現 14 句：日期與經文同框 ----
-    st.subheader("📒 14 天經文複習庫")
+    # ---- 一次呈現 14 句：中文整句 + 英文 3 組折疊（小考解答） ----
     for i in range(14):
         d = str(today - dt.timedelta(days=i))
-        sentence = st.session_state.sentences.get(d, "")
-        # 同框：日期 + 經文
-        with st.expander(f"{d[-5:]} 第{i+1}段"):
-            st.markdown(sentence)
+        v = st.session_state.sentences[d]
+        # 中文整句直接顯示
+        st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
+        # 英文分 3 組折疊，當解答
+        with st.expander("📑 英文解答（點我看）"):
+            st.markdown(v['en'])
+        st.text("")   # 空一行，視覺更清爽
 
     # ---- 其餘原功能：新增、匯出 ----
     with st.expander("✨ 新增金句", expanded=True):
@@ -199,7 +203,7 @@ with tabs[1]:
                 st.error("請輸入內容")
 
     if st.button("📋 匯出金句庫"):
-        export = "\n".join([f"{k}  {v}" for k, v in st.session_state.sentences.items()])
+        export = "\n".join([f"{k}  {v['ref']}  {v['en']}  {v['zh']}" for k, v in st.session_state.sentences.items()])
         st.code(export, language="text")
 
 # ===================================================================
