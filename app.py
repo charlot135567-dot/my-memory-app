@@ -149,97 +149,61 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB2 ─ 14 天滑動金句庫（中英對照＋高階詞預載）
+# TAB2 ─ 金句集（B 做法：預載 14 段當複習庫 + 每 2 h 即時句）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt
+    from datetime import datetime, timezone, timedelta
+    tz = timezone(timedelta(hours=8))
 
-    DAYS_KEEP = 14
-    today = dt.date.today()
+    # ---- ① 每 2 小時即時經文（一天 12 次） ----
+    HOUR_IDX = (int(datetime.now(tz).strftime("%H")) // 2) % len(VERSE_POOL)
+    verse = VERSE_POOL[HOUR_IDX]
+    st.info(f"**{datetime.now(tz).strftime('%m/%d %H:%M')}**｜{verse['ref']}")
 
-    # ---- 預載：14 節經文（中英並列）+ 高階詞 ----
-    PRELOAD = {
-        str(today - dt.timedelta(days=0)): 
-            "2Ti 3:10 🔥 You, however, have followed my teaching, my conduct, my aim in life, my faith, my patience, my love, my steadfastness. "
-            "然而，你已追隨了我的教導、品行、志向、信心、寬容、愛心、忍耐。",
-        str(today - dt.timedelta(days=1)): 
-            "2Ti 3:11 ⚔️ My persecutions & sufferings that happened to me at Antioch, at Iconium, and at Lystra—which persecutions I endured; "
-            "yet from them all the Lord rescued me. 我在安提阿、以哥念、呂斯特拉所遭遇的逼迫與苦難，我所忍受的，主都救我脫離了。",
-        str(today - dt.timedelta(days=2)): 
-            "2Ti 3:12 🕊️ Indeed, all who desire to live a godly life in Christ Jesus will be persecuted. "
-            "其實，凡立志在基督耶穌裡過敬虔生活的人，都要受逼迫。",
-        str(today - dt.timedelta(days=3)): 
-            "2Ti 3:13 😈 while evil people and impostors will go on from bad to worse, deceiving and being deceived. "
-            "但惡人和騙子必變本加厲，迷惑人也受迷惑。",
-        str(today - dt.timedelta(days=4)): 
-            "2Ti 3:14 📖 But as for you, continue in what you have learned and have firmly believed, knowing from whom you learned it. "
-            "至於你，要持守你所學習的、所確信的，因為你知道是跟誰學的。",
-        str(today - dt.timedelta(days=5)): 
-            "2Ti 3:15 👶 and how from childhood you have been acquainted with the sacred writings, which are able to make you wise for salvation through faith in Christ Jesus. "
-            "並且你從小就明白聖經，這聖經能使你因信基督耶穌而有得救的智慧。",
-        str(today - dt.timedelta(days=6)): 
-            "2Ti 3:16 🌬️ All Scripture is breathed out by God and profitable for teaching, for reproof, for correction, and for training in righteousness. "
-            "聖經都是神所默示的，於教訓、督責、使人歸正、教導人學義都是有益的。",
-        str(today - dt.timedelta(days=7)): 
-            "2Ti 3:17 ✅ that the man of God may be complete, equipped for every good work. "
-            "叫屬神的人得以完全，預備行各樣的善事。",
-        str(today - dt.timedelta(days=8)): 
-            "高階詞彙 📚 Conduct (品行): Your daily conduct should reflect your faith. / 你的日常品行應反映信心。",
-        str(today - dt.timedelta(days=9)): 
-            "高階詞彙 ⚔️ Persecution (逼迫): The early church endured much persecution. / 早期教會忍受了許多逼迫。",
-        str(today - dt.timedelta(days=10)): 
-            "高階詞彙 🕊️ Godly (敬虔): Those who desire to live a godly life will suffer. / 凡立志過敬虔生活的人都要受苦。",
-        str(today - dt.timedelta(days=11)): 
-            "高階詞彙 😈 Impostors (騙子): Beware of impostors in the marketplace. / 提防市井中的騙子。",
-        str(today - dt.timedelta(days=12)): 
-            "高階詞彙 📖 Acquainted (熟悉): Be acquainted with the truth from childhood. / 從小就熟悉真理。",
-        str(today - dt.timedelta(days=13)): 
-            "高階詞彙 🌬️ Breathed out (默示): Scripture is breathed out by God for our benefit. / 聖經是上帝所默示的，為了我們的益處。"
-    }
+    # ② 展開全文（預設收合，不占空間）
+    with st.expander("📖 展開全文", expanded=False):
+        st.markdown(f"**英文**  \n{verse['en']}")
+        st.markdown(f"**中文**  \n{verse['zh']}")
 
-    # 若尚未載入，自動寫入
+    # ---- ③ B 做法：只載一次，當永久複習庫 ----
     if "sentences" not in st.session_state:
-        st.session_state.sentences = PRELOAD
-    else:
-        for d, txt in PRELOAD.items():
-            st.session_state.sentences.setdefault(d, txt)
+        st.session_state.sentences = {}
+    # 把 PRELOAD 14 段寫入（只執行一次）
+    PRELOAD = {
+        str(datetime.now(tz).date() - timedelta(days=i)):
+            ["2Ti 3:10 🔥 You, however, have followed my teaching... 然而，你已追隨了我的教導...",
+             "2Ti 3:11 ⚔️ My persecutions & sufferings... 我在安提阿、以哥念、呂斯特拉所遭遇的逼迫...",
+             "2Ti 3:12 🕊️ Indeed, all who desire... 其實，凡立志在基督耶穌裡過敬虔生活的人...",
+             "2Ti 3:13 😈 while evil people... 但惡人和騙子必變本加厲...",
+             "2Ti 3:14 📖 But as for you... 至於你，要持守你所學習的...",
+             "2Ti 3:15 👶 and how from childhood... 並且你從小就明白聖經...",
+             "2Ti 3:16 🌬️ All Scripture is breathed out... 聖經都是神所默示的...",
+             "2Ti 3:17 ✅ that the man of God... 叫屬神的人得以完全...",
+             "高階詞彙 📚 Conduct (品行): Your daily conduct should reflect your faith. / 你的日常品行應反映信心。",
+             "高階詞彙 ⚔️ Persecution (逼迫): The early church endured much persecution. / 早期教會忍受了許多逼迫。",
+             "高階詞彙 🕊️ Godly (敬虔): Those who desire to live a godly life will suffer. / 凡立志過敬虔生活的人都要受苦。",
+             "高階詞彙 😈 Impostors (騙子): Beware of impostors in the marketplace. / 提防市井中的騙子。",
+             "高階詞彙 📖 Acquainted (熟悉): Be acquainted with the truth from childhood. / 從小就熟悉真理。",
+             "高階詞彙 🌬️ Breathed out (默示): Scripture is breathed out by God for our benefit. / 聖經是上帝所默示的，為了我們的益處。"][i]
+            for i in range(14)
+    }
+    for i in range(14):
+        d = str(datetime.now(tz).date() - timedelta(days=i))
+        st.session_state.sentences.setdefault(d, PRELOAD[d])
 
-    # 只保留最近 14 天
-    dates_keep = [today - dt.timedelta(days=i) for i in range(DAYS_KEEP)]
-    for d in list(st.session_state.sentences.keys()):
-        if dt.datetime.strptime(d, "%Y-%m-%d").date() not in dates_keep:
-            del st.session_state.sentences[d]
-
-    # ----- 畫面與原邏輯相同 -----
-    with st.expander("✨ 新增今日金句", expanded=True):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            new_sentence = st.text_input("金句（中英並列）", key="new_sentence")
-        with col2:
-            st.write("")
-            if st.button("儲存", type="primary"):
-                if new_sentence:
-                    st.session_state.sentences[str(today)] = new_sentence
-                    st.success("已儲存！")
-                else:
-                    st.error("請輸入金句")
-
-    st.subheader("📅 最近 14 天金句")
-    for d in sorted(dates_keep, reverse=True):
-        date_str = str(d)
-        sentence = st.session_state.sentences.get(date_str, "")
-        col_emoji, col_txt = st.columns([1, 9])
-        with col_emoji:
-            st.caption(f"{d.strftime('%m/%d')}")
-        with col_txt:
-            if sentence:
-                st.info(sentence)
+    # ---- ④ 其餘原功能：新增、匯出 ----
+    with st.expander("✨ 新增金句", expanded=True):
+        new_sentence = st.text_input("中英並列", key="new_sentence")
+        if st.button("儲存", type="primary"):
+            if new_sentence:
+                st.session_state.sentences[str(datetime.now(tz).date())] = new_sentence
+                st.success("已儲存！")
             else:
-                st.caption("（尚無金句）")
+                st.error("請輸入內容")
 
-    if st.button("📋 匯出 14 天金句"):
-        export = "\n".join([f"{d.strftime('%m/%d')}  {st.session_state.sentences.get(str(d), '')}"
-                            for d in sorted(dates_keep, reverse=True)])
+    if st.button("📋 匯出金句庫"):
+        sentences = st.session_state.get("sentences", {})
+        export = "\n".join([f"{k}  {v}" for k, v in sentences.items()])
         st.code(export, language="text")
 
 # ===================================================================
