@@ -306,7 +306,6 @@ with tabs[2]:
     with col_challenge:
         st.subheader("📝 翻譯挑戰")
         st.write("題目 1: 愚頑人說美言本不相稱...")
-        st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
