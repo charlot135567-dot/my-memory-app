@@ -98,214 +98,60 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：原版結構 + 純 Streamlit 按鈕 - Emoji單點刪 + >10字才列 + 筆記新格式
+# TAB 2：14 天滑動金句庫（純按鈕，零日曆）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt, re
 
-    # 1. 限制高度並允許滾動
-    st.markdown("""
-        <style>
-        .fc-scroller { 
-            height: 280px !important; 
-            overflow-y: auto !important; 
-        }
-        .note-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 5px 0;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    import datetime as dt
 
-    # 2. 零相依 Emoji 工具 (已整合至縮進內)
-    _EMOJI_RE = re.compile(
-        "["
-        "\U0001F600-\U0001F64F"
-        "\U0001F300-\U0001F5FF"
-        "\U0001F680-\U0001F6FF"
-        "\U0001F1E0-\U0001F1FF"
-        "\U00002702-\U000027B0"
-        "\U000024C2-\U0001F251"
-        "]+", flags=re.UNICODE)
+    # ---------- 參數 ----------
+    DAYS_KEEP = 14  # 只留 14 天
+    today = dt.date.today()
 
-    def first_emoji(text: str) -> str:
-        m = _EMOJI_RE.search(text)
-        return m.group(0) if m else ""
+    # ---------- Session 初始化 ----------
+    if "sentences" not in st.session_state:
+        # 預設 14 天空陣列，避免 KeyError
+        st.session_state.sentences = {str(today - dt.timedelta(days=i)): "" for i in range(DAYS_KEEP)}
 
-    def remove_emoji(text: str) -> str:
-        return _EMOJI_RE.sub("", text).strip()
+    # ---------- 每日推進：刪最舊 → 留最新 ----------
+    dates_keep = [today - dt.timedelta(days=i) for i in range(DAYS_KEEP)]
+    # 只保留最近 14 天的 key
+    for d in list(st.session_state.sentences.keys()):
+        if dt.datetime.strptime(d, "%Y-%m-%d").date() not in dates_keep:
+            del st.session_state.sentences[d]
 
-    # 3. 事件構建器 (已整合至縮進內)
-    def build_events():
-        ev = []
-        # 處理筆記部分
-        for d, n in st.session_state.notes.items():
-            ev.append({
-                "title": f"{n.get('emoji','📝')} {n['title'][:6]}",
-                "start": d,
-                "backgroundColor": "#FFF8DC", "borderColor": "#FFF8DC", "textColor": "#333",
-                "extendedProps": {"type": "note", "date": d}
-            })
-        
-        # 處理待辦事項 (Emoji + 文字 一同顯示)
-        for d, todos in st.session_state.todo.items():
-            if isinstance(todos, list):
-                for idx, t in enumerate(todos):
-                    display_title = f"{t.get('emoji','🔔')} {t['title']}"
-                    ev.append({
-                        "title": display_title,
-                        "start": d,
-                        "backgroundColor": "#FFE4E1", 
-                        "borderColor": "#FFE4E1", 
-                        "textColor": "#333",
-                        "extendedProps": {
-                            "type": "todo", 
-                            "date": d, 
-                            "title": t['title'], 
-                            "time": t.get('time', ''), 
-                            "index": idx
-                        }
-                    })
-        return ev
+    # ---------- 摺疊：新增今日金句 ----------
+    with st.expander("✨ 新增今日金句", expanded=True):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            new_sentence = st.text_input("金句（中英並列）", key="new_sentence")
+        with col2:
+            st.write("")
+            if st.button("儲存", type="primary"):
+                if new_sentence:
+                    st.session_state.sentences[str(today)] = new_sentence
+                    st.success("已儲存！")
+                else:
+                    st.error("請輸入金句")
 
-    # 4. 月曆呈現與點擊邏輯
-    st.subheader("📅 靈修足跡月曆")
-    with st.expander("展開 / 折疊月曆視窗", expanded=True):
-        state = calendar(
-            events=build_events(),
-            options={
-                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-                "initialView": "dayGridMonth",
-                "height": 500,
-                "dateClick": True,
-                "eventClick": True,
-                "eventDisplay": "block"
-            },
-            key=f"emoji_cal_{st.session_state.cal_key}"
-        )
-        if state.get("dateClick"):
-            st.session_state.sel_date = state["dateClick"]["date"][:10]
-        if state.get("eventClick"):
-            ext = state["eventClick"]["event"]["extendedProps"]
-            if ext.get("type") == "todo":
-                st.session_state.del_target = ext
-                st.session_state.show_del = True
-
-    # 5. 單 Emoji 點刪確認
-    if st.session_state.get("show_del"):
-        t = st.session_state.del_target
-        st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
-        c1, c2 = st.columns([1, 4])
-        with c1:
-            if st.button("確認", type="primary", key="del_ok"):
-                d, idx = t["date"], t["index"]
-                del st.session_state.todo[d][idx]
-                if not st.session_state.todo[d]: del st.session_state.todo[d]
-                st.session_state.cal_key += 1
-                st.session_state.show_del = False
-                st.rerun()
-        with c2:
-            if st.button("取消", key="del_no"):
-                st.session_state.show_del = False
-                st.rerun()
-
-    # 6. 新增區
-    st.divider()
-    with st.expander("➕ 新增筆記 / 待辦", expanded=True):
-        mode = st.radio("模式", ["📝 新增筆記", "🔔 新增待辦"], horizontal=True, key="mode_radio_1")
-        ph_emo = "📝" if mode == "📝 新增筆記" else "🔔"
-        if mode == "📝 新增筆記":
-            c1, c2 = st.columns([2, 8])
-            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed", key="note_date")
-            with c2: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋標題", label_visibility="collapsed", key="note_ttl")
-            cont = st.text_area("內容", placeholder="記錄靈修心得...", key="note_cont")
-        else:
-            c1, c2, c3 = st.columns([2, 2, 6])
-            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed", key="todo_date")
-            with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
-            with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦", label_visibility="collapsed", key="todo_ttl")
-
-        if st.button("💾 儲存", use_container_width=True, key="save_btn"):
-            if not ttl:
-                st.error("請輸入標題")
-                st.stop()
-            emo_found = first_emoji(ttl) or ph_emo
-            ttl_clean = remove_emoji(ttl)
-            if mode == "📝 新增筆記":
-                st.session_state.notes[str(d)] = {"title": ttl_clean, "content": cont, "emoji": emo_found}
-            else:
-                k = str(d)
-                if k not in st.session_state.todo: st.session_state.todo[k] = []
-                st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
-            st.session_state.cal_key += 1
-            st.rerun()
-
-    # 7. 待辦列表（>10 字才列）
-    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
-    dates_to_show = [base_date + dt.timedelta(days=i) for i in range(3)]
-    has_long = False
-    for date_obj in dates_to_show:
-        date_str = str(date_obj)
-        if date_str in st.session_state.todo and st.session_state.todo[date_str]:
-            for t in sorted(st.session_state.todo[date_str], key=lambda x: x.get('time', '00:00:00')):
-                if len(t['title']) > 10:
-                    has_long = True
-                    st.caption(f"🔔 {date_obj.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
-    if has_long:
-        st.markdown("---")
-
-    # 8. 筆記卡片 (按鈕靠右且格式正確)
-    cur = st.session_state.sel_date
-    if cur in st.session_state.notes:
-        n = st.session_state.notes[cur]
-        date_short = dt.datetime.strptime(cur, '%Y-%m-%d').strftime('%m/%d')
-        
-        col_txt, col_ed, col_del = st.columns([8.5, 0.75, 0.75])
+    # ---------- 14 天條列（最新在上） ----------
+    st.subheader("📅 最近 14 天金句")
+    for d in sorted(dates_keep, reverse=True):
+        date_str = str(d)
+        sentence = st.session_state.sentences.get(date_str, "")
+        col_emoji, col_txt = st.columns([1, 9])
+        with col_emoji:
+            st.caption(f"{d.strftime('%m/%d')}")
         with col_txt:
-            display_text = f"📝 ({date_short}) **{n['title']}**"
-            if n.get('content'):
-                display_text += f"：{n['content']}"
-            st.markdown(display_text)
-            
-        with col_ed:
-            if st.button("✏️", key=f"ed_{cur}"):
-                st.session_state.edit_mode = True
-                st.session_state.edit_ttl = n['title']
-                st.session_state.edit_cont = n.get('content', '')
-                st.session_state.edit_emo = n.get('emoji', '📝')
-                st.rerun()
-        with col_del:
-            if st.button("🗑️", key=f"de_{cur}"):
-                del st.session_state.notes[cur]
-                st.session_state.cal_key += 1
-                st.rerun()
+            if sentence:
+                st.info(sentence)
+            else:
+                st.caption("（尚無金句）")
 
-    # 9. 編輯表單
-    if st.session_state.get('edit_mode'):
-        st.divider()
-        st.markdown("#### ✏️ 編輯筆記")
-        new_ttl = st.text_input("標題", value=st.session_state.edit_ttl, key="edit_ttl_inp")
-        new_cont = st.text_area("內容", value=st.session_state.edit_cont, key="edit_cont_inp")
-        # 假設 EMOJI_LIST 已在外部定義，若無則預設列表
-        EMOJI_LIST = ["📝", "🙏", "📖", "✨", "🔥"]
-        new_emo = st.selectbox("Emoji", EMOJI_LIST, index=EMOJI_LIST.index(st.session_state.edit_emo) if st.session_state.edit_emo in EMOJI_LIST else 0, key="edit_emo_inp")
-        c_save, c_cancel = st.columns([1, 4])
-        with c_save:
-            if st.button("💾 更新", key="do_update"):
-                st.session_state.notes[cur] = {"title": new_ttl, "content": new_cont, "emoji": new_emo}
-                st.session_state.edit_mode = False
-                st.session_state.cal_key += 1
-                st.rerun()
-        with c_cancel:
-            if st.button("取消", key="cancel_edit"):
-                st.session_state.edit_mode = False
-                st.rerun()
-
-    # 10. 無資料提示
-    if not has_long and cur not in st.session_state.notes:
-        st.info("當天尚無紀錄，請從上方新增")
+    # ---------- 一鍵匯出（可複製） ----------
+    if st.button("📋 匯出 14 天金句"):
+        export = "\n".join([f"{d.strftime('%m/%d')}  {st.session_sentences.get(str(d), '')}" for d in sorted(dates_keep, reverse=True)])
+        st.code(export, language="text")
 
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
