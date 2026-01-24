@@ -137,7 +137,7 @@ with tabs[1]:
 
 def build_events():
     ev = []
-    # 筆記部分 (保持原樣)
+    # 1. 處理筆記部分 (維持原樣)
     for d, n in st.session_state.notes.items():
         ev.append({
             "title": f"{n.get('emoji','📝')} {n['title'][:6]}",
@@ -145,18 +145,25 @@ def build_events():
             "backgroundColor": "#FFF8DC", "borderColor": "#FFF8DC", "textColor": "#333",
             "extendedProps": {"type": "note", "date": d}
         })
-    # 待辦事項部分 (優化：Emoji + 文字)
+    
+    # 2. 處理待辦事項 (優化：Emoji + 文字 一同顯示)
     for d, todos in st.session_state.todo.items():
         if isinstance(todos, list):
             for idx, t in enumerate(todos):
+                # 這裡將 Emoji 與標題結合，達成「一同顯示」
+                display_title = f"{t.get('emoji','🔔')} {t['title']}"
+                
                 ev.append({
-                    "title": f"{t.get('emoji','🔔')} {t['title']}", # 顯示完整 Emoji + 文字
+                    "title": display_title,
                     "start": d,
-                    "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
+                    "backgroundColor": "#FFE4E1", 
+                    "borderColor": "#FFE4E1", 
+                    "textColor": "#333",
                     "extendedProps": {
                         "type": "todo", 
                         "date": d, 
                         "title": t['title'], 
+                        "time": t.get('time', ''), 
                         "index": idx
                     }
                 })
