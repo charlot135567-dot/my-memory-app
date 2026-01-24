@@ -101,11 +101,26 @@ EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","�
 # TAB 2：原版結構 + 純 Streamlit 按鈕 - Emoji單點刪 + >10字才列 + 筆記新格式
 # ===================================================================
 with tabs[1]:
-
     import datetime as dt, re
 
+    # 1. 限制高度並允許滾動 (縮進在 tab 內)
+    st.markdown("""
+        <style>
+        .fc-scroller { 
+            height: 280px !important; 
+            overflow-y: auto !important; 
+        }
+        .note-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+        </style>
+    """, unsafe_allow_html=True) # 確保屬性名稱正確
+
     # ---- 零相依 Emoji 工具 ----
-    _EMOJI_RE = re.compile(
+    # (接續後續代碼...)
         "["
         "\U0001F600-\U0001F64F"
         "\U0001F300-\U0001F5FF"
@@ -120,25 +135,32 @@ with tabs[1]:
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    def build_events():
-        ev = []
-        for d, n in st.session_state.notes.items():
-            ev.append({
-                "title": f"{n.get('emoji','📝')} {n['title'][:6]}",
-                "start": d,
-                "backgroundColor": "#FFF8DC", "borderColor": "#FFF8DC", "textColor": "#333",
-                "extendedProps": {"type": "note", "date": d}
-            })
-        for d, todos in st.session_state.todo.items():
-            if isinstance(todos, list):
-                for idx, t in enumerate(todos):
-                    ev.append({
-                        "title": f"{t.get('emoji','🔔')}",
-                        "start": d,
-                        "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
-                        "extendedProps": {"type": "todo", "date": d, "title": t['title'], "time": t.get('time', ''), "index": idx}
-                    })
-        return ev
+def build_events():
+    ev = []
+    # 筆記部分 (保持原樣)
+    for d, n in st.session_state.notes.items():
+        ev.append({
+            "title": f"{n.get('emoji','📝')} {n['title'][:6]}",
+            "start": d,
+            "backgroundColor": "#FFF8DC", "borderColor": "#FFF8DC", "textColor": "#333",
+            "extendedProps": {"type": "note", "date": d}
+        })
+    # 待辦事項部分 (優化：Emoji + 文字)
+    for d, todos in st.session_state.todo.items():
+        if isinstance(todos, list):
+            for idx, t in enumerate(todos):
+                ev.append({
+                    "title": f"{t.get('emoji','🔔')} {t['title']}", # 顯示完整 Emoji + 文字
+                    "start": d,
+                    "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
+                    "extendedProps": {
+                        "type": "todo", 
+                        "date": d, 
+                        "title": t['title'], 
+                        "index": idx
+                    }
+                })
+    return ev
 
     # ---- 原版月曆（0.5 版語法） ----
     st.subheader("📅 靈修足跡月曆")
@@ -226,27 +248,38 @@ with tabs[1]:
     if has_long:
         st.markdown("---")
 
-    # ---------- 5-3 筆記卡片（編/刪靠最右） ----------
-    cur = st.session_state.sel_date
-    if cur in st.session_state.notes:
-        n = st.session_state.notes[cur]
-        st.caption(f"📝 {dt.datetime.strptime(cur, '%Y-%m-%d').strftime('%m/%d')}　**{n['title']}**")
+  # ---------- 5-3 筆記卡片 (修正版：按鈕靠右且格式正確) ----------
+cur = st.session_state.sel_date
+if cur in st.session_state.notes:
+    n = st.session_state.notes[cur]
+    # 格式化日期為 (1/24)
+    date_short = dt.datetime.strptime(cur, '%Y-%m-%d').strftime('%m/%d')
+    
+    # 建立 3 個欄位：內容占 8.5，兩個按鈕各占 0.75 (總和為 10)
+    col_txt, col_ed, col_del = st.columns([8.5, 0.75, 0.75])
+    
+    with col_txt:
+        # 要求 4：📝＋日期（01/24）＋標題與內容
+        display_text = f"📝 ({date_short}) **{n['title']}**"
         if n.get('content'):
-            st.caption(f"　{n['content']}")
-        # 按鈕緊貼最右
-        c_ed, c_del = st.columns([1, 1])
-        with c_ed:
-            if st.button("✏️", key=f"edit_note_{cur}"):
-                st.session_state.edit_mode = True
-                st.session_state.edit_ttl = n['title']
-                st.session_state.edit_cont = n.get('content', '')
-                st.session_state.edit_emo = n.get('emoji', '📝')
-                st.rerun()
-        with c_del:
-            if st.button("🗑️", key=f"del_note_{cur}"):
-                del st.session_state.notes[cur]
-                st.session_state.cal_key += 1
-                st.rerun()
+            display_text += f"：{n['content']}"
+        st.markdown(display_text)
+        
+    with col_ed:
+        # 編輯鍵
+        if st.button("✏️", key=f"ed_{cur}"):
+            st.session_state.edit_mode = True
+            st.session_state.edit_ttl = n['title']
+            st.session_state.edit_cont = n.get('content', '')
+            st.session_state.edit_emo = n.get('emoji', '📝')
+            st.rerun()
+            
+    with col_del:
+        # 刪除鍵
+        if st.button("🗑️", key=f"de_{cur}"):
+            del st.session_state.notes[cur]
+            st.session_state.cal_key += 1
+            st.rerun()
 
     # ---------- 5-4 編輯表單（同你原版） ----------
     if st.session_state.get('edit_mode'):
