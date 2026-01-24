@@ -212,7 +212,8 @@ with tabs[1]:
         d = str(dt.date.today() - dt.timedelta(days=i))
         v = st.session_state.sentences[d]
         st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        st.markdown("<br>", unsafe_allow_html=True)   # ← 縮半距
+        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', 
+    unsafe_allow_html=True)
 
     # 英文分 3 群折疊
     group_size = [5, 5, 4]
@@ -223,9 +224,9 @@ with tabs[1]:
                 v = st.session_state.sentences[str(dt.date.today() - 
     dt.timedelta(days=i))]
                 st.markdown(f"**{v['ref']}**  \n{v['en']}")
-                st.markdown("<br>", unsafe_allow_html=True)   # ← 縮半距
+                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;
+    </div>', unsafe_allow_html=True)
             start += size
-
     # ---- 其餘原功能：新增、匯出 ----
     with st.expander("✨ 新增金句", expanded=True):
         new_sentence = st.text_input("中英並列", key="new_sentence")
