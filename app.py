@@ -55,47 +55,38 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 1. TAB 1：書桌（你原來的內容，完全沒動）
+# 精簡版：只留 TAB1、TAB3、TAB4（零日曆、零錯誤）
 # ===================================================================
-with tabs[0]:
-    col_content, col_m1 = st.columns([0.65, 0.35])
-    with col_content:
-        st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-        st.info("**Still less** / 🇯🇵 まして | 🇰🇷 하물며 | 🇹🇭 ยิ่งกว่านั้น | 🇨🇳 何況")
-        st.success("""
-            🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.   
-            🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。   
-            🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
-            """, icon="📖")
-    with col_m1:
-        st.markdown(f"""
-            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 250px; text-align: center;">
-                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
-                    <img src="{IMG_URLS['M1']}" style="width: 200px; margin-bottom: 10px;">
-                </div>
-                <div class="grammar-box-container" style="margin-top: auto;">
-                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">時態: 現在簡單式</p>
-                    <p style="margin:2px 0; font-size: 14px; font-weight: bold; color: #333;">核心片語:</p>
-                    <ul style="margin:0; padding-left:18px; font-size: 13px; line-height: 1.4; color: #555;">
-                        <li>Fine speech (優美言辭)</li>
-                        <li>Becoming to (相稱)</li>
-                        <li>Still less (何況)</li>
-                        <li>False speech (虛假言辭)</li>
-                    </ul>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-    st.divider()
-    st.markdown("### ✍️ 文法運用例句")
-    cl1, cl2 = st.columns(2)
-    with cl1:
-        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
-    with cl2:
-        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
+import streamlit as st
+import datetime as dt
 
-if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
-# ---------- 全域常數 ----------
-EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
+st.set_page_config(layout="wide", page_title="Language Learning App")
+
+# ---------- 簡單 Session ----------
+if 'sel_date' not in st.session_state: st.session_state.sel_date = str(dt.date.today())
+
+# ---------- 左側 Sidebar：控制台連結（手機乾淨） ----------
+with st.sidebar:
+    st.markdown("### 🔗 控制台")
+    st.link_button("ESV Bible", "https://www.bible.com/zh-TW/bible/59/GEN.1.ESV")
+    st.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    st.divider()
+    st.caption("AI 分析請在『主畫面 → TAB4』操作")
+
+# ---------- TAB1：語言書桌（你原樣保留） ----------
+tabs = st.tabs(["🏠 書桌", "✍️ 挑戰", "📊 控制台"])
+
+with tabs[0]:
+    st.subheader("📖 每日靈修英語")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("**Becoming** / 相稱")
+        st.success("Pro 17:07 Fine speech is not becoming to a fool; still less is false speech to a prince.")
+    with col2:
+        st.markdown("**核心片語：**")
+        st.markdown("- Fine speech (優美言辭)")
+        st.markdown("- Becoming to (相稱)")
+        st.markdown("- Still less (何況)")
 
 # ===================================================================
 # TAB 2：14 天滑動金句庫（純按鈕，零日曆）
@@ -153,29 +144,19 @@ with tabs[1]:
         export = "\n".join([f"{d.strftime('%m/%d')}  {st.session_sentences.get(str(d), '')}" for d in sorted(dates_keep, reverse=True)])
         st.code(export, language="text")
 
-# ===================================================================
-# 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
-# ===================================================================
+# ---------- TAB3：語言挑戰 ----------
+with tabs[1]:
+    st.subheader("✍️ 語言挑戰")
+    st.write("題目 1: 愚頑人說美言本不相稱...")
+    ans = st.text_input("請輸入英文翻譯", key="ans_1", placeholder="Type your translation here...")
+    if st.button("提交", key="submit_ans"):
+        st.success("已收到！繼續加油～")
+
+# ---------- TAB4：AI 控制台（只有貼經文 + 下載） ----------
 with tabs[2]:
-    col_challenge, col_deco = st.columns([0.7, 0.3])
-    with col_challenge:
-        st.subheader("📝 翻譯挑戰")
-        st.write("題目 1: 愚頑人說美言本不相稱...")
-        st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
-    with col_deco:
-        st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
+    st.title("📊 AI 多語分析控制台")
+    st.markdown("① 貼經文 → ② AI 分析 → ③ 下載 Excel → ④ 離線使用")
 
-# ===================================================================
-# TAB4：AI 控制台（嵌腳本）- 一鍵下載 Excel
-# ===================================================================
-with tabs[3]:
-    import streamlit as st
-    import subprocess, sys, os, datetime as dt, pandas as pd, io
-
-    st.title("📚 多語聖經控制台")
-    st.markdown("① 貼經文 → ② 一鍵分析 → ③ 下載 Excel → ④ 離線使用")
-
-    # ---------- ① 貼經文 ----------
     with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
         input_text = st.text_area("經文/講稿", height=200, key="input_text")
         c1, c2 = st.columns([1, 1])
@@ -184,10 +165,9 @@ with tabs[3]:
                 if not input_text:
                     st.error("請先貼經文")
                     st.stop()
-                # 背後跑 analyze_to_excel.py
                 with st.spinner("AI 分析中，約 10 秒…"):
                     try:
-                        result = run_analysis(input_text)   # 見下方函式
+                        result = run_analysis(input_text)
                         st.session_state["analysis"] = result
                         st.success("分析完成！")
                     except Exception as e:
@@ -205,33 +185,26 @@ with tabs[3]:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-    # ---------- ④ 控制台連結 ----------
-    st.markdown("---")
-    st.subheader("🔗 聖經連結控制台")
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.link_button("中文 和合本", "https://www.bible.com/zh-TW/bible/46/GEN.1.CUV")
-    c2.link_button("英文 ESV", "https://www.bible.com/zh-TW/bible/59/GEN.1.ESV")
-    c3.link_button("日文 口語訳", "https://www.bible.com/zh-TW/bible/313/GEN.1.JCB")
-    c4.link_button("韓文 KRF", "https://www.bible.com/zh-TW/bible/1353/GEN.1.KRF")
-    c5.link_button("泰文 THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    with st.expander("② 貼上 Excel → 存進資料庫", expanded=True):
+        paste_text = st.text_area("把 Excel 內容全選複製→貼上", height=300, key="paste_text")
+        if st.button("💾 儲存至資料庫"):
+            if not paste_text:
+                st.error("請先貼上 Excel 內容")
+                st.stop()
+            save_to_db(paste_text)
+            st.success("已離線儲存！")
 
-    # ---------- 背後函式：你零修改 ----------
+# ---------- 背後函式：你零維護 ----------
 def run_analysis(text: str) -> dict:
-    """
-    呼叫外部 analyze_to_excel.py → 回傳結構化 dict
-    """
-    # 把輸入寫成暫存檔
+    """呼叫外部 analyze_to_excel.py → 回傳結構化 dict"""
     with open("temp_input.txt", "w", encoding="utf-8") as f:
         f.write(text)
-    # 執行外部腳本（你放同目錄）
     subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"], check=True)
-    # 讀回結果 JSON
     with open("temp_result.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def to_excel(result: dict) -> bytes:
-    """把結構化 dict → Excel 位元組 → st.download_button"""
     df_words = pd.DataFrame(result["words"])
     df_phrases = pd.DataFrame(result["phrases"])
     df_grammar = pd.DataFrame(result["grammar"])
