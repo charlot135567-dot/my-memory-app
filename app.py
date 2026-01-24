@@ -98,12 +98,13 @@ if 'cal_key'  not in st.session_state: st.session_state.cal_key = 0
 EMOJI_LIST = ["🐾","🧸","🐶","🕌","🥐","💭","🍔","🍖","🍒","🍓","🥰","💖","🌸","💬","✨","🥕","🌟","🍀","🎀","🎉"]
 
 # ===================================================================
-# TAB 2：原版 + 補丁 - Emoji單點刪 + >10字才列 + 靠右鍵
+# TAB 2：原版結構 + 純 Streamlit 按鈕 - Emoji單點刪 + >10字才列 + 筆記新格式
 # ===================================================================
 with tabs[1]:
 
-    # ---- 零相依 Emoji 工具（避開 \U 轉義） ----
-    import re
+    import datetime as dt, re
+
+    # ---- 零相依 Emoji 工具 ----
     _EMOJI_RE = re.compile(
         "["
         "\U0001F600-\U0001F64F"
@@ -112,8 +113,7 @@ with tabs[1]:
         "\U0001F1E0-\U0001F1FF"
         "\U00002702-\U000027B0"
         "\U000024C2-\U0001F251"
-        "]+", flags=re.UNICODE
-    )
+        "]+", flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
@@ -270,6 +270,33 @@ with tabs[1]:
     # ---------- 5-5 無資料提示 ----------
     if not has_long and cur not in st.session_state.notes:
         st.info("當天尚無紀錄，請從上方新增")
+
+# ===================================================================
+# 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
+# ===================================================================
+with tabs[2]:
+    col_challenge, col_deco = st.columns([0.7, 0.3])
+    with col_challenge:
+        st.subheader("📝 翻譯挑戰")
+        st.write("題目 1: 愚頑人說美言本不相稱...")
+        st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
+    with col_deco:
+        st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
+
+with tabs[3]:
+    st.subheader("🔗 聖經與AI 資源")
+    cl1, cl2, cl3, cl4 = st.columns(4)
+    cl1.link_button("ChatGPT", "https://chat.openai.com/ ")
+    cl2.link_button("Google AI", "https://gemini.google.com/ ")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
+    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
+    st.divider()
+    input_content_final = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, key="db_input_area")
+    btn_l, btn_r = st.columns(2)
+    if btn_l.button("📥 執行輸入解析"):
+        st.toast("已讀取文稿")
+    if btn_r.button("💾 存檔至資料庫"):
+        st.success("資料已成功存入雲端資料庫！")
 
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
