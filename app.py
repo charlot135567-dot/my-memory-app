@@ -4,8 +4,11 @@
 import streamlit as st
 import subprocess, sys, os, pandas as pd, io, json
 import random, math
-from datetime import datetime, timezone, timedelta
-
+from datetime import datetime, timezone, timedelta, date
+# 現在就能用 date.today()
+if 'sel_date' not in st.session_state:
+    st.session_state.sel_date = str(date.today())
+    
 # ---- 29 段經文池（先放 3 段，記得補滿 29）----
 VERSE_POOL = [
     {"ref": "2Ti 3:10-11", "en": "You, however, have followed my teaching...", "zh": "但你已經追隨了我的教導..."},
