@@ -206,8 +206,97 @@ with tabs[1]:
             if mode == "📝 新增筆記":
                 st.session_state.notes[str(d)] = {"title": ttl_clean, "content": cont, "emoji": emo_found}
             else:
-               內容過長，後續請見下一則回覆。
-        
+                k = str(d)
+                if k not in st.session_state.todo: st.session_state.todo[k] = []
+                st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
+            st.session_state.cal_key += 1
+            st.rerun()
+
+    # ---------- 5-2 待辦列表（>10 字才列） ----------
+    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    dates_to_show = [base_date + dt.timedelta(days=i) for i in range(3)]
+    has_long = False
+    for date_obj in dates_to_show:
+        date_str = str(date_obj)
+        if date_str in st.session_state.todo and st.session_state.todo[date_str]:
+            for t in sorted(st.session_state.todo[date_str], key=lambda x: x.get('time', '00:00:00')):
+                if len(t['title']) > 10:   # 只列長標題
+                    has_long = True
+                    st.caption(f"🔔 {date_obj.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
+    if has_long:
+        st.markdown("---")
+
+    # ---------- 5-3 筆記卡片（編/刪靠最右） ----------
+    cur = st.session_state.sel_date
+    if cur in st.session_state.notes:
+        n = st.session_state.notes[cur]
+        st.caption(f"📝 {dt.datetime.strptime(cur, '%Y-%m-%d').strftime('%m/%d')}　**{n['title']}**")
+        if n.get('content'):
+            st.caption(f"　{n['content']}")
+        # 按鈕緊貼最右
+        c_ed, c_del = st.columns([1, 1])
+        with c_ed:
+            if st.button("✏️", key=f"edit_note_{cur}"):
+                st.session_state.edit_mode = True
+                st.session_state.edit_ttl = n['title']
+                st.session_state.edit_cont = n.get('content', '')
+                st.session_state.edit_emo = n.get('emoji', '📝')
+                st.rerun()
+        with c_del:
+            if st.button("🗑️", key=f"del_note_{cur}"):
+                del st.session_state.notes[cur]
+                st.session_state.cal_key += 1
+                st.rerun()
+
+    # ---------- 5-4 編輯表單（同你原版） ----------
+    if st.session_state.get('edit_mode'):
+        st.divider()
+        st.markdown("#### ✏️ 編輯筆記")
+        new_ttl = st.text_input("標題", value=st.session_state.edit_ttl, key="edit_ttl_inp")
+        new_cont = st.text_area("內容", value=st.session_state.edit_cont, key="edit_cont_inp")
+        new_emo = st.selectbox("Emoji", EMOJI_LIST, index=EMOJI_LIST.index(st.session_state.edit_emo) if st.session_state.edit_emo in EMOJI_LIST else 0, key="edit_emo_inp")
+        c_save, c_cancel = st.columns([1, 4])
+        with c_save:
+            if st.button("💾 更新", key="do_update"):
+                st.session_state.notes[cur] = {"title": new_ttl, "content": new_cont, "emoji": new_emo}
+                st.session_state.edit_mode = False
+                st.session_state.cal_key += 1
+                st.rerun()
+        with c_cancel:
+            if st.button("取消", key="cancel_edit"):
+                st.session_state.edit_mode = False
+                st.rerun()
+
+    # ---------- 5-5 無資料提示 ----------
+    if not has_long and cur not in st.session_state.notes:
+        st.info("當天尚無紀錄，請從上方新增")
+
+# ===================================================================
+# 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
+# ===================================================================
+with tabs[2]:
+    col_challenge, col_deco = st.columns([0.7, 0.3])
+    with col_challenge:
+        st.subheader("📝 翻譯挑戰")
+        st.write("題目 1: 愚頑人說美言本不相稱...")
+        st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
+    with col_deco:
+        st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
+
+with tabs[3]:
+    st.subheader("🔗 聖經與AI 資源")
+    cl1, cl2, cl3, cl4 = st.columns(4)
+    cl1.link_button("ChatGPT", "https://chat.openai.com/ ")
+    cl2.link_button("Google AI", "https://gemini.google.com/ ")
+    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
+    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
+    st.divider()
+    input_content_final = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, key="db_input_area")
+    btn_l, btn_r = st.columns(2)
+    if btn_l.button("📥 執行輸入解析"):
+        st.toast("已讀取文稿")
+    if btn_r.button("💾 存檔至資料庫"):
+        st.success("資料已成功存入雲端資料庫！")        
 # ===================================================================
 # 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
 # ===================================================================
