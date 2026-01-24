@@ -190,30 +190,26 @@ with tabs[3]:
     st.title("📚 多語聖經控制台")
     st.markdown("① 貼經文 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用")
 
-# ---------- ① 貼經文（expander 內） ----------
+# ---------- ① 貼經文 expander ----------
 with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
     if st.button("🧪 快速測試（載入範例）"):
         st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
     input_text = st.text_area("經文/講稿", height=200, key="input_text")
 
-    # 並排按鈕
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("🤖 AI 分析", type="primary"):
-            ...  # 原分析邏輯不變
-    with c2:
-# ② 直接呈現結果（滿寬 + Ref. 原文跳轉）
+    # AI 分析按鈕（在 expander 內）
+    if st.button("🤖 AI 分析", type="primary"):
+        ...  # 原分析邏輯不變
+
+# ② 顯示分析結果（拉出 expander，同層）
 if st.button("📊 顯示分析結果"):
     if "analysis" not in st.session_state:
         st.error("請先按『AI 分析』")
         st.stop()
     data = st.session_state["analysis"]
 
-    # ① 存 Ref & 原文
-    st.session_state["ref_no"]      = data.get("ref_no", "")
+    # Ref. 原文跳轉列
+    st.session_state["ref_no"] = data.get("ref_no", "")
     st.session_state["ref_article"] = data.get("ref_article", "")
-
-    # ② 原文跳轉列
     st.markdown(f"**Ref. No.** `{st.session_state['ref_no']}`")
     col_jump, col_copy = st.columns(2)
     with col_jump:
@@ -222,12 +218,11 @@ if st.button("📊 顯示分析結果"):
     with col_copy:
         st.copy_button("複製 Ref.", st.session_state["ref_no"])
 
-    # 展開原文
     if st.session_state.get("show_article", False):
         with st.expander("📘 中英精煉文章", expanded=True):
             st.markdown(st.session_state["ref_article"])
 
-    # ③ 表格加欄 & 呈現
+    # 表格呈現（滿寬）
     col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
     with col_w:
         if data.get("words"):
@@ -248,26 +243,6 @@ if st.button("📊 顯示分析結果"):
             df = pd.DataFrame(data["grammar"])
             df.insert(0, "Ref.", data["ref_no"])
             st.table(df)
-        else:
-            st.info("本次無文法點")
-
-# ② 真正畫表格（滿寬，不受 columns 影響）
-if st.session_state.get("show_result"):
-    data = st.session_state["analysis"]
-    col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
-    with col_w:
-        if data.get("words"):
-            st.dataframe(pd.DataFrame(data["words"]), use_container_width=True)
-        else:
-            st.info("本次無單字分析")
-    with col_p:
-        if data.get("phrases"):
-            st.dataframe(pd.DataFrame(data["phrases"]), use_container_width=True)
-        else:
-            st.info("本次無片語分析")
-    with col_g:
-        if data.get("grammar"):
-            st.table(pd.DataFrame(data["grammar"]))
         else:
             st.info("本次無文法點")
 
