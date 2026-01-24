@@ -3,6 +3,7 @@
 # ===================================================================
 import streamlit as st
 import datetime as dt
+import json   # run_analysis 裡的 json.load 需要
 try:
     from streamlit_calendar import calendar
     CALENDAR_OK = True
@@ -54,6 +55,52 @@ with st.sidebar:
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
+# ---------- 背後函式：強化版 ----------
+def run_analysis(text: str) -> dict:
+    try:
+        with open("temp_input.txt", "w", encoding="utf-8") as f:
+            f.write(text.strip())
+        result = subprocess.run(
+            [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr)
+        with open("temp_result.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for tmp in ["temp_input.txt", "temp_result.json"]:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        return data
+    except subprocess.TimeoutExpired:
+        st.error("分析超時（30秒），請檢查輸入內容")
+        raise
+    except FileNotFoundError:
+        st.error("找不到 analyze_to_excel.py 腳本")
+        raise
+    except Exception as e:
+        st.error(f"分析過程錯誤：{str(e)}")
+        raise
+
+def to_excel(result: dict) -> bytes:
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        for sheet, key in [("Words", "words"), ("Phrases", "phrases"), ("Grammar", "grammar")]:
+            if key in result and result[key]:
+                pd.DataFrame(result[key]).to_excel(writer, sheet_name=sheet, index=False)
+        # 統計頁
+        stats = pd.DataFrame({
+            "項目": ["總字彙數", "總片語數", "文法點數", "分析日期"],
+            "數值": [
+                len(result.get("words", [])),
+                len(result.get("phrases", [])),
+                len(result.get("grammar", [])),
+                dt.date.today().strftime("%Y-%m-%d")
+            ]
+        })
+        stats.to_excel(writer, sheet_name="統計", index=False)
+    buffer.seek(0)
+    return buffer.getvalue()
 # ===================================================================
 # 1. TAB 1：書桌（你原來的內容，完全沒動）
 # ===================================================================
@@ -240,62 +287,17 @@ with tabs[3]:
     with cl4:
         st.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
 
-# ---------- 背後函式：強化版 ----------
-def run_analysis(text: str) -> dict:
-    try:
-        with open("temp_input.txt", "w", encoding="utf-8") as f:
-            f.write(text.strip())
-        result = subprocess.run(
-            [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
-            capture_output=True, text=True, timeout=30
-        )
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr)
-        with open("temp_result.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-        for tmp in ["temp_input.txt", "temp_result.json"]:
-            if os.path.exists(tmp):
-                os.remove(tmp)
-        return data
-    except subprocess.TimeoutExpired:
-        st.error("分析超時（30秒），請檢查輸入內容")
-        raise
-    except FileNotFoundError:
-        st.error("找不到 analyze_to_excel.py 腳本")
-        raise
-    except Exception as e:
-        st.error(f"分析過程錯誤：{str(e)}")
-        raise
-
-def to_excel(result: dict) -> bytes:
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        for sheet, key in [("Words", "words"), ("Phrases", "phrases"), ("Grammar", "grammar")]:
-            if key in result and result[key]:
-                pd.DataFrame(result[key]).to_excel(writer, sheet_name=sheet, index=False)
-        # 統計頁
-        stats = pd.DataFrame({
-            "項目": ["總字彙數", "總片語數", "文法點數", "分析日期"],
-            "數值": [
-                len(result.get("words", [])),
-                len(result.get("phrases", [])),
-                len(result.get("grammar", [])),
-                dt.date.today().strftime("%Y-%m-%d")
-            ]
-        })
-        stats.to_excel(writer, sheet_name="統計", index=False)
-    buffer.seek(0)
-    return buffer.getvalue()
-
-# ---------- Session 初始化（放在最上方一起） ----------
+# ---------- Session 初始化（最上方） ----------
 if "analysis_history" not in st.session_state:
     st.session_state.analysis_history = []
 
 def save_analysis_result(result, input_text):
+    # 存一筆
     st.session_state.analysis_history.append({
         "date": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
         "result": result
     })
+    # 只留最近 10 筆
     if len(st.session_state.analysis_history) > 10:
         st.session_state.analysis_history.pop(0)
