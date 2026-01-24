@@ -212,7 +212,19 @@ with tabs[1]:
         d = str(dt.date.today() - dt.timedelta(days=i))
         v = st.session_state.sentences[d]
         st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        st.text("")   # 句間空行
+        st.markdown("<br>", unsafe_allow_html=True)   # ← 縮半距
+
+    # 英文分 3 群折疊
+    group_size = [5, 5, 4]
+    start = 0
+    for g, size in enumerate(group_size, 1):
+        with st.expander(f"📑 英文解答 第 {g} 組（點我看）"):
+            for i in range(start, start + size):
+                v = st.session_state.sentences[str(dt.date.today() - 
+    dt.timedelta(days=i))]
+                st.markdown(f"**{v['ref']}**  \n{v['en']}")
+                st.markdown("<br>", unsafe_allow_html=True)   # ← 縮半距
+            start += size
 
     # ---- 其餘原功能：新增、匯出 ----
     with st.expander("✨ 新增金句", expanded=True):
