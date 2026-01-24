@@ -165,17 +165,80 @@ with tabs[2]:
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
+# ===================================================================
+# TAB4：AI 控制台（嵌腳本）- 一鍵下載 Excel
+# ===================================================================
 with tabs[3]:
-    st.subheader("🔗 聖經與AI 資源")
-    cl1, cl2, cl3, cl4 = st.columns(4)
-    cl1.link_button("ChatGPT", "https://chat.openai.com/ ")
-    cl2.link_button("Google AI", "https://gemini.google.com/ ")
-    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
-    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
-    st.divider()
-    input_content_final = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, key="db_input_area")
-    btn_l, btn_r = st.columns(2)
-    if btn_l.button("📥 執行輸入解析"):
-        st.toast("已讀取文稿")
-    if btn_r.button("💾 存檔至資料庫"):
-        st.success("資料已成功存入雲端資料庫！")
+    import streamlit as st
+    import subprocess, sys, os, datetime as dt, pandas as pd, io
+
+    st.title("📚 多語聖經控制台")
+    st.markdown("① 貼經文 → ② 一鍵分析 → ③ 下載 Excel → ④ 離線使用")
+
+    # ---------- ① 貼經文 ----------
+    with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
+        input_text = st.text_area("經文/講稿", height=200, key="input_text")
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            if st.button("🤖 AI 分析", type="primary"):
+                if not input_text:
+                    st.error("請先貼經文")
+                    st.stop()
+                # 背後跑 analyze_to_excel.py
+                with st.spinner("AI 分析中，約 10 秒…"):
+                    try:
+                        result = run_analysis(input_text)   # 見下方函式
+                        st.session_state["analysis"] = result
+                        st.success("分析完成！")
+                    except Exception as e:
+                        st.error(f"分析失敗：{e}")
+        with c2:
+            if st.button("📥 下載 Excel"):
+                if "analysis" not in st.session_state:
+                    st.error("請先按『AI 分析』")
+                    st.stop()
+                excel_bytes = to_excel(st.session_state["analysis"])
+                st.download_button(
+                    label="📊 下載 Excel",
+                    data=excel_bytes,
+                    file_name=f"{dt.date.today()}-analysis.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+    # ---------- ④ 控制台連結 ----------
+    st.markdown("---")
+    st.subheader("🔗 聖經連結控制台")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.link_button("中文 和合本", "https://www.bible.com/zh-TW/bible/46/GEN.1.CUV")
+    c2.link_button("英文 ESV", "https://www.bible.com/zh-TW/bible/59/GEN.1.ESV")
+    c3.link_button("日文 口語訳", "https://www.bible.com/zh-TW/bible/313/GEN.1.JCB")
+    c4.link_button("韓文 KRF", "https://www.bible.com/zh-TW/bible/1353/GEN.1.KRF")
+    c5.link_button("泰文 THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+
+    # ---------- 背後函式：你零修改 ----------
+def run_analysis(text: str) -> dict:
+    """
+    呼叫外部 analyze_to_excel.py → 回傳結構化 dict
+    """
+    # 把輸入寫成暫存檔
+    with open("temp_input.txt", "w", encoding="utf-8") as f:
+        f.write(text)
+    # 執行外部腳本（你放同目錄）
+    subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"], check=True)
+    # 讀回結果 JSON
+    with open("temp_result.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def to_excel(result: dict) -> bytes:
+    """把結構化 dict → Excel 位元組 → st.download_button"""
+    df_words = pd.DataFrame(result["words"])
+    df_phrases = pd.DataFrame(result["phrases"])
+    df_grammar = pd.DataFrame(result["grammar"])
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df_words.to_excel(writer, sheet_name='Words', index=False)
+        df_phrases.to_excel(writer, sheet_name='Phrases', index=False)
+        df_grammar.to_excel(writer, sheet_name='Grammar', index=False)
+    buffer.seek(0)
+    return buffer.getvalue()
