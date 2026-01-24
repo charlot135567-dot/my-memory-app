@@ -227,7 +227,7 @@ if st.session_state.get("show_result"):
         if data.get("grammar"):
             st.table(pd.DataFrame(data["grammar"]))
         else:
-            st.info("本次無文法點"))
+            st.info("本次無文法點")
 
 # ③ 其餘區塊保持原樣
 with st.expander("📋 輸入範例"):
