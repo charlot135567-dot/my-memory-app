@@ -193,59 +193,62 @@ with tabs[3]:
     st.title("📚 多語聖經控制台")
     st.markdown("① 貼經文 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用")
 
-    with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
-        if st.button("🧪 快速測試（載入範例）"):
-            st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
-        input_text = st.text_area("經文/講稿", height=200, key="input_text")
+# ---------- ① 貼經文（expander 內） ----------
+with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
+    if st.button("🧪 快速測試（載入範例）"):
+        st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
+    input_text = st.text_area("經文/講稿", height=200, key="input_text")
 
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🤖 AI 分析", type="primary"):
-                if not input_text:
-                    st.error("請先貼經文")
-                    st.stop()
-                with st.spinner("AI 分析中，約 10 秒…"):
-                    try:
-                        # 寫暫存 → 呼叫外部腳本
-                        with open("temp_input.txt", "w", encoding="utf-8") as f:
-                            f.write(input_text.strip())
-                        subprocess.run(
-                            [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
-                            check=True, timeout=30
-                        )
-                        with open("temp_result.json", "r", encoding="utf-8") as f:
-                            st.session_state["analysis"] = json.load(f)
-                        save_analysis_result(st.session_state["analysis"], input_text)
-                        st.success("分析完成！")
-                    except Exception as e:
-                        st.error(f"分析過程錯誤：{e}")
-        with c2:
-            # ② 直接呈現結果（不產 Excel）
-            if st.button("📊 顯示分析結果"):
-                if "analysis" not in st.session_state:
-                    st.error("請先按『AI 分析』")
-                    st.stop()
-                data = st.session_state["analysis"]
-                col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
-                with col_w:
-                    if data.get("words"):
-                        st.dataframe(pd.DataFrame(data["words"]))
-                    else:
-                        st.info("本次無單字分析")
-                with col_p:
-                    if data.get("phrases"):
-                        st.dataframe(pd.DataFrame(data["phrases"]))
-                    else:
-                        st.info("本次無片語分析")
-                with col_g:
-                    if data.get("grammar"):
-                        st.table(pd.DataFrame(data["grammar"]))
-                    else:
-                        st.info("本次無文法點")
+    # AI 分析按鈕
+    if st.button("🤖 AI 分析", type="primary"):
+        if not input_text:
+            st.error("請先貼經文")
+            st.stop()
+        with st.spinner("AI 分析中，約 10 秒…"):
+            try:
+                # 寫暫存 → 呼叫外部腳本
+                with open("temp_input.txt", "w", encoding="utf-8") as f:
+                    f.write(input_text.strip())
+                subprocess.run(
+                    [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                    check=True, timeout=30
+                )
+                with open("temp_result.json", "r", encoding="utf-8") as f:
+                    st.session_state["analysis"] = json.load(f)
+                save_analysis_result(st.session_state["analysis"], input_text)
+                st.success("分析完成！")
+            except Exception as e:
+                st.error(f"分析過程錯誤：{e}")
 
-    with st.expander("📋 輸入範例"):
-        st.code("馬太福音 5:3 虛心的人有福了，因為天國是他們的。", language="text")
-    if st.checkbox("顯示分析歷史（最近10筆）"):
-        for item in st.session_state.get("analysis_history", []):
-            st.caption(item["date"])
-            st.code(item["input_preview"])
+# ② 顯示分析結果（緊貼上方，滿寬）
+if st.button("📊 顯示分析結果"):
+    if "analysis" not in st.session_state:
+        st.error("請先按『AI 分析』")
+        st.stop()
+    data = st.session_state["analysis"]
+
+    # 單一排籤，滿寬呈現
+    col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
+    with col_w:
+        if data.get("words"):
+            st.dataframe(pd.DataFrame(data["words"]), use_container_width=True)
+        else:
+            st.info("本次無單字分析")
+    with col_p:
+        if data.get("phrases"):
+            st.dataframe(pd.DataFrame(data["phrases"]), use_container_width=True)
+        else:
+            st.info("本次無片語分析")
+    with col_g:
+        if data.get("grammar"):
+            st.table(pd.DataFrame(data["grammar"]))
+        else:
+            st.info("本次無文法點")
+
+# ③ 其餘區塊保持原樣
+with st.expander("📋 輸入範例"):
+    st.code("馬太福音 5:3 虛心的人有福了，因為天國是他們的。", language="text")
+if st.checkbox("顯示分析歷史（最近10筆）"):
+    for item in st.session_state.get("analysis_history", []):
+        st.caption(item["date"])
+        st.code(item["input_preview"])
