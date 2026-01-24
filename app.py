@@ -297,29 +297,3 @@ with tabs[3]:
         st.toast("已讀取文稿")
     if btn_r.button("💾 存檔至資料庫"):
         st.success("資料已成功存入雲端資料庫！")
-
-# ===================================================================
-# 3. TAB 3 & 4：挑戰 / 資料庫（你原來的內容，完全沒動）
-# ===================================================================
-with tabs[2]:
-    col_challenge, col_deco = st.columns([0.7, 0.3])
-    with col_challenge:
-        st.subheader("📝 翻譯挑戰")
-        st.write("題目 1: 愚頑人說美言本不相稱...")
-    with col_deco:
-        st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
-
-with tabs[3]:
-    st.subheader("🔗 聖經與AI 資源")
-    cl1, cl2, cl3, cl4 = st.columns(4)
-    cl1.link_button("ChatGPT", "https://chat.openai.com/ ")
-    cl2.link_button("Google AI", "https://gemini.google.com/ ")
-    cl3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
-    cl4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
-    st.divider()
-    input_content_final = st.text_area("📥 聖經經文 / 英文文稿輸入", height=150, key="db_input_area")
-    btn_l, btn_r = st.columns(2)
-    if btn_l.button("📥 執行輸入解析"):
-        st.toast("已讀取文稿")
-    if btn_r.button("💾 存檔至資料庫"):
-        st.success("資料已成功存入雲端資料庫！")
