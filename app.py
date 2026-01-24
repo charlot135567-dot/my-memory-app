@@ -238,8 +238,11 @@ if st.session_state.get("show_result", False):
     with c_jump:
         if st.button("📄 檢視原文"):
             st.session_state["show_article"] = True
+    # 取代 st.copy_button
     with c_copy:
-        st.copy_button("複製 Ref.", st.session_state["ref_no"])
+        ref_no = st.session_state.get("ref_no", "")
+        st.code(ref_no)          # 讓使用者手動框選複製
+        # 若想一鍵複製，可用 pyperclip（但雲端不支援）或等官方升級
 
     if st.session_state.get("show_article", False):
         with st.expander("📘 中英精煉文章", expanded=True):
