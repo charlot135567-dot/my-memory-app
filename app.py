@@ -179,7 +179,7 @@ with tabs[1]:
         {"ref": "2Ti 3:16-17", "en": "High-Word: Breathed out (默示) / Equipped (裝備)",
          "zh": "高階詞彙：默示、裝備 —— 聖經皆神所默示，使屬神之人得以完全，裝備行善。"}
     ]
-    # 👉 搬進來：只載一次，且 Streamlit 已就緒
+        # 👉 搬進來：只跑一次，且 Streamlit 已就緒
     if "sentences" not in st.session_state:
         st.session_state.sentences = {str(dt.date.today() - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
 
