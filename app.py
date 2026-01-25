@@ -226,7 +226,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4 ─ AI 控制台（最終清掃 + 巨量刪除 + 全文搜尋 + 回溯原文）
+# TAB4 ─ AI 控制台（最終清掃 + 巨量刪除三合一欄共用最大畫面）
 # ===================================================================
 with tabs[3]:
     import os, datetime as dt, json, subprocess, sys, pandas as pd, io
@@ -237,32 +237,64 @@ with tabs[3]:
         st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
         st.stop()
 
+    # ② 最大共用欄位：AI 分析 + 巨量刪除 三合一
     st.title("📚 多語聖經控制台")
-    st.markdown("① 貼經文 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用")
+    # 標題已合併在欄位內，省空間
+    with st.expander("① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
+        input_text = st.text_area("經文/講稿（最大欄位）", height=300, key="input_text")
 
-    # ② 貼經文（已刪測試鈕 & 範例文字）
-    input_text = st.text_area("經文/講稿", height=200, key="input_text")
+        # 三合一操作列（同一排）
+        col_op1, col_op2, col_op3 = st.columns([2, 2, 1])
+        with col_op1:
+            search_type = st.selectbox("操作", ["AI 分析", "Ref. 刪除", "關鍵字刪除"])
+        with col_op2:
+            if search_type == "Ref. 刪除":
+                ref_query = st.text_input("輸入 Ref.（例：2Ti 3:10）", key="ref_del")
+            elif search_type == "關鍵字刪除":
+                kw_query = st.text_input("輸入關鍵字", key="kw_del")
+        with col_op3:
+            if st.button("🗑️ 巨量刪除", type="primary"):
+                # 共用同一個搜尋邏輯
+                hits = []
+                for d, v in st.session_state.sentences.items():
+                    txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
+                    if search_type == "Ref. 刪除" and ref_query.lower() in v.get('ref', '').lower():
+                        hits.append((d, v))
+                    elif search_type == "關鍵字刪除" and kw_query.lower() in txt:
+                        hits.append((d, v))
+                if hits:
+                    st.write(f"共 {len(hits)} 筆")
+                    # 每一筆前面可勾選
+                    selected_keys = st.multiselect("勾選要刪除的項目", [d for d, _ in hits])
+                    if st.button("確認刪除", type="secondary"):
+                        for k in selected_keys:
+                            st.session_state.sentences.pop(k, None)
+                        st.success(f"已刪除 {len(selected_keys)} 筆！")
+                        st.experimental_rerun()
+                else:
+                    st.info("無符合條件")
 
-    if st.button("🤖 AI 分析", type="primary"):
-        if not input_text:
-            st.error("請先貼經文")
-            st.stop()
-        with st.spinner("AI 分析中，約 10 秒…"):
-            try:
-                subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
-                               check=True, timeout=30)
-                with open("temp_result.json", "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                save_analysis_result(data, input_text)
-                st.session_state["analysis"] = data
-                st.success("分析完成！")
-                # 自動展開（可選）
-                if st.checkbox("分析完自動展開", value=True):
-                    st.session_state["show_result"] = True
-            except Exception as e:
-                st.error(f"分析過程錯誤：{e}")
+        # ③ AI 分析按鈕（與上方同一排）
+        if search_type == "AI 分析":
+            if st.button("🤖 AI 分析", type="primary"):
+                if not input_text:
+                    st.error("請先貼經文")
+                    st.stop()
+                with st.spinner("AI 分析中，約 10 秒…"):
+                    try:
+                        subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                                       check=True, timeout=30)
+                        with open("temp_result.json", "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        save_analysis_result(data, input_text)
+                        st.session_state["analysis"] = data
+                        st.success("分析完成！")
+                        if st.checkbox("分析完自動展開", value=True):
+                            st.session_state["show_result"] = True
+                    except Exception as e:
+                        st.error(f"分析過程錯誤：{e}")
 
-    # ③ 結果呈現（滿寬 + 回溯原文）
+    # ④ 結果呈現（滿寬 + 回溯原文）
     if st.session_state.get("show_result", False):
         data = st.session_state["analysis"]
 
@@ -277,7 +309,7 @@ with tabs[3]:
         with c_copy:
             ref_no = st.session_state.get("ref_no", "")
             if ref_no:
-                st.code(ref_no)          # 雲端相容：手動框選複製
+                st.code(ref_no)          # 手動框選複製
             else:
                 st.text("尚無 Ref.")
 
@@ -285,13 +317,12 @@ with tabs[3]:
             with st.expander("📘 中英精煉文章", expanded=True):
                 st.markdown(st.session_state["ref_article"])
 
-        # 表格呈現（容錯：缺欄位不炸 + 回溯原文）
+        # 表格呈現（容錯 + 回溯原文）
         col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
         with col_w:
             if data.get("words"):
                 df = pd.DataFrame(data["words"])
                 df.insert(0, "Ref.", data.get("ref_no", ""))
-                # 最右欄放「回溯原文」按鈕
                 df["🔍"] = "🔍"
                 st.dataframe(df, use_container_width=True)
             else:
@@ -313,47 +344,14 @@ with tabs[3]:
             else:
                 st.info("本次無文法點")
 
-    # ⑥ 全文搜尋 + 巨量刪除（容量保險）
-    with st.expander("🔍 全文搜尋 & 🗑️ 巨量刪除", expanded=True):
-        # ---- 搜尋區 ----
-        search_type = st.selectbox("搜尋方式", ["Ref.", "關鍵字", "日期區間"])
-        if search_type == "Ref.":
-            ref_query = st.text_input("輸入 Ref.（例：2Ti 3:10）", key="ref_search")
-        elif search_type == "關鍵字":
-            kw_query = st.text_input("輸入關鍵字", key="kw_search")
-        elif search_type == "日期區間":
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                start_date = st.date_input("起始日期", value=dt.date.today() - dt.timedelta(days=30))
-            with col_s2:
-                end_date = st.date_input("結束日期", value=dt.date.today())
-
-        # ---- 搜尋結果 ----
-        hits = []
-        for d, v in st.session_state.sentences.items():
-            txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
-            if search_type == "Ref." and ref_query.lower() in v.get('ref', '').lower():
-                hits.append((d, v))
-            elif search_type == "關鍵字" and kw_query.lower() in txt:
-                hits.append((d, v))
-            elif search_type == "日期區間":
-                if start_date <= dt.datetime.strptime(d, "%Y-%m-%d").date() <= end_date:
-                    hits.append((d, v))
-
-        if hits:
-            st.write(f"共 {len(hits)} 筆")
-            # 批量勾選
-            selected_keys = st.multiselect("勾選要刪除的項目（可全選）", [d for d, _ in hits])
-            if st.button("🗑️ 刪除選取", type="primary"):
-                for k in selected_keys:
-                    st.session_state.sentences.pop(k, None)
-                st.success(f"已刪除 {len(selected_keys)} 筆！")
-                st.experimental_rerun()   # 立即刷新畫面
-        else:
-            st.info("無符合條件")
-
-    # ⑦ 自動壓縮舊紀錄（容量保險）
-    with st.expander("⚙️ 容量管理", expanded=True):
+    # ⑤ 容量管理（白話說明）
+    with st.expander("⚙️ 容量管理（白話說明）", expanded=True):
+        st.markdown("""
+        1. **自動壓縮**：超過 N 筆只留最近，避免瀏覽器卡頓  
+        2. **巨量刪除**：依 Ref/關鍵字/日期區間 → 批次勾選 → 一鍵清空  
+        3. **全文搜尋**：可搜「整篇英文文稿」+「單字/片語/文法內容」  
+        4. **回溯原文**：每筆表格最右欄放「🔍」→ 點擊跳回當時整篇原文與時間戳  
+        """)
         max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
         if st.button("✂️ 壓縮舊紀錄"):
             hist = st.session_state.get("analysis_history", [])
@@ -363,7 +361,7 @@ with tabs[3]:
             else:
                 st.info("未達壓縮門檻")
 
-    # ⑧ 匯出（含 Ref. 與回溯欄位）
+    # ⑥ 匯出（含回溯欄位）
     if st.button("📋 匯出含回溯欄位"):
         export = []
         for k, v in st.session_state.sentences.items():
