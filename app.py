@@ -226,68 +226,20 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4 ─ AI 控制台（內嵌 TOML 編輯器：日後自己改指令）
+# TAB4 ─ AI 控制台（最終清掃：刪編輯器，留最大畫面）
 # ===================================================================
 with tabs[3]:
-    import os, datetime as dt, json, subprocess, sys, pandas as pd, io, tomli, tomli_w
+    import os, datetime as dt, json, subprocess, sys, pandas as pd, io
 
-    # ① 雲端金鑰
-    API_KEY = os.getenv("GEMINI_API_KEY")
+    # ① 雲端金鑰（已設定，不再印出）
+    API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("KIMI_API_KEY")
     if not API_KEY:
         st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
         st.stop()
 
-    # ② 即時 TOML 編輯器（日後自己改指令）
-    with st.expander("✏️ 編輯 AI 指令（改完立即生效）", expanded=False):
-        TOML_FILE = "prompts.toml"
-        if not os.path.exists(TOML_FILE):
-            default_prompt = {
-                "default": {
-                    "chinese_verve": "請針對以下中文聖經經文產生三個 JSON Array：1) words...",
-                    "english_manuscript": "請針對以下英文講稿產生三個 JSON Array：1) words...",
-                    "refine_sermon": "角色：你是一位精通語言學與聖經解經的教材編輯..."
-                }
-            }
-            with open(TOML_FILE, "w", encoding="utf-8") as f:
-                tomli_w.dump(default_prompt, f)
-
-        # 讀入當前內容
-        with open(TOML_FILE, "r", encoding="utf-8") as f:
-            current_toml = f.read()
-
-        # 即時編輯器
-        edited = st.text_area("✏️ 即時改指令（TOML 格式）", value=current_toml, height=400, key="toml_editor")
-        col_save, col_reset = st.columns(2)
-        with col_save:
-            if st.button("💾 儲存並立即生效"):
-                try:
-                    tomli.loads(edited)  # 驗證 TOML 合法
-                    with open(TOML_FILE, "w", encoding="utf-8") as f:
-                        f.write(edited)
-                    st.success("✅ 已儲存並立即生效！")
-                except tomli.TOMLDecodeError as e:
-                    st.error(f"TOML 格式錯誤：{e}")
-        with col_reset:
-            if st.button("🔄 還原預設"):
-                default_prompt = {
-                    "default": {
-                        "chinese_verve": "請針對以下中文聖經經文產生三個 JSON Array：1) words...",
-                        "english_manuscript": "請針對以下英文講稿產生三個 JSON Array：1) words...",
-                        "refine_sermon": "角色：你是一位精通語言學與聖經解經的教材編輯..."
-                    }
-                }
-                with open(TOML_FILE, "w", encoding="utf-8") as f:
-                    tomli_w.dump(default_prompt, f)
-                st.success("已還原預設！")
-                st.experimental_rerun()
-
-    # ③ 實際使用：讀取當前指令
-    with open(TOML_FILE, "r", encoding="utf-8") as f:
-        prompts = tomli.loads(f.read())
-
-    # ④ 其餘邏輯（與你先前相同，但改從 TOML 讀指令）
-    # （這裡放你原來的 TAB4 整塊，但 prompt 改從 prompts[section] 讀取）
-    # 已給你完整區塊，整塊貼即可
+    # ② 最大共用欄位：AI 分析 + 巨量刪除 三合一（無編輯器，留最大畫面）
+    with st.expander("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
+        input_text = st.text_area("", height=300, key="input_text")   # 無標題，真正最大畫面
 
         # 三合一操作列（同一排）
         col_op1, col_op2, col_op3 = st.columns([2, 2, 1])
@@ -310,7 +262,6 @@ with tabs[3]:
                         hits.append((d, v))
                 if hits:
                     st.write(f"共 {len(hits)} 筆（含聖經經節）")
-                    # 每一筆前面可勾選
                     selected_keys = st.multiselect("勾選要刪除的項目", [d for d, _ in hits])
                     if st.button("確認刪除", type="secondary"):
                         for k in selected_keys:
