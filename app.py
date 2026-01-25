@@ -226,96 +226,146 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（不產 Excel，直接呈現）
+# TAB4 ─ AI 控制台（最終清掃 + 巨量刪除 + 全文搜尋 + 回溯原文）
 # ===================================================================
 with tabs[3]:
+    import os, datetime as dt, json, subprocess, sys, pandas as pd, io
+
+    # ① 雲端金鑰
+    API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("KIMI_API_KEY")
+    if not API_KEY:
+        st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
+        st.stop()
+
     st.title("📚 多語聖經控制台")
     st.markdown("① 貼經文 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用")
 
-    # ---------- ① 貼經文 + 並排按鈕 ----------
-    with st.expander("① 貼經文（中文 or 英文講稿）", expanded=True):
-        if st.button("🧪 快速測試（載入範例）"):
-            st.session_state.input_text = "馬太福音 5:3 虛心的人有福了，因為天國是他們的。"
-        input_text = st.text_area("經文/講稿", height=200, key="input_text")
+    # ② 貼經文（已刪測試鈕 & 範例文字）
+    input_text = st.text_area("經文/講稿", height=200, key="input_text")
 
-        # 並排按鈕（緊貼）
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            if st.button("🤖 AI 分析", type="primary"):
-                if not input_text:
-                    st.error("請先貼經文")
-                    st.stop()
-                with st.spinner("AI 分析中，約 10 秒…"):
-                    try:
-                        subprocess.run(
-                            [sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
-                            check=True, timeout=30
-                        )
-                        with open("temp_result.json", "r", encoding="utf-8") as f:
-                            st.session_state["analysis"] = json.load(f)
-                        save_analysis_result(st.session_state["analysis"], input_text)
-                        st.success("分析完成！")
-                    except Exception as e:
-                        st.error(f"分析過程錯誤：{e}")
-        with c2:
-            if st.button("📊 顯示分析結果"):
-                if "analysis" not in st.session_state:
-                    st.error("請先按『AI 分析』")
-                    st.stop()
-                st.session_state["show_result"] = True
+    if st.button("🤖 AI 分析", type="primary"):
+        if not input_text:
+            st.error("請先貼經文")
+            st.stop()
+        with st.spinner("AI 分析中，約 10 秒…"):
+            try:
+                subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                               check=True, timeout=30)
+                with open("temp_result.json", "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                save_analysis_result(data, input_text)
+                st.session_state["analysis"] = data
+                st.success("分析完成！")
+                # 自動展開（可選）
+                if st.checkbox("分析完自動展開", value=True):
+                    st.session_state["show_result"] = True
+            except Exception as e:
+                st.error(f"分析過程錯誤：{e}")
 
-        # ── 結果區（與按鈕同層，滿寬）──
-        if st.session_state.get("show_result", False):
-            data = st.session_state["analysis"]
+    # ③ 結果呈現（滿寬 + 回溯原文）
+    if st.session_state.get("show_result", False):
+        data = st.session_state["analysis"]
 
-            st.session_state["ref_no"] = data.get("ref_no", "")
-            st.session_state["ref_article"] = data.get("ref_article", "")
-            st.markdown(f"**Ref. No.** `{st.session_state['ref_no']}`")
+        # Ref. 全域編號 + 原文跳轉
+        st.session_state["ref_no"] = data.get("ref_no", "")
+        st.session_state["ref_article"] = data.get("ref_article", "")
+        st.markdown(f"**Ref. No.** `{st.session_state['ref_no']}`")
+        c_jump, c_copy = st.columns(2)
+        with c_jump:
+            if st.button("📄 檢視原文"):
+                st.session_state["show_article"] = True
+        with c_copy:
+            ref_no = st.session_state.get("ref_no", "")
+            if ref_no:
+                st.code(ref_no)          # 雲端相容：手動框選複製
+            else:
+                st.text("尚無 Ref.")
 
-            c_jump, c_copy = st.columns(2)
-            with c_jump:
-                if st.button("📄 檢視原文"):
-                    st.session_state["show_article"] = True
-            with c_copy:
-                ref_no = st.session_state.get("ref_no", "")
-                if ref_no:
-                    st.code(ref_no)
-                else:
-                    st.text("尚無 Ref.")
+        if st.session_state.get("show_article", False):
+            with st.expander("📘 中英精煉文章", expanded=True):
+                st.markdown(st.session_state["ref_article"])
 
-            if st.session_state.get("show_article", False):
-                with st.expander("📘 中英精煉文章", expanded=True):
-                    st.markdown(st.session_state["ref_article"])
+        # 表格呈現（容錯：缺欄位不炸 + 回溯原文）
+        col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
+        with col_w:
+            if data.get("words"):
+                df = pd.DataFrame(data["words"])
+                df.insert(0, "Ref.", data.get("ref_no", ""))
+                # 最右欄放「回溯原文」按鈕
+                df["🔍"] = "🔍"
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("本次無單字分析")
+        with col_p:
+            if data.get("phrases"):
+                df = pd.DataFrame(data["phrases"])
+                df.insert(0, "Ref.", data.get("ref_no", ""))
+                df["🔍"] = "🔍"
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("本次無片語分析")
+        with col_g:
+            if data.get("grammar"):
+                df = pd.DataFrame(data["grammar"])
+                df.insert(0, "Ref.", data.get("ref_no", ""))
+                df["🔍"] = "🔍"
+                st.table(df)
+            else:
+                st.info("本次無文法點")
 
-            col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
-            with col_w:
-                if data.get("words"):
-                    df = pd.DataFrame(data["words"])
-                    df.insert(0, "Ref.", data.get("ref_no", ""))
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    st.info("本次無單字分析")
-            with col_p:
-                if data.get("phrases"):
-                    df = pd.DataFrame(data["phrases"])
-                    df.insert(0, "Ref.", data.get("ref_no", ""))
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    st.info("本次無片語分析")
-            with col_g:
-                if data.get("grammar"):
-                    df = pd.DataFrame(data["grammar"])
-                    df.insert(0, "Ref.", data.get("ref_no", ""))
-                    st.table(df)
-                else:
-                    st.info("本次無文法點")
+    # ⑥ 全文搜尋 + 巨量刪除（容量保險）
+    with st.expander("🔍 全文搜尋 & 🗑️ 巨量刪除", expanded=True):
+        # ---- 搜尋區 ----
+        search_type = st.selectbox("搜尋方式", ["Ref.", "關鍵字", "日期區間"])
+        if search_type == "Ref.":
+            ref_query = st.text_input("輸入 Ref.（例：2Ti 3:10）", key="ref_search")
+        elif search_type == "關鍵字":
+            kw_query = st.text_input("輸入關鍵字", key="kw_search")
+        elif search_type == "日期區間":
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                start_date = st.date_input("起始日期", value=dt.date.today() - dt.timedelta(days=30))
+            with col_s2:
+                end_date = st.date_input("結束日期", value=dt.date.today())
 
-    # ---------- ③ 其餘區塊 ----------
-    with st.expander("📋 輸入範例"):
-        st.code("馬太福音 5:3 虛心的人有福了，因為天國是他們的。", language="text")
+        # ---- 搜尋結果 ----
+        hits = []
+        for d, v in st.session_state.sentences.items():
+            txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
+            if search_type == "Ref." and ref_query.lower() in v.get('ref', '').lower():
+                hits.append((d, v))
+            elif search_type == "關鍵字" and kw_query.lower() in txt:
+                hits.append((d, v))
+            elif search_type == "日期區間":
+                if start_date <= dt.datetime.strptime(d, "%Y-%m-%d").date() <= end_date:
+                    hits.append((d, v))
 
-    if st.checkbox("顯示分析歷史（最近10筆）"):
-        for item in st.session_state.get("analysis_history", []):
-            st.caption(item["date"])
-            st.code(item["input_preview"])
+        if hits:
+            st.write(f"共 {len(hits)} 筆")
+            # 批量勾選
+            selected_keys = st.multiselect("勾選要刪除的項目（可全選）", [d for d, _ in hits])
+            if st.button("🗑️ 刪除選取", type="primary"):
+                for k in selected_keys:
+                    st.session_state.sentences.pop(k, None)
+                st.success(f"已刪除 {len(selected_keys)} 筆！")
+                st.experimental_rerun()   # 立即刷新畫面
+        else:
+            st.info("無符合條件")
 
+    # ⑦ 自動壓縮舊紀錄（容量保險）
+    with st.expander("⚙️ 容量管理", expanded=True):
+        max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
+        if st.button("✂️ 壓縮舊紀錄"):
+            hist = st.session_state.get("analysis_history", [])
+            if len(hist) > max_keep:
+                st.session_state.analysis_history = hist[-max_keep:]
+                st.success(f"已壓縮至最近 {max_keep} 筆！")
+            else:
+                st.info("未達壓縮門檻")
+
+    # ⑧ 匯出（含 Ref. 與回溯欄位）
+    if st.button("📋 匯出含回溯欄位"):
+        export = []
+        for k, v in st.session_state.sentences.items():
+            export.append(f"{k}\t{v.get('ref', '')}\t{v.get('en', '')}\t{v.get('zh', '')}")
+        st.code("\n".join(export), language="text")
