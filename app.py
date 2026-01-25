@@ -149,13 +149,15 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB2 ─ 金句集（句距壓半，括號已補）
+# TAB2 ─ 金句集（5-5-4 群折疊，結構一致）
 # ===================================================================
 with tabs[1]:
     import datetime as dt
 
     today = dt.date.today()
+    # ---- 14 句：5-5-4 群，結構一致 ----
     VERSES = [
+        # 第 1 群（5 句）
         {"ref": "2Ti 3:10-11", "en": "You, however, have followed my teaching, my conduct, my aim in life, my faith, my patience, my love, my steadfastness, my persecutions and sufferings that happened to me at Antioch, at Iconium, and at Lystra—which persecutions I endured; yet from them all the Lord rescued me.",
          "zh": "但你已經追隨了我的教導、品行、志向、信心、寬容、愛心、忍耐，以及我在安提阿、以哥念、呂斯特拉所遭遇的逼迫和苦難；我所忍受的是何等的逼迫！但從這一切當中，主都把我救了出來。"},
         {"ref": "2Ti 3:12", "en": "Indeed, all who desire to live a godly life in Christ Jesus will be persecuted,",
@@ -166,6 +168,7 @@ with tabs[1]:
          "zh": "至於你，要持守你所學習的、所確信的，因為你知道是跟誰學的。"},
         {"ref": "2Ti 3:15", "en": "and how from childhood you have been acquainted with the sacred writings, which are able to make you wise for salvation through faith in Christ Jesus.",
          "zh": "並且你從小就明白聖經，這聖經能使你因信基督耶穌而有得救的智慧。"},
+        # 第 2 群（5 句）
         {"ref": "2Ti 3:16", "en": "All Scripture is breathed out by God and profitable for teaching, for reproof, for correction, and for training in righteousness,",
          "zh": "聖經都是神所默示的，於教訓、督責、使人歸正、教導人學義都是有益的。"},
         {"ref": "2Ti 3:17", "en": "that the man of God may be complete, equipped for every good work.",
@@ -176,31 +179,42 @@ with tabs[1]:
          "zh": "高階詞彙：敬虔、騙子 —— 凡立志過敬虔生活的都要受逼迫；惡人與騙子變本加厲。"},
         {"ref": "2Ti 3:14-15", "en": "High-Word: Acquainted (熟悉) / Salvation (救恩)",
          "zh": "高階詞彙：熟悉、救恩 —— 從小熟悉聖經，使你因信基督而有得救智慧。"},
+        # 第 3 群（4 句）
         {"ref": "2Ti 3:16-17", "en": "High-Word: Breathed out (默示) / Equipped (裝備)",
-         "zh": "高階詞彙：默示、裝備 —— 聖經皆神所默示，使屬神之人得以完全，裝備行善。"}
+         "zh": "高階詞彙：默示、裝備 —— 聖經皆神所默示，使屬神之人得以完全，裝備行善。"},
+        {"ref": "2Ti 3:16", "en": "High-Word: Profitable (有益) / Reproof (責備) / Righteousness (公義)",
+         "zh": "高階詞彙：有益、責備、公義 —— 聖經於教訓、督責、使人歸正、教導人學義皆有益。"},
+        {"ref": "2Ti 3:17", "en": "High-Word: Complete (完全) / Equipped (裝備)",
+         "zh": "高階詞彙：完全、裝備 —— 使屬神的人得以完全，為各樣善事預備齊全。"},
+        {"ref": "2Ti 3:10-17", "en": "High-Word: Vitality (生命力) / Aligned (對齊) / Infrastructure (基礎架構)",
+         "zh": "高階詞彙：生命力、對齊、基礎架構 —— 話語帶來生命力，使人生與神對齊，信心為靈魂根基。"}
     ]
-        # 👉 搬進來：只跑一次，且 Streamlit 已就緒
+
+    # 只載一次，當永久庫
     if "sentences" not in st.session_state:
         st.session_state.sentences = {str(dt.date.today() - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
 
-    # ---- 以下畫面與功能不變 ----
+    # ---- 一次呈現 14 句：中文整句 + 英文 3 群折疊（5-5-4） ----
     st.subheader("📒 金句集")
     group_size = [5, 5, 4]
     start = 0
     for g, size in enumerate(group_size, 1):
         with st.expander(f"📑 英文解答 第 {g} 組（點我看）"):
             for i in range(start, start + size):
-                v = st.session_state.sentences[str(dt.date.today() - dt.timedelta(days=i))]
+                d = str(dt.date.today() - dt.timedelta(days=i))
+                v = st.session_state.sentences[d]
                 st.markdown(f"**{v['ref']}**  \n{v['en']}")
-                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
-            start += size
+            st.text("")   # 組間空行
+        start += size
 
+    # 中文整句直接顯示（當題目）
     for i in range(14):
         d = str(dt.date.today() - dt.timedelta(days=i))
         v = st.session_state.sentences[d]
         st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
+        st.text("")   # 句間空行
 
+    # ---- 其餘原功能：新增、匯出 ----
     with st.expander("✨ 新增金句", expanded=True):
         new_sentence = st.text_input("中英並列", key="new_sentence")
         if st.button("儲存", type="primary"):
