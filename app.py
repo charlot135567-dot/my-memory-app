@@ -2,7 +2,9 @@
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
 import streamlit as st
-import subprocess, sys, os, datetime as dt, pandas as pd, io, json
+import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
+# 確保有裝 streamlit-calendar
+from streamlit_calendar import calendar
     
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
