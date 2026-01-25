@@ -264,7 +264,6 @@ with tabs[1]:
                 st.session_state.todo[k] = []
             st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
             st.session_state.cal_key += 1
-            st.rerun()
 
     # 7. 待辦列表（>10 字才列）
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
