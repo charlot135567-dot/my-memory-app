@@ -226,7 +226,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4 ─ AI 控制台（最終清掃 + 巨量刪除三合一欄共用最大畫面）
+# TAB4 ─ AI 控制台（最終清掃包：800 筆提示 + 刪說明 + 經文可搜 + 無標題 + 圖示最前）
 # ===================================================================
 with tabs[3]:
     import os, datetime as dt, json, subprocess, sys, pandas as pd, io
@@ -237,11 +237,9 @@ with tabs[3]:
         st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
         st.stop()
 
-    # ② 最大共用欄位：AI 分析 + 巨量刪除 三合一
-    st.title("📚 多語聖經控制台")
-    # 標題已合併在欄位內，省空間
-    with st.expander("① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
-        input_text = st.text_area("經文/講稿（最大欄位）", height=300, key="input_text")
+    # ② 最大共用欄位：AI 分析 + 巨量刪除 三合一（圖示放最前，後方文字刪除）
+    with st.expander("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
+        input_text = st.text_area("", height=300, key="input_text")   # 無標題，真正最大畫面
 
         # 三合一操作列（同一排）
         col_op1, col_op2, col_op3 = st.columns([2, 2, 1])
@@ -254,7 +252,7 @@ with tabs[3]:
                 kw_query = st.text_input("輸入關鍵字", key="kw_del")
         with col_op3:
             if st.button("🗑️ 巨量刪除", type="primary"):
-                # 共用同一個搜尋邏輯
+                # 共用同一個搜尋邏輯（含經節）
                 hits = []
                 for d, v in st.session_state.sentences.items():
                     txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
@@ -263,8 +261,7 @@ with tabs[3]:
                     elif search_type == "關鍵字刪除" and kw_query.lower() in txt:
                         hits.append((d, v))
                 if hits:
-                    st.write(f"共 {len(hits)} 筆")
-                    # 每一筆前面可勾選
+                    st.write(f"共 {len(hits)} 筆（含聖經經節）")
                     selected_keys = st.multiselect("勾選要刪除的項目", [d for d, _ in hits])
                     if st.button("確認刪除", type="secondary"):
                         for k in selected_keys:
@@ -289,6 +286,10 @@ with tabs[3]:
                         save_analysis_result(data, input_text)
                         st.session_state["analysis"] = data
                         st.success("分析完成！")
+                        # 800 筆提示
+                        current_count = len(st.session_state.get("analysis_history", []))
+                        if current_count >= 800:
+                            st.warning("🔔 分析紀錄已達 800 筆，建議使用「壓縮舊紀錄」功能，避免瀏覽器卡頓！")
                         if st.checkbox("分析完自動展開", value=True):
                             st.session_state["show_result"] = True
                     except Exception as e:
@@ -344,14 +345,8 @@ with tabs[3]:
             else:
                 st.info("本次無文法點")
 
-    # ⑤ 容量管理（白話說明）
-    with st.expander("⚙️ 容量管理（白話說明）", expanded=True):
-        st.markdown("""
-        1. **自動壓縮**：超過 N 筆只留最近，避免瀏覽器卡頓  
-        2. **巨量刪除**：依 Ref/關鍵字/日期區間 → 批次勾選 → 一鍵清空  
-        3. **全文搜尋**：可搜「整篇英文文稿」+「單字/片語/文法內容」  
-        4. **回溯原文**：每筆表格最右欄放「🔍」→ 點擊跳回當時整篇原文與時間戳  
-        """)
+    # ⑤ 容量管理（白話說明 + 800 筆提示）
+    with st.expander("⚙️ 容量管理", expanded=True):
         max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
         if st.button("✂️ 壓縮舊紀錄"):
             hist = st.session_state.get("analysis_history", [])
