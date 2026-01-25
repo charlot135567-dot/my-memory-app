@@ -232,7 +232,7 @@ with tabs[3]:
     import os, datetime as dt, json, subprocess, sys, pandas as pd, io, tomli, tomli_w
 
     # ① 雲端金鑰
-    API_KEY = os.getenv("AIzaSyDWF4RLt53bPbrOikKGWgHOed5VGcmADVA") or os.getenv("KIMI_API_KEY")
+    API_KEY = os.getenv("GEMINI_API_KEY")
     if not API_KEY:
         st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
         st.stop()
