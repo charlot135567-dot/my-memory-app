@@ -3,7 +3,9 @@
 # ===================================================================
 import streamlit as st
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json
-
+if st.checkbox("🔍 管理員：顯示金鑰前 10 碼（測試用）", value=False):
+    st.code(os.getenv("AIzaSyDWF4RLt53bPbrOikKGWgHOed5VGcmADVA")[:10] + "⋯")
+    
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
