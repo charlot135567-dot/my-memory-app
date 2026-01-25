@@ -226,7 +226,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4 ─ AI 控制台（最終清掃包：800 筆提示 + 刪說明 + 經文可搜 + 無標題 + 圖示最前）
+# TAB4 ─ AI 控制台（最終實作包：V1/V2 + 英文文稿存入與叫閱 + 巨量刪除 + 回溯原文）
 # ===================================================================
 with tabs[3]:
     import os, datetime as dt, json, subprocess, sys, pandas as pd, io
@@ -262,6 +262,7 @@ with tabs[3]:
                         hits.append((d, v))
                 if hits:
                     st.write(f"共 {len(hits)} 筆（含聖經經節）")
+                    # 每一筆前面可勾選
                     selected_keys = st.multiselect("勾選要刪除的項目", [d for d, _ in hits])
                     if st.button("確認刪除", type="secondary"):
                         for k in selected_keys:
