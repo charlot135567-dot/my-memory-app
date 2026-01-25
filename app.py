@@ -4,10 +4,10 @@
 import streamlit as st
 import subprocess, sys, os, pandas as pd, io, json
 import random, math
-from datetime import datetime, timezone, timedelta, date
-# 現在就能用 date.today()
-if 'sel_date' not in st.session_state:
-    st.session_state.sel_date = str(date.today())
+from datetime import datetime, timezone, timedelta, date   # ✅ 只寫一次
+
+# 後面就能用 date.today()
+st.session_state.sentences = {str(date.today() - timedelta(days=i)): VERSES[i] for i in range(14)}
     
 # ---- 29 段經文池（先放 3 段，記得補滿 29）----
 VERSE_POOL = [
