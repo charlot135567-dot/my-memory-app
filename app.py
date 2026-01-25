@@ -320,7 +320,7 @@ with tabs[3]:
                         for k in selected_keys:
                             st.session_state.sentences.pop(k, None)
                         st.success(f"已刪除 {len(selected_keys)} 筆！")
-                        st.experimental_rerun()
+                        st.rerun()
                 else:
                     st.info("無符合條件")
 
