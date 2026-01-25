@@ -155,6 +155,7 @@ with tabs[1]:
     import datetime as dt
 
     today = dt.date.today()
+    VERSES = [
     # ---- 14 句：5-5-4 群，結構一致 ----
     VERSES = [
         # 第 1 群（5 句）
@@ -190,44 +191,31 @@ with tabs[1]:
          "zh": "高階詞彙：生命力、對齊、基礎架構 —— 話語帶來生命力，使人生與神對齊，信心為靈魂根基。"}
     ]
 
-    # 只載一次，當永久庫
-    if "sentences" not in st.session_state:
-        st.session_state.sentences = {str(dt.date.today() - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
+    # 只載一次，當永久庫    if "sentences" not in st.session_state:
+        st.session_state.sentences = {str(today - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
 
-    # ---- 一次呈現 14 句：中文整句 + 英文 3 群折疊（5-5-4） ----
-    st.subheader("📒 金句集")
+    # ---- 中文整句 + 英文 3 群折疊（句距已壓） ----
     group_size = [5, 5, 4]
     start = 0
     for g, size in enumerate(group_size, 1):
         with st.expander(f"📑 英文解答 第 {g} 組（點我看）"):
             for i in range(start, start + size):
-                d = str(dt.date.today() - dt.timedelta(days=i))
-                v = st.session_state.sentences[d]
+                v = st.session_state.sentences[str(today - dt.timedelta(days=i))]
                 st.markdown(f"**{v['ref']}**  \n{v['en']}")
-            st.text("")   # 組間空行
-        start += size
+                # 👇 只改這行：壓到半字高
+                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>',
+                            unsafe_allow_html=True)
+            start += size
 
-    # 中文整句直接顯示（當題目）
     for i in range(14):
-        d = str(dt.date.today() - dt.timedelta(days=i))
+        d = str(today - dt.timedelta(days=i))
         v = st.session_state.sentences[d]
         st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', 
-    unsafe_allow_html=True)
+        # 👇 只改這行：壓到半字高
+        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>',
+                    unsafe_allow_html=True)
 
-    # 英文分 3 群折疊
-    group_size = [5, 5, 4]
-    start = 0
-    for g, size in enumerate(group_size, 1):
-        with st.expander(f"📑 英文解答 第 {g} 組（點我看）"):
-            for i in range(start, start + size):
-                v = st.session_state.sentences[str(dt.date.today() - 
-    dt.timedelta(days=i))]
-                st.markdown(f"**{v['ref']}**  \n{v['en']}")
-                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;
-    </div>', unsafe_allow_html=True)
-            start += size
-    # ---- 其餘原功能：新增、匯出 ----
+    # 其餘原功能不動
     with st.expander("✨ 新增金句", expanded=True):
         new_sentence = st.text_input("中英並列", key="new_sentence")
         if st.button("儲存", type="primary"):
@@ -240,7 +228,6 @@ with tabs[1]:
     if st.button("📋 匯出金句庫"):
         export = "\n".join([f"{k}  {v['ref']}  {v['en']}  {v['zh']}" for k, v in st.session_state.sentences.items()])
         st.code(export, language="text")
-
 # ===================================================================
 # 5. TAB3 ─ 挑戰（原碼，未動）
 # ===================================================================
