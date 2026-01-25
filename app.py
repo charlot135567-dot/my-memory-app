@@ -133,11 +133,10 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB2 ─ 月曆📅（刪筆記區，只留待辦 + 單刪 + >10字才列）
+# TAB 2：純待辦月曆 ─ 無筆記功能
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re
-    from streamlit_calendar import calendar
 
     # 1. 限制高度並允許滾動
     st.markdown("""
@@ -167,24 +166,24 @@ with tabs[1]:
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    # 3. 事件構建器（只留待辦）
+    # 3. 事件構建器（僅待辦）
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if isinstance(todos, list):
-                for idx, t in enumerate(sorted(todos, key=lambda x: x.get('time', '00:00:00'))):
+                for idx, t in enumerate(todos):
                     display_title = f"{t.get('emoji','🔔')} {t['title']}"
                     ev.append({
                         "title": display_title,
                         "start": d,
-                        "backgroundColor": "#FFE4E1", 
-                        "borderColor": "#FFE4E1", 
+                        "backgroundColor": "#FFE4E1",
+                        "borderColor": "#FFE4E1",
                         "textColor": "#333",
                         "extendedProps": {
-                            "type": "todo", 
-                            "date": d, 
-                            "title": t['title'], 
-                            "time": t.get('time', ''), 
+                            "type": "todo",
+                            "date": d,
+                            "title": t['title'],
+                            "time": t.get('time', ''),
                             "index": idx
                         }
                     })
@@ -213,7 +212,7 @@ with tabs[1]:
                 st.session_state.del_target = ext
                 st.session_state.show_del = True
 
-    # 5. 單 Emoji 點刪確認
+    # 5. 單點刪除確認
     if st.session_state.get("show_del"):
         t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
@@ -222,7 +221,8 @@ with tabs[1]:
             if st.button("確認", type="primary", key="del_ok"):
                 d, idx = t["date"], t["index"]
                 del st.session_state.todo[d][idx]
-                if not st.session_state.todo[d]: del st.session_state.todo[d]
+                if not st.session_state.todo[d]:
+                    del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
                 st.rerun()
@@ -231,14 +231,27 @@ with tabs[1]:
                 st.session_state.show_del = False
                 st.rerun()
 
-    # 6. 新增區（只留待辦）
+    # 6. 新增待辦區
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         ph_emo = "🔔"
         c1, c2, c3 = st.columns([2, 2, 6])
-        with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed", key="todo_date")
-        with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
-        with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦", label_visibility="collapsed", key="todo_ttl")
+        with c1:
+            d = st.date_input(
+                "日期",
+                dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
+                label_visibility="collapsed",
+                key="todo_date"
+            )
+        with c2:
+            tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
+        with c3:
+            ttl = st.text_input(
+                "標題",
+                placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦",
+                label_visibility="collapsed",
+                key="todo_ttl"
+            )
 
         if st.button("💾 儲存", use_container_width=True, key="save_btn"):
             if not ttl:
@@ -247,7 +260,8 @@ with tabs[1]:
             emo_found = first_emoji(ttl) or ph_emo
             ttl_clean = remove_emoji(ttl)
             k = str(d)
-            if k not in st.session_state.todo: st.session_state.todo[k] = []
+            if k not in st.session_state.todo:
+                st.session_state.todo[k] = []
             st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
             st.session_state.cal_key += 1
             st.rerun()
@@ -265,6 +279,10 @@ with tabs[1]:
                     st.caption(f"🔔 {date_obj.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
     if has_long:
         st.markdown("---")
+
+    # 8. 無資料提示
+    if not has_long:
+        st.info("當天尚無待辦，請從上方新增")
 
 =====================================================================
 # 5. TAB3 ─ 挑戰（原碼，未動）
