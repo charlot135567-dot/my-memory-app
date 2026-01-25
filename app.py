@@ -225,11 +225,9 @@ with tabs[1]:
                     del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
-                st.rerun()
         with c2:
             if st.button("取消", key="del_no"):
                 st.session_state.show_del = False
-                st.rerun()
 
     # 6. 新增待辦區
     st.divider()
@@ -337,7 +335,6 @@ with tabs[3]:
                         for k in selected_keys:
                             st.session_state.sentences.pop(k, None)
                         st.success(f"已刪除 {len(selected_keys)} 筆！")
-                        st.rerun()
                 else:
                     st.info("無符合條件")
 
