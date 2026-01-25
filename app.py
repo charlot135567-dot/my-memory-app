@@ -179,12 +179,12 @@ with tabs[1]:
         {"ref": "2Ti 3:16-17", "en": "High-Word: Breathed out (默示) / Equipped (裝備)",
          "zh": "高階詞彙：默示、裝備 —— 聖經皆神所默示，使屬神之人得以完全，裝備行善。"}
     ]
-
-    # 只載一次，當永久庫
+    # 👉 搬進來：只載一次，且 Streamlit 已就緒
     if "sentences" not in st.session_state:
         st.session_state.sentences = {str(dt.date.today() - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
 
-    # ---- 一次呈現 14 句：中文整句 + 英文 3 群折疊（句距壓半） ----
+    # ---- 以下畫面與功能不變 ----
+    st.subheader("📒 金句集")
     group_size = [5, 5, 4]
     start = 0
     for g, size in enumerate(group_size, 1):
@@ -192,20 +192,15 @@ with tabs[1]:
             for i in range(start, start + size):
                 v = st.session_state.sentences[str(dt.date.today() - dt.timedelta(days=i))]
                 st.markdown(f"**{v['ref']}**  \n{v['en']}")
-                # 👇 只改這行：壓到半字高
-                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>',
-                            unsafe_allow_html=True)
+                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
             start += size
 
     for i in range(14):
         d = str(dt.date.today() - dt.timedelta(days=i))
         v = st.session_state.sentences[d]
         st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        # 👇 只改這行：壓到半字高
-        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>',
-                    unsafe_allow_html=True)
+        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
 
-    # 其餘原功能不動
     with st.expander("✨ 新增金句", expanded=True):
         new_sentence = st.text_input("中英並列", key="new_sentence")
         if st.button("儲存", type="primary"):
@@ -218,7 +213,6 @@ with tabs[1]:
     if st.button("📋 匯出金句庫"):
         export = "\n".join([f"{k}  {v['ref']}  {v['en']}  {v['zh']}" for k, v in st.session_state.sentences.items()])
         st.code(export, language="text")
-        
 # ===================================================================
 # 5. TAB3 ─ 挑戰（原碼，未動）
 # ===================================================================
