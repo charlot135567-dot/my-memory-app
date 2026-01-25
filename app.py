@@ -131,87 +131,231 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB2 ─ 金句集（5-5-4 群折疊，結構一致）
+# TAB2 ─ 月曆📅（刪編輯器 + 3個月保留 + Emoji單刪 + 最大畫面）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt
+    import datetime as dt, re
 
-    today = dt.date.today()
-    # ---- 14 句：5-5-4 群，結構一致 ----
-    VERSES = [
-        # 第 1 群（5 句）
-        {"ref": "2Ti 3:10-11", "en": "You, however, have followed my teaching, my conduct, my aim in life, my faith, my patience, my love, my steadfastness, my persecutions and sufferings that happened to me at Antioch, at Iconium, and at Lystra—which persecutions I endured; yet from them all the Lord rescued me.",
-         "zh": "但你已經追隨了我的教導、品行、志向、信心、寬容、愛心、忍耐，以及我在安提阿、以哥念、呂斯特拉所遭遇的逼迫和苦難；我所忍受的是何等的逼迫！但從這一切當中，主都把我救了出來。"},
-        {"ref": "2Ti 3:12", "en": "Indeed, all who desire to live a godly life in Christ Jesus will be persecuted,",
-         "zh": "不但如此，凡立志在基督耶穌裡敬虔度日的，也都要受逼迫。"},
-        {"ref": "2Ti 3:13", "en": "while evil people and impostors will go on from bad to worse, deceiving and being deceived.",
-         "zh": "但惡人和騙子必變本加厲，迷惑人也受迷惑。"},
-        {"ref": "2Ti 3:14", "en": "But as for you, continue in what you have learned and have firmly believed, knowing from whom you learned it",
-         "zh": "至於你，要持守你所學習的、所確信的，因為你知道是跟誰學的。"},
-        {"ref": "2Ti 3:15", "en": "and how from childhood you have been acquainted with the sacred writings, which are able to make you wise for salvation through faith in Christ Jesus.",
-         "zh": "並且你從小就明白聖經，這聖經能使你因信基督耶穌而有得救的智慧。"},
-        # 第 2 群（5 句）
-        {"ref": "2Ti 3:16", "en": "All Scripture is breathed out by God and profitable for teaching, for reproof, for correction, and for training in righteousness,",
-         "zh": "聖經都是神所默示的，於教訓、督責、使人歸正、教導人學義都是有益的。"},
-        {"ref": "2Ti 3:17", "en": "that the man of God may be complete, equipped for every good work.",
-         "zh": "叫屬神的人得以完全，預備行各樣的善事。"},
-        {"ref": "2Ti 3:10-11", "en": "High-Word: Conduct (品行) / Persecution (逼迫) / Steadfastness (堅忍)",
-         "zh": "高階詞彙：品行、逼迫、堅忍 —— 你已追隨了我的教導與品行；我所忍受的逼迫，主都救我脫離。"},
-        {"ref": "2Ti 3:12-13", "en": "High-Word: Godly (敬虔) / Impostors (騙子)",
-         "zh": "高階詞彙：敬虔、騙子 —— 凡立志過敬虔生活的都要受逼迫；惡人與騙子變本加厲。"},
-        {"ref": "2Ti 3:14-15", "en": "High-Word: Acquainted (熟悉) / Salvation (救恩)",
-         "zh": "高階詞彙：熟悉、救恩 —— 從小熟悉聖經，使你因信基督而有得救智慧。"},
-        # 第 3 群（4 句）
-        {"ref": "2Ti 3:16-17", "en": "High-Word: Breathed out (默示) / Equipped (裝備)",
-         "zh": "高階詞彙：默示、裝備 —— 聖經皆神所默示，使屬神之人得以完全，裝備行善。"},
-        {"ref": "2Ti 3:16", "en": "High-Word: Profitable (有益) / Reproof (責備) / Righteousness (公義)",
-         "zh": "高階詞彙：有益、責備、公義 —— 聖經於教訓、督責、使人歸正、教導人學義皆有益。"},
-        {"ref": "2Ti 3:17", "en": "High-Word: Complete (完全) / Equipped (裝備)",
-         "zh": "高階詞彙：完全、裝備 —— 使屬神的人得以完全，為各樣善事預備齊全。"},
-        {"ref": "2Ti 3:10-17", "en": "High-Word: Vitality (生命力) / Aligned (對齊) / Infrastructure (基礎架構)",
-         "zh": "高階詞彙：生命力、對齊、基礎架構 —— 話語帶來生命力，使人生與神對齊，信心為靈魂根基。"}
-    ]
+    # 1. 限制高度並允許滾動
+    st.markdown("""
+        <style>
+        .fc-scroller { 
+            height: 280px !important; 
+            overflow-y: auto !important; 
+        }
+        .note-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # 只載一次，當永久庫
-    if "sentences" not in st.session_state:
-        st.session_state.sentences = {str(dt.date.today() - dt.timedelta(days=i)): VERSES[i] for i in range(14)}
+    # 2. 零相依 Emoji 工具
+    _EMOJI_RE = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"
+        "\U0001F300-\U0001F5FF"
+        "\U0001F680-\U0001F6FF"
+        "\U0001F1E0-\U0001F1FF"
+        "\U00002702-\U000027B0"
+        "\U000024C2-\U0001F251"
+        "]+", flags=re.UNICODE)
 
-    # ---- 一次呈現 14 句：中文整句 + 英文 3 群折疊（5-5-4） ----
-    st.subheader("📒 金句集")
-    # ---------- 英文 3 群折疊（5-5-4） ----
-    group_size = [5, 5, 4]
-    start = 0
-    for g, size in enumerate(group_size, 1):
-        with st.expander(f"📑 英文解答 第 {g} 組（點我看）"):
-            for i in range(start, start + size):
-                v = st.session_state.sentences[str(dt.date.today() - dt.timedelta(days=i))]
-                st.markdown(f"**{v.get('ref', '')}**  \n{v['en']}")
-                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
-            start += size
+    def first_emoji(text: str) -> str:
+        m = _EMOJI_RE.search(text)
+        return m.group(0) if m else ""
 
-    # ---------- 中文整句直接顯示（當題目） ----
-    for i in range(14):
-        d = str(dt.date.today() - dt.timedelta(days=i))
-        v = st.session_state.sentences[d]
-        st.markdown(f"**{d[-5:]}**｜{v.get('ref', '')}  \n{v['zh']}")
-        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
+    def remove_emoji(text: str) -> str:
+        return _EMOJI_RE.sub("", text).strip()
 
-    # ---- 其餘原功能：新增、匯出 ----
-    with st.expander("✨ 新增金句", expanded=True):
-        new_sentence = st.text_input("中英並列", key="new_sentence")
-        if st.button("儲存", type="primary"):
-            if new_sentence:
-                st.session_state.sentences[str(dt.date.today())] = new_sentence
-                st.success("已儲存！")
+    # 3. 事件構建器（含 Emoji 與待辦）
+    def build_events():
+        ev = []
+        # 筆記
+        for d, n in st.session_state.notes.items():
+            ev.append({
+                "title": f"{n.get('emoji','📝')} {n['title'][:6]}",
+                "start": d,
+                "backgroundColor": "#FFF8DC", "borderColor": "#FFF8DC", "textColor": "#333",
+                "extendedProps": {"type": "note", "date": d}
+            })
+        # 待辦（Emoji＋文字 一同顯示）
+        for d, todos in st.session_state.todo.items():
+            if isinstance(todos, list):
+                for idx, t in enumerate(sorted(todos, key=lambda x: x.get('time', '00:00:00'))):
+                    display_title = f"{t.get('emoji','🔔')} {t['title']}"
+                    ev.append({
+                        "title": display_title,
+                        "start": d,
+                        "backgroundColor": "#FFE4E1", 
+                        "borderColor": "#FFE4E1", 
+                        "textColor": "#333",
+                        "extendedProps": {
+                            "type": "todo", 
+                            "date": d, 
+                            "title": t['title'], 
+                            "time": t.get('time', ''), 
+                            "index": idx
+                        }
+                    })
+        return ev
+
+    # 4. 月曆呈現與點擊邏輯
+    st.subheader("📅 靈修足跡月曆")
+    with st.expander("展開 / 折疊月曆視窗", expanded=True):
+        state = calendar(
+            events=build_events(),
+            options={
+                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+                "initialView": "dayGridMonth",
+                "height": 500,
+                "dateClick": True,
+                "eventClick": True,
+                "eventDisplay": "block"
+            },
+            key=f"emoji_cal_{st.session_state.cal_key}"
+        )
+        if state.get("dateClick"):
+            st.session_state.sel_date = state["dateClick"]["date"][:10]
+        if state.get("eventClick"):
+            ext = state["eventClick"]["event"]["extendedProps"]
+            if ext.get("type") == "todo":
+                st.session_state.del_target = ext
+                st.session_state.show_del = True
+
+    # 5. 單 Emoji 點刪確認
+    if st.session_state.get("show_del"):
+        t = st.session_state.del_target
+        st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
+        c1, c2 = st.columns([1, 4])
+        with c1:
+            if st.button("確認", type="primary", key="del_ok"):
+                d, idx = t["date"], t["index"]
+                del st.session_state.todo[d][idx]
+                if not st.session_state.todo[d]: del st.session_state.todo[d]
+                st.session_state.cal_key += 1
+                st.session_state.show_del = False
+                st.rerun()
+        with c2:
+            if st.button("取消", key="del_no"):
+                st.session_state.show_del = False
+                st.rerun()
+
+    # 6. 新增區（>10字才列）
+    st.divider()
+    with st.expander("➕ 新增筆記 / 待辦", expanded=True):
+        mode = st.radio("模式", ["📝 新增筆記", "🔔 新增待辦"], horizontal=True, key="mode_radio_1")
+        ph_emo = "📝" if mode == "📝 新增筆記" else "🔔"
+        if mode == "📝 新增筆記":
+            c1, c2 = st.columns([2, 8])
+            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed", key="note_date")
+            with c2: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋標題", label_visibility="collapsed", key="note_ttl")
+            cont = st.text_area("內容", placeholder="記錄靈修心得...", key="note_cont")
+        else:
+            c1, c2, c3 = st.columns([2, 2, 6])
+            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(), label_visibility="collapsed", key="todo_date")
+            with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
+            with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦", label_visibility="collapsed", key="todo_ttl")
+
+        if st.button("💾 儲存", type="primary", key="save_btn"):
+            if not ttl:
+                st.error("請輸入標題")
+                st.stop()
+            emo_found = first_emoji(ttl) or ph_emo
+            ttl_clean = remove_emoji(ttl)
+            if mode == "📝 新增筆記":
+                st.session_state.notes[str(d)] = {"title": ttl_clean, "content": cont, "emoji": emo_found}
             else:
-                st.error("請輸入內容")
-        if st.button("🗑️ 清空庫"):
-                st.session_state.sentences.clear()
-                st.success("已清空！")
-          
-    if st.button("📋 匯出金句庫"):
-        export = "\n".join([f"{k}  {v['ref']}  {v['en']}  {v['zh']}" for k, v in st.session_state.sentences.items()])
-        st.code(export, language="text")
+                k = str(d)
+                if k not in st.session_state.todo: st.session_state.todo[k] = []
+                st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
+            st.session_state.cal_key += 1
+            st.rerun()
+
+    # 7. 待辦列表（>10 字才列）
+    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    dates_to_show = [base_date + dt.timedelta(days=i) for i in range(3)]
+    has_long = False
+    for date_obj in dates_to_show:
+        date_str = str(date_obj)
+        if date_str in st.session_state.todo and st.session_state.todo[date_str]:
+            for t in sorted(st.session_state.todo[date_str], key=lambda x: x.get('time', '00:00:00')):
+                if len(t['title']) > 10:
+                    has_long = True
+                    st.caption(f"🔔 {date_obj.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
+    if has_long:
+        st.markdown("---")
+
+    # 8. 筆記卡片 (按鈕靠右且格式正確)
+    cur = st.session_state.sel_date
+    if cur in st.session_state.notes:
+        n = st.session_state.notes[cur]
+        date_short = dt.datetime.strptime(cur, '%Y-%m-%d').strftime('%m/%d')
+        
+        col_txt, col_ed, col_del = st.columns([8.5, 0.75, 0.75])
+        with col_txt:
+            display_text = f"📝 ({date_short}) **{n['title']}**"
+            if n.get('content'):
+                display_text += f"：{n['content']}"
+            st.markdown(display_text)
+            
+        with col_ed:
+            if st.button("✏️", key=f"ed_{cur}"):
+                st.session_state.edit_mode = True
+                st.session_state.edit_ttl = n['title']
+                st.session_state.edit_cont = n.get('content', '')
+                st.session_state.edit_emo = n.get('emoji', '📝')
+                st.rerun()
+        with col_del:
+            if st.button("🗑️", key=f"de_{cur}"):
+                del st.session_state.notes[cur]
+                st.session_state.cal_key += 1
+                st.rerun()
+
+    # 9. 編輯表單
+    if st.session_state.get('edit_mode'):
+        st.divider()
+        st.markdown("#### ✏️ 編輯筆記")
+        new_ttl = st.text_input("標題", value=st.session_state.edit_ttl, key="edit_ttl_inp")
+        new_cont = st.text_area("內容", value=st.session_state.edit_cont, key="edit_cont_inp")
+        # 假設 EMOJI_LIST 已在外部定義，若無則預設列表
+        EMOJI_LIST = ["📝", "🙏", "📖", "✨", "🔥"]
+        new_emo = st.selectbox("Emoji", EMOJI_LIST, index=EMOJI_LIST.index(st.session_state.edit_emo) if st.session_state.edit_emo in EMOJI_LIST else 0, key="edit_emo_inp")
+        c_save, c_cancel = st.columns([1, 4])
+        with c_save:
+            if st.button("💾 更新", key="do_update"):
+                st.session_state.notes[cur] = {"title": new_ttl, "content": new_cont, "emoji": new_emo}
+                st.session_state.edit_mode = False
+                st.session_state.cal_key += 1
+                st.rerun()
+        with c_cancel:
+            if st.button("取消", key="cancel_edit"):
+                st.session_state.edit_mode = False
+                st.rerun()
+
+    # 10. 無資料提示
+    if not has_long and cur not in st.session_state.notes:
+        st.info("當天尚無紀錄，請從上方新增")
+
+    # 11. 容量管理（3 個月保留 + 800 筆提示）
+    with st.expander("⚙️ 容量管理", expanded=True):
+        max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
+        if st.button("✂️ 壓縮舊紀錄"):
+            hist = st.session_state.get("analysis_history", [])
+            if len(hist) > max_keep:
+                st.session_state.analysis_history = hist[-max_keep:]
+                st.success(f"已壓縮至最近 {max_keep} 筆！")
+            else:
+                st.info("未達壓縮門檻")
+
+    # 12. 匯出（含回溯欄位）
+    if st.button("📋 匯出含回溯欄位"):
+        export = []
+        for k, v in st.session_state.sentences.items():
+            export.append(f"{k}\t{v.get('ref', '')}\t{v.get('en', '')}\t{v.get('zh', '')}")
+        st.code("\n".join(export), language="text")
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（原碼，未動）
