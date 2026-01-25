@@ -178,23 +178,23 @@ with tabs[1]:
 
     # ---- 一次呈現 14 句：中文整句 + 英文 3 群折疊（5-5-4） ----
     st.subheader("📒 金句集")
+    # ---------- 英文 3 群折疊（5-5-4） ----
     group_size = [5, 5, 4]
     start = 0
     for g, size in enumerate(group_size, 1):
         with st.expander(f"📑 英文解答 第 {g} 組（點我看）"):
             for i in range(start, start + size):
-                d = str(dt.date.today() - dt.timedelta(days=i))
-                v = st.session_state.sentences[d]
-                st.markdown(f"**{v['ref']}**  \n{v['en']}")
-            st.text("")   # 組間空行
-        start += size
+                v = st.session_state.sentences[str(dt.date.today() - dt.timedelta(days=i))]
+                st.markdown(f"**{v.get('ref', '')}**  \n{v['en']}")
+                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
+            start += size
 
-    # 中文整句直接顯示（當題目）
+    # ---------- 中文整句直接顯示（當題目） ----
     for i in range(14):
         d = str(dt.date.today() - dt.timedelta(days=i))
         v = st.session_state.sentences[d]
-        st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        st.text("")   # 句間空行
+        st.markdown(f"**{d[-5:]}**｜{v.get('ref', '')}  \n{v['zh']}")
+        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
 
     # ---- 其餘原功能：新增、匯出 ----
     with st.expander("✨ 新增金句", expanded=True):
@@ -223,7 +223,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4 ─ AI 控制台（不產 Excel，直接呈現）
+# 6. TAB4 ─ AI 控制台（不產 Excel，直接呈現）
 # ===================================================================
 with tabs[3]:
     st.title("📚 多語聖經控制台")
