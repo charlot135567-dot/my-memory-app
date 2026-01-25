@@ -205,7 +205,10 @@ with tabs[1]:
                 st.success("已儲存！")
             else:
                 st.error("請輸入內容")
-
+        if st.button("🗑️ 清空庫"):
+                st.session_state.sentences.clear()
+                st.success("已清空！")
+          
     if st.button("📋 匯出金句庫"):
         export = "\n".join([f"{k}  {v['ref']}  {v['en']}  {v['zh']}" for k, v in st.session_state.sentences.items()])
         st.code(export, language="text")
