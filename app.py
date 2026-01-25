@@ -29,15 +29,16 @@ with tabs[1]:
             for i in range(start, start + size):
                 v = st.session_state.sentences[str(dt.date.today() - timedelta(days=i))]
                 st.markdown(f"**{v['ref']}**  \n{v['en']}")
-                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe_allow_html=True)
-            start += size
+                st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>',
+            unsafe_allow_html=True)
 
     # ④ 中文整句直接顯示（當題目，句距壓半）
     for i in range(14):
         d = str(dt.date.today() - timedelta(days=i))
         v = st.session_state.sentences[d]
         st.markdown(f"**{d[-5:]}**｜{v['ref']}  \n{v['zh']}")
-        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>', unsafe.allow_html=True)
+        st.markdown('<div style="line-height:0.5;font-size:1px;">&nbsp;</div>',
+            unsafe_allow_html=True)
 
     # ⑤ 其餘功能：新增、匯出
     with st.expander("✨ 新增金句", expanded=True):
