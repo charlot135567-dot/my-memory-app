@@ -5,7 +5,7 @@ import streamlit as st
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 # 確保有裝 streamlit-calendar
 from streamlit_calendar import calendar
-    
+
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
@@ -43,33 +43,28 @@ def to_excel(result: dict) -> bytes:
 with st.sidebar:
     st.divider()
     c1, c2 = st.columns(2)
-    c1.link_button("✨ Google AI", "https://gemini.google.com/")
-    c2.link_button("🤖 Kimi K2",   "https://kimi.moonshot.cn/")
+    c1.link_button("✨ Google AI", "https://gemini.google.com/ ")
+    c2.link_button("🤖 Kimi K2",   "https://kimi.moonshot.cn/ ")
     c3, c4 = st.columns(2)
-    c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
-    c4.link_button("THSV11",    "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
+    c4.link_button("THSV11",    "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
 
 # ===================================================================
-# 2. 頁面配置 & Session 初值
+# 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-if 'events'   not in st.session_state: st.session_state.events   = []
-if 'notes'    not in st.session_state: st.session_state.notes    = {}
-if 'todo'     not in st.session_state: st.session_state.todo     = {}
-if 'custom_emojis' not in st.session_state: st.session_state.custom_emojis = ["🐾", "🐰", "🥰", "✨", "🥕", "🌟"]
-if 'sel_date' not in st.session_state: st.session_state.sel_date = str(dt.date.today())
-if 'modal'    not in st.session_state: st.session_state.modal    = None
+# 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
 if 'analysis_history' not in st.session_state: st.session_state.analysis_history = []
 
 # ---------- CSS ----------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap ');
 .cute-korean { font-family: 'Gamja Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
 .small-font { font-size: 13px; color: #555555; margin-top: 5px !important; }
 .grammar-box-container {
-    background-color: #f8f9fa; border-radius: 8px; padding: 12px; 
+    background-color: #f8f9fa; border-radius: 8px; padding: 12px;
     border-left: 5px solid #FF8C00; text-align: left; margin-top: 0px;
 }
 .fc-daygrid-day-frame:hover {background-color: #FFF3CD !important; cursor: pointer; transform: scale(1.03); transition: .2s}
@@ -79,13 +74,13 @@ st.markdown("""
 
 # ---------- 圖片 & 現成 TAB ----------
 IMG_URLS = {
-    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
-    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
-    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
-    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
-    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
-    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
+    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg ",
+    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg ",
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg ",
+    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg ",
+    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg ",
+    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg ",
+    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg "
 }
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
@@ -95,7 +90,7 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（原內容，未動）
+# 3. TAB1 ─ 書桌（單純經文與例句，無月曆）
 # ===================================================================
 with tabs[0]:
     col_content, col_m1 = st.columns([0.65, 0.35])
@@ -133,91 +128,60 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# TAB 2：純待辦月曆 ─ 無筆記功能
+# 4. TAB2 ─ 靈修足跡月曆（唯一出現處）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re
 
-    # 1. 限制高度並允許滾動
-    st.markdown("""
-        <style>
-        .fc-scroller { 
-            height: 280px !important; 
-            overflow-y: auto !important; 
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # ---- 1. 初值（只在 TAB2 給一次） ----
+    for key in ('cal_key', 'notes', 'todo', 'sel_date'):
+        if key not in st.session_state:
+            st.session_state[key] = 0 if key == 'cal_key' else {} if key in ('notes','todo') else str(dt.date.today())
 
-    # 2. 零相依 Emoji 工具
-    _EMOJI_RE = re.compile(
-        "["
-        "\U0001F600-\U0001F64F"
-        "\U0001F300-\U0001F5FF"
-        "\U0001F680-\U0001F6FF"
-        "\U0001F1E0-\U0001F1FF"
-        "\U00002702-\U000027B0"
-        "\U000024C2-\U0001F251"
-        "]+", flags=re.UNICODE)
-
+    # ---- 2. Emoji 工具 ----
+    _EMOJI_RE = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+', flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
-
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    # 3. 事件構建器（僅待辦）
+    # ---- 3. 僅待辦事件 ----
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if isinstance(todos, list):
                 for idx, t in enumerate(todos):
-                    display_title = f"{t.get('emoji','🔔')} {t['title']}"
                     ev.append({
-                        "title": display_title,
+                        "title": f"{t.get('emoji','🔔')} {t['title']}",
                         "start": d,
-                        "backgroundColor": "#FFE4E1",
-                        "borderColor": "#FFE4E1",
-                        "textColor": "#333",
-                        "extendedProps": {
-                            "type": "todo",
-                            "date": d,
-                            "title": t['title'],
-                            "time": t.get('time', ''),
-                            "index": idx
-                        }
+                        "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
+                        "extendedProps": {"type": "todo", "date": d, "title": t['title'],
+                                          "time": t.get('time', ''), "index": idx}
                     })
         return ev
 
-    # 4. 月曆呈現與點擊邏輯
-st.subheader("📅 靈修足跡月曆")
-with st.expander("展開 / 折疊月曆視窗", expanded=True):
-    # 1. 先保證 cal_key 存在
-    if 'cal_key' not in st.session_state:
-        st.session_state.cal_key = 0
-
-    # 2. 再呼叫 calendar
-    state = calendar(
-        events=build_events(),
-        options={
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-            "initialView": "dayGridMonth",
-            "height": 500,
-            "dateClick": True,
-            "eventClick": True,
-            "eventDisplay": "block"
-        },
-        key=f"emoji_cal_{st.session_state.cal_key}"
-    )
-    if state.get("dateClick"):
-        st.session_state.sel_date = state["dateClick"]["date"][:10]
+    # ---- 4. 月曆本體 ----
+    st.subheader("📅 靈修足跡月曆")
+    with st.expander("展開 / 折疊月曆視窗", expanded=True):
+        state = calendar(
+            events=build_events(),
+            options={
+                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+                "initialView": "dayGridMonth", "height": 500,
+                "dateClick": True, "eventClick": True, "eventDisplay": "block"
+            },
+            key=f"emoji_cal_{st.session_state.cal_key}"
+        )
+        if state.get("dateClick"):
+            st.session_state.sel_date = state["dateClick"]["date"][:10]
         if state.get("eventClick"):
             ext = state["eventClick"]["event"]["extendedProps"]
             if ext.get("type") == "todo":
                 st.session_state.del_target = ext
                 st.session_state.show_del = True
 
-    # 5. 單點刪除確認
+    # ---- 5. 單點刪除 ----
     if st.session_state.get("show_del"):
         t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
@@ -226,68 +190,48 @@ with st.expander("展開 / 折疊月曆視窗", expanded=True):
             if st.button("確認", type="primary", key="del_ok"):
                 d, idx = t["date"], t["index"]
                 del st.session_state.todo[d][idx]
-                if not st.session_state.todo[d]:
-                    del st.session_state.todo[d]
+                if not st.session_state.todo[d]: del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
         with c2:
             if st.button("取消", key="del_no"):
                 st.session_state.show_del = False
 
-    # 6. 新增待辦區
+    # ---- 6. 新增待辦 ----
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         ph_emo = "🔔"
         c1, c2, c3 = st.columns([2, 2, 6])
-        with c1:
-            d = st.date_input(
-                "日期",
-                dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
-                label_visibility="collapsed",
-                key="todo_date"
-            )
-        with c2:
-            tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
-        with c3:
-            ttl = st.text_input(
-                "標題",
-                placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦",
-                label_visibility="collapsed",
-                key="todo_ttl"
-            )
-
+        with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
+                                     label_visibility="collapsed", key="todo_date")
+        with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
+        with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦",
+                                      label_visibility="collapsed", key="todo_ttl")
         if st.button("💾 儲存", use_container_width=True, key="save_btn"):
-            if not ttl:
-                st.error("請輸入標題")
-                st.stop()
+            if not ttl: st.error("請輸入標題"); st.stop()
             emo_found = first_emoji(ttl) or ph_emo
             ttl_clean = remove_emoji(ttl)
             k = str(d)
-            if k not in st.session_state.todo:
-                st.session_state.todo[k] = []
+            if k not in st.session_state.todo: st.session_state.todo[k] = []
             st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
             st.session_state.cal_key += 1
 
-    # 7. 待辦列表（>10 字才列）
+    # ---- 7. 待辦列表（>10 字才列） ----
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
-    dates_to_show = [base_date + dt.timedelta(days=i) for i in range(3)]
     has_long = False
-    for date_obj in dates_to_show:
-        date_str = str(date_obj)
-        if date_str in st.session_state.todo and st.session_state.todo[date_str]:
-            for t in sorted(st.session_state.todo[date_str], key=lambda x: x.get('time', '00:00:00')):
+    for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
+        ds = str(dd)
+        if ds in st.session_state.todo:
+            for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00:00')):
                 if len(t['title']) > 10:
                     has_long = True
-                    st.caption(f"🔔 {date_obj.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
-    if has_long:
-        st.markdown("---")
-
-    # 8. 無資料提示
-    if not has_long:
+                    st.caption(f"🔔 {dd.strftime('%m/%d')} {t.get('time', '')}　{t['title']}")
+    if has_long: st.markdown("---")
+    if not has_long and not st.session_state.todo.get(st.session_state.sel_date):
         st.info("當天尚無待辦，請從上方新增")
 
-#====================================================================
-# 5. TAB3 ─ 挑戰（原碼，未動）
+# ===================================================================
+# 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
 # ===================================================================
 with tabs[2]:
     col_challenge, col_deco = st.columns([0.7, 0.3])
@@ -299,22 +243,18 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# TAB4 ─ AI 控制台（最終清掃：刪編輯器，留最大畫面）
+# 6. TAB4 ─ AI 控制台（無月曆）
 # ===================================================================
 with tabs[3]:
-    import os, datetime as dt, json, subprocess, sys, pandas as pd, io
+    import os, subprocess, sys, pandas as pd, io, json
 
-    # ① 雲端金鑰（已設定，不再印出）
     API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("KIMI_API_KEY")
     if not API_KEY:
         st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
         st.stop()
 
-    # ② 最大共用欄位：AI 分析 + 巨量刪除 三合一（無編輯器，留最大畫面）
     with st.expander("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
-        input_text = st.text_area("", height=300, key="input_text")   # 無標題，真正最大畫面
-
-        # 三合一操作列（同一排）
+        input_text = st.text_area("", height=300, key="input_text")
         col_op1, col_op2, col_op3 = st.columns([2, 2, 1])
         with col_op1:
             search_type = st.selectbox("操作", ["AI 分析", "Ref. 刪除", "關鍵字刪除"])
@@ -325,7 +265,6 @@ with tabs[3]:
                 kw_query = st.text_input("輸入關鍵字", key="kw_del")
         with col_op3:
             if st.button("🗑️ 巨量刪除", type="primary"):
-                # 共用同一個搜尋邏輯（含經節）
                 hits = []
                 for d, v in st.session_state.sentences.items():
                     txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
@@ -343,7 +282,6 @@ with tabs[3]:
                 else:
                     st.info("無符合條件")
 
-        # ③ AI 分析按鈕（與上方同一排）
         if search_type == "AI 分析":
             if st.button("🤖 AI 分析", type="primary"):
                 if not input_text:
@@ -358,7 +296,6 @@ with tabs[3]:
                         save_analysis_result(data, input_text)
                         st.session_state["analysis"] = data
                         st.success("分析完成！")
-                        # 800 筆提示
                         current_count = len(st.session_state.get("analysis_history", []))
                         if current_count >= 800:
                             st.warning("🔔 分析紀錄已達 800 筆，建議使用「壓縮舊紀錄」功能，避免瀏覽器卡頓！")
@@ -367,11 +304,8 @@ with tabs[3]:
                     except Exception as e:
                         st.error(f"分析過程錯誤：{e}")
 
-    # ④ 結果呈現（滿寬 + 回溯原文）
     if st.session_state.get("show_result", False):
         data = st.session_state["analysis"]
-
-        # Ref. 全域編號 + 原文跳轉
         st.session_state["ref_no"] = data.get("ref_no", "")
         st.session_state["ref_article"] = data.get("ref_article", "")
         st.markdown(f"**Ref. No.** `{st.session_state['ref_no']}`")
@@ -382,7 +316,7 @@ with tabs[3]:
         with c_copy:
             ref_no = st.session_state.get("ref_no", "")
             if ref_no:
-                st.code(ref_no)          # 手動框選複製
+                st.code(ref_no)
             else:
                 st.text("尚無 Ref.")
 
@@ -390,7 +324,6 @@ with tabs[3]:
             with st.expander("📘 中英精煉文章", expanded=True):
                 st.markdown(st.session_state["ref_article"])
 
-        # 表格呈現（容錯 + 回溯原文）
         col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
         with col_w:
             if data.get("words"):
@@ -417,7 +350,6 @@ with tabs[3]:
             else:
                 st.info("本次無文法點")
 
-    # ⑤ 容量管理（白話說明 + 800 筆提示）
     with st.expander("⚙️ 容量管理", expanded=True):
         max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
         if st.button("✂️ 壓縮舊紀錄"):
@@ -428,7 +360,6 @@ with tabs[3]:
             else:
                 st.info("未達壓縮門檻")
 
-    # ⑥ 匯出（含回溯欄位）
     if st.button("📋 匯出含回溯欄位"):
         export = []
         for k, v in st.session_state.sentences.items():
