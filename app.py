@@ -128,7 +128,7 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（零循環 + 永久存檔 + 時間簡化 + 正確排序）
+# 4. TAB2 ─ 靈修足跡月曆（點擊格子必彈刪除對話框）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -157,9 +157,9 @@ with tabs[1]:
             json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
     # ---------- 1. 初值與自動讀檔 ----------
-    for key in ('cal_key', 'notes', 'sel_date'):
+    for key in ('cal_key', 'notes', 'sel_date', 'show_del', 'del_target'):
         if key not in st.session_state:
-            st.session_state[key] = 0 if key == 'cal_key' else str(dt.date.today())
+            st.session_state[key] = 0 if key == 'cal_key' else {} if key in ('notes','del_target') else str(dt.date.today()) if key == 'sel_date' else False
     
     if 'todo' not in st.session_state:
         st.session_state.todo = load_todos()
@@ -190,30 +190,31 @@ with tabs[1]:
         minute = int(parts[1])
         if minute == 0:
             return f"{hour}點"
-        return f"{hour}點半"  # 保留半點支援
+        return f"{hour}點半"
 
-    # ---------- 3. 事件來源（僅待辦，依時間排序 + 格式化時間） ----------
+    # ---------- 3. 事件來源（依時間排序 + 格式化時間） ----------
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if not isinstance(todos, list): continue
-            # 依時間排序（越早越前）
+            # 依時間排序（從早到晚）
             todos_sorted = sorted(todos, key=lambda x: x.get('time', '00:00'))
             for idx, t in enumerate(todos_sorted):
                 time_str = t.get('time', '')
                 formatted_time = format_time_display(time_str)
-                # 顯示格式：Emoji + 時間 + 標題（時間為空則不顯示）
-                display_title = f"{t.get('emoji','🔔')} {formatted_time} {t['title']}".strip()
+                # 顯示格式：Emoji + 時間 + 標題
+                time_part = f"{formatted_time} " if formatted_time else ""
+                display_title = f"{t.get('emoji','🔔')} {time_part}{t['title']}".strip()
                 ev.append({
                     "title": display_title,
                     "start": d,
                     "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
                     "extendedProps": {"type": "todo", "date": d, "title": t['title'],
-                                      "time": time_str, "index": idx}  # 保留原始時間用於排序
+                                      "time": time_str, "index": idx}
                 })
         return ev
 
-    # ---------- 4. 美化 CSS（底圖＋ON GOING.） ----------
+    # ---------- 4. 美化 CSS ----------
     st.markdown(f"""
     <style>
     .fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
@@ -251,25 +252,28 @@ with tabs[1]:
             if ext.get("type") == "todo":
                 st.session_state.del_target = ext
                 st.session_state.show_del = True
+                # 強制刷新：增加 cal_key
+                st.session_state.cal_key += 1
 
-    # ---------- 6. 單點刪除 ----------
+    # ---------- 6. 刪除對話框（保證跳出） ----------
     if st.session_state.get("show_del"):
         t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
         c1, c2 = st.columns([1, 4])
         with c1:
-            if st.button("確認", type="primary", key="del_ok"):
+            if st.button("確認刪除", type="primary", key="confirm_del"):
                 d, idx = t["date"], t["index"]
                 del st.session_state.todo[d][idx]
                 if not st.session_state.todo[d]: del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
                 save_todos()
+                st.success("✅ 已刪除！")
         with c2:
-            if st.button("取消", key="del_no"):
+            if st.button("取消", key="cancel_del"):
                 st.session_state.show_del = False
 
-    # ---------- 7. 新增待辦（使用 form 零循環） ----------
+    # ---------- 7. 新增待辦（使用 form） ----------
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         ph_emo = "🔔"
@@ -293,14 +297,14 @@ with tabs[1]:
                     st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
                     st.session_state.cal_key += 1
                     save_todos()
+                    st.success("✅ 已儲存！")
 
-    # ---------- 8. 待辦列表（依時間排序 + 顯示格式化時間） ----------
+    # ---------- 8. 待辦列表（依時間排序） ----------
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     has_long = False
     for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
         ds = str(dd)
         if ds in st.session_state.todo and st.session_state.todo[ds]:
-            # 依時間排序（越早越前）
             for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00')):
                 if len(t['title']) > 10:
                     has_long = True
