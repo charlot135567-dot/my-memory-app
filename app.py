@@ -243,7 +243,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（無月曆）
+# 6. TAB4 ─ AI 控制台（按鈕同列＋欄框同高）
 # ===================================================================
 with tabs[3]:
     import os, subprocess, sys, pandas as pd, io, json
@@ -255,15 +255,20 @@ with tabs[3]:
 
     with st.expander("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
         input_text = st.text_area("", height=300, key="input_text")
-        col_op1, col_op2, col_op3 = st.columns([2, 2, 1])
-        with col_op1:
+
+        # -------------- 同一列按鈕 + 同高欄位 --------------
+        col1, col2, col3, col4 = st.columns([2, 2.5, 1.5, 2])
+        with col1:
             search_type = st.selectbox("操作", ["AI 分析", "Ref. 刪除", "關鍵字刪除"])
-        with col_op2:
+        with col2:
             if search_type == "Ref. 刪除":
                 ref_query = st.text_input("輸入 Ref.（例：2Ti 3:10）", key="ref_del")
             elif search_type == "關鍵字刪除":
                 kw_query = st.text_input("輸入關鍵字", key="kw_del")
-        with col_op3:
+            else:
+                st.empty()          # 讓欄位高度一致
+        with col3:
+            st.write("")            # 對齊留白
             if st.button("🗑️ 巨量刪除", type="primary"):
                 hits = []
                 for d, v in st.session_state.sentences.items():
@@ -281,28 +286,31 @@ with tabs[3]:
                         st.success(f"已刪除 {len(selected_keys)} 筆！")
                 else:
                     st.info("無符合條件")
+        with col4:
+            st.write("")            # 對齊留白
+            if search_type == "AI 分析":
+                if st.button("🤖 AI 分析", type="primary"):
+                    if not input_text:
+                        st.error("請先貼經文")
+                        st.stop()
+                    with st.spinner("AI 分析中，約 10 秒…"):
+                        try:
+                            subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                                           check=True, timeout=30)
+                            with open("temp_result.json", "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                            save_analysis_result(data, input_text)
+                            st.session_state["analysis"] = data
+                            st.success("分析完成！")
+                            current_count = len(st.session_state.get("analysis_history", []))
+                            if current_count >= 800:
+                                st.warning("🔔 分析紀錄已達 800 筆，建議使用「壓縮舊紀錄」功能，避免瀏覽器卡頓！")
+                            if st.checkbox("分析完自動展開", value=True):
+                                st.session_state["show_result"] = True
+                        except Exception as e:
+                            st.error(f"分析過程錯誤：{e}")
 
-        if search_type == "AI 分析":
-            if st.button("🤖 AI 分析", type="primary"):
-                if not input_text:
-                    st.error("請先貼經文")
-                    st.stop()
-                with st.spinner("AI 分析中，約 10 秒…"):
-                    try:
-                        subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
-                                       check=True, timeout=30)
-                        with open("temp_result.json", "r", encoding="utf-8") as f:
-                            data = json.load(f)
-                        save_analysis_result(data, input_text)
-                        st.session_state["analysis"] = data
-                        st.success("分析完成！")
-                        current_count = len(st.session_state.get("analysis_history", []))
-                        if current_count >= 800:
-                            st.warning("🔔 分析紀錄已達 800 筆，建議使用「壓縮舊紀錄」功能，避免瀏覽器卡頓！")
-                        if st.checkbox("分析完自動展開", value=True):
-                            st.session_state["show_result"] = True
-                    except Exception as e:
-                        st.error(f"分析過程錯誤：{e}")
+    # （以下「結果呈現、容量管理、匯出」與你原來完全相同，請直接沿用，不再贅述）
 
     if st.session_state.get("show_result", False):
         data = st.session_state["analysis"]
