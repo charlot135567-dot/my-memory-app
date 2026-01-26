@@ -331,10 +331,32 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 控制台（零循環 + AI 分析鍵獨立 + 巨量刪除靠右對齊欄框）
+# 5. TAB4 ─ AI 控制台（零循環 + 永久存檔 + 輸入生效）
 # ===================================================================
 with tabs[3]:
     import os, subprocess, sys, pandas as pd, io, json
+
+    # ---------- 0. 資料庫持久化工具 ----------
+    SENTENCES_FILE = "sentences.json"
+    
+    def load_sentences():
+        """載入資料庫"""
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    
+    def save_sentences():
+        """存檔資料庫"""
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.sentences, f, ensure_ascii=False, indent=2)
+
+    # ---------- 1. 初值與自動讀檔 ----------
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
 
     API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("KIMI_API_KEY")
     if not API_KEY:
@@ -360,7 +382,7 @@ with tabs[3]:
                 st.empty()  # 保持高度一致
         
         with col3:
-            # AI 分析鍵：獨立運作，不受下拉選單影響
+            # AI 分析鍵：獨立運作
             if st.button("🤖 AI 分析", type="primary", key="ai_analyze_btn"):
                 if not input_text:
                     st.error("請先貼經文")
@@ -376,7 +398,18 @@ with tabs[3]:
                             data = json.load(f)
                         save_analysis_result(data, input_text)
                         st.session_state["analysis"] = data
-                        st.success("分析完成！")
+                        
+                        # 自動存入資料庫（sentences）
+                        ref_no = data.get("ref_no", "")
+                        st.session_state.sentences[ref_no] = {
+                            "ref": ref_no,
+                            "en": data.get("ref_article", ""),
+                            "zh": "",
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
+                        save_sentences()  # 存檔
+                        
+                        st.success("分析完成！已存入資料庫")
                         current_count = len(st.session_state.get("analysis_history", []))
                         if current_count >= 800:
                             st.warning("🔔 分析紀錄已達 800 筆，建議使用「壓縮舊紀錄」功能，避免瀏覽器卡頓！")
@@ -387,7 +420,7 @@ with tabs[3]:
         
         with col4:
             st.write("")  # 對齊留白
-            # 巨量刪除鍵：靠右對齊，與欄框邊齊平
+            # 巨量刪除鍵：靠右對齊
             if search_type in ["Ref. 刪除", "關鍵字刪除"]:
                 if st.button("🗑️ 巨量刪除", type="primary", key="bulk_delete_btn"):
                     if query_box is None or not query_box.strip():
@@ -406,12 +439,12 @@ with tabs[3]:
                         if st.button("確認刪除", type="secondary"):
                             for k in selected_keys:
                                 st.session_state.sentences.pop(k, None)
+                            save_sentences()  # 刪除後存檔
                             st.success(f"已刪除 {len(selected_keys)} 筆！")
                     else:
                         st.info("無符合條件")
 
-    # -------------- 以下與你原來完全相同，請直接保留 --------------
-    # ④ 結果呈現
+    # ---------- 2. 結果呈現 ----------
     if st.session_state.get("show_result", False):
         data = st.session_state["analysis"]
         st.session_state["ref_no"] = data.get("ref_no", "")
@@ -458,7 +491,7 @@ with tabs[3]:
             else:
                 st.info("本次無文法點")
 
-    # ⑤ 容量管理
+    # ---------- 3. 容量管理 ----------
     with st.expander("⚙️ 容量管理", expanded=True):
         max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
         if st.button("✂️ 壓縮舊紀錄"):
@@ -469,11 +502,9 @@ with tabs[3]:
             else:
                 st.info("未達壓縮門檻")
 
-    # ⑥ 匯出
+    # ---------- 4. 匯出 ----------
     if st.button("📋 匯出含回溯欄位"):
         export = []
         for k, v in st.session_state.sentences.items():
             export.append(f"{k}\t{v.get('ref', '')}\t{v.get('en', '')}\t{v.get('zh', '')}")
         st.code("\n".join(export), language="text")
-                          
-
