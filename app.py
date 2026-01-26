@@ -128,7 +128,7 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（零循環 + 永久存檔 + 顯示時間並自動排序）
+# 4. TAB2 ─ 靈修足跡月曆（零循環 + 永久存檔 + 時間簡化 + 正確排序）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -171,31 +171,45 @@ with tabs[1]:
         if d not in st.session_state.todo:
             st.session_state.todo[d] = []
 
-    # ---------- 2. Emoji 工具 ----------
+    # ---------- 2. Emoji 工具 + 時間格式化 ----------
     _EMOJI_RE = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+', flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
+    
+    def format_time_display(time_str: str) -> str:
+        """將 HH:MM:SS 轉為 X點（只處理整點）"""
+        if not time_str:
+            return ""
+        parts = time_str.split(':')
+        if len(parts) < 2:
+            return time_str
+        hour = int(parts[0])
+        minute = int(parts[1])
+        if minute == 0:
+            return f"{hour}點"
+        return f"{hour}點半"  # 保留半點支援
 
-    # ---------- 3. 事件來源（僅待辦，依時間排序 + 標題顯示時間） ----------
+    # ---------- 3. 事件來源（僅待辦，依時間排序 + 格式化時間） ----------
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if not isinstance(todos, list): continue
-            # 依時間排序（從早到晚）
+            # 依時間排序（越早越前）
             todos_sorted = sorted(todos, key=lambda x: x.get('time', '00:00'))
             for idx, t in enumerate(todos_sorted):
                 time_str = t.get('time', '')
-                # 標題格式：Emoji + 時間 + 標題（時間為空則不顯示）
-                display_title = f"{t.get('emoji','🔔')} {time_str} {t['title']}".strip()
+                formatted_time = format_time_display(time_str)
+                # 顯示格式：Emoji + 時間 + 標題（時間為空則不顯示）
+                display_title = f"{t.get('emoji','🔔')} {formatted_time} {t['title']}".strip()
                 ev.append({
                     "title": display_title,
                     "start": d,
                     "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
                     "extendedProps": {"type": "todo", "date": d, "title": t['title'],
-                                      "time": time_str, "index": idx}
+                                      "time": time_str, "index": idx}  # 保留原始時間用於排序
                 })
         return ev
 
@@ -217,7 +231,7 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ---------- 5. 月曆本體（移除 JS 回呼） ----------
+    # ---------- 5. 月曆本體 ----------
     st.subheader("📅 靈修足跡月曆")
     with st.expander("展開 / 折疊月曆視窗", expanded=True):
         state = calendar(
@@ -250,7 +264,7 @@ with tabs[1]:
                 if not st.session_state.todo[d]: del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
-                save_todos()  # 刪除後立刻存檔
+                save_todos()
         with c2:
             if st.button("取消", key="del_no"):
                 st.session_state.show_del = False
@@ -278,23 +292,22 @@ with tabs[1]:
                     if k not in st.session_state.todo: st.session_state.todo[k] = []
                     st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
                     st.session_state.cal_key += 1
-                    save_todos()  # 新增後立刻存檔
+                    save_todos()
 
-    # ---------- 8. 待辦列表（依時間排序 + 顯示時間） ----------
+    # ---------- 8. 待辦列表（依時間排序 + 顯示格式化時間） ----------
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     has_long = False
     for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
         ds = str(dd)
         if ds in st.session_state.todo and st.session_state.todo[ds]:
-            # 依時間排序（從早到晚）
+            # 依時間排序（越早越前）
             for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00')):
                 if len(t['title']) > 10:
                     has_long = True
-                    time_display = t.get('time', '')
-                    time_prefix = f"**{time_display}**　" if time_display else ""
+                    formatted_time = format_time_display(t.get('time', ''))
+                    time_prefix = f"**{formatted_time}**　" if formatted_time else ""
                     st.caption(f"🔔 {time_prefix}{t['title']}")
     if has_long: st.markdown("---")
-    # 完全移除重複提示
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
