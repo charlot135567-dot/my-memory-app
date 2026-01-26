@@ -210,7 +210,7 @@ with st.expander("展開 / 折疊月曆視窗", expanded=True):
         key=f"emoji_cal_{st.session_state.cal_key}"
     )
         if state.get("dateClick"):
-            st.session_state.sel_date = state["dateClick"]["date"][:10]
+        st.session_state.sel_date = state["dateClick"]["date"][:10]
         if state.get("eventClick"):
             ext = state["eventClick"]["event"]["extendedProps"]
             if ext.get("type") == "todo":
