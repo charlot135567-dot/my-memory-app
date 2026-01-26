@@ -128,12 +128,12 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（零循環 + Component Error 修復）
+# 4. TAB2 ─ 靈修足跡月曆（零循環 + 無 JS 回呼）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re
 
-    # ---- 0. 初值與永久保存（只給一次） ----
+    # ---- 0. 初值與永久保存 ----
     for key in ('cal_key', 'notes', 'todo', 'sel_date'):
         if key not in st.session_state:
             st.session_state[key] = 0 if key == 'cal_key' else {} if key in ('notes','todo') else str(dt.date.today())
@@ -170,9 +170,9 @@ with tabs[1]:
     st.markdown(f"""
     <style>
     .fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
+    /* 六日與假日的紅字效果移至 CSS（有限支援） */
     .fc-day-sat .fc-daygrid-day-number,
-    .fc-day-sun .fc-daygrid-day-number,
-    .holiday-red .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
+    .fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
     .fc-view-harness {{
         background-image: url("https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/snoopy-bottom.png");
         background-repeat: no-repeat; background-position: center bottom 20px; background-size: 220px;
@@ -185,7 +185,7 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- 4. 月曆本體（Component Error 修復：JS 改單行） ----
+    # ---- 4. 月曆本體（**移除 dayCellDidMount**） ----
     st.subheader("📅 靈修足跡月曆")
     with st.expander("展開 / 折疊月曆視窗", expanded=True):
         state = calendar(
@@ -194,8 +194,8 @@ with tabs[1]:
                 "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
                 "initialView": "dayGridMonth",
                 "height": 520,
-                "dateClick": True, "eventClick": True, "eventDisplay": "block",
-                "dayCellDidMount": """function(info){const day=info.date.getDay(),dateStr=info.date.toISOString().slice(0,10),holidays=['2026-01-01','2026-02-28','2026-03-29','2026-04-04','2026-05-01','2026-06-19','2026-09-28','2026-10-10','2026-10-25'];if(day===0||day===6)info.el.classList.add('holiday-red');if(holidays.includes(dateStr))info.el.classList.add('holiday-red');}"""
+                "dateClick": True, "eventClick": True, "eventDisplay": "block"
+                # 移除 dayCellDidMount 避免 Component Error
             },
             key=f"emoji_cal_{st.session_state.cal_key}"
         )
@@ -219,6 +219,7 @@ with tabs[1]:
                 if not st.session_state.todo[d]: del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
+                # 不呼叫 rerun，讓 Streamlit 自然更新
         with c2:
             if st.button("取消", key="del_no"):
                 st.session_state.show_del = False
@@ -259,7 +260,7 @@ with tabs[1]:
                     has_long = True
                     st.caption(f"🔔 **{t.get('time','')}**　{t['title']}")
     if has_long: st.markdown("---")
-    # 完全移除重複提示，只留精簡版
+    # 完全移除重複提示（只剩精簡版）
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
@@ -274,7 +275,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 控制台（零循環 + AI 分析鍵獨立 + 巨量刪除靠右）
+# 5. TAB4 ─ AI 控制台（零循環 + AI 分析鍵獨立 + 巨量刪除靠右對齊欄框）
 # ===================================================================
 with tabs[3]:
     import os, subprocess, sys, pandas as pd, io, json
