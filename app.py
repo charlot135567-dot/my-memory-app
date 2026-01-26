@@ -128,7 +128,7 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（點擊格子必彈刪除對話框）
+# 4. TAB2 ─ 靈修足跡月曆（最終完整版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -252,10 +252,10 @@ with tabs[1]:
             if ext.get("type") == "todo":
                 st.session_state.del_target = ext
                 st.session_state.show_del = True
-                # 強制刷新：增加 cal_key
+                # 強制刷新 UI
                 st.session_state.cal_key += 1
 
-    # ---------- 6. 刪除對話框（保證跳出） ----------
+    # ---------- 6. 刪除對話框（保證顯示） ----------
     if st.session_state.get("show_del"):
         t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
@@ -269,11 +269,13 @@ with tabs[1]:
                 st.session_state.show_del = False
                 save_todos()
                 st.success("✅ 已刪除！")
+                # 強制重繪月曆
+                st.session_state.cal_key += 1
         with c2:
             if st.button("取消", key="cancel_del"):
                 st.session_state.show_del = False
 
-    # ---------- 7. 新增待辦（使用 form） ----------
+    # ---------- 7. 新增待辦（使用 form 零循環） ----------
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         ph_emo = "🔔"
@@ -297,6 +299,8 @@ with tabs[1]:
                     st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
                     st.session_state.cal_key += 1
                     save_todos()
+                    # 強制重繪月曆
+                    st.session_state.cal_key += 1
                     st.success("✅ 已儲存！")
 
     # ---------- 8. 待辦列表（依時間排序） ----------
@@ -305,6 +309,7 @@ with tabs[1]:
     for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
         ds = str(dd)
         if ds in st.session_state.todo and st.session_state.todo[ds]:
+            # 依時間排序（從早到晚）
             for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00')):
                 if len(t['title']) > 10:
                     has_long = True
