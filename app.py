@@ -128,21 +128,50 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（零循環 + 無 JS 回呼）
+# 4. TAB2 ─ 靈修足跡月曆（零循環 + 永久存檔 + 顯示時間並自動排序）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt, re
+    import datetime as dt, re, os, json
 
-    # ---- 0. 初值與永久保存 ----
-    for key in ('cal_key', 'notes', 'todo', 'sel_date'):
+    # ---------- 0. 檔案持久化工具 ----------
+    TODO_FILE = "todos.json"
+    
+    def load_todos():
+        """網頁載入時從檔案讀取待辦"""
+        if os.path.exists(TODO_FILE):
+            try:
+                with open(TODO_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    
+    def save_todos():
+        """每次改動立刻存檔（自動清理 60 天前舊資料）"""
+        cutoff = str(dt.date.today() - dt.timedelta(days=60))
+        keys_to_remove = [k for k in st.session_state.todo.keys() if k < cutoff]
+        for k in keys_to_remove:
+            del st.session_state.todo[k]
+        
+        with open(TODO_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+
+    # ---------- 1. 初值與自動讀檔 ----------
+    for key in ('cal_key', 'notes', 'sel_date'):
         if key not in st.session_state:
-            st.session_state[key] = 0 if key == 'cal_key' else {} if key in ('notes','todo') else str(dt.date.today())
+            st.session_state[key] = 0 if key == 'cal_key' else str(dt.date.today())
+    
+    if 'todo' not in st.session_state:
+        st.session_state.todo = load_todos()
+    
+    # 預先建立未來 60 天的空清單
     today = dt.date.today()
     for i in range(60):
         d = str(today + dt.timedelta(days=i))
-        if d not in st.session_state.todo: st.session_state.todo[d] = []
+        if d not in st.session_state.todo:
+            st.session_state.todo[d] = []
 
-    # ---- 1. Emoji 工具 ----
+    # ---------- 2. Emoji 工具 ----------
     _EMOJI_RE = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+', flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
@@ -150,27 +179,30 @@ with tabs[1]:
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    # ---- 2. 事件來源（僅待辦） ----
+    # ---------- 3. 事件來源（僅待辦，依時間排序 + 標題顯示時間） ----------
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if not isinstance(todos, list): continue
+            # 依時間排序（從早到晚）
             todos_sorted = sorted(todos, key=lambda x: x.get('time', '00:00'))
             for idx, t in enumerate(todos_sorted):
+                time_str = t.get('time', '')
+                # 標題格式：Emoji + 時間 + 標題（時間為空則不顯示）
+                display_title = f"{t.get('emoji','🔔')} {time_str} {t['title']}".strip()
                 ev.append({
-                    "title": f"{t.get('emoji','🔔')} {t['title']}",
+                    "title": display_title,
                     "start": d,
                     "backgroundColor": "#FFE4E1", "borderColor": "#FFE4E1", "textColor": "#333",
                     "extendedProps": {"type": "todo", "date": d, "title": t['title'],
-                                      "time": t.get('time', ''), "index": idx}
+                                      "time": time_str, "index": idx}
                 })
         return ev
 
-    # ---- 3. 美化 CSS（底圖＋ON GOING.） ----
+    # ---------- 4. 美化 CSS（底圖＋ON GOING.） ----------
     st.markdown(f"""
     <style>
     .fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
-    /* 六日與假日的紅字效果移至 CSS（有限支援） */
     .fc-day-sat .fc-daygrid-day-number,
     .fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
     .fc-view-harness {{
@@ -185,7 +217,7 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- 4. 月曆本體（**移除 dayCellDidMount**） ----
+    # ---------- 5. 月曆本體（移除 JS 回呼） ----------
     st.subheader("📅 靈修足跡月曆")
     with st.expander("展開 / 折疊月曆視窗", expanded=True):
         state = calendar(
@@ -195,7 +227,6 @@ with tabs[1]:
                 "initialView": "dayGridMonth",
                 "height": 520,
                 "dateClick": True, "eventClick": True, "eventDisplay": "block"
-                # 移除 dayCellDidMount 避免 Component Error
             },
             key=f"emoji_cal_{st.session_state.cal_key}"
         )
@@ -207,7 +238,7 @@ with tabs[1]:
                 st.session_state.del_target = ext
                 st.session_state.show_del = True
 
-    # ---- 5. 單點刪除 ----
+    # ---------- 6. 單點刪除 ----------
     if st.session_state.get("show_del"):
         t = st.session_state.del_target
         st.warning(f"🗑️ 確定刪除待辦「{t['title']}」？")
@@ -219,12 +250,12 @@ with tabs[1]:
                 if not st.session_state.todo[d]: del st.session_state.todo[d]
                 st.session_state.cal_key += 1
                 st.session_state.show_del = False
-                # 不呼叫 rerun，讓 Streamlit 自然更新
+                save_todos()  # 刪除後立刻存檔
         with c2:
             if st.button("取消", key="del_no"):
                 st.session_state.show_del = False
 
-    # ---- 6. 新增待辦（使用 form 避免死循環） ----
+    # ---------- 7. 新增待辦（使用 form 零循環） ----------
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         ph_emo = "🔔"
@@ -247,20 +278,23 @@ with tabs[1]:
                     if k not in st.session_state.todo: st.session_state.todo[k] = []
                     st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
                     st.session_state.cal_key += 1
-                    # 不呼叫 rerun，讓 form 自然重置
+                    save_todos()  # 新增後立刻存檔
 
-    # ---- 7. 待辦列表（只留精簡提示） ----
+    # ---------- 8. 待辦列表（依時間排序 + 顯示時間） ----------
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     has_long = False
     for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
         ds = str(dd)
         if ds in st.session_state.todo and st.session_state.todo[ds]:
+            # 依時間排序（從早到晚）
             for t in sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00')):
                 if len(t['title']) > 10:
                     has_long = True
-                    st.caption(f"🔔 **{t.get('time','')}**　{t['title']}")
+                    time_display = t.get('time', '')
+                    time_prefix = f"**{time_display}**　" if time_display else ""
+                    st.caption(f"🔔 {time_prefix}{t['title']}")
     if has_long: st.markdown("---")
-    # 完全移除重複提示（只剩精簡版）
+    # 完全移除重複提示
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
