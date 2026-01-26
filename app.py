@@ -190,20 +190,25 @@ with tabs[1]:
         return ev
 
     # 4. 月曆呈現與點擊邏輯
-    st.subheader("📅 靈修足跡月曆")
-    with st.expander("展開 / 折疊月曆視窗", expanded=True):
-        state = calendar(
-            events=build_events(),
-            options={
-                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-                "initialView": "dayGridMonth",
-                "height": 500,
-                "dateClick": True,
-                "eventClick": True,
-                "eventDisplay": "block"
-            },
-            key=f"emoji_cal_{st.session_state.cal_key}"
-        )
+st.subheader("📅 靈修足跡月曆")
+with st.expander("展開 / 折疊月曆視窗", expanded=True):
+    # 1. 先保證 cal_key 存在
+    if 'cal_key' not in st.session_state:
+        st.session_state.cal_key = 0
+
+    # 2. 再呼叫 calendar
+    state = calendar(
+        events=build_events(),
+        options={
+            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+            "initialView": "dayGridMonth",
+            "height": 500,
+            "dateClick": True,
+            "eventClick": True,
+            "eventDisplay": "block"
+        },
+        key=f"emoji_cal_{st.session_state.cal_key}"
+    )
         if state.get("dateClick"):
             st.session_state.sel_date = state["dateClick"]["date"][:10]
         if state.get("eventClick"):
