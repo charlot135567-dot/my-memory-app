@@ -128,12 +128,12 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（Component Error 修復 + 提示精簡）
+# 4. TAB2 ─ 靈修足跡月曆（零循環 + Component Error 修復）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re
 
-    # ---- 0. 初值與永久保存 ----
+    # ---- 0. 初值與永久保存（只給一次） ----
     for key in ('cal_key', 'notes', 'todo', 'sel_date'):
         if key not in st.session_state:
             st.session_state[key] = 0 if key == 'cal_key' else {} if key in ('notes','todo') else str(dt.date.today())
@@ -223,26 +223,32 @@ with tabs[1]:
             if st.button("取消", key="del_no"):
                 st.session_state.show_del = False
 
-    # ---- 6. 新增待辦 ----
+    # ---- 6. 新增待辦（使用 form 避免死循環） ----
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         ph_emo = "🔔"
-        c1, c2, c3 = st.columns([2, 2, 6])
-        with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
-                                     label_visibility="collapsed", key="todo_date")
-        with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
-        with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦",
-                                      label_visibility="collapsed", key="todo_ttl")
-        if st.button("💾 儲存", use_container_width=True, key="save_btn"):
-            if not ttl: st.error("請輸入標題"); st.stop()
-            emo_found = first_emoji(ttl) or ph_emo
-            ttl_clean = remove_emoji(ttl)
-            k = str(d)
-            if k not in st.session_state.todo: st.session_state.todo[k] = []
-            st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
-            st.session_state.cal_key += 1
+        with st.form("todo_form"):
+            c1, c2, c3 = st.columns([2, 2, 6])
+            with c1: d = st.date_input("日期", dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date(),
+                                         label_visibility="collapsed", key="todo_date")
+            with c2: tm = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
+            with c3: ttl = st.text_input("標題", placeholder=f"{ph_emo} 可直接輸入 Emoji＋待辦",
+                                          label_visibility="collapsed", key="todo_ttl")
+            
+            submitted = st.form_submit_button("💾 儲存", use_container_width=True)
+            if submitted:
+                if not ttl:
+                    st.error("請輸入標題")
+                else:
+                    emo_found = first_emoji(ttl) or ph_emo
+                    ttl_clean = remove_emoji(ttl)
+                    k = str(d)
+                    if k not in st.session_state.todo: st.session_state.todo[k] = []
+                    st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
+                    st.session_state.cal_key += 1
+                    # 不呼叫 rerun，讓 form 自然重置
 
-    # ---- 7. 待辦列表（>10 字才列，精簡為單一提示） ----
+    # ---- 7. 待辦列表（只留精簡提示） ----
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     has_long = False
     for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
@@ -253,7 +259,7 @@ with tabs[1]:
                     has_long = True
                     st.caption(f"🔔 **{t.get('time','')}**　{t['title']}")
     if has_long: st.markdown("---")
-    # 完全移除重複提示（只剩月曆下方可能出現的一次）
+    # 完全移除重複提示，只留精簡版
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
@@ -268,7 +274,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 控制台（AI 分析鍵獨立 + 巨量刪除靠右對齊欄框）
+# 5. TAB4 ─ AI 控制台（零循環 + AI 分析鍵獨立 + 巨量刪除靠右）
 # ===================================================================
 with tabs[3]:
     import os, subprocess, sys, pandas as pd, io, json
@@ -298,7 +304,7 @@ with tabs[3]:
         
         with col3:
             # AI 分析鍵：獨立運作，不受下拉選單影響
-            if st.button("🤖 AI 分析", type="primary"):
+            if st.button("🤖 AI 分析", type="primary", key="ai_analyze_btn"):
                 if not input_text:
                     st.error("請先貼經文")
                     st.stop()
@@ -326,7 +332,7 @@ with tabs[3]:
             st.write("")  # 對齊留白
             # 巨量刪除鍵：靠右對齊，與欄框邊齊平
             if search_type in ["Ref. 刪除", "關鍵字刪除"]:
-                if st.button("🗑️ 巨量刪除", type="primary"):
+                if st.button("🗑️ 巨量刪除", type="primary", key="bulk_delete_btn"):
                     if query_box is None or not query_box.strip():
                         st.error("請先輸入刪除條件")
                         st.stop()
