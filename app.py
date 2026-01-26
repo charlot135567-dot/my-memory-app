@@ -128,7 +128,7 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（Component Error 修復版）
+# 4. TAB2 ─ 靈修足跡月曆（Component Error 修復 + 提示精簡）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, calendar as cal
@@ -186,7 +186,7 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- 4. 月曆本體（Component Error 修復：簡化 JS） ----
+    # ---- 4. 月曆本體（Component Error 修復：JS 改用單行） ----
     st.subheader("📅 靈修足跡月曆")
     with st.expander("展開 / 折疊月曆視窗", expanded=True):
         state = calendar(
@@ -196,14 +196,7 @@ with tabs[1]:
                 "initialView": "dayGridMonth",
                 "height": 520,
                 "dateClick": True, "eventClick": True, "eventDisplay": "block",
-                "dayCellDidMount": """function(info) {
-                    const day = info.date.getDay();
-                    const dateStr = info.date.toISOString().slice(0,10);
-                    const holidays = ['2026-01-01','2026-02-28','2026-03-29','2026-04-04',
-                                      '2026-05-01','2026-06-19','2026-09-28','2026-10-10','2026-10-25'];
-                    if (day === 0 || day === 6) info.el.classList.add('holiday-red');
-                    if (holidays.includes(dateStr)) info.el.classList.add('holiday-red');
-                }"""
+                "dayCellDidMount": """function(info){const day=info.date.getDay(),dateStr=info.date.toISOString().slice(0,10),holidays=['2026-01-01','2026-02-28','2026-03-29','2026-04-04','2026-05-01','2026-06-19','2026-09-28','2026-10-10','2026-10-25'];if(day===0||day===6)info.el.classList.add('holiday-red');if(holidays.includes(dateStr))info.el.classList.add('holiday-red');}"""
             },
             key=f"emoji_cal_{st.session_state.cal_key}"
         )
@@ -250,7 +243,7 @@ with tabs[1]:
             st.session_state.todo[k].append({"title": ttl_clean, "time": str(tm), "emoji": emo_found})
             st.session_state.cal_key += 1
 
-    # ---- 7. 待辦列表（只留這裡顯示「無待辦」） ----
+    # ---- 7. 待辦列表（移除重複提示，只留精簡版） ----
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     has_long = False
     for dd in [base_date + dt.timedelta(days=i) for i in range(3)]:
@@ -260,9 +253,8 @@ with tabs[1]:
                 if len(t['title']) > 10:
                     has_long = True
                     st.caption(f"🔔 **{t.get('time','')}**　{t['title']}")
-    # 只留這一行顯示「無待辦」
-    if not has_long and not st.session_state.todo.get(st.session_state.sel_date):
-        st.info("當天尚無待辦，請從上方新增")
+    if has_long: st.markdown("---")
+    # 完全移除「當天尚無待辦」提示（用戶要求刪除）
 
     # ---- 8. 待辦列表（已依時間排，前面帶時間） ----
     base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
@@ -291,7 +283,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 控制台（按鈕合一 + 巨量刪除靠右對齊）
+# 5. TAB4 ─ AI 控制台（AI 合一 + 巨量刪除靠右）
 # ===================================================================
 with tabs[3]:
     import os, subprocess, sys, pandas as pd, io, json
@@ -304,11 +296,11 @@ with tabs[3]:
     with st.expander("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
         input_text = st.text_area("", height=300, key="input_text")
 
-        # -------------- 同一列布局：AI 合一 + 靠右對齊 --------------
+        # -------------- 同一列布局：AI 合一 + 巨量刪除靠右 --------------
         col1, col2, col3 = st.columns([3, 2.5, 2.5])
         with col1:
             search_type = st.selectbox("操作", ["AI 分析", "Ref. 刪除", "關鍵字刪除"])
-            # AI 分析鍵與選單放一起
+            # AI 分析鍵與下拉選單放同一欄
             if search_type == "AI 分析":
                 if st.button("🤖 AI 分析", type="primary"):
                     if not input_text:
@@ -337,11 +329,11 @@ with tabs[3]:
             elif search_type == "關鍵字刪除":
                 kw_query = st.text_input("輸入關鍵字", key="kw_del")
             else:
-                st.empty()  # 保持高度
+                st.empty()  # 保持高度一致
 
         with col3:
             st.write("")  # 對齊留白
-            # 巨量刪除靠右對齊
+            # 巨量刪除靠右對齊，與欄框邊齊平
             if search_type in ["Ref. 刪除", "關鍵字刪除"]:
                 if st.button("🗑️ 巨量刪除", type="primary"):
                     hits = []
