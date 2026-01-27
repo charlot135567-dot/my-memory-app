@@ -128,14 +128,14 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 靈修足跡月曆（格式與顯示優化版）
+# 4. TAB2 ─ 月曆待辦（保持原邏輯 + 換行 + 刪除）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
 
     # ---------- 0. 檔案持久化工具 ----------
     TODO_FILE = "todos.json"
-    
+
     def load_todos():
         if os.path.exists(TODO_FILE):
             try:
@@ -144,7 +144,7 @@ with tabs[1]:
             except:
                 pass
         return {}
-    
+
     def save_todos():
         cutoff = str(dt.date.today() - dt.timedelta(days=60))
         keys_to_remove = [k for k in st.session_state.todo.keys() if k < cutoff]
@@ -156,14 +156,11 @@ with tabs[1]:
     # ---------- 1. 初值與自動讀檔 ----------
     for key in ('cal_key', 'sel_date', 'show_del', 'del_target'):
         if key not in st.session_state:
-            if key == 'cal_key': st.session_state[key] = 0
-            elif key == 'sel_date': st.session_state[key] = str(dt.date.today())
-            elif key == 'show_del': st.session_state[key] = False
-            elif key == 'del_target': st.session_state[key] = {}
-    
+            st.session_state[key] = 0 if key=='cal_key' else False if key=='show_del' else {}
     if 'todo' not in st.session_state:
         st.session_state.todo = load_todos()
-    
+
+    # 建立未來60天空清單
     today = dt.date.today()
     for i in range(60):
         d = str(today + dt.timedelta(days=i))
@@ -172,11 +169,9 @@ with tabs[1]:
 
     # ---------- 2. Emoji 工具 ----------
     _EMOJI_RE = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+', flags=re.UNICODE)
-    
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
-    
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
@@ -197,7 +192,7 @@ with tabs[1]:
                     "backgroundColor": "#FFE4E1",
                     "borderColor": "#FFE4E1",
                     "textColor": "#333",
-                    "extendedProps": {
+                    "extendedProps":{
                         "type":"todo",
                         "date": d,
                         "title": t['title'],
@@ -206,26 +201,22 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 4. 美化 CSS ----------
-    st.markdown(f"""
+    # ---------- 4. CSS 美化（只改文字換行） ----------
+    st.markdown("""
     <style>
-    .fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
+    .fc-toolbar-title { font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }
     .fc-day-sat .fc-daygrid-day-number,
-    .fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
-    .fc-event {{ cursor: pointer; border: none; }} 
-    .fc-event-title {{
-        white-space: normal !important;
-        overflow: visible !important;
+    .fc-day-sun .fc-daygrid-day-number { color: #dc2626 !important; font-weight: 600; }
+    .fc-event { cursor: pointer; border: none; } 
+    .fc-event-title {
+        white-space: normal !important;  /* 換行 */
         font-size: 14px;
         line-height: 1.4;
-    }}
-    .fc-daygrid-event {{ white-space: normal !important; align-items: flex-start !important; }}
-    .fc-daygrid-day-frame {{ height: auto !important; }}
-    .fc-daygrid-day-events {{ height: auto !important; max-height: none !important; overflow: visible !important; }}
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # ---------- 5. 月曆本體 ----------
+    # ---------- 5. 月曆 ----------
     st.subheader("📅 月曆待辦")
     with st.expander("展開 / 折疊月曆視窗", expanded=True):
         calendar_events = build_events()
@@ -243,7 +234,7 @@ with tabs[1]:
         # 點擊事件 → 彈窗刪除
         if state.get("eventClick"):
             ext = state["eventClick"]["event"]["extendedProps"]
-            if ext.get("type") == "todo":
+            if ext.get("type")=="todo":
                 st.session_state.del_target = ext
                 st.session_state.show_del = True
                 st.rerun()
@@ -266,8 +257,10 @@ with tabs[1]:
                 title_to_del = t.get("title")
                 time_to_del = t.get("time")
                 if d in st.session_state.todo:
-                    st.session_state.todo[d] = [item for item in st.session_state.todo[d]
-                                                 if not (item['title']==title_to_del and item.get('time')==time_to_del)]
+                    st.session_state.todo[d] = [
+                        item for item in st.session_state.todo[d]
+                        if not (item['title']==title_to_del and item.get('time')==time_to_del)
+                    ]
                     if not st.session_state.todo[d]: del st.session_state.todo[d]
                 save_todos()
                 st.session_state.show_del = False
@@ -279,12 +272,11 @@ with tabs[1]:
                 st.session_state.show_del = False
                 st.rerun()
 
-    # ---------- 7. 下方待辦列表（獨立渲染） ----------
+    # ---------- 7. 下方列表 ----------
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.date.today()
-
     st.markdown("##### 📋 詳細列表")
     has_items = False
     for i in range(3):
@@ -293,11 +285,10 @@ with tabs[1]:
         if ds in st.session_state.todo and st.session_state.todo[ds]:
             has_items = True
             date_display = f"{dd.month}/{dd.day}"
-            sorted_items = sorted(st.session_state.todo[ds], key=lambda x: x.get('time','00:00'))
+            sorted_items = sorted(st.session_state.todo[ds], key=lambda x:x.get('time','00:00'))
             for t in sorted_items:
                 time_display = t.get('time','00:00')[:5]
-                full_text = f"**{date_display} {time_display}** {t.get('emoji','🔔')}{t['title']}"
-                st.write(full_text)
+                st.write(f"**{date_display} {time_display}** {t.get('emoji','🔔')}{t['title']}")
     if not has_items:
         st.caption("此期間尚無待辦事項")
 
@@ -330,7 +321,6 @@ with tabs[1]:
                     st.session_state.cal_key += 1
                     st.success("✅ 已儲存！")
                     st.rerun()
-
     
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
@@ -349,6 +339,7 @@ with tabs[2]:
 # ===================================================================
 with tabs[3]:
     import os, subprocess, sys, pandas as pd, io, json
+    import datetime as dt  # ← 新增：補上 datetime 匯入
 
     # ---------- 0. 資料庫持久化工具 ----------
     SENTENCES_FILE = "sentences.json"
@@ -367,6 +358,20 @@ with tabs[3]:
         """存檔資料庫"""
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(st.session_state.sentences, f, ensure_ascii=False, indent=2)
+
+    # ← 新增：補上缺失的 save_analysis_result 函數
+    def save_analysis_result(data, input_text):
+        """儲存分析結果到歷史記錄"""
+        if "analysis_history" not in st.session_state:
+            st.session_state.analysis_history = []
+        
+        record = {
+            "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "ref_no": data.get("ref_no", ""),
+            "input": input_text[:100] + "..." if len(input_text) > 100 else input_text,
+            "data": data
+        }
+        st.session_state.analysis_history.append(record)
 
     # ---------- 1. 初值與自動讀檔 ----------
     if 'sentences' not in st.session_state:
@@ -404,6 +409,15 @@ with tabs[3]:
                 if search_type != "AI 分析":
                     st.warning("請先選擇「AI 分析」操作")
                     st.stop()
+                
+                # ← 新增：將輸入文字寫入 temp_input.txt 供外部腳本讀取
+                try:
+                    with open("temp_input.txt", "w", encoding="utf-8") as f:
+                        f.write(input_text)
+                except Exception as e:
+                    st.error(f"無法寫入暫存檔：{e}")
+                    st.stop()
+                
                 with st.spinner("AI 分析中，約 10 秒…"):
                     try:
                         subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
