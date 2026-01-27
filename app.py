@@ -416,7 +416,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（內建 Prompts 版）
+# 5. TAB4 ─ AI 聖經分析控制台（JSON 清理修正版）
 # ===================================================================
 with tabs[3]:
     import json
@@ -424,10 +424,10 @@ with tabs[3]:
     import pandas as pd
     import streamlit as st
     import os
-    import sys
+    import re
 
     # ============================================================
-    # 0. 內建 Prompts（不再依賴外部檔案）
+    # 0. 內建 Prompts
     # ============================================================
     BUILTIN_PROMPTS = {
         "default": {
@@ -435,7 +435,7 @@ with tabs[3]:
 
 經文：{text}
 
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
+請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記，不要換行開頭）：
 
 {
   "ref_no": "聖經縮寫+章節（例：2Ti 4:17-18）",
@@ -475,7 +475,7 @@ with tabs[3]:
 1) words：高階單字 + 中英日韓泰對照 + 例句；
 2) phrases：高階片語 + 同上；
 3) grammar：重要文法點 + 解析 + 應用例句。
-輸出純 JSON，勿加 Markdown 程式碼框。
+輸出純 JSON，勿加 Markdown 程式碼框，不要換行開頭。
 講稿：{text}""",
 
             "refine_sermon": """角色：你是一位精通語言學與聖經解經的教材編輯。
@@ -485,7 +485,7 @@ with tabs[3]:
 
 {text}
 
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
+請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記，不要換行開頭）：
 
 {
   "ref_no": "講稿編號（日期+序號）",
@@ -501,6 +501,23 @@ with tabs[3]:
     # ============================================================
     # 1. 輔助函數
     # ============================================================
+    def clean_json_response(text):
+        """清理 AI 回傳的 JSON"""
+        # 移除 markdown 標記
+        text = re.sub(r'```json\s*', '', text)
+        text = re.sub(r'```\s*', '', text)
+        # 移除開頭換行和空白
+        text = text.strip()
+        # 找到 JSON 開始位置（第一個 {）
+        start_idx = text.find('{')
+        if start_idx > 0:
+            text = text[start_idx:]
+        # 找到 JSON 結束位置（最後一個 }）
+        end_idx = text.rfind('}')
+        if end_idx > 0:
+            text = text[:end_idx+1]
+        return text
+
     def create_fallback_data(text, prompt_type):
         """產生預設資料"""
         return {
@@ -538,14 +555,19 @@ with tabs[3]:
                     }
                 )
             
-            result_text = response.text
-            result_text = result_text.replace("```json", "").replace("```", "").strip()
+            # 清理回應
+            result_text = clean_json_response(response.text)
+            
+            # 顯示清理後的內容（除錯用）
+            with st.expander("🔧 AI 原始回應（清理後）"):
+                st.code(result_text[:500] + "..." if len(result_text) > 500 else result_text)
             
             data = json.loads(result_text)
             return True, data
             
         except Exception as e:
-            return False, str(e)
+            error_msg = f"{str(e)}\n\n原始回應前200字:\n{response.text[:200] if 'response' in locals() else 'N/A'}"
+            return False, error_msg
 
     # ============================================================
     # 2. UI 介面
