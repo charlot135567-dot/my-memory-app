@@ -502,7 +502,7 @@ with tabs[3]:
             genai.configure(api_key=api_key)
             
             # 建立模型
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-1.5-flash')  # 或 'gemini-1.5-pro'
             
             # 🔧 修正：用 replace 而不是 format，避免 {} 衝突
             prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
