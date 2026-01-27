@@ -351,7 +351,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（JSON 清理修正版）
+# 5. TAB4 ─ AI 聖經分析控制台（完整錯誤追蹤版）
 # ===================================================================
 with tabs[3]:
     import json
@@ -360,6 +360,7 @@ with tabs[3]:
     import streamlit as st
     import os
     import re
+    import traceback
 
     # ============================================================
     # 0. 內建 Prompts
@@ -370,7 +371,7 @@ with tabs[3]:
 
 經文：{text}
 
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記，不要換行開頭）：
+請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
 
 {
   "ref_no": "聖經縮寫+章節（例：2Ti 4:17-18）",
@@ -410,7 +411,7 @@ with tabs[3]:
 1) words：高階單字 + 中英日韓泰對照 + 例句；
 2) phrases：高階片語 + 同上；
 3) grammar：重要文法點 + 解析 + 應用例句。
-輸出純 JSON，勿加 Markdown 程式碼框，不要換行開頭。
+輸出純 JSON，勿加 Markdown 程式碼框。
 講稿：{text}""",
 
             "refine_sermon": """角色：你是一位精通語言學與聖經解經的教材編輯。
@@ -420,7 +421,7 @@ with tabs[3]:
 
 {text}
 
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記，不要換行開頭）：
+請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
 
 {
   "ref_no": "講稿編號（日期+序號）",
@@ -436,23 +437,6 @@ with tabs[3]:
     # ============================================================
     # 1. 輔助函數
     # ============================================================
-    def clean_json_response(text):
-        """清理 AI 回傳的 JSON"""
-        # 移除 markdown 標記
-        text = re.sub(r'```json\s*', '', text)
-        text = re.sub(r'```\s*', '', text)
-        # 移除開頭換行和空白
-        text = text.strip()
-        # 找到 JSON 開始位置（第一個 {）
-        start_idx = text.find('{')
-        if start_idx > 0:
-            text = text[start_idx:]
-        # 找到 JSON 結束位置（最後一個 }）
-        end_idx = text.rfind('}')
-        if end_idx > 0:
-            text = text[:end_idx+1]
-        return text
-
     def create_fallback_data(text, prompt_type):
         """產生預設資料"""
         return {
@@ -471,37 +455,89 @@ with tabs[3]:
             ]
         }
 
+    def clean_json_response(text):
+        """清理 AI 回傳的 JSON"""
+        text = re.sub(r'```json\s*', '', text)
+        text = re.sub(r'```\s*', '', text)
+        text = text.strip()
+        start_idx = text.find('{')
+        if start_idx > 0:
+            text = text[start_idx:]
+        end_idx = text.rfind('}')
+        if end_idx > 0:
+            text = text[:end_idx+1]
+        return text
+
     def analyze_with_gemini(text, prompt_template, api_key):
         """呼叫 Gemini API"""
+        response_text = None  # 先定義，避免後面引用出錯
+        
         try:
             import google.generativeai as genai
             
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-pro')
+            # 步驟 1: 設定 API
+            try:
+                genai.configure(api_key=api_key)
+                st.sidebar.write("✅ API 設定完成")
+            except Exception as e:
+                return False, f"API 設定失敗: {str(e)}"
             
+            # 步驟 2: 建立模型
+            try:
+                model = genai.GenerativeModel('gemini-pro')
+                st.sidebar.write("✅ 模型建立完成")
+            except Exception as e:
+                return False, f"模型建立失敗: {str(e)}"
+            
+            # 步驟 3: 準備 Prompt
             prompt = prompt_template.format(text=text[:3000])
+            st.sidebar.write(f"✅ Prompt 準備完成 ({len(prompt)} 字)")
             
+            # 步驟 4: 呼叫 API
             with st.spinner("🤖 正在呼叫 Gemini API..."):
-                response = model.generate_content(
-                    prompt,
-                    generation_config={
-                        'temperature': 0.2,
-                        'max_output_tokens': 8192,
-                    }
-                )
+                try:
+                    response = model.generate_content(
+                        prompt,
+                        generation_config={
+                            'temperature': 0.2,
+                            'max_output_tokens': 8192,
+                        }
+                    )
+                    st.sidebar.write("✅ API 呼叫完成")
+                except Exception as e:
+                    return False, f"API 呼叫失敗: {str(e)}\n{traceback.format_exc()}"
             
-            # 清理回應
-            result_text = clean_json_response(response.text)
+            # 步驟 5: 取得回應文字
+            try:
+                response_text = response.text
+                st.sidebar.write(f"✅ 取得回應 ({len(response_text)} 字)")
+            except Exception as e:
+                return False, f"取得回應文字失敗: {str(e)}\n回應物件: {str(response)}"
             
-            # 顯示清理後的內容（除錯用）
-            with st.expander("🔧 AI 原始回應（清理後）"):
-                st.code(result_text[:500] + "..." if len(result_text) > 500 else result_text)
+            # 步驟 6: 清理回應
+            try:
+                cleaned_text = clean_json_response(response_text)
+                st.sidebar.write(f"✅ 清理完成 ({len(cleaned_text)} 字)")
+            except Exception as e:
+                return False, f"清理回應失敗: {str(e)}"
             
-            data = json.loads(result_text)
-            return True, data
+            # 步驟 7: 解析 JSON
+            try:
+                data = json.loads(cleaned_text)
+                st.sidebar.write("✅ JSON 解析成功")
+                return True, data
+            except json.JSONDecodeError as e:
+                error_detail = f"JSON 解析失敗: {str(e)}\n\n清理後內容前300字:\n{cleaned_text[:300]}"
+                return False, error_detail
             
         except Exception as e:
-            error_msg = f"{str(e)}\n\n原始回應前200字:\n{response.text[:200] if 'response' in locals() else 'N/A'}"
+            # 捕捉所有其他錯誤
+            error_msg = f"未預期錯誤: {str(e)}\n\n"
+            error_msg += f"追蹤:\n{traceback.format_exc()}\n\n"
+            if response_text:
+                error_msg += f"原始回應前200字:\n{response_text[:200]}"
+            else:
+                error_msg += "無原始回應（API 可能未成功呼叫）"
             return False, error_msg
 
     # ============================================================
@@ -514,6 +550,8 @@ with tabs[3]:
     if not api_key:
         st.error("❌ 未設定 GEMINI_API_KEY")
         st.stop()
+    
+    st.sidebar.write(f"API Key 長度: {len(api_key)}")
     
     # 輸入區
     with st.expander("📚 輸入經文或講稿", expanded=True):
@@ -582,7 +620,6 @@ with tabs[3]:
         
         st.markdown(f"**Ref. No.:** `{data.get('ref_no', 'N/A')}`")
         
-        # 顯示精煉文章（如果有）
         if data.get("ref_article"):
             with st.expander("📄 精煉文章"):
                 st.markdown(data["ref_article"])
@@ -590,7 +627,6 @@ with tabs[3]:
                     st.markdown("---")
                     st.markdown(data["ref_article_zh"])
         
-        # 三個分頁
         col1, col2, col3 = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
         
         with col1:
@@ -620,9 +656,7 @@ with tabs[3]:
             else:
                 st.info("無文法資料")
         
-        # 清除按鈕
         if st.button("🗑️ 清除結果"):
             st.session_state["show_result"] = False
             st.session_state["analysis_result"] = None
             st.rerun()
-            
