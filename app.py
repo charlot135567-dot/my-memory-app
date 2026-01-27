@@ -300,188 +300,94 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（修正縮排與顯示邏輯）
+# 5. TAB4 ─ AI 聖經分析控制台 (修正 IndentationError 版本)
 # ===================================================================
 with tabs[3]:
-    # 引用套件 (建議放在檔案最上方，但放在這也能運作)
     import json
     import datetime as dt
     import pandas as pd
     import streamlit as st
     import os
     import re
-    import traceback
 
-    # ============================================================
-    # 0. 內建 Prompts
-    # ============================================================
-    BUILTIN_PROMPTS = {
-        "default": {
-            "chinese_verve": """你是一位專業的聖經語言學家。請針對以下中文聖經經文，產生結構化學習資料。
-
-經文：[[INPUT_TEXT]]
-
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
-
-{
-  "ref_no": "聖經縮寫+章節（例：2Ti 4:17-18）",
-  "ref_article": "英文經文（ESV版本）",
-  "words": [
-    {
-      "Vocab": "英文單字",
-      "Syn_Ant": "同義/反義（中英）",
-      "Example": "經文中的例句",
-      "口語訳": "日文翻譯",
-      "KRF": "韓文翻譯",
-      "THSV11": "泰文翻譯"
-    }
-  ],
-  "phrases": [
-    {
-      "Phrase": "英文片語",
-      "Syn_Ant": "同義/反義（中英）",
-      "Example": "經文中的例句",
-      "口語訳": "日文翻譯",
-      "KRF": "韓文翻譯",
-      "THSV11": "泰文翻譯"
-    }
-  ],
-  "grammar": [
-    {
-      "Rule": "文法規則名稱",
-      "Example": "原文例句",
-      "解析": "中文文法解析",
-      "補齊句": "補充完整句子",
-      "應用例": "中英對照應用例句"
-    }
-  ]
-}""",
-            "english_manuscript": """請針對以下英文講稿產生三個 JSON Array：
-1) words：高階單字 + 中英日韓泰對照 + 例句；
-2) phrases：高階片語 + 同上；
-3) grammar：重要文法點 + 解析 + 應用例句。
-輸出純 JSON，勿加 Markdown 程式碼框。
-講稿：[[INPUT_TEXT]]""",
-
-            "refine_sermon": """角色：你是一位精通語言學與聖經解經的教材編輯。
-目標：將「口語講道逐字稿」轉化為「精煉的雙語聖經學習教材」。
-
-請針對以下講稿，產出結構化學習數據：
-
-[[INPUT_TEXT]]
-
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
-
-{
-  "ref_no": "講稿編號（日期+序號）",
-  "ref_article": "純英文精煉稿（Outline 1-5）",
-  "ref_article_zh": "中英夾雜講章",
-  "words": [...],
-  "phrases": [...],
-  "grammar": [...]
-}"""
-        }
-    }
-
-    # ============================================================
-    # 1. 輔助函數
-    # ============================================================
-    def create_fallback_data(text, prompt_type):
-        """產生預設資料"""
-        return {
-            "ref_no": f"FB{dt.datetime.now().strftime('%Y%m%d%H%M')}",
-            "ref_article": text[:200],
-            "is_fallback": True,
-            "words": [
-                {"Vocab": "becoming", "Syn_Ant": "fitting", "Example": "Fine speech is not becoming to a fool.", "口語訳": "愚か者にはふさわしくない", "KRF": "어울리지 않는다", "THSV11": "ไม่เหมาะสม"},
-                {"Vocab": "rescue", "Syn_Ant": "save", "Example": "The Lord will rescue me.", "口語訳": "救い出す", "KRF": "구출하다", "THSV11": "ช่วยให้พ้น"}
-            ],
-            "phrases": [
-                {"Phrase": "fine speech", "Syn_Ant": "eloquent words", "Example": "Fine speech is not becoming to a fool.", "口語訳": "美辞麗句", "KRF": "아름다운 말", "THSV11": "วาจางาม"}
-            ],
-            "grammar": [
-                {"Rule": "becoming to + N", "Example": "Fine speech is not becoming to a fool.", "解析": "『相稱』義形容詞片語", "補齊句": "Honesty is becoming to a leader.", "應用例": "Humility is becoming to us."}
-            ]
-        }
-
+    # 1. 定義內部函數
     def clean_json_response(text):
-        """清理 AI 回傳的 JSON"""
         text = re.sub(r'```json\s*', '', text)
         text = re.sub(r'```\s*', '', text)
         text = text.strip()
         start_idx = text.find('{')
-        if start_idx >= 0:
-            text = text[start_idx:]
+        if start_idx >= 0: text = text[start_idx:]
         end_idx = text.rfind('}')
-        if end_idx >= 0:
-            text = text[:end_idx+1]
+        if end_idx >= 0: text = text[:end_idx+1]
         return text
 
-def analyze_with_gemini(text, prompt_template, api_key):
-        """修正後的調用邏輯：自動補齊路徑與檢查模型"""
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            
-            # 【關鍵修復 1】嘗試多種模型命名格式
-            model_names = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
-            success_model = None
-            last_err = ""
+    def analyze_with_gemini(text, prompt_template, api_key):
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        candidate_models = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
+        last_error = ""
+        for model_name in candidate_models:
+            try:
+                model = genai.GenerativeModel(model_name)
+                full_prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
+                with st.spinner(f"🤖 正在嘗試: {model_name}..."):
+                    response = model.generate_content(full_prompt)
+                    if response and response.text:
+                        return True, json.loads(clean_json_response(response.text))
+            except Exception as e:
+                last_error = str(e)
+                continue
+        return False, f"失敗: {last_error}"
 
-            for m_name in model_names:
-                try:
-                    model = genai.GenerativeModel(m_name)
-                    # 進行一個極短的測試調用
-                    prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:1000])
-                    
-                    with st.spinner(f"🤖 嘗試調用 {m_name}..."):
-                        response = model.generate_content(
-                            prompt,
-                            generation_config={'temperature': 0.2, 'max_output_tokens': 4000}
-                        )
-                        if response:
-                            success_model = m_name
-                            break
-                except Exception as e:
-                    last_err = str(e)
-                    continue
-            
-            if not success_model:
-                return False, f"所有模型格式均失敗。最後錯誤: {last_err}"
-
-            # 真正執行完整分析
-            cleaned_text = clean_json_response(response.text)
-            data = json.loads(cleaned_text)
-            return True, data
-            
-        except Exception as e:
-            return False, f"API 執行層錯誤: {str(e)}"
-
-    # ============================================================
-    # 2. UI 介面 (解決閃爍問題)
-    # ============================================================
+    # 2. UI 介面 (這行 st.markdown 必須與上面的 def 對齊！)
     st.markdown("## 🤖 AI 聖經分析控制台")
     
-    # 這裡不要在每次 rerun 時都去呼叫 API，除非按下按鈕
     if "analysis_result" not in st.session_state:
         st.session_state.analysis_result = None
     if "show_result" not in st.session_state:
         st.session_state.show_result = False
 
-    with st.expander("📚 輸入經文或講稿", expanded=not st.session_state.show_result):
-        input_text = st.text_area("貼上內容", height=200, key="ai_input_main")
-        analyze_btn = st.button("🚀 開始分析", type="primary")
+    # 取得金鑰
+    api_key_val = os.getenv("GEMINI_API_KEY") or (st.secrets["GEMINI_API_KEY"] if "GEMINI_API_KEY" in st.secrets else "")
 
-    if analyze_btn and input_text:
-        # 這裡不使用 st.rerun()，直接執行，執行完才存入 session_state
-        success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"]["chinese_verve"], api_key)
-        
-        if success:
-            st.session_state.analysis_result = result
-            st.session_state.show_result = True
-            st.success("✅ 分析完成")
-        else:
-            st.error(f"❌ 分析失敗: {result}")
+    if not api_key_val:
+        st.error("❌ 找不到 API KEY，請檢查環境變數")
+    else:
+        # 輸入區塊
+        with st.expander("📚 輸入分析內容", expanded=not st.session_state.show_result):
+            input_text = st.text_area("請貼上經文或講稿:", height=200, key="tab4_main_input")
+            
+            # 使用我們在前面定義過的 BUILTIN_PROMPTS
+            mode = st.selectbox("模式", ["chinese_verve", "english_manuscript", "refine_sermon"])
+            
+            if st.button("🚀 開始分析", type="primary"):
+                if input_text:
+                    success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"][mode], api_key_val)
+                    if success:
+                        st.session_state.analysis_result = result
+                        st.session_state.show_result = True
+                        st.rerun()
+                    else:
+                        st.error(result)
+
+        # 顯示結果區
+        if st.session_state.show_result and st.session_state.analysis_result:
+            res = st.session_state.analysis_result
+            st.divider()
+            st.markdown(f"### 📋 分析結果: {res.get('ref_no', 'N/A')}")
+            
+            if "ref_article" in res:
+                st.info(res["ref_article"])
+            
+            r_tabs = st.tabs(["單字", "片語", "文法"])
+            with r_tabs[0]: st.write(res.get("words", []))
+            with r_tabs[1]: st.write(res.get("phrases", []))
+            with r_tabs[2]: st.write(res.get("grammar", []))
+            
+            if st.button("🗑️ 清除結果"):
+                st.session_state.show_result = False
+                st.session_state.analysis_result = None
+                st.rerun()
 
     # ============================================================
     # 3. 執行分析
