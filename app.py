@@ -1,11 +1,22 @@
-#===================================================================
+# ===================================================================
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
 import streamlit as st
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
-# 確保有裝 streamlit-calendar
 from streamlit_calendar import calendar
 
+# ========== 除錯測試 ==========
+st.sidebar.markdown("## 🔧 除錯資訊")
+
+api_key = os.getenv("GEMINI_API_KEY")
+
+if api_key:
+    st.sidebar.success("✅ GEMINI_API_KEY 已設定")
+    st.sidebar.write(f"長度: {len(api_key)} 字元")
+else:
+    st.sidebar.error("❌ GEMINI_API_KEY 未設定")
+    st.sidebar.info("請到 Settings → Secrets 設定")
+    
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
