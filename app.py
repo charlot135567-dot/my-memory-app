@@ -128,7 +128,7 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦（保持原邏輯 + 換行 + 刪除）
+# 4. TAB2 ─ 月曆待辦（折衷版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -154,7 +154,7 @@ with tabs[1]:
             json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
     # ---------- 1. 初值與自動讀檔 ----------
-    for key in ('cal_key', 'sel_date', 'show_del', 'del_target'):
+    for key in ('cal_key','sel_date','show_del','del_target'):
         if key not in st.session_state:
             st.session_state[key] = 0 if key=='cal_key' else False if key=='show_del' else {}
     if 'todo' not in st.session_state:
@@ -179,11 +179,14 @@ with tabs[1]:
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
-            if not isinstance(todos, list): continue
-            todos_sorted = sorted(todos, key=lambda x: x.get('time','00:00'))
+            if not isinstance(todos,list): continue
+            todos_sorted = sorted(todos, key=lambda x:x.get('time','00:00'))
             for t in todos_sorted:
                 time_str = t.get('time','00:00:00')
-                display_title = f"{t.get('emoji','🔔')} {t['title']}".strip()
+                # 折衷：月曆格子只顯示前25字
+                display_title = f"{t.get('emoji','🔔')} {t['title']}"
+                if len(display_title) > 25:
+                    display_title = display_title[:25] + "…"
                 start_iso = f"{d}T{time_str}"
                 ev.append({
                     "title": display_title,
@@ -207,12 +210,8 @@ with tabs[1]:
     .fc-toolbar-title { font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }
     .fc-day-sat .fc-daygrid-day-number,
     .fc-day-sun .fc-daygrid-day-number { color: #dc2626 !important; font-weight: 600; }
-    .fc-event { cursor: pointer; border: none; } 
-    .fc-event-title {
-        white-space: normal !important;  /* 換行 */
-        font-size: 14px;
-        line-height: 1.4;
-    }
+    .fc-event { cursor: pointer; border: none; }
+    .fc-event-title { white-space: normal !important; font-size:14px; line-height:1.4; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -322,7 +321,6 @@ with tabs[1]:
                     st.success("✅ 已儲存！")
                     st.rerun()
 
-    
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
 # ===================================================================
