@@ -354,555 +354,199 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（完整版）
+# 5. TAB4 ─ AI 聖經分析控制台（除錯版 + Prompts.toml）
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, subprocess, sys, re
+    import json
+    import datetime as dt
     import pandas as pd
     import streamlit as st
+    import os
+    import sys
 
     # ============================================================
-    # 0. 設定與初始化
+    # 0. 輔助函數（先定義）
     # ============================================================
-    SENTENCES_FILE = "sentences.json"
-    PROMPTS_FILE = "prompts_tab4.json"  # 內建 prompts，避免檔案遺失問題
-    
-    # 內建 AI Prompts（避免 Prompts.toml 找不到的問題）
-    BUILTIN_PROMPTS = {
-        "chinese_verse": """你是一位專業的聖經語言學家。請針對以下中文聖經經文，產生結構化學習資料。
-
-經文：{text}
-
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
-
-{{
-  "ref_no": "聖經縮寫+章節（例：2Ti 4:17-18）",
-  "ref_article": "英文經文（ESV版本）",
-  "ref_article_zh": "輸入的中文經文",
-  
-  "v1_data": {{
-    "Ref": "聖經縮寫章節",
-    "English": "ESV英文經文",
-    "Chinese": "中文經文",
-    "Syn_Ant": "高級單字/片語的同義反義（中英對照）",
-    "Grammar": "文法分析（含補齊句、應用例句）"
-  }},
-  
-  "v2_data": {{
-    "Ref": "聖經縮寫章節",
-    "口語訳": "日文經文（口語體）",
-    "Grammar": "日文文法解析",
-    "Note": "文法補充說明",
-    "KRF": "韓文經文",
-    "Syn_Ant_KR": "韓文高級字彙同義反義",
-    "THSV11": "泰文重要片語"
-  }},
-  
-  "words": [
-    {{
-      "Vocab": "英文單字",
-      "Syn_Ant": "同義/反義",
-      "Example": "經文中的例句",
-      "口語訳": "日文翻譯",
-      "KRF": "韓文翻譯", 
-      "THSV11": "泰文翻譯"
-    }}
-  ],
-  
-  "phrases": [
-    {{
-      "Phrase": "英文片語",
-      "Syn_Ant": "同義/反義",
-      "Example": "經文中的例句",
-      "口語訳": "日文翻譯",
-      "KRF": "韓文翻譯",
-      "THSV11": "泰文翻譯"
-    }}
-  ],
-  
-  "grammar": [
-    {{
-      "Rule": "文法規則名稱",
-      "Example": "原文例句",
-      "解析": "中文文法解析",
-      "補齊句": "補充完整句子",
-      "應用例": "中英對照應用例句"
-    }}
-  ]
-}}""",
-
-        "english_manuscript": """角色：你是一位精通語言學與聖經解經的教材編輯。
-目標：將「口語講道逐字稿」轉化為「精煉的雙語聖經學習教材」。
-
-請針對以下講稿，產出結構化學習數據：
-
-{text}
-
-請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
-
-{{
-  "ref_no": "講稿編號（日期+序號，例：2025012701）",
-  "ref_article": "純英文精煉稿（Outline 1-5，去除口氣詞，高級詞彙加粗並附中文解釋）",
-  "ref_article_zh": "中英夾雜講章（與英文版同步，英文詞彙嵌入括號對照）",
-  
-  "words": [
-    {{
-      "Vocab": "高級/中高級單字",
-      "Syn_Ant": "同義/反義（中英）",
-      "Example": "講稿中的例句",
-      "口語訳": "日文翻譯",
-      "KRF": "韓文翻譯",
-      "THSV11": "泰文翻譯"
-    }}
-  ],
-  
-  "phrases": [
-    {{
-      "Phrase": "高級/中高級片語", 
-      "Syn_Ant": "同義/反義（中英）",
-      "Example": "講稿中的例句",
-      "口語訳": "日文翻譯",
-      "KRF": "韓文翻譯",
-      "THSV11": "泰文翻譯"
-    }}
-  ],
-  
-  "grammar": [
-    {{
-      "Rule": "文法規則名稱",
-      "Example": "原稿範例",
-      "解析": "中文文法解析",
-      "補齊句": "補齊後的完整句",
-      "應用例": "中英對照應用例句"
-    }}
-  ]
-}}
-
-格式要求：
-1. 純英文精煉稿與中英夾雜講章要**交錯呈現**（一段英文配一段中英）
-2. 禁止使用 HTML 標籤，只用 Markdown 加粗
-3. 段落間要有空行
-4. 翻譯必須對照聖經原文，禁止自行亂翻"""
-    }
-
-    def load_sentences():
-        """載入資料庫"""
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-    
-    def save_sentences():
-        """儲存資料庫"""
-        try:
-            with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-                json.dump(st.session_state.sentences, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            st.error(f"存檔失敗：{e}")
-
-    def save_analysis_result(data, input_text, analysis_type):
-        """儲存分析歷史"""
-        if "analysis_history" not in st.session_state:
-            st.session_state.analysis_history = []
-        
-        record = {
-            "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "type": analysis_type,  # "chinese_verse" 或 "english_manuscript"
-            "ref_no": data.get("ref_no", ""),
-            "input": input_text[:150] + "..." if len(input_text) > 150 else input_text,
-            "data": data
+    def create_fallback_data(text, prompt_type):
+        """產生預設資料"""
+        return {
+            "ref_no": f"FB{dt.datetime.now().strftime('%Y%m%d%H%M')}",
+            "ref_article": text[:200],
+            "is_fallback": True,
+            "words": [{"Vocab": "becoming", "Example": "Fine speech is not becoming to a fool.", "口語訳": "愚か者にはふさわしくない"}],
+            "phrases": [{"Phrase": "fine speech", "Example": "Fine speech is not becoming to a fool."}],
+            "grammar": [{"Rule": "becoming to + N", "解析": "相稱義形容詞片語"}]
         }
-        st.session_state.analysis_history.append(record)
 
-    # ============================================================
-    # 1. 初始化 Session State
-    # ============================================================
-    if 'sentences' not in st.session_state:
-        st.session_state.sentences = load_sentences()
-    if 'show_result' not in st.session_state:
-        st.session_state.show_result = False
-    if 'current_analysis' not in st.session_state:
-        st.session_state.current_analysis = None
+    def load_prompts_from_toml():
+        """載入 Prompts.toml"""
+        try:
+            import tomllib
+            with open("Prompts.toml", "rb") as f:
+                return tomllib.load(f)
+        except Exception as e:
+            st.sidebar.error(f"❌ 載入 Prompts.toml 失敗: {e}")
+            return None
 
-    # ============================================================
-    # 2. AI 分析函數
-    # ============================================================
-    def detect_language(text):
-        """偵測輸入語言"""
-        chinese_chars = sum(1 for c in text[:200] if '\u4e00' <= c <= '\u9fff')
-        return "chinese" if chinese_chars > 10 else "english"
-
-    def call_gemini_api(prompt, api_key):
-        """呼叫 Gemini API"""
+    def analyze_with_gemini(text, prompt_template, api_key):
+        """呼叫 Gemini API，回傳 (成功與否, 結果或錯誤訊息)"""
         try:
             import google.generativeai as genai
+            
+            # 設定 API
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel('gemini-pro')
             
-            response = model.generate_content(
-                prompt,
-                generation_config={
-                    'temperature': 0.2,
-                    'max_output_tokens': 8192,
-                }
-            )
+            # 準備 Prompt
+            prompt = prompt_template.format(text=text[:3000])
+            
+            # 呼叫 API
+            with st.spinner("🤖 正在呼叫 Gemini API..."):
+                response = model.generate_content(
+                    prompt,
+                    generation_config={
+                        'temperature': 0.2,
+                        'max_output_tokens': 8192,
+                    }
+                )
             
             # 清理回應
-            text = response.text
-            text = re.sub(r'```json\s*', '', text)
-            text = re.sub(r'```\s*', '', text)
-            return text.strip()
+            result_text = response.text
+            result_text = result_text.replace("```json", "").replace("```", "").strip()
+            
+            # 解析 JSON
+            data = json.loads(result_text)
+            return True, data
             
         except Exception as e:
-            st.error(f"Gemini API 錯誤：{e}")
-            return None
-
-    def analyze_with_ai(text, analysis_type, api_key):
-        """執行 AI 分析"""
-        prompt_template = BUILTIN_PROMPTS.get(analysis_type, BUILTIN_PROMPTS["english_manuscript"])
-        prompt = prompt_template.format(text=text[:4000])  # 限制長度
-        
-        response_text = call_gemini_api(prompt, api_key)
-        
-        if not response_text:
-            return None
-        
-        try:
-            data = json.loads(response_text)
-            
-            # 確保必要欄位存在
-            required_fields = ["ref_no", "ref_article", "words", "phrases", "grammar"]
-            for field in required_fields:
-                if field not in data:
-                    if field in ["words", "phrases", "grammar"]:
-                        data[field] = []
-                    else:
-                        data[field] = ""
-            
-            # 加入時間戳
-            data["analyzed_at"] = dt.datetime.now().isoformat()
-            data["input_type"] = analysis_type
-            
-            return data
-            
-        except json.JSONDecodeError as e:
-            st.error(f"JSON 解析錯誤：{e}")
-            with st.expander("查看原始回應"):
-                st.code(response_text[:1000])
-            return None
-
-    def create_fallback_data(text, analysis_type):
-        """AI 失敗時的回退資料"""
-        ref_no = f"FB{dt.datetime.now().strftime('%Y%m%d%H%M')}"
-        
-        is_chinese = analysis_type == "chinese_verse"
-        
-        return {
-            "ref_no": ref_no,
-            "ref_article": text[:300] + "..." if len(text) > 300 else text,
-            "ref_article_zh": "（⚠️ AI 分析失敗，顯示預設資料）" if is_chinese else "",
-            "input_type": analysis_type,
-            "analyzed_at": dt.datetime.now().isoformat(),
-            "words": [
-                {"Vocab": "becoming", "Syn_Ant": "fitting / unbecoming", "Example": "Fine speech is not becoming to a fool.", "口語訳": "愚か者にはふさわしくない", "KRF": "어울리지 않는다", "THSV11": "ไม่เหมาะสม"},
-                {"Vocab": "rescue", "Syn_Ant": "save / abandon", "Example": "The Lord will rescue me.", "口語訳": "救い出す", "KRF": "구출하다", "THSV11": "ช่วยให้พ้น"},
-            ],
-            "phrases": [
-                {"Phrase": "fine speech", "Syn_Ant": "eloquent words", "Example": "Fine speech is not becoming to a fool.", "口語訳": "美辞麗句", "KRF": "아름다운 말", "THSV11": "วาจางาม"},
-            ],
-            "grammar": [
-                {"Rule": "becoming to + N", "Example": "Fine speech is not becoming to a fool.", "解析": "『相稱』義形容詞片語", "補齊句": "Honesty is becoming to a leader.", "應用例": "Humility is becoming to us."},
-            ],
-            "is_fallback": True
-        }
+            return False, str(e)
 
     # ============================================================
-    # 3. UI 介面
+    # 1. 載入 Prompts
     # ============================================================
-    
-    # 檢查 API Key
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("KIMI_API_KEY")
-    
+    PROMPTS = load_prompts_from_toml()
+
+    # ============================================================
+    # 2. UI 介面
+    # ============================================================
     st.markdown("## 🤖 AI 聖經分析控制台")
     
-    if not api_key:
-        st.warning("⚠️ 尚未設定 GEMINI_API_KEY，請在 Streamlit Secrets 設定後重新啟動")
+    # 檢查設定
+    api_key = os.getenv("GEMINI_API_KEY")
     
-    # 主操作區
-    with st.expander("📚 分析設定", expanded=True):
-        
-        # 輸入區
+    if not PROMPTS:
+        st.error("❌ 無法載入 Prompts.toml，請確認檔案存在")
+        st.stop()
+    
+    if not api_key:
+        st.error("❌ 未設定 GEMINI_API_KEY")
+        st.stop()
+    
+    # 輸入區
+    with st.expander("📚 輸入經文或講稿", expanded=True):
         input_text = st.text_area(
-            "貼上經文或講稿（支援中文經文或英文講稿）",
+            "貼上內容",
             height=250,
             key="tab4_input",
-            placeholder="貼上中文聖經經文或英文講道逐字稿..."
+            placeholder="貼上中文聖經經文或英文講稿..."
         )
         
         # 自動偵測語言
-        detected_lang = detect_language(input_text) if input_text else "unknown"
+        chinese_chars = sum(1 for c in input_text[:200] if '\u4e00' <= c <= '\u9fff')
+        is_chinese = chinese_chars > 10
         
-        col1, col2, col3 = st.columns([2, 2, 2])
+        if input_text:
+            st.info(f"偵測到：{'中文' if is_chinese else '英文'}（{len(input_text)} 字）")
         
-        with col1:
-            analysis_mode = st.radio(
-                "分析模式",
-                ["自動偵測", "中文經文分析 (V1/V2)", "英文講稿分析 (Words/Phrases)"],
-                index=0 if not input_text else (1 if detected_lang == "chinese" else 2)
-            )
+        # 選擇 Prompt
+        prompt_options = {
+            "chinese_verve": "中文經文分析 (V1/V2)",
+            "english_manuscript": "英文講稿分析 (Words/Phrases)",
+            "refine_sermon": "英文講稿精煉 (完整版)"
+        }
         
-        with col2:
-            if input_text:
-                st.info(f"偵測到：{'中文' if detected_lang == 'chinese' else '英文'}")
-                st.caption(f"字數：{len(input_text)}")
+        selected_prompt = st.selectbox(
+            "選擇分析模式",
+            options=list(prompt_options.keys()),
+            format_func=lambda x: prompt_options[x],
+            index=0 if is_chinese else 2
+        )
         
-        with col3:
-            st.write("")
-            st.write("")
-            analyze_btn = st.button("🤖 開始 AI 分析", type="primary", use_container_width=True)
-    
-    # 資料庫操作區
-    with st.expander("🗄️ 資料庫管理", expanded=False):
-        col1, col2, col3 = st.columns([2, 2, 2])
-        
-        with col1:
-            search_ref = st.text_input("搜尋 Ref.", placeholder="例：2Ti 4:17")
-        with col2:
-            search_kw = st.text_input("關鍵字搜尋")
-        with col3:
-            st.write("")
-            st.write("")
-            if st.button("🔍 搜尋", use_container_width=True):
-                # 搜尋邏輯
-                results = []
-                for k, v in st.session_state.sentences.items():
-                    match = False
-                    if search_ref and search_ref.lower() in k.lower():
-                        match = True
-                    if search_kw and search_kw.lower() in str(v).lower():
-                        match = True
-                    if match:
-                        results.append((k, v))
-                
-                if results:
-                    st.session_state["search_results"] = results
-                    st.success(f"找到 {len(results)} 筆")
-                else:
-                    st.info("無符合項目")
-        
-        # 顯示搜尋結果
-        if "search_results" in st.session_state:
-            for k, v in st.session_state["search_results"]:
-                with st.container():
-                    c1, c2 = st.columns([4, 1])
-                    with c1:
-                        st.markdown(f"**{k}**")
-                        st.caption(v.get("en", "")[:100] + "...")
-                    with c2:
-                        if st.button("🗑️ 刪除", key=f"del_{k}"):
-                            st.session_state.sentences.pop(k, None)
-                            save_sentences()
-                            st.rerun()
-                    st.divider()
-    
+        analyze_btn = st.button("🤖 開始 AI 分析", type="primary")
+
     # ============================================================
-    # 4. 執行分析
+    # 3. 執行分析
     # ============================================================
     if analyze_btn and input_text:
-        # 決定分析類型
-        if analysis_mode == "自動偵測":
-            analysis_type = "chinese_verse" if detected_lang == "chinese" else "english_manuscript"
-        elif "中文" in analysis_mode:
-            analysis_type = "chinese_verse"
-        else:
-            analysis_type = "english_manuscript"
+        # 取得 Prompt 模板
+        prompt_template = PROMPTS.get("default", {}).get(selected_prompt, "")
         
-        with st.spinner(f"🤖 AI 分析中（{ '中文經文' if analysis_type == 'chinese_verse' else '英文講稿' }）..."):
+        if not prompt_template:
+            st.error(f"❌ 找不到 Prompt: {selected_prompt}")
+            st.stop()
+        
+        # 執行 AI 分析
+        success, result = analyze_with_gemini(input_text, prompt_template, api_key)
+        
+        if success:
+            # 處理成功結果
+            st.session_state["analysis_result"] = result
+            st.session_state["show_result"] = True
             
-            if api_key:
-                result = analyze_with_ai(input_text, analysis_type, api_key)
-            else:
-                result = None
+            # 顯示成功
+            st.success(f"✅ 分析完成！")
+            with st.expander("查看原始回應"):
+                st.json(result)
             
-            # 如果 AI 失敗，使用回退資料
-            if result is None:
-                result = create_fallback_data(input_text, analysis_type)
-                st.warning("⚠️ 使用預設資料（請檢查 API Key）")
-            
-            # 儲存結果
-            st.session_state.current_analysis = result
-            save_analysis_result(result, input_text, analysis_type)
-            
-            # 存入資料庫
-            ref_no = result["ref_no"]
-            st.session_state.sentences[ref_no] = {
-                "ref": ref_no,
-                "type": analysis_type,
-                "en": result.get("ref_article", ""),
-                "zh": result.get("ref_article_zh", ""),
-                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "data": result
-            }
-            save_sentences()
-            
-            st.session_state.show_result = True
-            st.success(f"✅ 分析完成！Ref: `{ref_no}`")
             st.rerun()
-    
+            
+        else:
+            # 顯示詳細錯誤
+            st.error("❌ AI 分析失敗")
+            st.code(result)  # 顯示錯誤詳情
+            
+            # 提供預設資料選項
+            if st.button("使用預設資料繼續"):
+                fallback = create_fallback_data(input_text, selected_prompt)
+                st.session_state["analysis_result"] = fallback
+                st.session_state["show_result"] = True
+                st.rerun()
+
     # ============================================================
-    # 5. 顯示分析結果
+    # 4. 顯示結果
     # ============================================================
-    if st.session_state.show_result and st.session_state.current_analysis:
-        data = st.session_state.current_analysis
+    if st.session_state.get("show_result", False):
+        data = st.session_state.get("analysis_result", {})
         
         st.divider()
-        st.markdown(f"## 📋 分析結果：{data['ref_no']}")
+        st.markdown(f"## 📋 分析結果")
         
         if data.get("is_fallback"):
-            st.warning("⚠️ 此為預設資料，非 AI 分析結果")
+            st.warning("⚠️ 此為預設資料")
         
-        # 操作按鈕
-        c1, c2, c3, c4 = st.columns([1.5, 1.5, 1.5, 1.5])
-        with c1:
-            if st.button("📄 切換原文顯示"):
-                st.session_state["show_article"] = not st.session_state.get("show_article", False)
-                st.rerun()
-        with c2:
-            st.code(data['ref_no'])
-        with c3:
-            if st.button("💾 匯出 JSON"):
-                st.download_button(
-                    label="下載 JSON",
-                    data=json.dumps(data, ensure_ascii=False, indent=2),
-                    file_name=f"{data['ref_no']}.json",
-                    mime="application/json"
-                )
-        with c4:
-            if st.button("🗑️ 清除結果"):
-                st.session_state.show_result = False
-                st.session_state.current_analysis = None
-                st.rerun()
+        # 顯示基本資訊
+        st.markdown(f"**Ref. No.:** `{data.get('ref_no', 'N/A')}`")
         
-        # 顯示精煉文章
-        if st.session_state.get("show_article", False):
-            with st.expander("📘 精煉文章", expanded=True):
-                tabs = st.tabs(["英文版", "中英對照"] if data.get("ref_article_zh") else ["文章"])
-                
-                with tabs[0]:
-                    st.markdown(data.get("ref_article", "無資料"))
-                
-                if len(tabs) > 1 and data.get("ref_article_zh"):
-                    with tabs[1]:
-                        st.markdown(data["ref_article_zh"])
+        # 顯示資料表格
+        col1, col2, col3 = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
         
-        # 資料表格（依分析類型顯示不同欄位）
-        if data.get("input_type") == "chinese_verse":
-            # 中文經文：顯示 V1/V2 格式
-            v1_tab, v2_tab, words_tab, phrases_tab, grammar_tab = st.tabs([
-                "📊 V1 (英中對照)", "📊 V2 (日韓泰)", "📝 單字", "💬 片語", "📐 文法"
-            ])
-            
-            with v1_tab:
-                if "v1_data" in data:
-                    v1 = data["v1_data"]
-                    df = pd.DataFrame([v1])
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    # 從 words/phrases/grammar 組合 V1 顯示
-                    st.info("V1 資料格式")
-            
-            with v2_tab:
-                if "v2_data" in data:
-                    v2 = data["v2_data"]
-                    df = pd.DataFrame([v2])
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    st.info("V2 資料格式")
-        else:
-            # 英文講稿：直接顯示 Words/Phrases/Grammar
-            words_tab, phrases_tab, grammar_tab = st.tabs(["📝 Words 單字", "💬 Phrases 片語", "📐 Grammar 文法"])
-        
-        # 單字表
-        with words_tab:
+        with col1:
             words = data.get("words", [])
             if words:
-                df = pd.DataFrame(words)
-                # 確保欄位順序
-                cols = ["Vocab", "Syn_Ant", "Example", "口語訳", "KRF", "THSV11"]
-                display_cols = [c for c in cols if c in df.columns]
-                st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
-                st.caption(f"共 {len(words)} 個單字")
+                st.dataframe(pd.DataFrame(words), use_container_width=True)
             else:
                 st.info("無單字資料")
         
-        # 片語表
-        with phrases_tab:
+        with col2:
             phrases = data.get("phrases", [])
             if phrases:
-                df = pd.DataFrame(phrases)
-                cols = ["Phrase", "Syn_Ant", "Example", "口語訳", "KRF", "THSV11"]
-                display_cols = [c for c in cols if c in df.columns]
-                st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
-                st.caption(f"共 {len(phrases)} 個片語")
+                st.dataframe(pd.DataFrame(phrases), use_container_width=True)
             else:
                 st.info("無片語資料")
         
-        # 文法表
-        with grammar_tab:
+        with col3:
             grammar = data.get("grammar", [])
             if grammar:
-                df = pd.DataFrame(grammar)
-                # 文法用 table 顯示較清楚
-                st.table(df)
-                st.caption(f"共 {len(grammar)} 個文法點")
+                st.table(pd.DataFrame(grammar))
             else:
                 st.info("無文法資料")
-        
-        # 原始資料（除錯用）
-        with st.expander("🔧 原始 JSON 資料"):
-            st.json(data)
-    
-    # ============================================================
-    # 6. 匯出與管理
-    # ============================================================
-    st.divider()
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        with st.expander("📊 統計資訊"):
-            total = len(st.session_state.sentences)
-            st.metric("資料庫筆數", total)
-            
-            types = {}
-            for v in st.session_state.sentences.values():
-                t = v.get("type", "unknown")
-                types[t] = types.get(t, 0) + 1
-            
-            for t, c in types.items():
-                st.caption(f"{t}: {c} 筆")
-    
-    with col2:
-        with st.expander("📋 匯出資料"):
-            if st.button("匯出全部 (TSV)"):
-                lines = ["Ref\tType\tEnglish\tChinese\tDate"]
-                for k, v in st.session_state.sentences.items():
-                    line = f"{k}\t{v.get('type','')}\t{v.get('en','')[:50]}\t{v.get('zh','')[:50]}\t{v.get('date_added','')}"
-                    lines.append(line)
-                st.code("\n".join(lines), language="text")
-            
-            if st.button("匯出 JSON"):
-                st.code(json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)[:2000] + "...")
-    
-    with col3:
-        with st.expander("⚠️ 危險操作"):
-            if st.button("🗑️ 清空資料庫", type="secondary"):
-                confirm = st.checkbox("確認刪除全部資料？")
-                if confirm:
-                    st.session_state.sentences = {}
-                    save_sentences()
-                    st.success("已清空資料庫")
-                    st.rerun()
