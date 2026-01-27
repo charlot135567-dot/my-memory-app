@@ -300,7 +300,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台 (修正 IndentationError 版本)
+# 5. TAB4 ─ AI 聖經分析控制台 (修正版)
 # ===================================================================
 with tabs[3]:
     import json
@@ -339,7 +339,7 @@ with tabs[3]:
                 continue
         return False, f"失敗: {last_error}"
 
-    # 2. UI 介面 (這行 st.markdown 必須與上面的 def 對齊！)
+    # 2. UI 介面
     st.markdown("## 🤖 AI 聖經分析控制台")
     
     if "analysis_result" not in st.session_state:
@@ -357,18 +357,18 @@ with tabs[3]:
         with st.expander("📚 輸入分析內容", expanded=not st.session_state.show_result):
             input_text = st.text_area("請貼上經文或講稿:", height=200, key="tab4_main_input")
             
-            # 使用我們在前面定義過的 BUILTIN_PROMPTS
-            mode = st.selectbox("模式", ["chinese_verve", "english_manuscript", "refine_sermon"])
+            mode = st.selectbox("模式", ["chinese_verse", "english_manuscript", "refine_sermon"])
             
-            if st.button("🚀 開始分析", type="primary"):
-                if input_text:
-                    success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"][mode], api_key_val)
-                    if success:
-                        st.session_state.analysis_result = result
-                        st.session_state.show_result = True
-                        st.rerun()
-                    else:
-                        st.error(result)
+            analyze_btn = st.button("🚀 開始分析", type="primary")  # ← 定義 analyze_btn
+            
+            if analyze_btn and input_text:
+                success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"][mode], api_key_val)
+                if success:
+                    st.session_state.analysis_result = result
+                    st.session_state.show_result = True
+                    st.rerun()
+                else:
+                    st.error(result)
 
         # 顯示結果區
         if st.session_state.show_result and st.session_state.analysis_result:
@@ -379,93 +379,30 @@ with tabs[3]:
             if "ref_article" in res:
                 st.info(res["ref_article"])
             
-            r_tabs = st.tabs(["單字", "片語", "文法"])
-            with r_tabs[0]: st.write(res.get("words", []))
-            with r_tabs[1]: st.write(res.get("phrases", []))
-            with r_tabs[2]: st.write(res.get("grammar", []))
+            r_tabs = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
+            
+            with r_tabs[0]:
+                words = res.get("words", [])
+                if words:
+                    st.dataframe(pd.DataFrame(words), use_container_width=True)
+                else:
+                    st.info("無單字資料")
+            
+            with r_tabs[1]:
+                phrases = res.get("phrases", [])
+                if phrases:
+                    st.dataframe(pd.DataFrame(phrases), use_container_width=True)
+                else:
+                    st.info("無片語資料")
+            
+            with r_tabs[2]:
+                grammar = res.get("grammar", [])
+                if grammar:
+                    st.table(pd.DataFrame(grammar))
+                else:
+                    st.info("無文法資料")
             
             if st.button("🗑️ 清除結果"):
                 st.session_state.show_result = False
                 st.session_state.analysis_result = None
                 st.rerun()
-
-    # ============================================================
-    # 3. 執行分析
-    # ============================================================
-    if analyze_btn and input_text:
-        # 取得對應的 Prompt Template
-        prompt_template = BUILTIN_PROMPTS["default"][selected_prompt_key]
-        
-        # 呼叫 AI
-        success, result = analyze_with_gemini(input_text, prompt_template, current_api_key)
-        
-        if success:
-            st.session_state["analysis_result"] = result
-            st.session_state["show_result"] = True
-            st.success(f"✅ 分析完成！Ref: {result.get('ref_no', 'N/A')}")
-            st.rerun()
-        else:
-            st.error("❌ AI 分析失敗")
-            st.code(result) # 顯示錯誤訊息
-            
-            if st.button("使用預設資料測試介面"):
-                fallback = create_fallback_data(input_text, selected_prompt_key)
-                st.session_state["analysis_result"] = fallback
-                st.session_state["show_result"] = True
-                st.rerun()
-
-    # ============================================================
-    # 4. 顯示結果
-    # ============================================================
-    if st.session_state.get("show_result", False):
-        data = st.session_state.get("analysis_result", {})
-        
-        st.divider()
-        st.markdown(f"## 📋 分析結果")
-        
-        if data.get("is_fallback"):
-            st.warning("⚠️ 此為預設測試資料 (API 可能未通)")
-        
-        st.markdown(f"**Ref. No.:** `{data.get('ref_no', 'N/A')}`")
-        
-        # 顯示精煉文章區塊
-        if data.get("ref_article"):
-            with st.expander("📄 精煉文章", expanded=True):
-                st.markdown(data["ref_article"])
-                if data.get("ref_article_zh"):
-                    st.markdown("---")
-                    st.markdown(data["ref_article_zh"])
-        
-        # 顯示 Tab 分頁 (單字/片語/文法)
-        r_tabs = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
-        
-        with r_tabs[0]:
-            words = data.get("words", [])
-            if words:
-                df = pd.DataFrame(words)
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            else:
-                st.info("無單字資料")
-        
-        with r_tabs[1]:
-            phrases = data.get("phrases", [])
-            if phrases:
-                df = pd.DataFrame(phrases)
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            else:
-                st.info("無片語資料")
-        
-        with r_tabs[2]:
-            grammar = data.get("grammar", [])
-            if grammar:
-                df = pd.DataFrame(grammar)
-                # 使用 table 顯示較長的文字較適合，或 dataframe 亦可
-                st.table(df)
-            else:
-                st.info("無文法資料")
-        
-        # 清除按鈕
-        if st.button("🗑️ 清除結果"):
-            st.session_state["show_result"] = False
-            st.session_state["analysis_result"] = None
-            st.rerun()
