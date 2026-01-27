@@ -417,90 +417,71 @@ with tabs[3]:
             text = text[:end_idx+1]
         return text
 
-    def analyze_with_gemini(text, prompt_template, api_key):
-        """呼叫 Gemini API"""
-        response_text = None
-        
+def analyze_with_gemini(text, prompt_template, api_key):
+        """修正後的調用邏輯：自動補齊路徑與檢查模型"""
         try:
-            # 這裡動態 import，避免沒安裝套件時整個 App 壞掉
             import google.generativeai as genai
-            
-            # 設定 API
             genai.configure(api_key=api_key)
             
-            # 🔧 使用模型 (建議用 flash 比較省資源且快)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # 【關鍵修復 1】嘗試多種模型命名格式
+            model_names = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
+            success_model = None
+            last_err = ""
+
+            for m_name in model_names:
+                try:
+                    model = genai.GenerativeModel(m_name)
+                    # 進行一個極短的測試調用
+                    prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:1000])
+                    
+                    with st.spinner(f"🤖 嘗試調用 {m_name}..."):
+                        response = model.generate_content(
+                            prompt,
+                            generation_config={'temperature': 0.2, 'max_output_tokens': 4000}
+                        )
+                        if response:
+                            success_model = m_name
+                            break
+                except Exception as e:
+                    last_err = str(e)
+                    continue
             
-            prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:5000]) # 增加字數限制以防萬一
-            
-            with st.spinner("🤖 正在呼叫 Gemini API..."):
-                response = model.generate_content(
-                    prompt,
-                    generation_config={
-                        'temperature': 0.2,
-                        'max_output_tokens': 8192,
-                    }
-                )
-            
-            response_text = response.text
-            cleaned_text = clean_json_response(response_text)
+            if not success_model:
+                return False, f"所有模型格式均失敗。最後錯誤: {last_err}"
+
+            # 真正執行完整分析
+            cleaned_text = clean_json_response(response.text)
             data = json.loads(cleaned_text)
             return True, data
             
-        except ImportError:
-            return False, "❌ 請先安裝套件: pip install google-generativeai"
         except Exception as e:
-            error_msg = f"錯誤: {str(e)}\n\n"
-            # error_msg += f"追蹤:\n{traceback.format_exc()}\n\n" # 一般使用者不需要看 traceback
-            if response_text:
-                error_msg += f"原始回應前300字:\n{response_text[:300]}"
-            else:
-                error_msg += "無原始回應 (API 連線可能失敗)"
-            return False, error_msg
+            return False, f"API 執行層錯誤: {str(e)}"
 
     # ============================================================
-    # 2. UI 介面 (這裡開始縮排必須與 def 平行，不能在 def 裡面！)
+    # 2. UI 介面 (解決閃爍問題)
     # ============================================================
     st.markdown("## 🤖 AI 聖經分析控制台")
     
-    # 取得 API KEY (優先從 Sidebar 輸入的環境變數，若無則嘗試 secrets)
-    # 注意：這裡假設全域變數 api_key 已經在前面定義過，若無則重新讀取
-    current_api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
-    
-    if not current_api_key:
-        st.error("❌ 未偵測到 GEMINI_API_KEY，請檢查 .env 或 Secrets 設定")
-        st.stop()
-    
-    # 輸入區
-    with st.expander("📚 輸入經文或講稿", expanded=True):
-        input_text = st.text_area(
-            "貼上內容",
-            height=250,
-            key="tab4_input",
-            placeholder="貼上中文聖經經文或英文講稿..."
-        )
+    # 這裡不要在每次 rerun 時都去呼叫 API，除非按下按鈕
+    if "analysis_result" not in st.session_state:
+        st.session_state.analysis_result = None
+    if "show_result" not in st.session_state:
+        st.session_state.show_result = False
+
+    with st.expander("📚 輸入經文或講稿", expanded=not st.session_state.show_result):
+        input_text = st.text_area("貼上內容", height=200, key="ai_input_main")
+        analyze_btn = st.button("🚀 開始分析", type="primary")
+
+    if analyze_btn and input_text:
+        # 這裡不使用 st.rerun()，直接執行，執行完才存入 session_state
+        success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"]["chinese_verve"], api_key)
         
-        # 簡單偵測是否為中文
-        is_chinese = False
-        if input_text:
-            chinese_chars = sum(1 for c in input_text[:200] if '\u4e00' <= c <= '\u9fff')
-            is_chinese = chinese_chars > 10
-            st.info(f"偵測到：{'中文' if is_chinese else '英文'}（{len(input_text)} 字）")
-        
-        prompt_options = {
-            "chinese_verve": "中文經文分析 (V1/V2)",
-            "english_manuscript": "英文講稿分析 (Words/Phrases)",
-            "refine_sermon": "英文講稿精煉 (完整版)"
-        }
-        
-        selected_prompt_key = st.selectbox(
-            "選擇分析模式",
-            options=list(prompt_options.keys()),
-            format_func=lambda x: prompt_options[x],
-            index=0 if is_chinese else 2
-        )
-        
-        analyze_btn = st.button("🤖 開始 AI 分析", type="primary")
+        if success:
+            st.session_state.analysis_result = result
+            st.session_state.show_result = True
+            st.success("✅ 分析完成")
+        else:
+            st.error(f"❌ 分析失敗: {result}")
 
     # ============================================================
     # 3. 執行分析
