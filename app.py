@@ -416,7 +416,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（除錯版 + Prompts.toml）
+# 5. TAB4 ─ AI 聖經分析控制台（路徑修正版）
 # ===================================================================
 with tabs[3]:
     import json
@@ -440,14 +440,50 @@ with tabs[3]:
             "grammar": [{"Rule": "becoming to + N", "解析": "相稱義形容詞片語"}]
         }
 
+    def find_prompts_file():
+        """尋找 Prompts.toml（嘗試多個路徑）"""
+        possible_paths = [
+            "Prompts.toml",  # 目前目錄
+            "./Prompts.toml",
+            "../Prompts.toml",
+            "/mount/src/Prompts.toml",  # Streamlit Cloud 常見路徑
+            "/app/Prompts.toml",
+        ]
+        
+        # 也嘗試從腳本位置找
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            possible_paths.insert(0, os.path.join(script_dir, "Prompts.toml"))
+        except:
+            pass
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                st.sidebar.success(f"✅ 找到 Prompts.toml: {path}")
+                return path
+        
+        # 找不到，列出目前目錄內容
+        st.sidebar.error("❌ 找不到 Prompts.toml")
+        try:
+            st.sidebar.write("目前目錄內容:")
+            st.sidebar.code(str(os.listdir('.')))
+        except Exception as e:
+            st.sidebar.write(f"無法列出目錄: {e}")
+        
+        return None
+
     def load_prompts_from_toml():
         """載入 Prompts.toml"""
+        file_path = find_prompts_file()
+        if not file_path:
+            return None
+            
         try:
             import tomllib
-            with open("Prompts.toml", "rb") as f:
+            with open(file_path, "rb") as f:
                 return tomllib.load(f)
         except Exception as e:
-            st.sidebar.error(f"❌ 載入 Prompts.toml 失敗: {e}")
+            st.sidebar.error(f"❌ 讀取 Prompts.toml 失敗: {e}")
             return None
 
     def analyze_with_gemini(text, prompt_template, api_key):
@@ -455,14 +491,11 @@ with tabs[3]:
         try:
             import google.generativeai as genai
             
-            # 設定 API
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel('gemini-pro')
             
-            # 準備 Prompt
             prompt = prompt_template.format(text=text[:3000])
             
-            # 呼叫 API
             with st.spinner("🤖 正在呼叫 Gemini API..."):
                 response = model.generate_content(
                     prompt,
@@ -472,11 +505,9 @@ with tabs[3]:
                     }
                 )
             
-            # 清理回應
             result_text = response.text
             result_text = result_text.replace("```json", "").replace("```", "").strip()
             
-            # 解析 JSON
             data = json.loads(result_text)
             return True, data
             
@@ -493,11 +524,28 @@ with tabs[3]:
     # ============================================================
     st.markdown("## 🤖 AI 聖經分析控制台")
     
-    # 檢查設定
     api_key = os.getenv("GEMINI_API_KEY")
     
     if not PROMPTS:
-        st.error("❌ 無法載入 Prompts.toml，請確認檔案存在")
+        st.error("❌ 無法載入 Prompts.toml")
+        st.info("請確認 Prompts.toml 在專案根目錄，或改用內建 Prompts")
+        
+        # 提供內建備援
+        if st.button("使用內建 Prompts 繼續"):
+            PROMPTS = {
+                "default": {
+                    "chinese_verve": """請分析以下中文經文，產生 JSON 格式：
+{text}
+輸出格式：{"ref_no": "...", "words": [...], "phrases": [...], "grammar": [...]}""",
+                    "english_manuscript": """請分析以下英文講稿，產生 JSON 格式：
+{text}
+輸出格式：{"ref_no": "...", "words": [...], "phrases": [...], "grammar": [...]}""",
+                    "refine_sermon": """請精煉以下講稿，產生 JSON 格式：
+{text}
+輸出格式：{"ref_no": "...", "ref_article": "...", "words": [...], "phrases": [...], "grammar": [...]}"""
+                }
+            }
+            st.rerun()
         st.stop()
     
     if not api_key:
@@ -513,25 +561,30 @@ with tabs[3]:
             placeholder="貼上中文聖經經文或英文講稿..."
         )
         
-        # 自動偵測語言
         chinese_chars = sum(1 for c in input_text[:200] if '\u4e00' <= c <= '\u9fff')
         is_chinese = chinese_chars > 10
         
         if input_text:
             st.info(f"偵測到：{'中文' if is_chinese else '英文'}（{len(input_text)} 字）")
         
-        # 選擇 Prompt
         prompt_options = {
             "chinese_verve": "中文經文分析 (V1/V2)",
             "english_manuscript": "英文講稿分析 (Words/Phrases)",
             "refine_sermon": "英文講稿精煉 (完整版)"
         }
         
+        available_prompts = [p for p in prompt_options.keys() 
+                           if p in PROMPTS.get("default", {})]
+        
+        if not available_prompts:
+            st.error("Prompts.toml 中沒有可用的 Prompt")
+            st.stop()
+        
         selected_prompt = st.selectbox(
             "選擇分析模式",
-            options=list(prompt_options.keys()),
+            options=available_prompts,
             format_func=lambda x: prompt_options[x],
-            index=0 if is_chinese else 2
+            index=0 if is_chinese and "chinese_verve" in available_prompts else 0
         )
         
         analyze_btn = st.button("🤖 開始 AI 分析", type="primary")
@@ -540,34 +593,23 @@ with tabs[3]:
     # 3. 執行分析
     # ============================================================
     if analyze_btn and input_text:
-        # 取得 Prompt 模板
         prompt_template = PROMPTS.get("default", {}).get(selected_prompt, "")
         
         if not prompt_template:
             st.error(f"❌ 找不到 Prompt: {selected_prompt}")
             st.stop()
         
-        # 執行 AI 分析
         success, result = analyze_with_gemini(input_text, prompt_template, api_key)
         
         if success:
-            # 處理成功結果
             st.session_state["analysis_result"] = result
             st.session_state["show_result"] = True
-            
-            # 顯示成功
             st.success(f"✅ 分析完成！")
-            with st.expander("查看原始回應"):
-                st.json(result)
-            
             st.rerun()
-            
         else:
-            # 顯示詳細錯誤
             st.error("❌ AI 分析失敗")
-            st.code(result)  # 顯示錯誤詳情
+            st.code(result)
             
-            # 提供預設資料選項
             if st.button("使用預設資料繼續"):
                 fallback = create_fallback_data(input_text, selected_prompt)
                 st.session_state["analysis_result"] = fallback
@@ -586,10 +628,8 @@ with tabs[3]:
         if data.get("is_fallback"):
             st.warning("⚠️ 此為預設資料")
         
-        # 顯示基本資訊
         st.markdown(f"**Ref. No.:** `{data.get('ref_no', 'N/A')}`")
         
-        # 顯示資料表格
         col1, col2, col3 = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
         
         with col1:
