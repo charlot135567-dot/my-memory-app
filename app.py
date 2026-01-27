@@ -137,7 +137,6 @@ with tabs[1]:
     TODO_FILE = "todos.json"
     
     def load_todos():
-        """網頁載入時從檔案讀取待辦"""
         if os.path.exists(TODO_FILE):
             try:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
@@ -147,12 +146,10 @@ with tabs[1]:
         return {}
     
     def save_todos():
-        """每次改動立刻存檔（自動清理 60 天前舊資料）"""
         cutoff = str(dt.date.today() - dt.timedelta(days=60))
         keys_to_remove = [k for k in st.session_state.todo.keys() if k < cutoff]
         for k in keys_to_remove:
             del st.session_state.todo[k]
-        
         with open(TODO_FILE, "w", encoding="utf-8") as f:
             json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
@@ -167,7 +164,6 @@ with tabs[1]:
     if 'todo' not in st.session_state:
         st.session_state.todo = load_todos()
     
-    # 預先建立未來 60 天的空清單
     today = dt.date.today()
     for i in range(60):
         d = str(today + dt.timedelta(days=i))
@@ -184,132 +180,106 @@ with tabs[1]:
     def remove_emoji(text: str) -> str:
         return _EMOJI_RE.sub("", text).strip()
 
-    # ---------- 3. 事件來源（修正時間顯示） ----------
+    # ---------- 3. 事件來源 ----------
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if not isinstance(todos, list): continue
-            
-            # 依時間排序
-            todos_sorted = sorted(todos, key=lambda x: x.get('time', '00:00'))
-            
-            for idx, t in enumerate(todos_sorted):
-                time_str = t.get('time', '00:00:00')
-                
-                # [修改點 1] 標題不再包含時間字串，只保留 Emoji + 標題
-                # 時間將由月曆系統自動顯示在最前面
+            todos_sorted = sorted(todos, key=lambda x: x.get('time','00:00'))
+            for t in todos_sorted:
+                time_str = t.get('time','00:00:00')
                 display_title = f"{t.get('emoji','🔔')} {t['title']}".strip()
-                
-                # 組合 ISO 時間格式
                 start_iso = f"{d}T{time_str}"
-                
                 ev.append({
                     "title": display_title,
                     "start": start_iso,
                     "allDay": False,
-                    "backgroundColor": "#FFE4E1", 
-                    "borderColor": "#FFE4E1", 
+                    "backgroundColor": "#FFE4E1",
+                    "borderColor": "#FFE4E1",
                     "textColor": "#333",
                     "extendedProps": {
-                        "type": "todo", 
-                        "date": d, 
+                        "type":"todo",
+                        "date": d,
                         "title": t['title'],
                         "time": time_str
                     }
                 })
         return ev
 
-   # ---------- 4. 美化 CSS（讓格子自動長高 + 換行） ----------
-st.markdown(f"""
-<style>
-.fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
-.fc-day-sat .fc-daygrid-day-number,
-.fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
-.fc-event {{ cursor: pointer; border: none; }} 
+    # ---------- 4. 美化 CSS ----------
+    st.markdown(f"""
+    <style>
+    .fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
+    .fc-day-sat .fc-daygrid-day-number,
+    .fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
+    .fc-event {{ cursor: pointer; border: none; }} 
+    .fc-event-title {{
+        white-space: normal !important;
+        overflow: visible !important;
+        font-size: 14px;
+        line-height: 1.4;
+    }}
+    .fc-daygrid-event {{ white-space: normal !important; align-items: flex-start !important; }}
+    .fc-daygrid-day-frame {{ height: auto !important; }}
+    .fc-daygrid-day-events {{ height: auto !important; max-height: none !important; overflow: visible !important; }}
+    </style>
+    """, unsafe_allow_html=True)
 
-/* 允許文字換行 + 自動撐高格子 */
-.fc-event-title {{
-    white-space: normal !important; /* 允許換行 */
-    overflow: visible !important;   /* 顯示完整內容 */
-    font-size: 14px;
-    line-height: 1.4;
-}}
-.fc-daygrid-event {{
-    white-space: normal !important;
-    align-items: flex-start !important;
-}}
-.fc-daygrid-day-frame {{
-    height: auto !important;
-}}
-.fc-daygrid-day-events {{
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-}}
-</style>
-""", unsafe_allow_html=True)
+    # ---------- 5. 月曆本體 ----------
+    st.subheader("📅 月曆待辦")
+    with st.expander("展開 / 折疊月曆視窗", expanded=True):
+        calendar_events = build_events()
+        calendar_options = {
+            "headerToolbar":{"left":"prev,next today","center":"title","right":""},
+            "initialView":"dayGridMonth",
+            "height":"auto",
+            "dateClick": True,
+            "eventClick": True,
+            "eventDisplay":"block",
+            "eventTimeFormat":{"hour":"2-digit","minute":"2-digit","meridiem":False,"hour12":False}
+        }
+        state = calendar(events=calendar_events, options=calendar_options, key=f"emoji_cal_{st.session_state.cal_key}")
 
-# ---------- 5. 月曆本體 ----------
-calendar_events = build_events()
+        # 點擊事件 → 彈窗刪除
+        if state.get("eventClick"):
+            ext = state["eventClick"]["event"]["extendedProps"]
+            if ext.get("type") == "todo":
+                st.session_state.del_target = ext
+                st.session_state.show_del = True
+                st.rerun()
 
-calendar_options = {
-    "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-    "initialView": "dayGridMonth",
-    "height": "auto", # 月曆自動撐高
-    "dateClick": True,
-    "eventClick": True,
-    "eventDisplay": "block",
-    "eventTimeFormat": {
-        "hour": "2-digit",
-        "minute": "2-digit",
-        "meridiem": False,
-        "hour12": False
-    }
-}
+        # 點擊日期 → 選擇日期
+        if state.get("dateClick"):
+            new_date = state["dateClick"]["date"][:10]
+            if st.session_state.sel_date != new_date:
+                st.session_state.sel_date = new_date
+                st.rerun()
 
-state = calendar(
-    events=calendar_events,
-    options=calendar_options,
-    key=f"emoji_cal_{st.session_state.cal_key}"
-)
+    # ---------- 6. 刪除對話框 ----------
+    if st.session_state.get("show_del"):
+        t = st.session_state.del_target
+        st.warning(f"🗑️ 確定刪除待辦「{t.get('title','')}」？")
+        c1,c2 = st.columns([1,1])
+        with c1:
+            if st.button("確認刪除", key="confirm_del"):
+                d = t.get("date")
+                title_to_del = t.get("title")
+                time_to_del = t.get("time")
+                if d in st.session_state.todo:
+                    st.session_state.todo[d] = [item for item in st.session_state.todo[d]
+                                                 if not (item['title']==title_to_del and item.get('time')==time_to_del)]
+                    if not st.session_state.todo[d]: del st.session_state.todo[d]
+                save_todos()
+                st.session_state.show_del = False
+                st.session_state.cal_key += 1
+                st.success("✅ 已刪除！")
+                st.rerun()
+        with c2:
+            if st.button("取消", key="cancel_del"):
+                st.session_state.show_del = False
+                st.rerun()
 
-# ---------- 6. 點擊事件處理（彈窗刪除） ----------
-if state.get("eventClick"):
-    ext = state["eventClick"]["event"]["extendedProps"]
-    if ext.get("type") == "todo":
-        # 設置刪除目標並打開刪除彈窗
-        st.session_state.del_target = ext
-        st.session_state.show_del = True
-        st.rerun()
-
-# ---------- 7. 刪除對話框 ----------
-if st.session_state.get("show_del"):
-    t = st.session_state.del_target
-    st.warning(f"🗑️ 確定刪除待辦「{t.get('title','')}」？")
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        if st.button("確認刪除", key="confirm_del"):
-            d = t.get("date")
-            title_to_del = t.get("title")
-            time_to_del = t.get("time")
-            if d in st.session_state.todo:
-                st.session_state.todo[d] = [
-                    item for item in st.session_state.todo[d]
-                    if not (item['title']==title_to_del and item.get('time')==time_to_del)
-                ]
-                if not st.session_state.todo[d]: del st.session_state.todo[d]
-            save_todos()
-            st.session_state.show_del = False
-            st.session_state.cal_key += 1
-            st.success("✅ 已刪除！")
-            st.rerun()
-    with c2:
-        if st.button("取消", key="cancel_del"):
-            st.session_state.show_del = False
-            st.rerun()
-
-    # ---------- 8. 待辦列表（格式優化） ----------
-    # [修改點 3] 依照您的需求調整下方顯示格式：1/27 10:30 📕標題
+    # ---------- 7. 下方待辦列表（獨立渲染） ----------
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
@@ -317,31 +287,50 @@ if st.session_state.get("show_del"):
 
     st.markdown("##### 📋 詳細列表")
     has_items = False
-    
-    # 顯示選取日期及未來 2 天
     for i in range(3):
         dd = base_date + dt.timedelta(days=i)
         ds = str(dd)
-        
         if ds in st.session_state.todo and st.session_state.todo[ds]:
             has_items = True
-            # 格式化日期：1/27
             date_display = f"{dd.month}/{dd.day}"
-            
-            # 排序
-            sorted_items = sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00'))
-            
+            sorted_items = sorted(st.session_state.todo[ds], key=lambda x: x.get('time','00:00'))
             for t in sorted_items:
-                # 格式化時間：只取 HH:MM (例如 10:30)
-                time_raw = t.get('time', '00:00:00')
-                time_display = time_raw[:5] 
-                
-                # 組合字串
-                full_text = f"**{date_display} {time_display}** {t.get('emoji', '🔔')}{t['title']}"
+                time_display = t.get('time','00:00')[:5]
+                full_text = f"**{date_display} {time_display}** {t.get('emoji','🔔')}{t['title']}"
                 st.write(full_text)
-                
     if not has_items:
         st.caption("此期間尚無待辦事項")
+
+    # ---------- 8. 新增待辦 ----------
+    st.divider()
+    with st.expander("➕ 新增待辦", expanded=True):
+        ph_emo = "🔔"
+        with st.form("todo_form"):
+            try:
+                default_date = dt.datetime.strptime(st.session_state.sel_date,"%Y-%m-%d").date()
+            except:
+                default_date = dt.date.today()
+            c1,c2,c3 = st.columns([2,2,6])
+            with c1: d_input = st.date_input("日期", default_date, label_visibility="collapsed", key="todo_date")
+            with c2: tm_input = st.time_input("⏰ 時間", dt.time(9,0), label_visibility="collapsed", key="todo_time")
+            with c3: ttl_input = st.text_input("標題", placeholder=f"{ph_emo} Emoji＋待辦", label_visibility="collapsed", key="todo_ttl")
+            submitted = st.form_submit_button("💾 儲存", use_container_width=True)
+            if submitted:
+                if not ttl_input:
+                    st.error("請輸入標題")
+                else:
+                    emo_found = first_emoji(ttl_input) or ph_emo
+                    ttl_clean = remove_emoji(ttl_input)
+                    k = str(d_input)
+                    if k not in st.session_state.todo: st.session_state.todo[k] = []
+                    st.session_state.todo[k].append({
+                        "title": ttl_clean, "time": str(tm_input), "emoji": emo_found
+                    })
+                    save_todos()
+                    st.session_state.cal_key += 1
+                    st.success("✅ 已儲存！")
+                    st.rerun()
+
     
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
