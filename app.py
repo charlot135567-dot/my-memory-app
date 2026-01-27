@@ -139,12 +139,12 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 (精準修復：恢復日期選擇、修復 💟 功能、解決圖片閃爍)
+# TAB2 ─ 月曆待辦（整理版：移除 ✏️、恢復月曆折疊欄）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
 
-    # ---------- 0. 穩定持久化邏輯 ----------
+    # ---------- 0. 資料持久化 ----------
     TODO_FILE = "todos.json"
 
     def load_todos():
@@ -152,141 +152,148 @@ with tabs[1]:
             try:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except: pass
+            except:
+                pass
         return {}
 
     def save_todos():
         with open(TODO_FILE, "w", encoding="utf-8") as f:
             json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
-    # ---------- 1. 初始化 (嚴格保留所有功能 Key) ----------
-    if 'todo' not in st.session_state: st.session_state.todo = load_todos()
-    if 'sel_date' not in st.session_state: st.session_state.sel_date = str(dt.date.today())
-    if 'cal_key' not in st.session_state: st.session_state.cal_key = 0
-    if 'active_edit_id' not in st.session_state: st.session_state.active_edit_id = None
+    # ---------- 1. 初始化 ----------
+    if "todo" not in st.session_state:
+        st.session_state.todo = load_todos()
+    if "sel_date" not in st.session_state:
+        st.session_state.sel_date = str(dt.date.today())
+    if "cal_key" not in st.session_state:
+        st.session_state.cal_key = 0
+    if "active_id" not in st.session_state:
+        st.session_state.active_id = None
 
     # ---------- 2. Emoji 工具 ----------
-    _EMOJI_RE = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+', flags=re.UNICODE)
-    def first_emoji(text: str) -> str:
+    _EMOJI_RE = re.compile(
+        r"[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+",
+        flags=re.UNICODE,
+    )
+
+    def first_emoji(text):
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
 
-    # ---------- 3. CSS 美化 (含隱藏時間與 Snoopy 風格) ----------
-    st.markdown("""
-    <style>
-    .fc-toolbar-title { font-size: 24px !important; color: #5DADE2 !important; font-weight: bold; }
-    .fc-event-time { display: none !important; } 
-    .fc-event { border: none !important; border-radius: 5px !important; }
-    .stButton>button { border-radius: 12px; }
-    </style>
-    """, unsafe_allow_html=True)
+    # ---------- 3. CSS（隱藏時間、移除圓點） ----------
+    st.markdown(
+        """
+        <style>
+        .fc-event-time { display: none !important; }
+        .fc-daygrid-event-dot { display: none !important; }
+        .fc-event { border: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # ---------- 4. 月曆組件 (格內僅顯示 Emoji + 標題) ----------
+    # ---------- 4. 月曆事件 ----------
     def build_events():
-        ev = []
+        events = []
         for d, items in st.session_state.todo.items():
-            if isinstance(items, list):
-                for t in items:
-                    ev.append({
-                        "title": f"{t.get('emoji','📌')}{t['title']}",
-                        "start": f"{d}T{t.get('time','00:00:00')}",
-                        "backgroundColor": "#FFE4E1", "borderColor": "#FFB6C1", "textColor": "#333"
-                    })
-        return ev
+            for t in items:
+                events.append(
+                    {
+                        "title": f"{t.get('emoji','')} {t['title']}",
+                        "start": f"{d}T{t.get('time','00:00')}",
+                    }
+                )
+        return events
 
-    st.subheader("📅 聖經學習生活月曆")
-    
-    cal_options = {
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-        "initialView": "dayGridMonth",
-        "displayEventTime": False,
-        "selectable": True,
-        "height": 500
-    }
-    
-    state = calendar(events=build_events(), options=cal_options, key=f"cal_v1_{st.session_state.cal_key}")
+    # ---------- 5. 📅 月曆（折疊欄） ----------
+    with st.expander("📅 聖經學習生活月曆", expanded=True):
+        cal_options = {
+            "headerToolbar": {
+                "left": "prev,next",
+                "center": "title",
+                "right": "",
+            },
+            "initialView": "dayGridWeek",
+            "dayGridWeek": {"dayCount": 14},
+            "displayEventTime": False,
+            "height": 420,
+        }
 
-    if state.get("dateClick"):
-        st.session_state.sel_date = state["dateClick"]["date"][:10]
-        st.rerun()
+        state = calendar(
+            events=build_events(),
+            options=cal_options,
+            key=f"cal_{st.session_state.cal_key}",
+        )
 
-    # ---------- 5. 💟 功能與三日清單預覽 (修復 strptime 崩潰) ----------
+        if state.get("dateClick"):
+            st.session_state.sel_date = state["dateClick"]["date"][:10]
+            st.rerun()
+
+    # ---------- 6. 三日清單（💟 → 只剩 🗑️） ----------
     st.divider()
-    curr_date_str = st.session_state.sel_date
-    try:
-        # 防禦性檢查：確保是字串且格式正確
-        base_date = dt.datetime.strptime(str(curr_date_str), "%Y-%m-%d").date()
-    except:
-        base_date = dt.date.today()
-        st.session_state.sel_date = str(base_date)
+    base_date = dt.datetime.strptime(
+        st.session_state.sel_date, "%Y-%m-%d"
+    ).date()
 
     st.markdown(f"##### 📋 {st.session_state.sel_date} 起三日預覽")
 
     for offset in range(3):
-        d_obj = base_date + dt.timedelta(days=offset)
-        d_str = str(d_obj)
-        if d_str in st.session_state.todo and st.session_state.todo[d_str]:
-            for idx, item in enumerate(st.session_state.todo[d_str]):
-                item_id = f"{d_str}_{idx}"
-                col_h, col_t, col_a = st.columns([1, 7, 3])
-                
-                with col_h:
-                    if st.button("💟", key=f"h_{item_id}"):
-                        st.session_state.active_edit_id = item_id if st.session_state.active_edit_id != item_id else None
-                        st.rerun()
-                
-                with col_t:
-                    st.write(f"**{item['time'][:5]}** {item.get('emoji','')} {item['title']}")
-                
-                # 恢復 💟 點擊後的操作功能
-                if st.session_state.active_edit_id == item_id:
-                    with col_a:
-                        ce, cd = st.columns(2)
-                        if ce.button("✏️", key=f"e_{item_id}"):
-                            st.toast("💡 修改：請在下方表單輸入新內容後刪除此舊項")
-                        if cd.button("🗑️", key=f"d_{item_id}"):
-                            st.session_state.todo[d_str].pop(idx)
-                            save_todos()
-                            st.session_state.cal_key += 1
-                            st.session_state.active_edit_id = None
-                            st.rerun()
+        d = base_date + dt.timedelta(days=offset)
+        d_str = str(d)
 
-    # ---------- 6. 新增事項 (恢復日期選擇器 st.date_input) ----------
-    with st.expander("➕ 新增事項", expanded=True):
-        with st.form("new_todo_form", clear_on_submit=True):
-            col_d, col_tm = st.columns(2)
-            with col_d:
-                # 恢復日期選擇器，預設為選中日期
-                in_date = st.date_input("日期", base_date)
-            with col_tm:
-                in_time = st.time_input("時間", dt.time(9, 0))
-            
-            in_name = st.text_input("待辦事項名稱 (可包含 Emoji)")
-            
-            if st.form_submit_button("💾 儲存事項"):
-                if in_name:
-                    k = str(in_date)
-                    if k not in st.session_state.todo: st.session_state.todo[k] = []
-                    st.session_state.todo[k].append({
-                        "title": in_name, "time": str(in_time), "emoji": first_emoji(in_name) or "📌"
-                    })
-                    save_todos()
-                    st.session_state.cal_key += 1 
+        for idx, item in enumerate(st.session_state.todo.get(d_str, [])):
+            item_id = f"{d_str}_{idx}"
+
+            col_h, col_t, col_a = st.columns([1, 8, 2])
+
+            with col_h:
+                if st.button("💟", key=f"h_{item_id}"):
+                    st.session_state.active_id = (
+                        None
+                        if st.session_state.active_id == item_id
+                        else item_id
+                    )
                     st.rerun()
 
-    # ---------- 7. 史努比底部美化 (修復失效圖片) ----------
-    st.markdown("---")
-    st.markdown("""
-    <div style="display: flex; justify-content: center; align-items: center; gap: 30px;">
-        <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpndW1oNmtiaXp4ZzRndHByNnB4Z3B4Z3B4Z3B4Z3B4Z3B4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/6vIdl6fU4VAFXW6VpS/giphy.gif" width="75">
-        <div style="text-align: center; color: #5DADE2; font-family: 'Comic Sans MS';">
-            <b style="font-size: 18px;">Rest in the Word</b><br>
-            <small>Woodstock is cheering for you!</small>
-        </div>
-        <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2Y0NXR5Ynd3NXA5bmV4am04NTVreHByamZ3Nzh4eHh4eHh4eHh4eCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/vN8S6h7j5C6H3A2sQG/giphy.gif" width="50">
-    </div>
-    """, unsafe_allow_html=True)
-    
+            with col_t:
+                st.write(
+                    f"**{item['time'][:5]}** {item.get('emoji','')} {item['title']}"
+                )
+
+            if st.session_state.active_id == item_id:
+                with col_a:
+                    if st.button("🗑️", key=f"d_{item_id}"):
+                        st.session_state.todo[d_str].pop(idx)
+                        save_todos()
+                        st.session_state.cal_key += 1
+                        st.session_state.active_id = None
+                        st.rerun()
+
+    # ---------- 7. 新增事項 ----------
+    with st.expander("➕ 新增事項", expanded=True):
+        with st.form("new_todo", clear_on_submit=True):
+            col_d, col_t = st.columns(2)
+            with col_d:
+                in_date = st.date_input("日期", base_date)
+            with col_t:
+                in_time = st.time_input("時間", dt.time(9, 0))
+
+            title = st.text_input("待辦事項（可含 Emoji）")
+
+            if st.form_submit_button("💾 儲存"):
+                if title:
+                    k = str(in_date)
+                    st.session_state.todo.setdefault(k, []).append(
+                        {
+                            "title": title,
+                            "time": str(in_time),
+                            "emoji": first_emoji(title) or "📌",
+                        }
+                    )
+                    save_todos()
+                    st.session_state.cal_key += 1
+                    st.rerun()
+
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
 # ===================================================================
