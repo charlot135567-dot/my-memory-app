@@ -139,119 +139,107 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦（完整回歸 + 功能修復 + 史努比美化）
+# 4. TAB2 ─ 月曆待辦（修正 strptime 錯誤 + 史努比美化完整版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
 
-    # ---------- 0. 檔案持久化工具 (確保 Reboot 前能存檔) ----------
+    # ---------- 0. 檔案持久化工具 ----------
     TODO_FILE = "todos.json"
 
     def load_todos():
         if os.path.exists(TODO_FILE):
             try:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    return data if isinstance(data, dict) else {}
             except: pass
         return {}
 
     def save_todos():
-        # 自動清理舊資料
+        # 自動清理 60 天前的舊資料
         cutoff = str(dt.date.today() - dt.timedelta(days=60))
-        keys_to_remove = [k for k in st.session_state.todo.keys() if k < cutoff]
-        for k in keys_to_remove:
-            del st.session_state.todo[k]
-        # 寫入本地 (注意：Streamlit Cloud 重啟後此檔會消失，建議搭配 GitHub 備份)
+        st.session_state.todo = {k: v for k, v in st.session_state.todo.items() if k >= cutoff}
         with open(TODO_FILE, "w", encoding="utf-8") as f:
             json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
-    # ---------- 1. 初始化狀態 (保留原有的所有 Key) ----------
-    for key in ('cal_key','sel_date','show_del','del_target','active_edit_id'):
-        if key not in st.session_state:
-            st.session_state[key] = 0 if key=='cal_key' else False if key=='show_del' else {} if key=='del_target' else None
-    
+    # ---------- 1. 初始化狀態與防禦性設置 ----------
     if 'todo' not in st.session_state:
         st.session_state.todo = load_todos()
+    
+    # 修正重點：確保 sel_date 初始值為正確字串
+    if 'sel_date' not in st.session_state or not isinstance(st.session_state.sel_date, str):
+        st.session_state.sel_date = str(dt.date.today())
+    
+    for key in ('cal_key', 'show_del', 'del_target', 'active_edit_id'):
+        if key not in st.session_state:
+            st.session_state[key] = 0 if key=='cal_key' else False if key=='show_del' else {} if key=='del_target' else None
 
-    # ---------- 2. Emoji 工具 (全量保留) ----------
+    # ---------- 2. Emoji 工具 (全量恢復) ----------
     _EMOJI_RE = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+', flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
 
-    # ---------- 3. 事件來源 (移除格內時間顯示) ----------
+    # ---------- 3. 事件來源 (月曆格子：僅標題 + Emoji) ----------
     def build_events():
         ev = []
         for d, todos in st.session_state.todo.items():
             if not isinstance(todos, list): continue
             for t in todos:
                 ev.append({
-                    "title": f"{t.get('emoji','🔔')}{t['title']}",
+                    "title": f"{t.get('emoji','📌')}{t['title']}",
                     "start": f"{d}T{t.get('time','00:00:00')}",
                     "backgroundColor": "#FFE4E1", 
                     "borderColor": "#FFB6C1", 
                     "textColor": "#333",
-                    "extendedProps": t # 傳遞所有屬性供點擊使用
+                    "extendedProps": {"date": d, "title": t['title'], "time": t.get('time')}
                 })
         return ev
 
-    # ---------- 4. CSS 美化 (含月曆格子美化) ----------
+    # ---------- 4. CSS 美化 (強制隱藏格內時間) ----------
     st.markdown("""
     <style>
-    .fc-toolbar-title { font-size: 24px !important; color: #5DADE2 !important; font-weight: bold; }
-    .fc-daygrid-day-number { font-weight: bold; }
-    .fc-event { border-radius: 4px !important; border: none !important; }
-    /* 隱藏格子內的時間文字 */
-    .fc-event-time { display: none !important; } 
+    .fc-toolbar-title { font-size: 22px !important; color: #5DADE2 !important; font-weight: bold; }
+    .fc-event-time { display: none !important; } /* 隱藏時間 */
+    .fc-event-title { font-weight: 500 !important; font-size: 13px !important; }
+    .fc-daygrid-day-number { color: #555 !important; text-decoration: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
     # ---------- 5. 月曆組件 ----------
-    st.subheader("📅 我的計畫月曆")
-    calendar_options = {
+    st.subheader("📅 聖經學習生活月曆")
+    
+    cal_options = {
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
         "initialView": "dayGridMonth",
-        "displayEventTime": False, # <--- 關鍵修復 1: 隱藏格內時間
-        "height": "auto",
+        "displayEventTime": False, 
         "selectable": True,
-        "eventClick": True,
-        "dateClick": True,
+        "height": 480
     }
     
-    state = calendar(events=build_events(), options=calendar_options, key=f"emoji_cal_{st.session_state.cal_key}")
-
-    if state.get("eventClick"):
-        st.session_state.del_target = state["eventClick"]["event"]["extendedProps"]
-        st.session_state.show_del = True
-        st.rerun()
+    state = calendar(events=build_events(), options=cal_options, key=f"cal_{st.session_state.cal_key}")
 
     if state.get("dateClick"):
         st.session_state.sel_date = state["dateClick"]["date"][:10]
         st.rerun()
 
-    # ---------- 6. 刪除確認彈窗 (保留原功能) ----------
-    if st.session_state.show_del:
-        t = st.session_state.del_target
-        st.warning(f"🗑️ 確定刪除「{t.get('title','')}」嗎？")
-        c1, c2 = st.columns(2)
-        if c1.button("確認刪除", use_container_width=True):
-            # 刪除邏輯...
-            st.session_state.show_del = False
-            save_todos()
-            st.rerun()
-        if c2.button("取消", use_container_width=True):
-            st.session_state.show_del = False
-            st.rerun()
-
-    # ---------- 7. 詳細列表 (💟 + ✏️ + 🗑️ 功能修復) ----------
+    # ---------- 6. 詳細列表 (💟 開啟 ✏️/🗑️ 操作) ----------
     st.divider()
     curr_date = st.session_state.sel_date
-    st.markdown(f"##### 📋 {curr_date} 起三日預覽")
     
-    base_dt = dt.datetime.strptime(curr_date, "%Y-%m-%d").date()
+    # 修正 strptime 錯誤的安全解析
+    try:
+        base_dt = dt.datetime.strptime(curr_date, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        base_dt = dt.date.today()
+        st.session_state.sel_date = str(base_dt)
+
+    st.markdown(f"##### 📋 {curr_date} 起三日預覽")
+
     for offset in range(3):
         target_d = str(base_dt + dt.timedelta(days=offset))
-        if target_d in st.session_state.todo:
+        if target_d in st.session_state.todo and st.session_state.todo[target_d]:
             for idx, item in enumerate(st.session_state.todo[target_d]):
                 item_id = f"{target_d}_{idx}"
                 col_h, col_t, col_a = st.columns([1, 7, 3])
@@ -260,50 +248,48 @@ with tabs[1]:
                     if st.button("💟", key=f"h_{item_id}"):
                         st.session_state.active_edit_id = item_id if st.session_state.active_edit_id != item_id else None
                         st.rerun()
-                
                 with col_t:
                     st.write(f"**{item['time'][:5]}** {item.get('emoji','')} {item['title']}")
                 
-                # <--- 關鍵修復 2: 點擊後顯示的編輯與刪除鈕 --->
                 if st.session_state.active_edit_id == item_id:
                     with col_a:
-                        ce, cd = st.columns(2)
-                        if ce.button("✏️", key=f"e_{item_id}"):
-                            st.toast("請至下方表單重新輸入以修改項目")
-                        if cd.button("🗑️", key=f"d_{item_id}"):
+                        c_edit, c_del = st.columns(2)
+                        if c_edit.button("✏️", key=f"ed_{item_id}"):
+                            st.toast("修改請在下方表單輸入新內容後刪除舊項")
+                        if c_del.button("🗑️", key=f"de_{item_id}"):
                             st.session_state.todo[target_d].pop(idx)
                             save_todos()
                             st.session_state.cal_key += 1
                             st.rerun()
 
-    # ---------- 8. 新增表單 ----------
-    with st.expander("➕ 新增今日待辦", expanded=True):
+    # ---------- 7. 新增待辦表單 ----------
+    with st.expander("➕ 新增事項"):
         with st.form("add_form", clear_on_submit=True):
-            t_name = st.text_input("事項標題")
-            t_time = st.time_input("預定時間", dt.time(9, 0))
-            if st.form_submit_button("儲存項目"):
+            t_name = st.text_input("事項名稱 (建議手動輸入一個 Emoji)")
+            t_time = st.time_input("時間", dt.time(9, 0))
+            if st.form_submit_button("💾 儲存項目"):
                 if t_name:
-                    if curr_date not in st.session_state.todo: st.session_state.todo[curr_date] = []
-                    st.session_state.todo[curr_date].append({
+                    k = st.session_state.sel_date
+                    if k not in st.session_state.todo: st.session_state.todo[k] = []
+                    st.session_state.todo[k].append({
                         "title": t_name, "time": str(t_time), "emoji": first_emoji(t_name) or "📌"
                     })
                     save_todos()
                     st.session_state.cal_key += 1
                     st.rerun()
 
-    # ---------- 9. 底部史努比與小鳥美化 ----------
+    # ---------- 8. 底部史努比與小鳥美化 ----------
     st.markdown("---")
     st.markdown("""
-    <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
-        <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpndW1oNmtiaXp4ZzRndHByNnB4Z3B4Z3B4Z3B4Z3B4Z3B4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/6vIdl6fU4VAFXW6VpS/giphy.gif" width="80">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 30px;">
+        <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpndW1oNmtiaXp4ZzRndHByNnB4Z3B4Z3B4Z3B4Z3B4Z3B4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/6vIdl6fU4VAFXW6VpS/giphy.gif" width="70">
         <div style="text-align: center; color: #5DADE2; font-family: 'Comic Sans MS';">
-            <b>Good luck with your Bible study!</b><br>
-            <small>Woodstock is cheering for you!</small>
+            <b>Rest in the Word</b><br>
+            <small>Snoopy is reading with you...</small>
         </div>
-        <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2Y0NXR5Ynd3NXA5bmV4am04NTVreHByamZ3Nzh4eHh4eHh4eHh4eCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/vN8S6h7j5C6H3A2sQG/giphy.gif" width="50">
+        <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2Y0NXR5Ynd3NXA5bmV4am04NTVreHByamZ3Nzh4eHh4eHh4eHh4eCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/vN8S6h7j5C6H3A2sQG/giphy.gif" width="40">
     </div>
     """, unsafe_allow_html=True)
-
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
 # ===================================================================
