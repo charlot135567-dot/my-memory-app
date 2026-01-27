@@ -307,109 +307,180 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 聖經分析控制台（修正版）
+# 6. TAB4 ─ AI 控制台（零循環 + 永久存檔 + 輸入生效）
 # ===================================================================
 with tabs[3]:
-    import json
-    import datetime as dt
-    import pandas as pd
-    import streamlit as st
-    import os
-    import re
+    import os, subprocess, sys, pandas as pd, io, json
 
-    # 1. 定義內部函數
-    def clean_json_response(text):
-        text = re.sub(r'```json\s*', '', text)
-        text = re.sub(r'```\s*', '', text)
-        text = text.strip()
-        start_idx = text.find('{')
-        if start_idx >= 0: text = text[start_idx:]
-        end_idx = text.rfind('}')
-        if end_idx >= 0: text = text[:end_idx+1]
-        return text
-
-    def analyze_with_gemini(text, prompt_template, api_key):
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        candidate_models = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
-        last_error = ""
-        for model_name in candidate_models:
-            try:
-                model = genai.GenerativeModel(model_name)
-                full_prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
-                with st.spinner(f"🤖 正在嘗試: {model_name}..."):
-                    response = model.generate_content(full_prompt)
-                    if response and response.text:
-                        return True, json.loads(clean_json_response(response.text))
-            except Exception as e:
-                last_error = str(e)
-                continue
-        return False, f"失敗: {last_error}"
-
-    # 2. UI 介面
-    st.markdown("## 🤖 AI 聖經分析控制台")
+    # ---------- 0. 資料庫持久化工具 ----------
+    SENTENCES_FILE = "sentences.json"
     
-    if "analysis_result" not in st.session_state:
-        st.session_state.analysis_result = None
-    if "show_result" not in st.session_state:
-        st.session_state.show_result = False
+    def load_sentences():
+        """載入資料庫"""
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    
+    def save_sentences():
+        """存檔資料庫"""
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.sentences, f, ensure_ascii=False, indent=2)
 
-    # 取得金鑰
-    api_key_val = os.getenv("GEMINI_API_KEY") or (st.secrets["GEMINI_API_KEY"] if "GEMINI_API_KEY" in st.secrets else "")
+    # ---------- 1. 初值與自動讀檔 ----------
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
 
-    if not api_key_val:
-        st.error("❌ 找不到 API KEY，請檢查環境變數")
-    else:
-        # 輸入區塊
-        with st.expander("📚 輸入分析內容", expanded=not st.session_state.show_result):
-            input_text = st.text_area("請貼上經文或講稿:", height=200, key="tab4_main_input")
-            
-            mode = st.selectbox("模式", ["chinese_verse", "english_manuscript", "refine_sermon"])
-            
-            analyze_btn = st.button("🚀 開始分析", type="primary")  # ← 定義 analyze_btn
-            
-            if analyze_btn and input_text:
-                success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"][mode], api_key_val)
-                if success:
-                    st.session_state.analysis_result = result
-                    st.session_state.show_result = True
-                    st.rerun()
-                else:
-                    st.error(result)
+    API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("KIMI_API_KEY")
+    if not API_KEY:
+        st.warning("⚠️ 尚未設定 GEMINI_API_KEY 或 KIMI_API_KEY，請至 Streamlit-Secrets 加入金鑰後重新啟動。")
+        st.stop()
 
-        # 顯示結果區
-        if st.session_state.show_result and st.session_state.analysis_result:
-            res = st.session_state.analysis_result
-            st.divider()
-            st.markdown(f"### 📋 分析結果: {res.get('ref_no', 'N/A')}")
-            
-            if "ref_article" in res:
-                st.info(res["ref_article"])
-            
-            r_tabs = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
-            
-            with r_tabs[0]:
-                words = res.get("words", [])
-                if words:
-                    st.dataframe(pd.DataFrame(words), use_container_width=True)
-                else:
-                    st.info("無單字資料")
-            
-            with r_tabs[1]:
-                phrases = res.get("phrases", [])
-                if phrases:
-                    st.dataframe(pd.DataFrame(phrases), use_container_width=True)
-                else:
-                    st.info("無片語資料")
-            
-            with r_tabs[2]:
-                grammar = res.get("grammar", [])
-                if grammar:
-                    st.table(pd.DataFrame(grammar))
-                else:
-                    st.info("無文法資料")
-            
-            if st.button("🗑️ 清除結果"):
-                st.session_state.show_result = False
-                st.session_state.analysis_result = None
-                st.rerun()
+    with st.expander("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用", expanded=True):
+        input_text = st.text_area("", height=300, key="input_text")
+
+        # -------------- 布局：操作 + 輸入框 + AI 分析鍵（獨立） + 巨量刪除靠右 --------------
+        col1, col2, col3, col4 = st.columns([2.5, 3.5, 2, 2])
+        
+        with col1:
+            search_type = st.selectbox("操作", ["AI 分析", "Ref. 刪除", "關鍵字刪除"])
+        
+        with col2:
+            query_box = None
+            if search_type == "Ref. 刪除":
+                query_box = st.text_input("輸入 Ref.（例：2Ti 3:10）", key="ref_del")
+            elif search_type == "關鍵字刪除":
+                query_box = st.text_input("輸入關鍵字", key="kw_del")
+            else:
+                st.empty()  # 保持高度一致
+        
+        with col3:
+            # AI 分析鍵：獨立運作
+            if st.button("🤖 AI 分析", type="primary", key="ai_analyze_btn"):
+                if not input_text:
+                    st.error("請先貼經文")
+                    st.stop()
+                if search_type != "AI 分析":
+                    st.warning("請先選擇「AI 分析」操作")
+                    st.stop()
+                with st.spinner("AI 分析中，約 10 秒…"):
+                    try:
+                        subprocess.run([sys.executable, "analyze_to_excel.py", "--file", "temp_input.txt"],
+                                       check=True, timeout=30)
+                        with open("temp_result.json", "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        save_analysis_result(data, input_text)
+                        st.session_state["analysis"] = data
+                        
+                        # 自動存入資料庫（sentences）
+                        ref_no = data.get("ref_no", "")
+                        st.session_state.sentences[ref_no] = {
+                            "ref": ref_no,
+                            "en": data.get("ref_article", ""),
+                            "zh": "",
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
+                        save_sentences()  # 存檔
+                        
+                        st.success("分析完成！已存入資料庫")
+                        current_count = len(st.session_state.get("analysis_history", []))
+                        if current_count >= 800:
+                            st.warning("🔔 分析紀錄已達 800 筆，建議使用「壓縮舊紀錄」功能，避免瀏覽器卡頓！")
+                        if st.checkbox("分析完自動展開", value=True):
+                            st.session_state["show_result"] = True
+                    except Exception as e:
+                        st.error(f"分析過程錯誤：{e}")
+        
+        with col4:
+            st.write("")  # 對齊留白
+            # 巨量刪除鍵：靠右對齊
+            if search_type in ["Ref. 刪除", "關鍵字刪除"]:
+                if st.button("🗑️ 巨量刪除", type="primary", key="bulk_delete_btn"):
+                    if query_box is None or not query_box.strip():
+                        st.error("請先輸入刪除條件")
+                        st.stop()
+                    hits = []
+                    for d, v in st.session_state.sentences.items():
+                        txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
+                        if search_type == "Ref. 刪除" and query_box.lower() in v.get('ref', '').lower():
+                            hits.append((d, v))
+                        elif search_type == "關鍵字刪除" and query_box.lower() in txt:
+                            hits.append((d, v))
+                    if hits:
+                        st.write(f"共 {len(hits)} 筆（含聖經經節）")
+                        selected_keys = st.multiselect("勾選要刪除的項目", [d for d, _ in hits])
+                        if st.button("確認刪除", type="secondary"):
+                            for k in selected_keys:
+                                st.session_state.sentences.pop(k, None)
+                            save_sentences()  # 刪除後存檔
+                            st.success(f"已刪除 {len(selected_keys)} 筆！")
+                    else:
+                        st.info("無符合條件")
+
+    # ---------- 2. 結果呈現 ----------
+    if st.session_state.get("show_result", False):
+        data = st.session_state["analysis"]
+        st.session_state["ref_no"] = data.get("ref_no", "")
+        st.session_state["ref_article"] = data.get("ref_article", "")
+        st.markdown(f"**Ref. No.** `{st.session_state['ref_no']}`")
+        c_jump, c_copy = st.columns(2)
+        with c_jump:
+            if st.button("📄 檢視原文"):
+                st.session_state["show_article"] = True
+        with c_copy:
+            ref_no = st.session_state.get("ref_no", "")
+            if ref_no:
+                st.code(ref_no)
+            else:
+                st.text("尚無 Ref.")
+
+        if st.session_state.get("show_article", False):
+            with st.expander("📘 中英精煉文章", expanded=True):
+                st.markdown(st.session_state["ref_article"])
+
+        col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
+        with col_w:
+            if data.get("words"):
+                df = pd.DataFrame(data["words"])
+                df.insert(0, "Ref.", data.get("ref_no", ""))
+                df["🔍"] = "🔍"
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("本次無單字分析")
+        with col_p:
+            if data.get("phrases"):
+                df = pd.DataFrame(data["phrases"])
+                df.insert(0, "Ref.", data.get("ref_no", ""))
+                df["🔍"] = "🔍"
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("本次無片語分析")
+        with col_g:
+            if data.get("grammar"):
+                df = pd.DataFrame(data["grammar"])
+                df.insert(0, "Ref.", data.get("ref_no", ""))
+                df["🔍"] = "🔍"
+                st.table(df)
+            else:
+                st.info("本次無文法點")
+
+    # ---------- 3. 容量管理 ----------
+    with st.expander("⚙️ 容量管理", expanded=True):
+        max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
+        if st.button("✂️ 壓縮舊紀錄"):
+            hist = st.session_state.get("analysis_history", [])
+            if len(hist) > max_keep:
+                st.session_state.analysis_history = hist[-max_keep:]
+                st.success(f"已壓縮至最近 {max_keep} 筆！")
+            else:
+                st.info("未達壓縮門檻")
+
+    # ---------- 4. 匯出 ----------
+    if st.button("📋 匯出含回溯欄位"):
+        export = []
+        for k, v in st.session_state.sentences.items():
+            export.append(f"{k}\t{v.get('ref', '')}\t{v.get('en', '')}\t{v.get('zh', '')}")
+        st.code("\n".join(export), language="text")
