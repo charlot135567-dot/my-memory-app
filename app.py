@@ -279,57 +279,48 @@ with tabs[1]:
                 st.session_state.show_del = False
                 st.rerun()
 
-    # ---------- 7. 下方列表（完整資訊，含💟 + 日期 + 時間 + 文字 + 編輯刪除按鈕） ----------
-    try:
-        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
-    except:
-        base_date = dt.date.today()
-    st.markdown("##### 📋 詳細列表")
-    has_items = False
-    for i_day in range(3):
-        dd = base_date + dt.timedelta(days=i_day)
-        ds = str(dd)
-        if ds in st.session_state.todo and st.session_state.todo[ds]:
-            has_items = True
-            sorted_items = sorted(st.session_state.todo[ds], key=lambda x:x.get('time','00:00'))
-            for i, t in enumerate(sorted_items):
-                time_display = t.get('time','00:00')[:5]
-                # 內容 + 按鈕 row
-                with st.container():
-                    row_col, btn_col = st.columns([9,1], vertical_alignment="top")
-                    with row_col:
-                        st.markdown(
-                            f"<div style='font-size:16px; line-height:1.4'>💟{dd.month}/{dd.day} {time_display} {t.get('emoji','🔔')}{t['title']}</div>",
-                            unsafe_allow_html=True,
-                        )
-                    with btn_col:
-                        b1, b2 = st.columns(2)
-                        with b1:
-                            if st.button("✏️", key=f"edit_{ds}_{i}"):
-                                t['editing'] = True
-                                st.session_state.editing_index = (ds, i)
-                                st.rerun()
-                        with b2:
-                            if st.button("🗑️", key=f"del_{ds}_{i}"):
-                                st.session_state.todo[ds].pop(i)
-                                st.session_state.cal_key += 1
-                                save_todos()
-                                st.rerun()
+# ---------- 7. 下方列表（帶 💟 點擊顯示編輯/刪除） ----------
+try:
+    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+except:
+    base_date = dt.date.today()
 
-                    # 編輯狀態
-                    if t.get("editing"):
-                        edit_col, save_col = st.columns([9,1], vertical_alignment="top")
-                        with edit_col:
-                            edited = st.text_input("", value=t['title'], key=f"edit_input_{ds}_{i}")
-                        with save_col:
-                            if st.button("儲存", key=f"save_{ds}_{i}"):
-                                t['title'] = edited
-                                t['editing'] = False
-                                st.session_state.cal_key += 1
-                                save_todos()
+st.markdown("##### 📋 詳細列表")
+has_items = False
+
+for i, (dd_offset) in enumerate(range(3)):
+    dd = base_date + dt.timedelta(days=dd_offset)
+    ds = str(dd)
+    if ds in st.session_state.todo and st.session_state.todo[ds]:
+        has_items = True
+        date_display = f"{dd.month}/{dd.day}"
+        sorted_items = sorted(st.session_state.todo[ds], key=lambda x: x.get('time', '00:00'))
+
+        for j, t in enumerate(sorted_items):
+            time_display = t.get('time','00:00')[:5]
+            
+            # Container 讓每行事件分開
+            with st.container():
+                # 日期 + 💟 按鈕 (最小距離)
+                c_date, c_heart, c_space = st.columns([1, 1, 8], gap="small")
+                with c_date:
+                    st.markdown(f"<span style='font-size:12px; color:#666'>{date_display}</span>", unsafe_allow_html=True)
+                with c_heart:
+                    show_buttons = st.checkbox("💟", key=f"heart_{ds}_{j}", value=False)
+                # 文字 + 編輯/刪除按鈕
+                text_col, btn_col = st.columns([9, 2], gap="small", vertical_alignment="top")
+                with text_col:
+                    st.markdown(f"<div style='font-size:16px; line-height:1.4'>{t.get('emoji','🔔')}{t['title']} ({time_display})</div>", unsafe_allow_html=True)
+                with btn_col:
+                    if show_buttons:
+                        btn_edit, btn_del = st.columns([1,1], gap="small")
+                        with btn_edit:
+                            if st.button("✏️", key=f"edit_{ds}_{j}"):
+                                t["editing"] = True
+                        with btn_del:
+                            if st.button("🗑️", key=f"del_{ds}_{j}"):
+                                st.session_state.todo[ds].pop(j)
                                 st.rerun()
-    if not has_items:
-        st.caption("此期間尚無待辦事項")
 
     # ---------- 8. 新增待辦 ----------
     st.divider()
@@ -502,7 +493,7 @@ with tabs[3]:
             genai.configure(api_key=api_key)
             
             # 建立模型
-            model = genai.GenerativeModel('gemini-1.5-flash')  # 或 'gemini-1.5-pro'
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             
             # 🔧 修正：用 replace 而不是 format，避免 {} 衝突
             prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
