@@ -311,79 +311,64 @@ with tabs[2]:
 # ===================================================================
 with tabs[3]:
     import json
+    import datetime as dt
     import pandas as pd
     import streamlit as st
     import os
     import re
-    import google.generativeai as genai
 
-    # 【核心修正 1】直接在此定義 PROMPTS，確保 Scope 絕對正確
-    BUILTIN_PROMPTS = {
-        "default": {
-            "chinese_verve": """你是一個專業的聖經學者與語言學家。請分析以下經文，並以 JSON 格式回傳。
-            必須包含: ref_no (經卷章節), ref_article (英文精煉稿), ref_article_zh (中文翻譯), 
-            words (單字列表，含中英對照例句), phrases (片語列表，含例句), grammar (文法要點)。
-            輸入內容: [[INPUT_TEXT]]""",
-            
-            "english_manuscript": """You are an English language expert. Analyze this sermon manuscript for advanced vocabulary and phrases.
-            Return a JSON with: ref_no, ref_article (refined version), words (with Chinese definitions and examples), phrases, grammar.
-            Input: [[INPUT_TEXT]]""",
-            
-            "refine_sermon": """Refine this sermon manuscript into high-level academic English. 
-            Return a JSON containing: ref_no, ref_article (the refined text), ref_article_zh (Chinese translation), words, phrases, grammar.
-            Input: [[INPUT_TEXT]]"""
-        }
-    }
-
-    # --- 1. 工具函數 (分析與清理) ---
+    # 1. 定義內部函數
     def clean_json_response(text):
         text = re.sub(r'```json\s*', '', text)
         text = re.sub(r'```\s*', '', text)
         text = text.strip()
         start_idx = text.find('{')
+        if start_idx >= 0: text = text[start_idx:]
         end_idx = text.rfind('}')
-        if start_idx >= 0 and end_idx >= 0:
-            return text[start_idx:end_idx+1]
+        if end_idx >= 0: text = text[:end_idx+1]
         return text
 
     def analyze_with_gemini(text, prompt_template, api_key):
+        import google.generativeai as genai
         genai.configure(api_key=api_key)
         candidate_models = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
         last_error = ""
         for model_name in candidate_models:
             try:
                 model = genai.GenerativeModel(model_name)
-                full_prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:4000])
-                with st.spinner(f"🤖 AI 分析中 ({model_name})..."):
+                full_prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
+                with st.spinner(f"🤖 正在嘗試: {model_name}..."):
                     response = model.generate_content(full_prompt)
                     if response and response.text:
                         return True, json.loads(clean_json_response(response.text))
             except Exception as e:
                 last_error = str(e)
                 continue
-        return False, f"API 失敗: {last_error}"
+        return False, f"失敗: {last_error}"
 
-    # --- 2. UI 狀態 ---
+    # 2. UI 介面
+    st.markdown("## 🤖 AI 聖經分析控制台")
+    
     if "analysis_result" not in st.session_state:
         st.session_state.analysis_result = None
     if "show_result" not in st.session_state:
         st.session_state.show_result = False
 
-    st.markdown("## 🤖 AI 聖經深度分析")
-
+    # 取得金鑰
     api_key_val = os.getenv("GEMINI_API_KEY") or (st.secrets["GEMINI_API_KEY"] if "GEMINI_API_KEY" in st.secrets else "")
 
     if not api_key_val:
-        st.error("❌ 缺少 API Key")
+        st.error("❌ 找不到 API KEY，請檢查環境變數")
     else:
-        # --- 3. 輸入與觸發 (封裝在 Expander 內避免 NameError) ---
-        with st.expander("📝 寫作分析輸入", expanded=not st.session_state.show_result):
-            input_text = st.text_area("內容:", height=200, key="tab4_input")
-            mode = st.selectbox("模式:", list(BUILTIN_PROMPTS["default"].keys()))
-            analyze_btn = st.button("🚀 開始分析", type="primary")
-
+        # 輸入區塊
+        with st.expander("📚 輸入分析內容", expanded=not st.session_state.show_result):
+            input_text = st.text_area("請貼上經文或講稿:", height=200, key="tab4_main_input")
+            
+            mode = st.selectbox("模式", ["chinese_verse", "english_manuscript", "refine_sermon"])
+            
+            analyze_btn = st.button("🚀 開始分析", type="primary")  # ← 定義 analyze_btn
+            
             if analyze_btn and input_text:
-                # 這裡的 BUILTIN_PROMPTS 一定找得到，因為定義就在上面
                 success, result = analyze_with_gemini(input_text, BUILTIN_PROMPTS["default"][mode], api_key_val)
                 if success:
                     st.session_state.analysis_result = result
@@ -392,11 +377,38 @@ with tabs[3]:
                 else:
                     st.error(result)
 
-        # --- 4. 結果顯示 (略，與之前相同) ---
+        # 顯示結果區
         if st.session_state.show_result and st.session_state.analysis_result:
-            # ... 您的數據顯示邏輯 ...
-            st.success("分析成功，請見下方報告")
-            st.write(st.session_state.analysis_result)
+            res = st.session_state.analysis_result
+            st.divider()
+            st.markdown(f"### 📋 分析結果: {res.get('ref_no', 'N/A')}")
+            
+            if "ref_article" in res:
+                st.info(res["ref_article"])
+            
+            r_tabs = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
+            
+            with r_tabs[0]:
+                words = res.get("words", [])
+                if words:
+                    st.dataframe(pd.DataFrame(words), use_container_width=True)
+                else:
+                    st.info("無單字資料")
+            
+            with r_tabs[1]:
+                phrases = res.get("phrases", [])
+                if phrases:
+                    st.dataframe(pd.DataFrame(phrases), use_container_width=True)
+                else:
+                    st.info("無片語資料")
+            
+            with r_tabs[2]:
+                grammar = res.get("grammar", [])
+                if grammar:
+                    st.table(pd.DataFrame(grammar))
+                else:
+                    st.info("無文法資料")
+            
             if st.button("🗑️ 清除結果"):
                 st.session_state.show_result = False
                 st.session_state.analysis_result = None
