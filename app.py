@@ -416,7 +416,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（路徑修正版）
+# 5. TAB4 ─ AI 聖經分析控制台（內建 Prompts 版）
 # ===================================================================
 with tabs[3]:
     import json
@@ -427,7 +427,79 @@ with tabs[3]:
     import sys
 
     # ============================================================
-    # 0. 輔助函數（先定義）
+    # 0. 內建 Prompts（不再依賴外部檔案）
+    # ============================================================
+    BUILTIN_PROMPTS = {
+        "default": {
+            "chinese_verve": """你是一位專業的聖經語言學家。請針對以下中文聖經經文，產生結構化學習資料。
+
+經文：{text}
+
+請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
+
+{
+  "ref_no": "聖經縮寫+章節（例：2Ti 4:17-18）",
+  "ref_article": "英文經文（ESV版本）",
+  "words": [
+    {
+      "Vocab": "英文單字",
+      "Syn_Ant": "同義/反義（中英）",
+      "Example": "經文中的例句",
+      "口語訳": "日文翻譯",
+      "KRF": "韓文翻譯",
+      "THSV11": "泰文翻譯"
+    }
+  ],
+  "phrases": [
+    {
+      "Phrase": "英文片語",
+      "Syn_Ant": "同義/反義（中英）",
+      "Example": "經文中的例句",
+      "口語訳": "日文翻譯",
+      "KRF": "韓文翻譯",
+      "THSV11": "泰文翻譯"
+    }
+  ],
+  "grammar": [
+    {
+      "Rule": "文法規則名稱",
+      "Example": "原文例句",
+      "解析": "中文文法解析",
+      "補齊句": "補充完整句子",
+      "應用例": "中英對照應用例句"
+    }
+  ]
+}""",
+
+            "english_manuscript": """請針對以下英文講稿產生三個 JSON Array：
+1) words：高階單字 + 中英日韓泰對照 + 例句；
+2) phrases：高階片語 + 同上；
+3) grammar：重要文法點 + 解析 + 應用例句。
+輸出純 JSON，勿加 Markdown 程式碼框。
+講稿：{text}""",
+
+            "refine_sermon": """角色：你是一位精通語言學與聖經解經的教材編輯。
+目標：將「口語講道逐字稿」轉化為「精煉的雙語聖經學習教材」。
+
+請針對以下講稿，產出結構化學習數據：
+
+{text}
+
+請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
+
+{
+  "ref_no": "講稿編號（日期+序號）",
+  "ref_article": "純英文精煉稿（Outline 1-5）",
+  "ref_article_zh": "中英夾雜講章",
+  "words": [...],
+  "phrases": [...],
+  "grammar": [...]
+}"""
+        }
+    }
+
+    # ============================================================
+    # 1. 輔助函數
     # ============================================================
     def create_fallback_data(text, prompt_type):
         """產生預設資料"""
@@ -435,59 +507,20 @@ with tabs[3]:
             "ref_no": f"FB{dt.datetime.now().strftime('%Y%m%d%H%M')}",
             "ref_article": text[:200],
             "is_fallback": True,
-            "words": [{"Vocab": "becoming", "Example": "Fine speech is not becoming to a fool.", "口語訳": "愚か者にはふさわしくない"}],
-            "phrases": [{"Phrase": "fine speech", "Example": "Fine speech is not becoming to a fool."}],
-            "grammar": [{"Rule": "becoming to + N", "解析": "相稱義形容詞片語"}]
+            "words": [
+                {"Vocab": "becoming", "Syn_Ant": "fitting", "Example": "Fine speech is not becoming to a fool.", "口語訳": "愚か者にはふさわしくない", "KRF": "어울리지 않는다", "THSV11": "ไม่เหมาะสม"},
+                {"Vocab": "rescue", "Syn_Ant": "save", "Example": "The Lord will rescue me.", "口語訳": "救い出す", "KRF": "구출하다", "THSV11": "ช่วยให้พ้น"}
+            ],
+            "phrases": [
+                {"Phrase": "fine speech", "Syn_Ant": "eloquent words", "Example": "Fine speech is not becoming to a fool.", "口語訳": "美辞麗句", "KRF": "아름다운 말", "THSV11": "วาจางาม"}
+            ],
+            "grammar": [
+                {"Rule": "becoming to + N", "Example": "Fine speech is not becoming to a fool.", "解析": "『相稱』義形容詞片語", "補齊句": "Honesty is becoming to a leader.", "應用例": "Humility is becoming to us."}
+            ]
         }
 
-    def find_prompts_file():
-        """尋找 Prompts.toml（嘗試多個路徑）"""
-        possible_paths = [
-            "Prompts.toml",  # 目前目錄
-            "./Prompts.toml",
-            "../Prompts.toml",
-            "/mount/src/Prompts.toml",  # Streamlit Cloud 常見路徑
-            "/app/Prompts.toml",
-        ]
-        
-        # 也嘗試從腳本位置找
-        try:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            possible_paths.insert(0, os.path.join(script_dir, "Prompts.toml"))
-        except:
-            pass
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                st.sidebar.success(f"✅ 找到 Prompts.toml: {path}")
-                return path
-        
-        # 找不到，列出目前目錄內容
-        st.sidebar.error("❌ 找不到 Prompts.toml")
-        try:
-            st.sidebar.write("目前目錄內容:")
-            st.sidebar.code(str(os.listdir('.')))
-        except Exception as e:
-            st.sidebar.write(f"無法列出目錄: {e}")
-        
-        return None
-
-    def load_prompts_from_toml():
-        """載入 Prompts.toml"""
-        file_path = find_prompts_file()
-        if not file_path:
-            return None
-            
-        try:
-            import tomllib
-            with open(file_path, "rb") as f:
-                return tomllib.load(f)
-        except Exception as e:
-            st.sidebar.error(f"❌ 讀取 Prompts.toml 失敗: {e}")
-            return None
-
     def analyze_with_gemini(text, prompt_template, api_key):
-        """呼叫 Gemini API，回傳 (成功與否, 結果或錯誤訊息)"""
+        """呼叫 Gemini API"""
         try:
             import google.generativeai as genai
             
@@ -515,38 +548,11 @@ with tabs[3]:
             return False, str(e)
 
     # ============================================================
-    # 1. 載入 Prompts
-    # ============================================================
-    PROMPTS = load_prompts_from_toml()
-
-    # ============================================================
     # 2. UI 介面
     # ============================================================
     st.markdown("## 🤖 AI 聖經分析控制台")
     
     api_key = os.getenv("GEMINI_API_KEY")
-    
-    if not PROMPTS:
-        st.error("❌ 無法載入 Prompts.toml")
-        st.info("請確認 Prompts.toml 在專案根目錄，或改用內建 Prompts")
-        
-        # 提供內建備援
-        if st.button("使用內建 Prompts 繼續"):
-            PROMPTS = {
-                "default": {
-                    "chinese_verve": """請分析以下中文經文，產生 JSON 格式：
-{text}
-輸出格式：{"ref_no": "...", "words": [...], "phrases": [...], "grammar": [...]}""",
-                    "english_manuscript": """請分析以下英文講稿，產生 JSON 格式：
-{text}
-輸出格式：{"ref_no": "...", "words": [...], "phrases": [...], "grammar": [...]}""",
-                    "refine_sermon": """請精煉以下講稿，產生 JSON 格式：
-{text}
-輸出格式：{"ref_no": "...", "ref_article": "...", "words": [...], "phrases": [...], "grammar": [...]}"""
-                }
-            }
-            st.rerun()
-        st.stop()
     
     if not api_key:
         st.error("❌ 未設定 GEMINI_API_KEY")
@@ -573,18 +579,11 @@ with tabs[3]:
             "refine_sermon": "英文講稿精煉 (完整版)"
         }
         
-        available_prompts = [p for p in prompt_options.keys() 
-                           if p in PROMPTS.get("default", {})]
-        
-        if not available_prompts:
-            st.error("Prompts.toml 中沒有可用的 Prompt")
-            st.stop()
-        
         selected_prompt = st.selectbox(
             "選擇分析模式",
-            options=available_prompts,
+            options=list(prompt_options.keys()),
             format_func=lambda x: prompt_options[x],
-            index=0 if is_chinese and "chinese_verve" in available_prompts else 0
+            index=0 if is_chinese else 2
         )
         
         analyze_btn = st.button("🤖 開始 AI 分析", type="primary")
@@ -593,18 +592,14 @@ with tabs[3]:
     # 3. 執行分析
     # ============================================================
     if analyze_btn and input_text:
-        prompt_template = PROMPTS.get("default", {}).get(selected_prompt, "")
-        
-        if not prompt_template:
-            st.error(f"❌ 找不到 Prompt: {selected_prompt}")
-            st.stop()
+        prompt_template = BUILTIN_PROMPTS["default"][selected_prompt]
         
         success, result = analyze_with_gemini(input_text, prompt_template, api_key)
         
         if success:
             st.session_state["analysis_result"] = result
             st.session_state["show_result"] = True
-            st.success(f"✅ 分析完成！")
+            st.success(f"✅ 分析完成！Ref: {result.get('ref_no', 'N/A')}")
             st.rerun()
         else:
             st.error("❌ AI 分析失敗")
@@ -630,25 +625,46 @@ with tabs[3]:
         
         st.markdown(f"**Ref. No.:** `{data.get('ref_no', 'N/A')}`")
         
+        # 顯示精煉文章（如果有）
+        if data.get("ref_article"):
+            with st.expander("📄 精煉文章"):
+                st.markdown(data["ref_article"])
+                if data.get("ref_article_zh"):
+                    st.markdown("---")
+                    st.markdown(data["ref_article_zh"])
+        
+        # 三個分頁
         col1, col2, col3 = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
         
         with col1:
             words = data.get("words", [])
             if words:
-                st.dataframe(pd.DataFrame(words), use_container_width=True)
+                df = pd.DataFrame(words)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.caption(f"共 {len(words)} 個單字")
             else:
                 st.info("無單字資料")
         
         with col2:
             phrases = data.get("phrases", [])
             if phrases:
-                st.dataframe(pd.DataFrame(phrases), use_container_width=True)
+                df = pd.DataFrame(phrases)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.caption(f"共 {len(phrases)} 個片語")
             else:
                 st.info("無片語資料")
         
         with col3:
             grammar = data.get("grammar", [])
             if grammar:
-                st.table(pd.DataFrame(grammar))
+                df = pd.DataFrame(grammar)
+                st.table(df)
+                st.caption(f"共 {len(grammar)} 個文法點")
             else:
                 st.info("無文法資料")
+        
+        # 清除按鈕
+        if st.button("🗑️ 清除結果"):
+            st.session_state["show_result"] = False
+            st.session_state["analysis_result"] = None
+            st.rerun()
