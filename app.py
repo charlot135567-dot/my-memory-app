@@ -482,50 +482,51 @@ with tabs[3]:
             text = text[:end_idx+1]
         return text
 
-    def analyze_with_gemini(text, prompt_template, api_key):
-        """呼叫 Gemini API"""
-        response_text = None
+def analyze_with_gemini(text, prompt_template, api_key):
+    """呼叫 Gemini API"""
+    response_text = None
+    
+    try:
+        import google.generativeai as genai
         
+        # 設定 API
+        genai.configure(api_key=api_key)
+        
+        # 🔍 檢查可用模型（除錯用）
         try:
-            import google.generativeai as genai
-            
-            # 設定 API
-            genai.configure(api_key=api_key)
-            
-            # 建立模型
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            
-            # 🔧 修正：用 replace 而不是 format，避免 {} 衝突
-            prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
-            
-            # 呼叫 API
-            with st.spinner("🤖 正在呼叫 Gemini API..."):
-                response = model.generate_content(
-                    prompt,
-                    generation_config={
-                        'temperature': 0.2,
-                        'max_output_tokens': 8192,
-                    }
-                )
-            
-            # 取得回應
-            response_text = response.text
-            
-            # 清理回應
-            cleaned_text = clean_json_response(response_text)
-            
-            # 解析 JSON
-            data = json.loads(cleaned_text)
-            return True, data
-            
+            models = genai.list_models()
+            available = [m.name for m in models if 'generateContent' in m.supported_generation_methods]
+            st.sidebar.write(f"✅ 可用模型: {available[:3]}")  # 顯示前3個
         except Exception as e:
-            error_msg = f"錯誤: {str(e)}\n\n"
-            error_msg += f"追蹤:\n{traceback.format_exc()}\n\n"
-            if response_text:
-                error_msg += f"原始回應前300字:\n{response_text[:300]}"
-            else:
-                error_msg += "無原始回應"
-            return False, error_msg
+            st.sidebar.write(f"⚠️ 無法列出模型: {e}")
+        
+        # 🔧 使用最新模型名稱
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        
+        prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
+        
+        with st.spinner("🤖 正在呼叫 Gemini API..."):
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    'temperature': 0.2,
+                    'max_output_tokens': 8192,
+                }
+            )
+        
+        response_text = response.text
+        cleaned_text = clean_json_response(response_text)
+        data = json.loads(cleaned_text)
+        return True, data
+        
+    except Exception as e:
+        error_msg = f"錯誤: {str(e)}\n\n"
+        error_msg += f"追蹤:\n{traceback.format_exc()}\n\n"
+        if response_text:
+            error_msg += f"原始回應前300字:\n{response_text[:300]}"
+        else:
+            error_msg += "無原始回應"
+        return False, error_msg
 
     # ============================================================
     # 2. UI 介面
