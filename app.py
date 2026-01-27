@@ -4,7 +4,6 @@
 import streamlit as st
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 from streamlit_calendar import calendar
-from datetime import date
 
 # ========== 除錯測試 ==========
 st.sidebar.markdown("## 🔧 除錯資訊")
@@ -375,7 +374,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（完整錯誤追蹤版）
+# 5. TAB4 ─ AI 聖經分析控制台（修正版）
 # ===================================================================
 with tabs[3]:
     import json
@@ -387,13 +386,13 @@ with tabs[3]:
     import traceback
 
     # ============================================================
-    # 0. 內建 Prompts
+    # 0. 內建 Prompts（注意：{} 會被誤認，要用其他方式替換）
     # ============================================================
     BUILTIN_PROMPTS = {
         "default": {
             "chinese_verve": """你是一位專業的聖經語言學家。請針對以下中文聖經經文，產生結構化學習資料。
 
-經文：{text}
+經文：[[INPUT_TEXT]]
 
 請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
 
@@ -436,14 +435,14 @@ with tabs[3]:
 2) phrases：高階片語 + 同上；
 3) grammar：重要文法點 + 解析 + 應用例句。
 輸出純 JSON，勿加 Markdown 程式碼框。
-講稿：{text}""",
+講稿：[[INPUT_TEXT]]""",
 
             "refine_sermon": """角色：你是一位精通語言學與聖經解經的教材編輯。
 目標：將「口語講道逐字稿」轉化為「精煉的雙語聖經學習教材」。
 
 請針對以下講稿，產出結構化學習數據：
 
-{text}
+[[INPUT_TEXT]]
 
 請嚴格按照以下 JSON 格式回傳（不要加 markdown 標記）：
 
@@ -494,74 +493,47 @@ with tabs[3]:
 
     def analyze_with_gemini(text, prompt_template, api_key):
         """呼叫 Gemini API"""
-        response_text = None  # 先定義，避免後面引用出錯
+        response_text = None
         
         try:
             import google.generativeai as genai
             
-            # 步驟 1: 設定 API
-            try:
-                genai.configure(api_key=api_key)
-                st.sidebar.write("✅ API 設定完成")
-            except Exception as e:
-                return False, f"API 設定失敗: {str(e)}"
+            # 設定 API
+            genai.configure(api_key=api_key)
             
-            # 步驟 2: 建立模型
-            try:
-                model = genai.GenerativeModel('gemini-pro')
-                st.sidebar.write("✅ 模型建立完成")
-            except Exception as e:
-                return False, f"模型建立失敗: {str(e)}"
+            # 建立模型
+            model = genai.GenerativeModel('gemini-pro')
             
-            # 步驟 3: 準備 Prompt
-            prompt = prompt_template.format(text=text[:3000])
-            st.sidebar.write(f"✅ Prompt 準備完成 ({len(prompt)} 字)")
+            # 🔧 修正：用 replace 而不是 format，避免 {} 衝突
+            prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
             
-            # 步驟 4: 呼叫 API
+            # 呼叫 API
             with st.spinner("🤖 正在呼叫 Gemini API..."):
-                try:
-                    response = model.generate_content(
-                        prompt,
-                        generation_config={
-                            'temperature': 0.2,
-                            'max_output_tokens': 8192,
-                        }
-                    )
-                    st.sidebar.write("✅ API 呼叫完成")
-                except Exception as e:
-                    return False, f"API 呼叫失敗: {str(e)}\n{traceback.format_exc()}"
+                response = model.generate_content(
+                    prompt,
+                    generation_config={
+                        'temperature': 0.2,
+                        'max_output_tokens': 8192,
+                    }
+                )
             
-            # 步驟 5: 取得回應文字
-            try:
-                response_text = response.text
-                st.sidebar.write(f"✅ 取得回應 ({len(response_text)} 字)")
-            except Exception as e:
-                return False, f"取得回應文字失敗: {str(e)}\n回應物件: {str(response)}"
+            # 取得回應
+            response_text = response.text
             
-            # 步驟 6: 清理回應
-            try:
-                cleaned_text = clean_json_response(response_text)
-                st.sidebar.write(f"✅ 清理完成 ({len(cleaned_text)} 字)")
-            except Exception as e:
-                return False, f"清理回應失敗: {str(e)}"
+            # 清理回應
+            cleaned_text = clean_json_response(response_text)
             
-            # 步驟 7: 解析 JSON
-            try:
-                data = json.loads(cleaned_text)
-                st.sidebar.write("✅ JSON 解析成功")
-                return True, data
-            except json.JSONDecodeError as e:
-                error_detail = f"JSON 解析失敗: {str(e)}\n\n清理後內容前300字:\n{cleaned_text[:300]}"
-                return False, error_detail
+            # 解析 JSON
+            data = json.loads(cleaned_text)
+            return True, data
             
         except Exception as e:
-            # 捕捉所有其他錯誤
-            error_msg = f"未預期錯誤: {str(e)}\n\n"
+            error_msg = f"錯誤: {str(e)}\n\n"
             error_msg += f"追蹤:\n{traceback.format_exc()}\n\n"
             if response_text:
-                error_msg += f"原始回應前200字:\n{response_text[:200]}"
+                error_msg += f"原始回應前300字:\n{response_text[:300]}"
             else:
-                error_msg += "無原始回應（API 可能未成功呼叫）"
+                error_msg += "無原始回應"
             return False, error_msg
 
     # ============================================================
@@ -574,8 +546,6 @@ with tabs[3]:
     if not api_key:
         st.error("❌ 未設定 GEMINI_API_KEY")
         st.stop()
-    
-    st.sidebar.write(f"API Key 長度: {len(api_key)}")
     
     # 輸入區
     with st.expander("📚 輸入經文或講稿", expanded=True):
