@@ -668,3 +668,4 @@ with tabs[3]:
             st.session_state["show_result"] = False
             st.session_state["analysis_result"] = None
             st.rerun()
+            
