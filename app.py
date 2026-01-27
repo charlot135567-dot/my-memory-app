@@ -219,141 +219,94 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 4. 美化 CSS（讓格子自動長高 + 換行） ----------
-    st.markdown(f"""
-    <style>
-    .fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
-    .fc-day-sat .fc-daygrid-day-number,
-    .fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
-    .fc-event {{ cursor: pointer; border: none; }} 
-    
-    /* [修改點 2] 關鍵 CSS：允許文字換行，並讓格子高度自動撐開 */
-    .fc-event-title {{
-        white-space: normal !important; /* 允許文字換行 */
-        overflow: visible !important;   /* 顯示所有內容 */
-        font-size: 14px;
-        line-height: 1.4;
-    }}
-    .fc-daygrid-event {{
-        white-space: normal !important;
-    }}
-    
-    .fc-view-harness {{
-        background-image: url("https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/snoopy-bottom.png");
-        background-repeat: no-repeat; background-position: center bottom 20px; background-size: 220px;
-        padding-bottom: 120px; position: relative;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+   # ---------- 4. 美化 CSS（讓格子自動長高 + 換行） ----------
+st.markdown(f"""
+<style>
+.fc-toolbar-title {{ font-size: 26px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; }}
+.fc-day-sat .fc-daygrid-day-number,
+.fc-day-sun .fc-daygrid-day-number {{ color: #dc2626 !important; font-weight: 600; }}
+.fc-event {{ cursor: pointer; border: none; }} 
 
-    # ---------- 5. 月曆本體 ----------
-    st.subheader("📅 靈修足跡月曆")
-    
-    with st.expander("展開 / 折疊月曆視窗", expanded=True):
-        calendar_events = build_events()
-        
-        calendar_options = {
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-            "initialView": "dayGridMonth",
-            "height": "auto", # [修改點] 改為 auto，讓月曆隨內容長高
-            "dateClick": True, 
-            "eventClick": True, 
-            "eventDisplay": "block",
-            # 設定系統時間顯示格式 (例如 09:30)
-            "eventTimeFormat": {
-                "hour": "2-digit",
-                "minute": "2-digit",
-                "meridiem": False,
-                "hour12": False
-            }
-        }
+/* 允許文字換行 + 自動撐高格子 */
+.fc-event-title {{
+    white-space: normal !important; /* 允許換行 */
+    overflow: visible !important;   /* 顯示完整內容 */
+    font-size: 14px;
+    line-height: 1.4;
+}}
+.fc-daygrid-event {{
+    white-space: normal !important;
+    align-items: flex-start !important;
+}}
+.fc-daygrid-day-frame {{
+    height: auto !important;
+}}
+.fc-daygrid-day-events {{
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}}
+</style>
+""", unsafe_allow_html=True)
 
-        state = calendar(
-            events=calendar_events,
-            options=calendar_options,
-            key=f"emoji_cal_{st.session_state.cal_key}"
-        )
-        
-        # 點擊事件處理 (刪除)
-        if state.get("eventClick"):
-            ext = state["eventClick"]["event"]["extendedProps"]
-            if ext.get("type") == "todo":
-                if not st.session_state.show_del or st.session_state.del_target != ext:
-                    st.session_state.del_target = ext
-                    st.session_state.show_del = True
-                    st.rerun()
+# ---------- 5. 月曆本體 ----------
+calendar_events = build_events()
 
-        # 點擊日期處理
-        if state.get("dateClick"):
-            new_date = state["dateClick"]["date"][:10]
-            if st.session_state.sel_date != new_date:
-                st.session_state.sel_date = new_date
-                st.rerun()
+calendar_options = {
+    "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+    "initialView": "dayGridMonth",
+    "height": "auto", # 月曆自動撐高
+    "dateClick": True,
+    "eventClick": True,
+    "eventDisplay": "block",
+    "eventTimeFormat": {
+        "hour": "2-digit",
+        "minute": "2-digit",
+        "meridiem": False,
+        "hour12": False
+    }
+}
 
-    # ---------- 6. 刪除對話框 ----------
-    if st.session_state.get("show_del"):
-        t = st.session_state.del_target
-        st.warning(f"🗑️ 確定刪除待辦「{t.get('title', '')}」？")
-        
-        c1, c2 = st.columns([1, 4])
-        with c1:
-            if st.button("確認刪除", type="primary", key="confirm_del"):
-                d = t.get("date")
-                title_to_del = t.get("title")
-                time_to_del = t.get("time")
-                
-                if d in st.session_state.todo:
-                    new_list = [
-                        item for item in st.session_state.todo[d] 
-                        if not (item['title'] == title_to_del and item.get('time') == time_to_del)
-                    ]
-                    st.session_state.todo[d] = new_list
-                    if not st.session_state.todo[d]: del st.session_state.todo[d]
-                
-                save_todos()
-                st.session_state.show_del = False
-                st.session_state.cal_key += 1
-                st.success("✅ 已刪除！")
-                st.rerun()
-                
-        with c2:
-            if st.button("取消", key="cancel_del"):
-                st.session_state.show_del = False
-                st.rerun()
+state = calendar(
+    events=calendar_events,
+    options=calendar_options,
+    key=f"emoji_cal_{st.session_state.cal_key}"
+)
 
-    # ---------- 7. 新增待辦 ----------
-    st.divider()
-    with st.expander("➕ 新增待辦", expanded=True):
-        ph_emo = "🔔"
-        with st.form("todo_form"):
-            try:
-                default_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
-            except:
-                default_date = dt.date.today()
+# ---------- 6. 點擊事件處理（彈窗刪除） ----------
+if state.get("eventClick"):
+    ext = state["eventClick"]["event"]["extendedProps"]
+    if ext.get("type") == "todo":
+        # 設置刪除目標並打開刪除彈窗
+        st.session_state.del_target = ext
+        st.session_state.show_del = True
+        st.rerun()
 
-            c1, c2, c3 = st.columns([2, 2, 6])
-            with c1: d_input = st.date_input("日期", default_date, label_visibility="collapsed", key="todo_date")
-            with c2: tm_input = st.time_input("⏰ 時間", dt.time(9, 0), label_visibility="collapsed", key="todo_time")
-            with c3: ttl_input = st.text_input("標題", placeholder=f"{ph_emo} Emoji＋待辦", label_visibility="collapsed", key="todo_ttl")
-            
-            submitted = st.form_submit_button("💾 儲存", use_container_width=True)
-            
-            if submitted:
-                if not ttl_input:
-                    st.error("請輸入標題")
-                else:
-                    emo_found = first_emoji(ttl_input) or ph_emo
-                    ttl_clean = remove_emoji(ttl_input)
-                    k = str(d_input)
-                    if k not in st.session_state.todo: st.session_state.todo[k] = []
-                    
-                    st.session_state.todo[k].append({
-                        "title": ttl_clean, "time": str(tm_input), "emoji": emo_found
-                    })
-                    save_todos()
-                    st.session_state.cal_key += 1
-                    st.success("✅ 已儲存！")
-                    st.rerun()
+# ---------- 7. 刪除對話框 ----------
+if st.session_state.get("show_del"):
+    t = st.session_state.del_target
+    st.warning(f"🗑️ 確定刪除待辦「{t.get('title','')}」？")
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button("確認刪除", key="confirm_del"):
+            d = t.get("date")
+            title_to_del = t.get("title")
+            time_to_del = t.get("time")
+            if d in st.session_state.todo:
+                st.session_state.todo[d] = [
+                    item for item in st.session_state.todo[d]
+                    if not (item['title']==title_to_del and item.get('time')==time_to_del)
+                ]
+                if not st.session_state.todo[d]: del st.session_state.todo[d]
+            save_todos()
+            st.session_state.show_del = False
+            st.session_state.cal_key += 1
+            st.success("✅ 已刪除！")
+            st.rerun()
+    with c2:
+        if st.button("取消", key="cancel_del"):
+            st.session_state.show_del = False
+            st.rerun()
 
     # ---------- 8. 待辦列表（格式優化） ----------
     # [修改點 3] 依照您的需求調整下方顯示格式：1/27 10:30 📕標題
