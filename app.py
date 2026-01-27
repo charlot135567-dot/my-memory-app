@@ -300,9 +300,10 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 聖經分析控制台（修正版）
+# 5. TAB4 ─ AI 聖經分析控制台（修正縮排與顯示邏輯）
 # ===================================================================
 with tabs[3]:
+    # 引用套件 (建議放在檔案最上方，但放在這也能運作)
     import json
     import datetime as dt
     import pandas as pd
@@ -312,7 +313,7 @@ with tabs[3]:
     import traceback
 
     # ============================================================
-    # 0. 內建 Prompts（注意：{} 會被誤認，要用其他方式替換）
+    # 0. 內建 Prompts
     # ============================================================
     BUILTIN_PROMPTS = {
         "default": {
@@ -355,7 +356,6 @@ with tabs[3]:
     }
   ]
 }""",
-
             "english_manuscript": """請針對以下英文講稿產生三個 JSON Array：
 1) words：高階單字 + 中英日韓泰對照 + 例句；
 2) phrases：高階片語 + 同上；
@@ -410,68 +410,65 @@ with tabs[3]:
         text = re.sub(r'```\s*', '', text)
         text = text.strip()
         start_idx = text.find('{')
-        if start_idx > 0:
+        if start_idx >= 0:
             text = text[start_idx:]
         end_idx = text.rfind('}')
-        if end_idx > 0:
+        if end_idx >= 0:
             text = text[:end_idx+1]
         return text
 
-def analyze_with_gemini(text, prompt_template, api_key):
-    """呼叫 Gemini API"""
-    response_text = None
-    
-    try:
-        import google.generativeai as genai
+    def analyze_with_gemini(text, prompt_template, api_key):
+        """呼叫 Gemini API"""
+        response_text = None
         
-        # 設定 API
-        genai.configure(api_key=api_key)
-        
-        # 🔍 檢查可用模型（除錯用）
         try:
-            models = genai.list_models()
-            available = [m.name for m in models if 'generateContent' in m.supported_generation_methods]
-            st.sidebar.write(f"✅ 可用模型: {available[:3]}")  # 顯示前3個
+            # 這裡動態 import，避免沒安裝套件時整個 App 壞掉
+            import google.generativeai as genai
+            
+            # 設定 API
+            genai.configure(api_key=api_key)
+            
+            # 🔧 使用模型 (建議用 flash 比較省資源且快)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:5000]) # 增加字數限制以防萬一
+            
+            with st.spinner("🤖 正在呼叫 Gemini API..."):
+                response = model.generate_content(
+                    prompt,
+                    generation_config={
+                        'temperature': 0.2,
+                        'max_output_tokens': 8192,
+                    }
+                )
+            
+            response_text = response.text
+            cleaned_text = clean_json_response(response_text)
+            data = json.loads(cleaned_text)
+            return True, data
+            
+        except ImportError:
+            return False, "❌ 請先安裝套件: pip install google-generativeai"
         except Exception as e:
-            st.sidebar.write(f"⚠️ 無法列出模型: {e}")
-        
-        # 🔧 使用最新模型名稱
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
-        
-        prompt = prompt_template.replace("[[INPUT_TEXT]]", text[:3000])
-        
-        with st.spinner("🤖 正在呼叫 Gemini API..."):
-            response = model.generate_content(
-                prompt,
-                generation_config={
-                    'temperature': 0.2,
-                    'max_output_tokens': 8192,
-                }
-            )
-        
-        response_text = response.text
-        cleaned_text = clean_json_response(response_text)
-        data = json.loads(cleaned_text)
-        return True, data
-        
-    except Exception as e:
-        error_msg = f"錯誤: {str(e)}\n\n"
-        error_msg += f"追蹤:\n{traceback.format_exc()}\n\n"
-        if response_text:
-            error_msg += f"原始回應前300字:\n{response_text[:300]}"
-        else:
-            error_msg += "無原始回應"
-        return False, error_msg
+            error_msg = f"錯誤: {str(e)}\n\n"
+            # error_msg += f"追蹤:\n{traceback.format_exc()}\n\n" # 一般使用者不需要看 traceback
+            if response_text:
+                error_msg += f"原始回應前300字:\n{response_text[:300]}"
+            else:
+                error_msg += "無原始回應 (API 連線可能失敗)"
+            return False, error_msg
 
     # ============================================================
-    # 2. UI 介面
+    # 2. UI 介面 (這裡開始縮排必須與 def 平行，不能在 def 裡面！)
     # ============================================================
     st.markdown("## 🤖 AI 聖經分析控制台")
     
-    api_key = os.getenv("GEMINI_API_KEY")
+    # 取得 API KEY (優先從 Sidebar 輸入的環境變數，若無則嘗試 secrets)
+    # 注意：這裡假設全域變數 api_key 已經在前面定義過，若無則重新讀取
+    current_api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
     
-    if not api_key:
-        st.error("❌ 未設定 GEMINI_API_KEY")
+    if not current_api_key:
+        st.error("❌ 未偵測到 GEMINI_API_KEY，請檢查 .env 或 Secrets 設定")
         st.stop()
     
     # 輸入區
@@ -483,10 +480,11 @@ def analyze_with_gemini(text, prompt_template, api_key):
             placeholder="貼上中文聖經經文或英文講稿..."
         )
         
-        chinese_chars = sum(1 for c in input_text[:200] if '\u4e00' <= c <= '\u9fff')
-        is_chinese = chinese_chars > 10
-        
+        # 簡單偵測是否為中文
+        is_chinese = False
         if input_text:
+            chinese_chars = sum(1 for c in input_text[:200] if '\u4e00' <= c <= '\u9fff')
+            is_chinese = chinese_chars > 10
             st.info(f"偵測到：{'中文' if is_chinese else '英文'}（{len(input_text)} 字）")
         
         prompt_options = {
@@ -495,7 +493,7 @@ def analyze_with_gemini(text, prompt_template, api_key):
             "refine_sermon": "英文講稿精煉 (完整版)"
         }
         
-        selected_prompt = st.selectbox(
+        selected_prompt_key = st.selectbox(
             "選擇分析模式",
             options=list(prompt_options.keys()),
             format_func=lambda x: prompt_options[x],
@@ -508,9 +506,11 @@ def analyze_with_gemini(text, prompt_template, api_key):
     # 3. 執行分析
     # ============================================================
     if analyze_btn and input_text:
-        prompt_template = BUILTIN_PROMPTS["default"][selected_prompt]
+        # 取得對應的 Prompt Template
+        prompt_template = BUILTIN_PROMPTS["default"][selected_prompt_key]
         
-        success, result = analyze_with_gemini(input_text, prompt_template, api_key)
+        # 呼叫 AI
+        success, result = analyze_with_gemini(input_text, prompt_template, current_api_key)
         
         if success:
             st.session_state["analysis_result"] = result
@@ -519,10 +519,10 @@ def analyze_with_gemini(text, prompt_template, api_key):
             st.rerun()
         else:
             st.error("❌ AI 分析失敗")
-            st.code(result)
+            st.code(result) # 顯示錯誤訊息
             
-            if st.button("使用預設資料繼續"):
-                fallback = create_fallback_data(input_text, selected_prompt)
+            if st.button("使用預設資料測試介面"):
+                fallback = create_fallback_data(input_text, selected_prompt_key)
                 st.session_state["analysis_result"] = fallback
                 st.session_state["show_result"] = True
                 st.rerun()
@@ -537,46 +537,47 @@ def analyze_with_gemini(text, prompt_template, api_key):
         st.markdown(f"## 📋 分析結果")
         
         if data.get("is_fallback"):
-            st.warning("⚠️ 此為預設資料")
+            st.warning("⚠️ 此為預設測試資料 (API 可能未通)")
         
         st.markdown(f"**Ref. No.:** `{data.get('ref_no', 'N/A')}`")
         
+        # 顯示精煉文章區塊
         if data.get("ref_article"):
-            with st.expander("📄 精煉文章"):
+            with st.expander("📄 精煉文章", expanded=True):
                 st.markdown(data["ref_article"])
                 if data.get("ref_article_zh"):
                     st.markdown("---")
                     st.markdown(data["ref_article_zh"])
         
-        col1, col2, col3 = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
+        # 顯示 Tab 分頁 (單字/片語/文法)
+        r_tabs = st.tabs(["📝 單字", "💬 片語", "📐 文法"])
         
-        with col1:
+        with r_tabs[0]:
             words = data.get("words", [])
             if words:
                 df = pd.DataFrame(words)
                 st.dataframe(df, use_container_width=True, hide_index=True)
-                st.caption(f"共 {len(words)} 個單字")
             else:
                 st.info("無單字資料")
         
-        with col2:
+        with r_tabs[1]:
             phrases = data.get("phrases", [])
             if phrases:
                 df = pd.DataFrame(phrases)
                 st.dataframe(df, use_container_width=True, hide_index=True)
-                st.caption(f"共 {len(phrases)} 個片語")
             else:
                 st.info("無片語資料")
         
-        with col3:
+        with r_tabs[2]:
             grammar = data.get("grammar", [])
             if grammar:
                 df = pd.DataFrame(grammar)
+                # 使用 table 顯示較長的文字較適合，或 dataframe 亦可
                 st.table(df)
-                st.caption(f"共 {len(grammar)} 個文法點")
             else:
                 st.info("無文法資料")
         
+        # 清除按鈕
         if st.button("🗑️ 清除結果"):
             st.session_state["show_result"] = False
             st.session_state["analysis_result"] = None
