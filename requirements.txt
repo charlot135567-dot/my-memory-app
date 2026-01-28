@@ -1,10 +1,8 @@
 streamlit-calendar>=0.5,<0.6
 openpyxl
-streamlit>=1.28
 pandas>=1.5.0
 tomli>=2.0.0
 tomli_w>=1.0.0
-google-generativeai>=0.8.0  # ← 更新這行
 streamlit>=1.28.0
 pandas
 xlsxwriter  # Excel 匯出必需
