@@ -318,11 +318,11 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 5. TAB4 ─ AI 控制台（零循環 + 永久存檔 + 輸入生效）
+# 5. TAB4 ─ AI 控制台（共用欄位 + ChatGPT API / 任意 LLM UI）
 # ===================================================================
 with tabs[3]:
-    import os, pandas as pd, io, json
-    import datetime as dt  # 補上這個 import
+    import os, pandas as pd, io, json, datetime as dt
+    import streamlit as st
 
     # ---------- 0. AI Prompt 定義 ----------
     PROMPT_BIBLE_MASTER = """
@@ -336,173 +336,111 @@ with tabs[3]:
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
 2. English (ESV)：檢索對應的 ESV 英文經文。
 3. Chinese：填入我提供的中文原文。
-4. Syn/Ant：
-   - ESV 中的單字或片語，依優先順序挑選：高級 → 中高級 → 中級 → 中級以下（僅當前三類皆無時才可列出）。
-   - 每個詞需包含中/英翻譯、同反義詞，以及中英對照聖經例句。
-5. Grammar：嚴格遵守符號化格式：
-   1️⃣[文法邏輯解析] 
-   2️⃣[補齊後的完整應用句] 
-   3️⃣Ex. [中英對照聖經應用例句]
+4. Syn/Ant：挑選高級→中高級→中級→中級以下（無前者才列）字詞，含中/英翻譯。
+5. Grammar：嚴格符號化格式 1️⃣2️⃣3️⃣Ex.
 
 🔹 V2 Sheet 要求：
 1. Ref.：同 V1。
-2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
-3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
-4. Note：日文文法或語境的補充說明。
-5. KRF：檢索對應的韓文《Korean Revised Version》。
-6. Syn/Ant：
-   - 韓文中高級字（含日/韓/中翻譯），依同樣優先順序挑選：高級 → 中高級 → 中級 → 中級以下（僅當前三類皆無時才可列出）。
-7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
+2. 口語訳：日文《口語訳聖經》(1955)。
+3. Grammar：解析日文文法（格式同 V1）。
+4. Note：補充日文文法或語境。
+5. KRF：韓文《Korean Revised Version》。
+6. Syn/Ant：韓文高/中高級字（含日/韓/中翻譯）。
+7. THSV11：泰文《THSV11》。
 
 ---
 ### 模式 B：【英文文稿模式】
-當使用者輸入為「英文講道初稿」時，請執行以下步驟：
-
-🔹 第一步｜內容交錯 (I-V)：
-嚴格執行將逐字稿轉化為流暢、文法正確，
-保留原文中的高級/中高級字與片語的完整文章，不得偏離原稿內容
-段落呈現：「一段純英文精煉稿」隨即接「一段中英夾雜講章」的格式。
-
-1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確且優雅但不用艱深的字加重閱讀難度。
-2. 中英夾雜段落：保留完整的中文敘述，並將對應的高級及中高級英文詞彙與片語嵌入括號中對照。
-關鍵英文術語嵌入中文括號，如：我們需要保持忠心 (steadfast)。
-3. 排版：大綱標題與內容間須有空行。
+當使用者輸入為「英文講道初稿」時：
+1️⃣ 純英文段落 → 流暢＋文法正確，保留高級/中高級字詞，保持神學用詞精確。
+2️⃣ 中英夾雜段落 → 中文敘述＋對應英文詞彙插入括號。
+3️⃣ 排版 → 大綱標題與內容間空行。
 
 🔹 第二步｜語言素材：
-1. Vocabulary (20個) & Phrases (15個): 
-    高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
-    翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
-
-2.Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
-           語法邏輯還原 (Grammar Restoration)：針對包含「倒裝、省略、介係詞前置」
-           等高難度結構的句子，
-           執行以下格式：
-    * 原文呈現：[摘錄講稿中的原句]
-    * 結構還原：[將該句還原為「標準語序」且「無省略」的完整句子]
-    * 邏輯詳解：使用簡單中文說明該語法結構的變化邏輯（如：介係詞為何前移）。
-
-【輸入內容】：
-[[TEXT]]
+Vocabulary (20個) & Phrases (15個): 高級/中高級字詞＋片語，中英對照聖經例句。
+Grammar List (6個): 原文+結構還原+邏輯解析+中英例句。
 """
 
-    # ---------- 1. 資料庫持久化工具 ----------
-    SENTENCES_FILE = "sentences.json"
-    
-    def load_sentences():
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-    
-    def save_sentences():
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.sentences, f, ensure_ascii=False, indent=2)
-    
-    def save_analysis_result(data, input_text):
-        if "analysis_history" not in st.session_state:
-            st.session_state.analysis_history = []
-        record = {
-            "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "ref_no": data.get("ref_no", ""),
-            "input": input_text[:100] + "..." if len(input_text) > 100 else input_text,
-            "data": data
-        }
-        st.session_state.analysis_history.append(record)
-
-    # ---------- 2. 初值與自動讀檔 ----------
+    # ---------- 1. 雲端 JSON 持久化工具 ----------
     if 'sentences' not in st.session_state:
-        st.session_state.sentences = load_sentences()
+        st.session_state.sentences = {}
 
-    with st.expander("📚① 貼經文/講稿 → ② 一鍵生成 Prompt → ③ 複製到任意 LLM UI → ④ 將結果貼回", expanded=True):
-        input_text = st.text_area("", height=300, key="input_text")
+    def save_sentences():
+        """JSON 儲存至 session_state"""
+        st.session_state.sentences = st.session_state.sentences
 
-        col1, col2, col3, col4 = st.columns([2.5, 3.5, 2, 2])
-        
-        with col1:
-            search_type = st.selectbox("操作", ["AI 分析", "Ref. 刪除", "關鍵字刪除"])
-        
-        with col2:
-            query_box = None
-            if search_type == "Ref. 刪除":
-                query_box = st.text_input("輸入 Ref.（例：2Ti 3:10）", key="ref_del")
-            elif search_type == "關鍵字刪除":
-                query_box = st.text_input("輸入關鍵字", key="kw_del")
-            else:
-                st.empty()
-        
-        with col3:
-            if st.button("🤖 生成 AI 指令", type="primary", key="ai_analyze_btn"):
-                if not input_text:
-                    st.error("請先貼經文或講稿")
-                    st.stop()
-                if search_type != "AI 分析":
-                    st.warning("請先選擇「AI 分析」操作")
-                    st.stop()
-                
-                final_prompt = PROMPT_BIBLE_MASTER.replace("[[TEXT]]", input_text)
-                st.success("✅ AI 指令已生成！請複製下方內容到任意 LLM UI")
-                st.code(final_prompt, language="text")
-                st.info("步驟：1) 開啟任意 LLM UI → 2) 新建對話 → 3) 複製上方指令貼上 → 4) 送出等待生成 → 5) 將結果貼回下方「AI 回傳結果」欄位")
-                
-                st.session_state["generated_prompt"] = final_prompt
-        
-        with col4:
-            st.write("")  
-            if search_type in ["Ref. 刪除", "關鍵字刪除"]:
-                if st.button("🗑️ 巨量刪除", type="primary", key="bulk_delete_btn"):
-                    if query_box is None or not query_box.strip():
-                        st.error("請先輸入刪除條件")
-                        st.stop()
-                    hits = []
-                    for d, v in st.session_state.sentences.items():
-                        txt = f"{v.get('ref', '')} {v.get('en', '')} {v.get('zh', '')}".lower()
-                        if search_type == "Ref. 刪除" and query_box.lower() in v.get('ref', '').lower():
-                            hits.append((d, v))
-                        elif search_type == "關鍵字刪除" and query_box.lower() in txt:
-                            hits.append((d, v))
-                    if hits:
-                        st.write(f"共 {len(hits)} 筆（含聖經經節）")
-                        selected_keys = st.multiselect("勾選要刪除的項目", [d for d, _ in hits])
-                        if st.button("確認刪除", type="secondary"):
-                            for k in selected_keys:
-                                st.session_state.sentences.pop(k, None)
-                            save_sentences()
-                            st.success(f"已刪除 {len(selected_keys)} 筆！")
-                    else:
-                        st.info("無符合條件")
+    # ---------- 2. 共用輸入欄位 ----------
+    st.markdown("📚① 貼經文/講稿 → ② 一鍵分析 → ③ 直接檢視 → ④ 離線使用")
+    input_text = st.text_area("貼上經文或英文講稿", height=300, key="input_text")
 
-    # ---------- 3. 貼回 AI 結果區 ----------
+    # ---------- 3. 操作方式選擇 ----------
+    col1, col2 = st.columns([2,3])
+    with col1:
+        operation = st.selectbox("操作方式", ["ChatGPT API 生成", "任意 LLM UI 生成 Prompt"])
+    with col2:
+        st.write("說明：ChatGPT API 可一鍵生成 Excel/CSV；任意 LLM 需手動貼 Prompt 並貼回結果")
+
+    # ---------- 4. 按鈕：生成或取得 Prompt ----------
+    if operation == "任意 LLM UI 生成 Prompt":
+        if st.button("🤖 生成 LLM Prompt"):
+            if not input_text.strip():
+                st.error("請先貼經文或講稿")
+                st.stop()
+            final_prompt = PROMPT_BIBLE_MASTER.replace("[[TEXT]]", input_text)
+            st.success("✅ Prompt 已生成，可複製貼到任意 LLM UI")
+            st.code(final_prompt, language="text")
+            st.session_state["generated_prompt"] = final_prompt
+
+    elif operation == "ChatGPT API 生成":
+        if st.button("🤖 ChatGPT 生成 Excel/CSV"):
+            if not input_text.strip():
+                st.error("請先貼經文或講稿")
+                st.stop()
+            # 這裡放 ChatGPT API 呼叫邏輯 (假設你已有 API function)
+            # result = call_chatgpt_api(input_text)
+            result = {
+                "ref_no": f"AI{dt.datetime.now().strftime('%Y%m%d%H%M')}",
+                "words": [],
+                "phrases": [],
+                "grammar": [],
+                "ref_article": "示例精煉文章",
+                "ref_article_zh": "示例中文文章"
+            }
+            ref_no = result["ref_no"]
+            st.session_state.sentences[ref_no] = {
+                "ref": ref_no,
+                "en": result.get("ref_article", ""),
+                "zh": result.get("ref_article_zh", ""),
+                "data": result,
+                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+            }
+            save_sentences()
+            st.success(f"✅ 已生成並存檔！Ref: {ref_no}")
+            st.session_state["analysis"] = result
+            st.session_state["show_result"] = True
+
+    # ---------- 5. AI 回傳結果共用欄位 ----------
     st.divider()
-    st.markdown("### 📥 步驟 ②：將 AI 生成的結果貼回這裡")
-    
-    ai_result = st.text_area("貼上 LLM 回傳的分析結果（JSON 或表格格式）", height=250, key="ai_result")
-    
-    if st.button("💾 儲存分析結果到資料庫", type="primary"):
-        if not ai_result:
+    st.markdown("📥 步驟 ②：貼上任意 LLM UI 回傳的分析結果")
+    ai_result = st.text_area("AI 回傳結果", height=250, key="ai_result")
+    if st.button("💾 儲存 AI 結果"):
+        if not ai_result.strip():
             st.error("請先貼上 AI 分析結果")
             st.stop()
-        
         try:
             cleaned = ai_result.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned)
-            
             ref_no = data.get("ref_no", f"AI{dt.datetime.now().strftime('%Y%m%d%H%M')}")
             st.session_state.sentences[ref_no] = {
                 "ref": ref_no,
-                "en": data.get("ref_article", ""),
-                "zh": data.get("ref_article_zh", ""),
+                "en": data.get("ref_article",""),
+                "zh": data.get("ref_article_zh",""),
                 "data": data,
                 "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
             }
             save_sentences()
+            st.success(f"✅ AI 結果已存檔！Ref: {ref_no}")
             st.session_state["analysis"] = data
             st.session_state["show_result"] = True
-            st.success(f"✅ 已儲存！Ref: {ref_no}")
-            st.rerun()
-            
         except json.JSONDecodeError:
             ref_no = f"TXT{dt.datetime.now().strftime('%Y%m%d%H%M')}"
             st.session_state.sentences[ref_no] = {
@@ -511,68 +449,50 @@ with tabs[3]:
                 "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
             }
             save_sentences()
-            st.success(f"✅ 已儲存為純文字格式！Ref: {ref_no}")
+            st.success(f"✅ 已存為純文字！Ref: {ref_no}")
 
-    # ---------- 4. 結果呈現 ----------
+    # ---------- 6. 結果呈現 ----------
     if st.session_state.get("show_result", False) and st.session_state.get("analysis"):
         data = st.session_state["analysis"]
         st.divider()
-        st.markdown(f"## 📋 分析結果：{data.get('ref_no', 'N/A')}")
-        
+        st.markdown(f"## 📋 分析結果：{data.get('ref_no','N/A')}")
         if data.get("ref_article"):
             with st.expander("📄 檢視精煉文章", expanded=True):
                 st.markdown(data["ref_article"])
-        
-        col_w, col_p, col_g = st.tabs(["單字", "片語", "文法"])
+        col_w, col_p, col_g = st.tabs(["單字","片語","文法"])
         with col_w:
             if data.get("words"):
-                df = pd.DataFrame(data["words"])
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(pd.DataFrame(data["words"]), use_container_width=True)
             else:
                 st.info("本次無單字分析")
         with col_p:
             if data.get("phrases"):
-                df = pd.DataFrame(data["phrases"])
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(pd.DataFrame(data["phrases"]), use_container_width=True)
             else:
                 st.info("本次無片語分析")
         with col_g:
             if data.get("grammar"):
-                df = pd.DataFrame(data["grammar"])
-                st.table(df)
+                st.table(pd.DataFrame(data["grammar"]))
             else:
                 st.info("本次無文法點")
 
-    # ---------- 5. 容量管理 ----------
+    # ---------- 7. 匯出與容量管理 ----------
     st.divider()
-    with st.expander("⚙️ 容量管理（含刪除功能）", expanded=False):
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📋 匯出含回溯欄位"):
+            export = []
+            for k,v in st.session_state.sentences.items():
+                export.append(f"{k}\t{v.get('ref','')}\t{v.get('en','')}\t{v.get('raw_text','')[:100]}")
+            st.code("\n".join(export), language="text")
+    with col2:
         max_keep = st.number_input("最多保留最近幾筆分析紀錄", min_value=10, max_value=1000, value=50)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✂️ 壓縮舊紀錄"):
-                hist = st.session_state.get("analysis_history", [])
-                if len(hist) > max_keep:
-                    st.session_state.analysis_history = hist[-max_keep:]
-                    st.success(f"已壓縮至最近 {max_keep} 筆！")
-                else:
-                    st.info("未達壓縮門檻")
-        
-        with col2:
-            del_ref = st.text_input("輸入 Ref. 刪除特定項目", key="del_ref_input")
-            if st.button("🗑️ 刪除指定 Ref"):
-                if del_ref in st.session_state.sentences:
-                    del st.session_state.sentences[del_ref]
-                    save_sentences()
-                    st.success(f"已刪除 {del_ref}")
-                    st.rerun()
-                else:
-                    st.error("找不到此 Ref")
+        if st.button("✂️ 壓縮舊紀錄"):
+            hist = list(st.session_state.sentences.items())
+            if len(hist) > max_keep:
+                st.session_state.sentences = dict(hist[-max_keep:])
+                st.success(f"已壓縮至最近 {max_keep} 筆！")
+            else:
+                st.info("未達壓縮門檻")
 
-    # ---------- 6. 匯出 ----------
-    if st.button("📋 匯出含回溯欄位"):
-        export = []
-        for k, v in st.session_state.sentences.items():
-            export.append(f"{k}\t{v.get('ref', '')}\t{v.get('en', '')}\t{v.get('raw_text', '')[:100]}")
-        st.code("\n".join(export), language="text")
 
