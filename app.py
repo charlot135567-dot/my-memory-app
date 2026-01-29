@@ -303,7 +303,7 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-    # ---------- 🎨 Snoopy 縮小至 1/4，固定在右下角 ----------
+    # ---------- 🎨 Snoopy 與欄框對齊 + 折疊欄恢復淺色 ----------
     try:
         with open("Snoopy.jpg", "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode()
@@ -312,13 +312,18 @@ with tabs[3]:
         <style>
         .stApp {{
             background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: 10% auto;      /* 改這個數字：6% = 超小，25% = 較大 */
-            background-position: right 20px bottom 20px;  /* 強制右下角 */
-            background-position: right bottom;  /* 固定在右下角 */
-            background-attachment: fixed;   /* 捲動時固定不動 */
-            background-repeat: no-repeat;   /* 不重複 */
+            background-size: 8% auto;
+            background-position: calc(100% - 40px) bottom 20px;  /* 與欄框對齊 */
+            background-attachment: fixed;
+            background-repeat: no-repeat;
         }}
-        /* 只在需要的地方加深背景（可選） */
+        /* 折疊欄恢復淺色背景 */
+        .stExpander {{
+            background-color: rgba(255,255,255,0.95) !important;
+            border-radius: 12px;
+            border: 1px solid rgba(200,200,200,0.3);
+        }}
+        /* 輸入框維持深色確保可讀 */
         .stTextArea textarea {{
             background-color: rgba(30,30,40,0.9) !important;
             color: #f0f0f0 !important;
@@ -327,8 +332,8 @@ with tabs[3]:
         """, unsafe_allow_html=True)
         
     except FileNotFoundError:
-        st.warning("⚠️ 未找到 Snoopy.jpg")
-
+        pass
+        
     # ---------- 資料庫持久化（原有功能）----------
     SENTENCES_FILE = "sentences.json"
     
