@@ -303,36 +303,45 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-    # ---------- 🎨 Snoopy 與欄框對齊 + 折疊欄恢復淺色 ----------
-    try:
-        with open("Snoopy.jpg", "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        
-        st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: 8% auto;
-            background-position: calc(100% - 40px) bottom 20px;  /* 與欄框對齊 */
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-        }}
-        /* 折疊欄恢復淺色背景 */
-        .stExpander {{
-            background-color: rgba(255,255,255,0.95) !important;
-            border-radius: 12px;
-            border: 1px solid rgba(200,200,200,0.3);
-        }}
-        /* 輸入框維持深色確保可讀 */
-        .stTextArea textarea {{
-            background-color: rgba(30,30,40,0.9) !important;
-            color: #f0f0f0 !important;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-        
-    except FileNotFoundError:
-        pass
+# ---------- 🎨 Snoopy 10% + 顯示修復 + 折疊欄淺色 ----------
+try:
+    with open("Snoopy.jpg", "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+    
+    st.markdown(f"""
+    <style>
+    /* 確保背景圖顯示（不加 !important 避免衝突） */
+    .stApp {{
+        background-image: url("data:image/jpeg;base64,{img_b64}");
+        background-size: 10% auto;           /* 保持你想要的 10% */
+        background-position: right 30px bottom 30px;  /* 右下角留白 */
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    }}
+    
+    /* 折疊欄外層容器：強制改為淺色模式背景 */
+    div[data-testid="stExpander"] {{
+        background-color: rgba(255,255,255,0.95) !important;
+        border: 1px solid rgba(200,200,200,0.3) !important;
+        border-radius: 12px !important;
+    }}
+    
+    /* 折疊欄內層內容區：也改淺色，避免繼承深色 */
+    div[data-testid="stExpander"] .streamlit-expanderContent {{
+        background-color: transparent !important;
+        color: #262730 !important;
+    }}
+    
+    /* 展開後的 Header 也淺色 */
+    div[data-testid="stExpander"] details summary {{
+        background-color: transparent !important;
+        color: #262730 !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+except FileNotFoundError:
+    st.warning("⚠️ 未找到 Snoopy.jpg")
         
     # ---------- 資料庫持久化（原有功能）----------
     SENTENCES_FILE = "sentences.json"
