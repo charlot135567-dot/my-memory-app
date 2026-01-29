@@ -249,7 +249,9 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
-                    st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {item.get('emoji','')}{item['title']}")
+                    # 只取第一個 Emoji 顯示在前面
+                    emoji_display = first_emoji(item['title'])
+                    st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {emoji_display} {item['title']}")
 
                 with c3:
                     if st.session_state.active_del_id == item_id:
