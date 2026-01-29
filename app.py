@@ -318,7 +318,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（單一輸入框 + 外部 AI 連結 + Excel 式管理）
+# 6. TAB4 ─ AI 控制台（手機優化版：無標題 + 緊湊布局）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse
@@ -344,57 +344,43 @@ with tabs[3]:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
-    if 'selected_for_delete' not in st.session_state:
-        st.session_state.selected_for_delete = []
+    if 'select_all' not in st.session_state:
+        st.session_state.select_all = False
 
-    # ---------- 上方功能列（AI 連結 + 儲存）----------
-    st.markdown("### 🤖 AI 分析連結")
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+    # ---------- 上方功能列（精簡版）----------
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 1.2])
     
-    # 取得當前輸入內容生成 Prompt
     current_input = st.session_state.get("main_input", "")
     
-    # 預設分析指令 Prompt
-    ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳（不要 markdown 格式）：
+    ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳：
 {{
   "ref_no": "經文編號（如：2Ti 3:10）",
   "ref_article": "完整英文經文",
   "zh_translation": "中文翻譯",
-  "words": [
-    {{"word": "單字", "meaning": "中文解釋", "level": "難度等級"}}
-  ],
-  "phrases": [
-    {{"phrase": "片語", "meaning": "中文解釋", "usage": "例句"}}
-  ],
-  "grammar": [
-    {{"grammar_point": "文法點", "explanation": "詳細說明"}}
-  ]
+  "words": [{{"word": "單字", "meaning": "中文解釋", "level": "難度"}}],
+  "phrases": [{{"phrase": "片語", "meaning": "中文解釋"}}],
+  "grammar": [{{"grammar_point": "文法點", "explanation": "說明"}}]
 }}
 
-待分析經文：
-{current_input}"""
+經文：{current_input}"""
     
     encoded_prompt = urllib.parse.quote(ai_prompt)
     
     with c1:
-        st.link_button("💬 ChatGPT 🔗", f"https://chat.openai.com/?q={encoded_prompt}", 
-                       use_container_width=True, help="開啟 ChatGPT 並自動帶入分析指令")
+        st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", 
+                       use_container_width=True)
     with c2:
-        # Kimi 網頁版連結（使用 query 參數）
-        st.link_button("🌙 Kimi K2 🔗", f"https://kimi.com/?q={encoded_prompt}", 
-                       use_container_width=True, help="開啟 Kimi 並自動帶入分析指令")
+        st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", 
+                       use_container_width=True)
     with c3:
-        # Google Gemini 連結
-        st.link_button("🔍 Google 🔗", f"https://gemini.google.com/app?q={encoded_prompt}", 
-                       use_container_width=True, help="開啟 Gemini 並自動帶入分析指令")
+        st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", 
+                       use_container_width=True)
     with c4:
-        # 儲存鍵：支援 JSON 格式 AI 結果或純文字
-        if st.button("💾 儲存", type="primary", use_container_width=True):
+        if st.button("💾 存", type="primary", use_container_width=True):
             if not current_input.strip():
-                st.error("⚠️ 請先輸入內容")
+                st.error("請輸入內容")
             else:
                 try:
-                    # 嘗試解析為 JSON（AI 分析結果）
                     data = json.loads(current_input)
                     ref = data.get("ref_no") or data.get("ref") or f"REF_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
                     
@@ -408,195 +394,156 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"✅ 已儲存：{ref}")
-                    
-                    # 清空輸入框並重新載入
+                    st.success(f"已存：{ref}")
                     st.session_state["main_input"] = ""
                     st.session_state["search_results"] = []
+                    st.session_state["select_all"] = False
                     st.rerun()
                     
                 except json.JSONDecodeError:
-                    # 視為純文字筆記儲存
                     ref = f"NOTE_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
                     st.session_state.sentences[ref] = {
                         "ref": ref,
                         "en": current_input,
                         "zh": "",
-                        "words": [],
-                        "phrases": [],
-                        "grammar": [],
+                        "words": [], "phrases": [], "grammar": [],
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"✅ 已儲存為文字筆記：{ref}")
+                    st.success(f"已存筆記：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
 
-    # ---------- 核心：單一多功能輸入框 ----------
-    st.markdown("### 📝 多功能輸入區")
+    # ---------- 核心：單一輸入框（提示放內部）----------
     input_text = st.text_area(
         "",
-        height=350,
+        height=300,
         key="main_input",
-        placeholder="""📋 使用說明：
-1. 貼上經文 → 點上方 AI 連結進行分析 → 複製 AI 結果 → 回貼至此 → 按儲存
-2. 輸入 Ref. 或關鍵字 → 點下方「搜尋」查詢資料庫
-3. 管理資料：搜尋後勾選項目 → 點「刪除」移除""",
+        placeholder="""📝 貼經文→點上方AI連結分析→複製結果回貼→按「存」
+🔍 輸入Ref.或關鍵字→點下方「搜尋」查詢→勾選刪除
+例：2Ti 3:10 或 love 或 2025-01""",
         label_visibility="collapsed"
     )
 
-    # ---------- 下方操作列（搜尋 + 刪除）----------
-    st.markdown("### 🔍 資料檢索與管理")
+    # ---------- 下方操作列（無標題）----------
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        if st.button("🔍 搜尋資料庫", use_container_width=True, type="primary"):
+        if st.button("🔍 搜尋", use_container_width=True, type="primary"):
             if not input_text.strip():
-                st.warning("請先在上方輸入框輸入搜尋條件（Ref. 編號或關鍵字）")
+                st.warning("請輸入搜尋條件")
                 st.session_state.search_results = []
+                st.session_state["select_all"] = False
             else:
                 keyword = input_text.lower()
                 results = []
                 
                 for k, v in st.session_state.sentences.items():
-                    # 搜尋範圍：Ref、英文、中文、日期
                     searchable = f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')} {v.get('date_added','')}".lower()
                     
                     if keyword in searchable or keyword in k.lower():
                         results.append({
                             "key": k,
-                            "勾選": False,  # 用於刪除勾選
+                            "選": st.session_state.get("select_all", False),
                             "Ref.": v.get("ref", k),
-                            "內容預覽": (v.get("en", "")[:80] + "...") if len(v.get("en","")) > 80 else v.get("en", ""),
-                            "中文": (v.get("zh", "")[:40] + "...") if len(v.get("zh","")) > 40 else v.get("zh", ""),
-                            "日期": v.get("date_added", "")
+                            "內容": (v.get("en", "")[:60] + "…") if len(v.get("en","")) > 60 else v.get("en", ""),
+                            "日期": v.get("date_added", "")[:10]  # 只顯示年月日省空間
                         })
                 
                 st.session_state.search_results = results
                 if not results:
-                    st.info("📭 找不到符合條件的資料")
+                    st.info("找不到資料")
+                else:
+                    st.session_state["select_all"] = False
 
     with col2:
-        if st.button("🗑️ 刪除勾選項目", use_container_width=True, type="secondary"):
-            if not st.session_state.get("selected_rows"):
-                st.warning("請先在下方表格勾選要刪除的項目")
+        if st.button("🗑️ 刪已選", use_container_width=True, type="secondary"):
+            selected = [r["key"] for r in st.session_state.search_results if r.get("選", False)]
+            if not selected:
+                st.warning("請先勾選")
             else:
-                deleted_count = 0
-                for key in st.session_state.selected_rows:
+                for key in selected:
                     if key in st.session_state.sentences:
                         del st.session_state.sentences[key]
-                        deleted_count += 1
-                
-                if deleted_count > 0:
-                    save_sentences(st.session_state.sentences)
-                    st.success(f"✅ 已成功刪除 {deleted_count} 筆資料")
-                    st.session_state.selected_rows = []
-                    # 重新執行搜尋以更新列表
-                    st.rerun()
-                else:
-                    st.error("刪除失敗")
+                save_sentences(st.session_state.sentences)
+                st.success(f"已刪 {len(selected)} 筆")
+                # 清空搜尋結果
+                st.session_state.search_results = []
+                st.session_state["select_all"] = False
+                st.rerun()
 
-    # ---------- 搜尋結果顯示區（Excel 式表格 + 勾選）----------
+    # ---------- 搜尋結果（精簡 Excel 式 + 全選功能）----------
     if st.session_state.search_results:
-        st.markdown(f"#### 📊 搜尋結果（共 {len(st.session_state.search_results)} 筆）")
+        # 全選操作列
+        select_col1, select_col2 = st.columns([1, 4])
+        with select_col1:
+            select_all = st.checkbox("☑️ 全選", key="select_all_checkbox", 
+                                    value=st.session_state.get("select_all", False))
+            if select_all != st.session_state.get("select_all"):
+                st.session_state["select_all"] = select_all
+                # 更新所有結果的選取狀態
+                for r in st.session_state.search_results:
+                    r["選"] = select_all
+                st.rerun()
         
-        # 使用 Data Editor 實現勾選功能
+        with select_col2:
+            st.caption(f"共 {len(st.session_state.search_results)} 筆｜已選 {len([r for r in st.session_state.search_results if r.get('選', False)])} 筆")
+        
+        # 顯示表格
         df = pd.DataFrame(st.session_state.search_results)
         
         edited_df = st.data_editor(
             df,
             column_config={
-                "勾選": st.column_config.CheckboxColumn(
-                    "選擇",
-                    help="勾選後按上方「刪除勾選項目」",
-                    default=False,
-                    width="small"
-                ),
-                "key": None,  # 隱藏 key 欄位（內部使用）
-                "Ref.": st.column_config.TextColumn("經文編號", width="medium"),
-                "內容預覽": st.column_config.TextColumn("英文內容預覽", width="large"),
-                "中文": st.column_config.TextColumn("中文", width="medium"),
-                "日期": st.column_config.TextColumn("儲存日期", width="small")
+                "選": st.column_config.CheckboxColumn("", width="small"),
+                "key": None,
+                "Ref.": st.column_config.TextColumn("Ref.", width="small"),
+                "內容": st.column_config.TextColumn("內容預覽", width="large"),
+                "日期": st.column_config.TextColumn("日期", width="small")
             },
             hide_index=True,
             use_container_width=True,
-            height=min(400, len(df) * 35 + 40),  # 動態高度
+            height=min(350, len(df) * 35 + 35),
             key="result_editor"
         )
         
-        # 更新選取狀態
-        selected = edited_df[edited_df["勾選"] == True]["key"].tolist()
-        st.session_state.selected_rows = selected
+        # 同步選取狀態
+        for idx, row in edited_df.iterrows():
+            st.session_state.search_results[idx]["選"] = row["選"]
         
-        if selected:
-            st.caption(f"已選取 {len(selected)} 筆資料待刪除")
-        
-        # 詳細內容展開（僅顯示前 3 筆避免畫面過長，點擊可展開全部）
-        st.markdown("#### 📖 詳細內容檢視")
-        for i, row in enumerate(st.session_state.search_results[:5]):
+        # 詳細內容（收合式，節省空間）
+        st.markdown("---")
+        for i, row in enumerate(st.session_state.search_results[:3]):  # 手機只顯示前3筆
             full_data = st.session_state.sentences.get(row["key"], {})
             
-            with st.expander(f"📌 {row['Ref.']} | {row['日期']}"):
-                col_content, col_analysis = st.columns([2, 1])
+            with st.expander(f"{row['Ref.']} ({row['日期']})"):
+                st.markdown(f"**📖** {full_data.get('en', '無內容')[:200]}")
+                if full_data.get('zh'):
+                    st.markdown(f"**🈺** {full_data.get('zh')[:100]}")
                 
-                with col_content:
-                    st.markdown("**📝 英文內容：**")
-                    st.text(full_data.get("en", "無"))
-                    st.markdown("**🈺 中文：**")
-                    st.text(full_data.get("zh", "無"))
-                
-                with col_analysis:
-                    if full_data.get("words"):
-                        st.markdown("**📚 單字重點：**")
-                        for w in full_data["words"][:3]:
-                            st.caption(f"• {w.get('word','')}：{w.get('meaning','')}")
-                    
-                    if full_data.get("phrases"):
-                        st.markdown("**🔗 片語：**")
-                        for p in full_data["phrases"][:2]:
-                            st.caption(f"• {p.get('phrase','')}：{p.get('meaning','')}")
-                    
-                    if full_data.get("grammar"):
-                        st.markdown("**⚙️ 文法點：**")
-                        for g in full_data["grammar"][:2]:
-                            st.caption(f"• {g.get('grammar_point','')}")
+                # 分析內容標籤頁（節省空間版本）
+                if full_data.get("words") or full_data.get("phrases"):
+                    tabs_detail = st.tabs(["單", "片", "文"])
+                    with tabs_detail[0]:
+                        if full_data.get("words"):
+                            for w in full_data["words"][:3]:
+                                st.caption(f"{w.get('word','')}：{w.get('meaning','')}")
+                    with tabs_detail[1]:
+                        if full_data.get("phrases"):
+                            for p in full_data["phrases"][:2]:
+                                st.caption(f"{p.get('phrase','')}：{p.get('meaning','')}")
+                    with tabs_detail[2]:
+                        if full_data.get("grammar"):
+                            for g in full_data["grammar"][:2]:
+                                st.caption(f"{g.get('grammar_point','')}")
 
-    # ---------- 底部統計與匯出 ----------
+    # ---------- 底部統計 ----------
     st.divider()
-    stat_col1, stat_col2, stat_col3 = st.columns([2, 2, 2])
+    st.caption(f"💾 {len(st.session_state.sentences)} 筆資料")
     
-    with stat_col1:
-        st.caption(f"📦 資料庫總數：{len(st.session_state.sentences)} 筆")
-    
-    with stat_col2:
-        # 一鍵匯出 JSON
-        if st.session_state.sentences:
-            json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
-            st.download_button(
-                "⬇️ 匯出 JSON 備份",
-                data=json_str,
-                file_name=f"sentences_backup_{dt.datetime.now().strftime('%Y%m%d')}.json",
-                mime="application/json",
-                use_container_width=True
-            )
-    
-    with stat_col3:
-        # 清空資料庫（危險操作，需確認）
-        if st.button("⚠️ 清空全部資料", type="secondary", use_container_width=True):
-            st.session_state.show_confirm_clear = True
-    
-    if st.session_state.get("show_confirm_clear"):
-        st.error("⚠️ 確定要刪除所有資料嗎？此動作無法復原！")
-        conf_col1, conf_col2 = st.columns([1, 1])
-        with conf_col1:
-            if st.button("✅ 確認清空", type="primary"):
-                st.session_state.sentences = {}
-                save_sentences({})
-                st.session_state.search_results = []
-                st.session_state.show_confirm_clear = False
-                st.success("資料庫已清空")
-                st.rerun()
-        with conf_col2:
-            if st.button("❌ 取消"):
-                st.session_state.show_confirm_clear = False
-                st.rerun()
+    # 小型匯出按鈕（保持功能但不佔空間）
+    if st.session_state.sentences:
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False)
+        st.download_button("⬇️ 備份", data=json_str, 
+                          file_name=f"bk_{dt.datetime.now().strftime('%m%d')}.json",
+                          mime="application/json", use_container_width=True)
