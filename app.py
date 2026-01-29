@@ -298,32 +298,37 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（雙折疊欄 + Snoopy 背景版）
+# 6. TAB4 ─ AI 控制台（Snoopy 縮小固定角落版）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-# ---------- 🎨 Snoopy 背景（只顯示上半部）----------
-try:
-    with open("Snoopy.jpg", "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
-    
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background-image: url("data:image/jpeg;base64,{img_b64}");
-        background-size: cover;           /* 填滿畫面 */
-        background-position: top center;  /* 強制顯示上方（Snoopy） */
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-except FileNotFoundError:
-    st.warning("⚠️ 未找到 Snoopy.jpg")
+    # ---------- 🎨 Snoopy 縮小至 1/4，固定在右下角 ----------
+    try:
+        with open("Snoopy.jpg", "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{img_b64}");
+            background-size: 25% auto;      /* 寬度 25%，高度自動（保持比例） */
+            background-position: right bottom;  /* 固定在右下角 */
+            background-attachment: fixed;   /* 捲動時固定不動 */
+            background-repeat: no-repeat;   /* 不重複 */
+        }}
+        /* 只在需要的地方加深背景（可選） */
+        .stTextArea textarea {{
+            background-color: rgba(30,30,40,0.9) !important;
+            color: #f0f0f0 !important;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+        
+    except FileNotFoundError:
+        st.warning("⚠️ 未找到 Snoopy.jpg")
 
-    # ---------- 資料庫持久化 ----------
+    # ---------- 資料庫持久化（原有功能）----------
     SENTENCES_FILE = "sentences.json"
     
     def load_sentences():
@@ -346,7 +351,6 @@ except FileNotFoundError:
 
     # ---------- 折疊欄 ①：輸入與分析 ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
-        # 四個 AI 連結（橫排）
         c1, c2, c3, c4 = st.columns(4)
         
         current_input = st.session_state.get("main_input", "")
@@ -380,7 +384,7 @@ except FileNotFoundError:
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存：{ref}")
+                        st.success(f"已存：{ref}")
                         st.session_state["main_input"] = ""
                         st.rerun()
                     except:
@@ -391,30 +395,28 @@ except FileNotFoundError:
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存筆記：{ref}")
+                        st.success(f"已存筆記：{ref}")
                         st.session_state["main_input"] = ""
                         st.rerun()
 
-        # 輸入框
         st.text_area(
             "",
             height=250,
             key="main_input",
-            placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「存」\n或直接輸入文字筆記",
+            placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「存」",
             label_visibility="collapsed"
         )
 
     # ---------- 折疊欄 ②：資料管理 ----------
-    with st.expander("🔍 資料搜尋與管理", expanded=False):  # 預設收起，Snoopy可見
-        # 搜尋列
+    with st.expander("🔍 資料搜尋與管理", expanded=False):
         c1, c2 = st.columns([3, 1])
         with c1:
-            search_query = st.text_input("🔍 搜尋 Ref. 或關鍵字", key="search_box", 
+            search_query = st.text_input("搜尋 Ref. 或關鍵字", key="search_box", 
                                         placeholder="例：2Ti 3:10 或 love")
         with c2:
             if st.button("搜尋", type="primary", use_container_width=True):
                 if not search_query:
-                    st.warning("請輸入搜尋條件")
+                    st.warning("請輸入條件")
                     st.session_state.search_results = []
                 else:
                     kw = search_query.lower()
@@ -427,25 +429,21 @@ except FileNotFoundError:
                     ]
                     if not st.session_state.search_results:
                         st.info("找不到資料")
-                    else:
-                        st.rerun()  # 立即顯示結果
 
-        # 刪除鍵（在有搜尋結果時顯示）
         if st.session_state.search_results:
-            if st.button("🗑️ 刪除勾選項目", type="secondary"):
+            if st.button("🗑️ 刪除勾選項目"):
                 sel = [r["key"] for r in st.session_state.search_results if r.get("選")]
                 if sel:
                     for k in sel: 
                         st.session_state.sentences.pop(k, None)
                     save_sentences(st.session_state.sentences)
-                    st.success(f"✅ 已刪 {len(sel)} 筆")
+                    st.success(f"已刪 {len(sel)} 筆")
                     st.session_state.search_results = []
                     st.rerun()
                 else:
-                    st.warning("請先勾選要刪除的項目")
+                    st.warning("請先勾選")
 
-            # 全選 + 表格
-            if st.checkbox("☑️ 全選", key="select_all"):
+            if st.checkbox("☑️ 全選"):
                 for r in st.session_state.search_results: 
                     r["選"] = True
                     
