@@ -344,46 +344,60 @@ with tabs[3]:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
-    if 'select_all' not in st.session_state:
-        st.session_state.select_all = False
 
-    # ---------- 上方功能列（精簡版）----------
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 1.2])
+    # ---------- CSS 強制手機一排四鍵 ----------
+    st.markdown("""
+    <style>
+    /* 強制按鈕容器水平排列 */
+    .stHorizontalBlock {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+    }
+    /* 按鈕 column 寬度壓縮 */
+    .stHorizontalBlock > div[data-testid="column"] {
+        flex: 1 1 0% !important;
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    /* 按鈕文字大小縮小 */
+    .stButton > button {
+        font-size: 14px !important;
+        padding: 8px 4px !important;
+        white-space: nowrap !important;
+    }
+    /* 連結按鈕也縮小 */
+    .stLinkButton > a {
+        font-size: 14px !important;
+        padding: 8px 4px !important;
+        white-space: nowrap !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ---------- 上方功能列（強制一排）----------
+    c1, c2, c3, c4 = st.columns(4)  # 明確指定4等分
     
     current_input = st.session_state.get("main_input", "")
     
-    ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳：
-{{
-  "ref_no": "經文編號（如：2Ti 3:10）",
-  "ref_article": "完整英文經文",
-  "zh_translation": "中文翻譯",
-  "words": [{{"word": "單字", "meaning": "中文解釋", "level": "難度"}}],
-  "phrases": [{{"phrase": "片語", "meaning": "中文解釋"}}],
-  "grammar": [{{"grammar_point": "文法點", "explanation": "說明"}}]
-}}
-
-經文：{current_input}"""
-    
+    ai_prompt = f"""分析經文並回傳JSON：{{\"ref_no\":\"編號\",\"ref_article\":\"英文\",\"zh_translation\":\"中文\",\"words\":[],\"phrases\":[],\"grammar\":[]}}。經文：{current_input}"""
     encoded_prompt = urllib.parse.quote(ai_prompt)
     
     with c1:
-        st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", 
-                       use_container_width=True)
+        st.link_button("💬GPT", f"https://chat.openai.com/?q={encoded_prompt}", use_container_width=True)
     with c2:
-        st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", 
-                       use_container_width=True)
+        st.link_button("🌙K2", f"https://kimi.com/?q={encoded_prompt}", use_container_width=True)
     with c3:
-        st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", 
-                       use_container_width=True)
+        st.link_button("🔍G", f"https://gemini.google.com/app?q={encoded_prompt}", use_container_width=True)
     with c4:
-        if st.button("💾 存", type="primary", use_container_width=True):
+        if st.button("💾存", type="primary", use_container_width=True):
             if not current_input.strip():
                 st.error("請輸入內容")
             else:
                 try:
                     data = json.loads(current_input)
-                    ref = data.get("ref_no") or data.get("ref") or f"REF_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    
+                    ref = data.get("ref_no") or data.get("ref") or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
                     st.session_state.sentences[ref] = {
                         "ref": ref,
                         "en": data.get("ref_article", data.get("en", "")),
@@ -396,16 +410,11 @@ with tabs[3]:
                     save_sentences(st.session_state.sentences)
                     st.success(f"已存：{ref}")
                     st.session_state["main_input"] = ""
-                    st.session_state["search_results"] = []
-                    st.session_state["select_all"] = False
                     st.rerun()
-                    
-                except json.JSONDecodeError:
-                    ref = f"NOTE_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                except:
+                    ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
                     st.session_state.sentences[ref] = {
-                        "ref": ref,
-                        "en": current_input,
-                        "zh": "",
+                        "ref": ref, "en": current_input, "zh": "", 
                         "words": [], "phrases": [], "grammar": [],
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
@@ -414,98 +423,75 @@ with tabs[3]:
                     st.session_state["main_input"] = ""
                     st.rerun()
 
-    # ---------- 核心：單一輸入框（提示放內部）----------
+    # ---------- 輸入框 ----------
     input_text = st.text_area(
         "",
-        height=300,
+        height=280,
         key="main_input",
-        placeholder="""📝 貼經文→點上方AI連結分析→複製結果回貼→按「存」
-🔍 輸入Ref.或關鍵字→點下方「搜尋」查詢→勾選刪除
-例：2Ti 3:10 或 love 或 2025-01""",
+        placeholder="📝貼經文→點上方AI連結→複製結果回貼→按「存」\n🔍輸入Ref.或關鍵字→點下方「搜尋」→勾選刪除\n例：2Ti 3:10 或 love",
         label_visibility="collapsed"
     )
 
-    # ---------- 下方操作列（無標題）----------
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        if st.button("🔍 搜尋", use_container_width=True, type="primary"):
+    # ---------- 下方操作列（也強制一排）----------
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button("🔍搜尋", use_container_width=True, type="primary"):
             if not input_text.strip():
-                st.warning("請輸入搜尋條件")
+                st.warning("請輸入條件")
                 st.session_state.search_results = []
-                st.session_state["select_all"] = False
             else:
                 keyword = input_text.lower()
-                results = []
-                
-                for k, v in st.session_state.sentences.items():
-                    searchable = f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')} {v.get('date_added','')}".lower()
-                    
-                    if keyword in searchable or keyword in k.lower():
-                        results.append({
-                            "key": k,
-                            "選": st.session_state.get("select_all", False),
-                            "Ref.": v.get("ref", k),
-                            "內容": (v.get("en", "")[:60] + "…") if len(v.get("en","")) > 60 else v.get("en", ""),
-                            "日期": v.get("date_added", "")[:10]  # 只顯示年月日省空間
-                        })
-                
-                st.session_state.search_results = results
-                if not results:
-                    st.info("找不到資料")
-                else:
-                    st.session_state["select_all"] = False
+                st.session_state.search_results = [
+                    {"key": k, "選": False, "Ref.": v.get("ref", k), 
+                     "內容": (v.get("en", "")[:50] + "…") if len(v.get("en", "")) > 50 else v.get("en", ""),
+                     "日期": v.get("date_added", "")[:10]}
+                    for k, v in st.session_state.sentences.items()
+                    if keyword in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
+                ]
+                st.session_state["select_all"] = False
 
-    with col2:
-        if st.button("🗑️ 刪已選", use_container_width=True, type="secondary"):
-            selected = [r["key"] for r in st.session_state.search_results if r.get("選", False)]
+    with c2:
+        if st.button("🗑️刪除", use_container_width=True, type="secondary"):
+            selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
             if not selected:
                 st.warning("請先勾選")
             else:
-                for key in selected:
-                    if key in st.session_state.sentences:
-                        del st.session_state.sentences[key]
+                for k in selected:
+                    st.session_state.sentences.pop(k, None)
                 save_sentences(st.session_state.sentences)
-                st.success(f"已刪 {len(selected)} 筆")
-                # 清空搜尋結果
+                st.success(f"刪除{len(selected)}筆")
                 st.session_state.search_results = []
-                st.session_state["select_all"] = False
                 st.rerun()
 
-    # ---------- 搜尋結果（精簡 Excel 式 + 全選功能）----------
+    # ---------- 搜尋結果（精簡版）----------
     if st.session_state.search_results:
-        # 全選操作列
-        select_col1, select_col2 = st.columns([1, 4])
-        with select_col1:
-            select_all = st.checkbox("☑️ 全選", key="select_all_checkbox", 
-                                    value=st.session_state.get("select_all", False))
-            if select_all != st.session_state.get("select_all"):
-                st.session_state["select_all"] = select_all
-                # 更新所有結果的選取狀態
-                for r in st.session_state.search_results:
-                    r["選"] = select_all
-                st.rerun()
+        # 全選列
+        all_selected = st.checkbox("☑️全選", key="select_all", 
+                                   value=st.session_state.get("select_all", False))
+        if all_selected:
+            for r in st.session_state.search_results:
+                r["選"] = True
         
-        with select_col2:
-            st.caption(f"共 {len(st.session_state.search_results)} 筆｜已選 {len([r for r in st.session_state.search_results if r.get('選', False)])} 筆")
+        st.caption(f"共{len(st.session_state.search_results)}筆")
         
-        # 顯示表格
         df = pd.DataFrame(st.session_state.search_results)
-        
-        edited_df = st.data_editor(
+        edited = st.data_editor(
             df,
             column_config={
-                "選": st.column_config.CheckboxColumn("", width="small"),
+                "選": st.column_config.CheckboxColumn("", width="tiny"),
                 "key": None,
-                "Ref.": st.column_config.TextColumn("Ref.", width="small"),
-                "內容": st.column_config.TextColumn("內容預覽", width="large"),
-                "日期": st.column_config.TextColumn("日期", width="small")
+                "Ref.": st.column_config.TextColumn("Ref", width="small"),
+                "內容": st.column_config.TextColumn("內容", width="large"),
+                "日期": st.column_config.TextColumn("日", width="tiny")
             },
             hide_index=True,
             use_container_width=True,
-            height=min(350, len(df) * 35 + 35),
-            key="result_editor"
+            height=min(300, len(df)*35)
         )
+        
+        # 同步選取狀態
+        for i, row in edited.iterrows():
+            st.session_state.search_results[i]["選"] = row["選"]
         
         # 同步選取狀態
         for idx, row in edited_df.iterrows():
