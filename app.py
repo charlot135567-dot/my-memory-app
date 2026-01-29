@@ -326,7 +326,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（手機兩排版：最穩定）
+# 6. TAB4 ─ AI 控制台（電腦手機都兩行版）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse
@@ -352,6 +352,37 @@ with tabs[3]:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
+
+    # ---------- ⭐ 強制兩列布局 CSS（放在按鈕之前）----------
+    st.markdown("""
+    <style>
+    /* 強制所有兩欄布局在手機上也維持並排 */
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div {
+        width: 50% !important;
+        flex: 0 0 50% !important;
+        min-width: 0 !important;
+    }
+    /* 按鈕文字縮小避免換行 */
+    button, .stLinkButton a {
+        font-size: 14px !important;
+        padding: 8px 4px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    /* 手機板輸入框高度調整 */
+    @media (max-width: 640px) {
+        .stTextArea textarea {
+            font-size: 16px !important; /* 防止 iOS 縮放 */
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # ---------- 第一排：GPT + K2 ----------
     c1, c2 = st.columns(2)
@@ -480,6 +511,6 @@ with tabs[3]:
     st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
     
     if st.session_state.sentences:
-        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False)
         st.download_button("⬇️ 備份", data=json_str, file_name=f"bk_{dt.datetime.now().strftime('%m%d')}.json",
                           mime="application/json", use_container_width=True)
