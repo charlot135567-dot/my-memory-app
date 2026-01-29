@@ -298,30 +298,30 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（修復顯示 + Snoopy 對齊版）
+# 6. TAB4 ─ AI 控制台（Snoopy置中版 + 功能修復）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-# ---------- 🎨 Snoopy 15% + 置中對齊 ----------
-try:
-    with open("Snoopy.jpg", "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
-    
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background-image: url("data:image/jpeg;base64,{img_b64}");
-        background-size: 15% auto;           /* 加大到 15% */
-        background-position: center bottom;  /* 水平置中，垂直底部 */
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-except FileNotFoundError:
-    pass
+    # ---------- 🎨 Snoopy 背景（簡化版，不影響內容）----------
+    try:
+        with open("Snoopy.jpg", "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        
+        # 只用最簡單的CSS，避免衝突
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{img_b64}");
+            background-size: 15% auto;
+            background-position: center bottom 30px;  /* 置中，距底部30px */
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+    except:
+        pass  # 沒圖片也沒關係，繼續執行
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
@@ -339,6 +339,7 @@ except FileNotFoundError:
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     
+    # 初始化
     if 'sentences' not in st.session_state:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
@@ -346,7 +347,7 @@ except FileNotFoundError:
 
     # ---------- 📝 折疊欄 1：輸入與分析 ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
-        # 四個按鈕
+        # 四個AI連結按鈕
         c1, c2, c3, c4 = st.columns(4)
         
         current_input = st.session_state.get("main_input", "")
@@ -380,7 +381,7 @@ except FileNotFoundError:
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         save_sentences(st.session_state.sentences)
-                        st.success(f"已存：{ref}")
+                        st.success(f"✅ 已存：{ref}")
                         st.session_state["main_input"] = ""
                         st.rerun()
                     except:
@@ -391,16 +392,16 @@ except FileNotFoundError:
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         save_sentences(st.session_state.sentences)
-                        st.success(f"已存筆記：{ref}")
+                        st.success(f"✅ 已存筆記：{ref}")
                         st.session_state["main_input"] = ""
                         st.rerun()
 
-        # 輸入框（簡化版，避免黑底衝突）
+        # 輸入框
         st.text_area(
             "",
-            height=250,
+            height=260,
             key="main_input",
-            placeholder="貼經文→點AI連結→複製回貼→按「存」",
+            placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「存」\n🔍 或輸入關鍵字搜尋資料庫",
             label_visibility="collapsed"
         )
 
@@ -410,45 +411,48 @@ except FileNotFoundError:
         search_col, btn_col = st.columns([3, 1])
         
         with search_col:
-            query = st.text_input("搜尋 Ref. 或關鍵字", key="search_input", 
-                                 placeholder="例：2Ti 3:10")
+            query = st.text_input("搜尋 Ref. 或關鍵字", key="search_box", 
+                                 placeholder="例：2Ti 3:10 或 love")
         
         with btn_col:
             if st.button("搜尋", type="primary", use_container_width=True):
                 if not query:
-                    st.warning("請輸入條件")
+                    st.warning("請輸入搜尋條件")
                 else:
                     kw = query.lower()
                     st.session_state.search_results = [
                         {"key": k, "選": False, "Ref.": v.get("ref", k), 
-                         "內容": v.get("en", "")[:50] + "..." if len(v.get("en","")) > 50 else v.get("en", ""),
+                         "內容": (v.get("en", "")[:50] + "...") if len(v.get("en","")) > 50 else v.get("en", ""),
                          "日期": v.get("date_added", "")[:10]}
                         for k, v in st.session_state.sentences.items()
                         if kw in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
                     ]
                     if not st.session_state.search_results:
-                        st.info("找不到資料")
+                        st.info("找不到符合資料")
 
-        # 刪除鈕與表格
+        # 搜尋結果與刪除
         if st.session_state.search_results:
-            if st.button("🗑️ 刪除勾選項目"):
-                selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
-                if selected:
-                    for k in selected:
-                        st.session_state.sentences.pop(k, None)
-                    save_sentences(st.session_state.sentences)
-                    st.success(f"已刪 {len(selected)} 筆")
-                    st.session_state.search_results = []
-                    st.rerun()
-                else:
-                    st.warning("請先勾選")
+            st.write(f"共 {len(st.session_state.search_results)} 筆")
             
             # 全選
             if st.checkbox("☑️ 全選"):
                 for r in st.session_state.search_results:
                     r["選"] = True
             
-            # 表格
+            # 刪除按鈕
+            if st.button("🗑️ 刪除勾選項目"):
+                selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
+                if selected:
+                    for k in selected:
+                        st.session_state.sentences.pop(k, None)
+                    save_sentences(st.session_state.sentences)
+                    st.success(f"✅ 已刪除 {len(selected)} 筆")
+                    st.session_state.search_results = []
+                    st.rerun()
+                else:
+                    st.warning("請先勾選要刪除的項目")
+            
+            # 表格顯示
             df = pd.DataFrame(st.session_state.search_results)
             edited = st.data_editor(
                 df,
@@ -460,20 +464,22 @@ except FileNotFoundError:
                     "日期": st.column_config.TextColumn("日期", width="small")
                 },
                 hide_index=True,
-                use_container_width=True
+                use_container_width=True,
+                height=min(350, len(df) * 35 + 40)
             )
+            
+            # 同步選取狀態
             for i, row in edited.iterrows():
                 st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（永遠顯示）----------
+    # ---------- 底部統計 ----------
     st.divider()
-    col_stat, col_backup = st.columns([2, 1])
-    with col_stat:
-        st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
-    with col_backup:
-        if st.session_state.sentences:
-            js = json.dumps(st.session_state.sentences, ensure_ascii=False)
-            st.download_button("⬇️ 備份", js, 
-                              f"bk_{dt.date.today():%m%d}.json", 
-                              mime="application/json",
-                              use_container_width=True)
+    st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
+    
+    # 備份下載
+    if st.session_state.sentences:
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
+        st.download_button("⬇️ 備份 JSON", json_str, 
+                          file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
+                          mime="application/json",
+                          use_container_width=True)
