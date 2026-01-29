@@ -396,14 +396,56 @@ with tabs[3]:
                         st.session_state["main_input"] = ""
                         st.rerun()
 
-        # 輸入框
-        st.text_area(
-            "",
-            height=260,
-            key="main_input",
-            placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「存」\n🔍 或輸入關鍵字搜尋資料庫",
-            label_visibility="collapsed"
-        )
+# ---------- 輸入框 ----------
+st.text_area(
+    "",
+    height=260,
+    key="main_input",  # 這個 key 會自動存到 session_state
+    placeholder="📝 貼經文→點下方AI連結（系統會自動帶上這段文字）",
+    label_visibility="collapsed"
+)
+
+# ---------- AI 連結區 ----------
+current_input = st.session_state.get("main_input", "")
+
+if current_input.strip():
+    # 有內容時：顯示連結 + 預覽
+    ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳：
+{{
+  "ref_no": "經文編號",
+  "ref_article": "完整英文經文", 
+  "zh_translation": "中文翻譯",
+  "words": [],
+  "phrases": [],
+  "grammar": []
+}}
+待分析經文：
+{current_input}"""
+    
+    encoded = urllib.parse.quote(ai_prompt)
+    
+    st.caption(f"✅ 系統已讀取輸入（{len(current_input)} 字），點擊下方按鈕將自動傳給 AI：")
+    
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
+                       use_container_width=True, type="secondary")
+    with c2:
+        st.link_button("🌙 K2", f"https://kimi.com/?q={encoded}", 
+                       use_container_width=True, type="secondary")
+    with c3:
+        st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded}", 
+                       use_container_width=True, type="secondary")
+    with c4:
+        st.button("💾 存", type="primary", use_container_width=True, 
+                 on_click=save_data)  # 假設有 save_data 函數
+
+else:
+    # 無內容時：顯示提示，避免點了沒反應
+    st.warning("⚠️ 請先在上方輸入框貼上經文，AI 連結才會出現")
+    st.write("（系統需要記錄輸入內容後，才能生成帶資料的連結）")
+
+# 如果你希望強制顯示連結（即使空內容也傳空值），把 if/else 换回原本的版本即可
 
     # ---------- 🔍 折疊欄 2：資料管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
