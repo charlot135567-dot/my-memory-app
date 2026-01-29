@@ -302,19 +302,18 @@ with tabs[2]:
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
-    
+
     # ---------- 🎨 Snoopy 背景（簡化版，不影響內容）----------
     try:
         with open("Snoopy.jpg", "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode()
-        
-        # 只用最簡單的CSS，避免衝突
+
         st.markdown(f"""
         <style>
         .stApp {{
             background-image: url("data:image/jpeg;base64,{img_b64}");
             background-size: 15% auto;
-            background-position: center bottom 30px;  /* 置中，距底部30px */
+            background-position: center bottom 30px;
             background-attachment: fixed;
             background-repeat: no-repeat;
         }}
@@ -325,7 +324,7 @@ with tabs[3]:
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
-    
+
     def load_sentences():
         if os.path.exists(SENTENCES_FILE):
             try:
@@ -334,12 +333,12 @@ with tabs[3]:
             except:
                 pass
         return {}
-    
+
     def save_sentences(data):
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    # 初始化
+
+    # 初始化 session_state
     if 'sentences' not in st.session_state:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
@@ -347,22 +346,18 @@ with tabs[3]:
 
     # ---------- 📝 折疊欄 1：輸入與分析 ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
-        # 四個AI連結按鈕
         c1, c2, c3, c4 = st.columns(4)
-        
+
         current_input = st.session_state.get("main_input", "")
-        ai_prompt = f"""分析經文回傳JSON：{{\"ref_no\":\"編號\",\"ref_article\":\"英文\",\"zh_translation\":\"中文\",\"words\":[],\"phrases\":[],\"grammar\":[]}}。經文：{current_input}"""
+        ai_prompt = f"""分析經文回傳JSON：{{"ref_no":"編號","ref_article":"英文","zh_translation":"中文","words":[],"phrases":[],"grammar":[]}}。經文：{current_input}"""
         encoded_prompt = urllib.parse.quote(ai_prompt)
-        
+
         with c1:
-            st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", 
-                           use_container_width=True)
+            st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", use_container_width=True)
         with c2:
-            st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", 
-                           use_container_width=True)
+            st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", use_container_width=True)
         with c3:
-            st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", 
-                           use_container_width=True)
+            st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", use_container_width=True)
         with c4:
             if st.button("💾 存", type="primary", use_container_width=True):
                 if not current_input.strip():
@@ -387,8 +382,12 @@ with tabs[3]:
                     except:
                         ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
                         st.session_state.sentences[ref] = {
-                            "ref": ref, "en": current_input, "zh": "", 
-                            "words": [], "phrases": [], "grammar": [],
+                            "ref": ref,
+                            "en": current_input,
+                            "zh": "",
+                            "words": [],
+                            "phrases": [],
+                            "grammar": [],
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         save_sentences(st.session_state.sentences)
@@ -396,21 +395,19 @@ with tabs[3]:
                         st.session_state["main_input"] = ""
                         st.rerun()
 
-# ---------- 輸入框 ----------
-st.text_area(
-    "",
-    height=260,
-    key="main_input",  # 這個 key 會自動存到 session_state
-    placeholder="📝 貼經文→點下方AI連結（系統會自動帶上這段文字）",
-    label_visibility="collapsed"
-)
+        # ---------- 輸入框 ----------
+        st.text_area(
+            "",
+            height=260,
+            key="main_input",
+            placeholder="📝 貼經文→點下方AI連結（系統會自動帶上這段文字）",
+            label_visibility="collapsed"
+        )
 
-# ---------- AI 連結區 ----------
-current_input = st.session_state.get("main_input", "")
-
-if current_input.strip():
-    # 有內容時：顯示連結 + 預覽
-    ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳：
+        # ---------- AI 連結區 ----------
+        current_input = st.session_state.get("main_input", "")
+        if current_input.strip():
+            ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳：
 {{
   "ref_no": "經文編號",
   "ref_article": "完整英文經文", 
@@ -421,41 +418,29 @@ if current_input.strip():
 }}
 待分析經文：
 {current_input}"""
-    
-    encoded = urllib.parse.quote(ai_prompt)
-    
-    st.caption(f"✅ 系統已讀取輸入（{len(current_input)} 字），點擊下方按鈕將自動傳給 AI：")
-    
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
-                       use_container_width=True, type="secondary")
-    with c2:
-        st.link_button("🌙 K2", f"https://kimi.com/?q={encoded}", 
-                       use_container_width=True, type="secondary")
-    with c3:
-        st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded}", 
-                       use_container_width=True, type="secondary")
-    with c4:
-        st.button("💾 存", type="primary", use_container_width=True, 
-                 on_click=save_data)  # 假設有 save_data 函數
+            encoded = urllib.parse.quote(ai_prompt)
 
-else:
-    # 無內容時：顯示提示，避免點了沒反應
-    st.warning("⚠️ 請先在上方輸入框貼上經文，AI 連結才會出現")
-    st.write("（系統需要記錄輸入內容後，才能生成帶資料的連結）")
-
-# 如果你希望強制顯示連結（即使空內容也傳空值），把 if/else 换回原本的版本即可
+            st.caption(f"✅ 系統已讀取輸入（{len(current_input)} 字），點擊下方按鈕將自動傳給 AI：")
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="secondary")
+            with c2:
+                st.link_button("🌙 K2", f"https://kimi.com/?q={encoded}", use_container_width=True, type="secondary")
+            with c3:
+                st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded}", use_container_width=True, type="secondary")
+            with c4:
+                # 你原本 save_data 未定義，這裡先註解提示
+                # st.button("💾 存", type="primary", use_container_width=True, on_click=save_data)
+                pass
+        else:
+            st.warning("⚠️ 請先在上方輸入框貼上經文，AI 連結才會出現")
+            st.write("（系統需要記錄輸入內容後，才能生成帶資料的連結）")
 
     # ---------- 🔍 折疊欄 2：資料管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
-        # 搜尋列
         search_col, btn_col = st.columns([3, 1])
-        
         with search_col:
-            query = st.text_input("搜尋 Ref. 或關鍵字", key="search_box", 
-                                 placeholder="例：2Ti 3:10 或 love")
-        
+            query = st.text_input("搜尋 Ref. 或關鍵字", key="search_box", placeholder="例：2Ti 3:10 或 love")
         with btn_col:
             if st.button("搜尋", type="primary", use_container_width=True):
                 if not query:
@@ -463,8 +448,8 @@ else:
                 else:
                     kw = query.lower()
                     st.session_state.search_results = [
-                        {"key": k, "選": False, "Ref.": v.get("ref", k), 
-                         "內容": (v.get("en", "")[:50] + "...") if len(v.get("en","")) > 50 else v.get("en", ""),
+                        {"key": k, "選": False, "Ref.": v.get("ref", k),
+                         "內容": (v.get("en", "")[:50] + "...") if len(v.get("en", "")) > 50 else v.get("en", ""),
                          "日期": v.get("date_added", "")[:10]}
                         for k, v in st.session_state.sentences.items()
                         if kw in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
@@ -472,16 +457,11 @@ else:
                     if not st.session_state.search_results:
                         st.info("找不到符合資料")
 
-        # 搜尋結果與刪除
         if st.session_state.search_results:
             st.write(f"共 {len(st.session_state.search_results)} 筆")
-            
-            # 全選
             if st.checkbox("☑️ 全選"):
                 for r in st.session_state.search_results:
                     r["選"] = True
-            
-            # 刪除按鈕
             if st.button("🗑️ 刪除勾選項目"):
                 selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
                 if selected:
@@ -493,8 +473,6 @@ else:
                     st.rerun()
                 else:
                     st.warning("請先勾選要刪除的項目")
-            
-            # 表格顯示
             df = pd.DataFrame(st.session_state.search_results)
             edited = st.data_editor(
                 df,
@@ -509,19 +487,19 @@ else:
                 use_container_width=True,
                 height=min(350, len(df) * 35 + 40)
             )
-            
-            # 同步選取狀態
             for i, row in edited.iterrows():
                 st.session_state.search_results[i]["選"] = row["選"]
 
     # ---------- 底部統計 ----------
     st.divider()
     st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
-    
-    # 備份下載
     if st.session_state.sentences:
         json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
-        st.download_button("⬇️ 備份 JSON", json_str, 
-                          file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
-                          mime="application/json",
-                          use_container_width=True)
+        st.download_button(
+            "⬇️ 備份 JSON",
+            json_str,
+            file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+
