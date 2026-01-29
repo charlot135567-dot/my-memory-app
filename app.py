@@ -144,8 +144,11 @@ with tabs[0]:
 with tabs[1]:
     import datetime as dt, re, os, json
     from streamlit_calendar import calendar
+    from pathlib import Path
+    from PIL import Image
+    import streamlit as st
 
-    # ---------- 背景圖（僅 TAB2，淡化） ----------
+    # ---------- 背景圖（淡化） ----------
     st.markdown("""
     <style>
     section[data-testid="stSidebar"] + div [data-testid="stVerticalBlock"] {
@@ -165,20 +168,21 @@ with tabs[1]:
     """, unsafe_allow_html=True)
 
     # ---------- 0. 檔案持久化 ----------
-    TODO_FILE = "todos.json"
+    TODO_FILE = Path("todos.json")  # 使用 Path 提升穩定性
 
     def load_todos():
-        if os.path.exists(TODO_FILE):
+        if TODO_FILE.exists():
             try:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
             except:
-                pass
+                return {}
         return {}
 
     def save_todos():
-        with open(TODO_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+        if "todo" in st.session_state:
+            with open(TODO_FILE, "w", encoding="utf-8") as f:
+                json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
     # ---------- 1. 初始化 ----------
     if "todo" not in st.session_state:
@@ -198,7 +202,7 @@ with tabs[1]:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
 
-    # ---------- 3. 月曆事件（格子只顯示文字 + Emoji） ----------
+    # ---------- 3. 月曆事件 ----------
     def build_events():
         ev = []
         for d, items in st.session_state.todo.items():
@@ -214,7 +218,7 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 4. 月曆（折疊欄） ----------
+    # ---------- 4. 月曆 ----------
     with st.expander("📅 聖經學習生活月曆", expanded=True):
         cal_options = {
             "headerToolbar": {
@@ -237,13 +241,11 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 5. 下方三日清單（💟 → 🗑️） ----------
+    # ---------- 5. 下方三日清單 ----------
     st.markdown("##### 📋 待辦事項")
 
     try:
-        base_date = dt.datetime.strptime(
-            st.session_state.sel_date, "%Y-%m-%d"
-        ).date()
+        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.date.today()
 
@@ -253,7 +255,6 @@ with tabs[1]:
         if d_str in st.session_state.todo:
             for idx, item in enumerate(st.session_state.todo[d_str]):
                 item_id = f"{d_str}_{idx}"
-
                 c1, c2, c3 = st.columns([1, 7, 2], vertical_alignment="top")
 
                 with c1:
@@ -264,11 +265,7 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
-                    st.write(
-                        f"{d_obj.month}/{d_obj.day} "
-                        f"{item['time'][:5]} "
-                        f"{item.get('emoji','')}{item['title']}"
-                    )
+                    st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {item.get('emoji','')}{item['title']}")
 
                 with c3:
                     if st.session_state.active_del_id == item_id:
@@ -288,9 +285,7 @@ with tabs[1]:
                 in_date = st.date_input("日期", base_date)
             with col2:
                 in_time = st.time_input("時間", dt.time(9, 0))
-
             in_title = st.text_input("待辦事項（可含 Emoji）")
-
             if st.form_submit_button("💾 儲存"):
                 if in_title:
                     k = str(in_date)
@@ -304,6 +299,19 @@ with tabs[1]:
                     save_todos()
                     st.session_state.cal_key += 1
                     st.rerun()
+
+    # ---------- 7. 顯示史奴比圖 ----------
+    st.divider()
+    st.markdown("### 🐶 今日小提醒")
+    try:
+        snoopy_path = Path("assets/snoopy.jpg")
+        if snoopy_path.exists():
+            img = Image.open(snoopy_path)
+            st.image(img, use_column_width=True)
+        else:
+            st.warning("📌 史奴比圖片未找到，請確認 assets/snoopy.png 是否存在")
+    except Exception as e:
+        st.error(f"顯示史奴比圖失敗: {e}")
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
