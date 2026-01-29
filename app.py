@@ -139,9 +139,6 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦（穩定最終版）
-# ===================================================================
-# ===================================================================
 # 4. TAB2 ─ 月曆待辦（穩定最終版，史奴比移除 & Reboot 資料持久化）
 # ===================================================================
 with tabs[1]:
@@ -301,17 +298,57 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（電腦手機都兩行版）
-# ===================================================================
-# ===================================================================
-# 4. TAB4 ─ AI 控制台（無 CSS 純淨版 - 最穩定）
+# 6. TAB4 ─ AI 控制台（Snoopy 背景版）
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
+    # ---------- 🎨 載入 Snoopy 背景圖 ----------
+    try:
+        with open("Snoopy.jpg", "rb") as f:
+            img_bytes = f.read()
+        img_b64 = base64.b64encode(img_bytes).decode()
+        
+        # 設定全頁背景 + 內容區塊半透明遮罩（確保文字可讀）
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{img_b64}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }}
+        /* 主要內容區塊加半透明底色 */
+        section[data-testid="stSidebar"] {{
+            background-color: rgba(30,30,46,0.95) !important;
+        }}
+        /* 輸入框和按鈕區域背景 */
+        div[data-testid="stVerticalBlock"] > div > div > div > div {{
+            background-color: rgba(30,30,46,0.88) !important;
+            border-radius: 8px;
+        }}
+        /* 確保文字顏色對比足夠 */
+        p, span, div, h1, h2, h3, h4, h5, h6, li {{
+            color: white !important;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }}
+        /* 按鈕文字保持清晰 */
+        button, a {{
+            color: white !important;
+            font-weight: bold !important;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+        
+    except FileNotFoundError:
+        st.warning("⚠️ 未找到 Snoopy.jpg，背景將使用預設深色")
+    except Exception:
+        pass  # 讀取失敗不影響功能
+
+    # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
     
-    # ---------- 資料庫持久化 ----------
     def load_sentences():
         if os.path.exists(SENTENCES_FILE):
             try:
@@ -340,13 +377,13 @@ with tabs[3]:
     
     with c1:
         st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", 
-                       use_container_width=True)
+                       use_container_width=True, help="開啟 ChatGPT 分析")
     with c2:
         st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", 
-                       use_container_width=True)
+                       use_container_width=True, help="開啟 Kimi 分析")
     with c3:
         st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", 
-                       use_container_width=True)
+                       use_container_width=True, help="開啟 Google Gemini 分析")
     with c4:
         if st.button("💾 存", type="primary", use_container_width=True):
             if not current_input.strip():
@@ -365,10 +402,10 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"已存：{ref}")
+                    st.success(f"✅ 已存：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
-                except:
+                except json.JSONDecodeError:
                     ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
                     st.session_state.sentences[ref] = {
                         "ref": ref, "en": current_input, "zh": "", 
@@ -376,55 +413,59 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"已存筆記：{ref}")
+                    st.success(f"✅ 已存筆記：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
 
-    # ---------- 輸入框 ----------
+    # ---------- 核心輸入框 ----------
     st.text_area(
         "",
-        height=260,
+        height=280,
         key="main_input",
-        placeholder="貼經文→點AI連結→複製回貼→按「存」\n搜尋：輸入Ref.如 2Ti 3:10 或 love 再點「搜尋」",
+        placeholder="📝 貼經文→點上方 AI 連結→複製結果回貼→按「存」\n🔍 輸入 Ref. 或關鍵字→點「搜尋」查詢→勾選刪除\n例：2Ti 3:10 或 love 或 2025-01",
         label_visibility="collapsed"
     )
 
     # ---------- 下方操作列 ----------
     col1, col2 = st.columns(2)
+    
     with col1:
-        if st.button("🔍 搜尋", type="primary", use_container_width=True):
+        if st.button("🔍 搜尋", use_container_width=True, type="primary"):
             query = st.session_state.get("main_input", "")
             if not query:
                 st.warning("請輸入搜尋條件")
+                st.session_state.search_results = []
             else:
                 keyword = query.lower()
                 st.session_state.search_results = [
                     {"key": k, "選": False, "Ref.": v.get("ref", k), 
-                     "內容": v.get("en", "")[:50] + "..." if len(v.get("en","")) > 50 else v.get("en", ""),
+                     "內容": (v.get("en", "")[:50] + "...") if len(v.get("en","")) > 50 else v.get("en", ""),
                      "日期": v.get("date_added", "")[:10]}
                     for k, v in st.session_state.sentences.items()
                     if keyword in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
                 ]
+                if not st.session_state.search_results:
+                    st.info("找不到符合資料")
                 
     with col2:
         if st.button("🗑️ 刪除", use_container_width=True):
             selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
-            if selected:
+            if not selected:
+                st.warning("請先勾選要刪除的項目")
+            else:
                 for k in selected:
                     st.session_state.sentences.pop(k, None)
                 save_sentences(st.session_state.sentences)
-                st.success(f"已刪 {len(selected)} 筆")
+                st.success(f"✅ 已刪除 {len(selected)} 筆")
                 st.session_state.search_results = []
                 st.rerun()
-            else:
-                st.warning("請先勾選")
 
-    # ---------- 搜尋結果 ----------
+    # ---------- 搜尋結果表格 ----------
     if st.session_state.search_results:
-        st.write(f"共 {len(st.session_state.search_results)} 筆")
+        st.write(f"📊 共 {len(st.session_state.search_results)} 筆")
         
-        # 全選
-        if st.checkbox("☑️ 全選"):
+        # 全選功能
+        if st.checkbox("☑️ 全選", key="select_all"):
             for r in st.session_state.search_results:
                 r["選"] = True
                 
@@ -433,23 +474,26 @@ with tabs[3]:
             df,
             column_config={
                 "選": st.column_config.CheckboxColumn("選", width="small"),
-                "key": None,
-                "Ref.": st.column_config.TextColumn("Ref", width="small"),
-                "內容": st.column_config.TextColumn("內容", width="large"),
-                "日期": st.column_config.TextColumn("日", width="small")
+                "key": None,  # 隱藏 key 欄位
+                "Ref.": st.column_config.TextColumn("Ref.", width="small"),
+                "內容": st.column_config.TextColumn("內容預覽", width="large"),
+                "日期": st.column_config.TextColumn("日期", width="small")
             },
             hide_index=True,
-            use_container_width=True
+            use_container_width=True,
+            height=min(400, len(df) * 35 + 40)
         )
         
+        # 同步選取狀態
         for i, row in edited.iterrows():
             st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部 ----------
+    # ---------- 底部統計 ----------
     st.divider()
     st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
     
     if st.session_state.sentences:
-        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False)
-        st.download_button("⬇️ 備份", data=json_str, file_name=f"bk_{dt.datetime.now().strftime('%m%d')}.json",
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
+        st.download_button("⬇️ 備份", data=json_str, 
+                          file_name=f"bk_{dt.datetime.now().strftime('%m%d')}.json",
                           mime="application/json", use_container_width=True)
