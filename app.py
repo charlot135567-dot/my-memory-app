@@ -298,52 +298,32 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（Snoopy 縮小固定角落版）
+# 6. TAB4 ─ AI 控制台（修復顯示 + Snoopy 對齊版）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-# ---------- 🎨 Snoopy 10% + 顯示修復 + 折疊欄淺色 ----------
-try:
-    with open("Snoopy.jpg", "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
-    
-    st.markdown(f"""
-    <style>
-    /* 確保背景圖顯示（不加 !important 避免衝突） */
-    .stApp {{
-        background-image: url("data:image/jpeg;base64,{img_b64}");
-        background-size: 10% auto;           /* 保持你想要的 10% */
-        background-position: right 30px bottom 30px;  /* 右下角留白 */
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-    }}
-    
-    /* 折疊欄外層容器：強制改為淺色模式背景 */
-    div[data-testid="stExpander"] {{
-        background-color: rgba(255,255,255,0.95) !important;
-        border: 1px solid rgba(200,200,200,0.3) !important;
-        border-radius: 12px !important;
-    }}
-    
-    /* 折疊欄內層內容區：也改淺色，避免繼承深色 */
-    div[data-testid="stExpander"] .streamlit-expanderContent {{
-        background-color: transparent !important;
-        color: #262730 !important;
-    }}
-    
-    /* 展開後的 Header 也淺色 */
-    div[data-testid="stExpander"] details summary {{
-        background-color: transparent !important;
-        color: #262730 !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-except FileNotFoundError:
-    st.warning("⚠️ 未找到 Snoopy.jpg")
+    # ---------- 🎨 Snoopy 背景（對齊上方欄框）----------
+    try:
+        with open("Snoopy.jpg", "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
         
-    # ---------- 資料庫持久化（原有功能）----------
+        # 用 st.markdown 注入 CSS
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{img_b64}");
+            background-size: 10% auto;
+            background-position: right 100px bottom 30px;  /* 往左移100px，與欄框對齊 */
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+    except:
+        pass
+
+    # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
     
     def load_sentences():
@@ -364,8 +344,9 @@ except FileNotFoundError:
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
 
-    # ---------- 折疊欄 ①：輸入與分析 ----------
+    # ---------- 📝 折疊欄 1：輸入與分析 ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
+        # 四個按鈕
         c1, c2, c3, c4 = st.columns(4)
         
         current_input = st.session_state.get("main_input", "")
@@ -414,30 +395,33 @@ except FileNotFoundError:
                         st.session_state["main_input"] = ""
                         st.rerun()
 
+        # 輸入框（簡化版，避免黑底衝突）
         st.text_area(
             "",
             height=250,
             key="main_input",
-            placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「存」",
+            placeholder="貼經文→點AI連結→複製回貼→按「存」",
             label_visibility="collapsed"
         )
 
-    # ---------- 折疊欄 ②：資料管理 ----------
+    # ---------- 🔍 折疊欄 2：資料管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            search_query = st.text_input("搜尋 Ref. 或關鍵字", key="search_box", 
-                                        placeholder="例：2Ti 3:10 或 love")
-        with c2:
+        # 搜尋列
+        search_col, btn_col = st.columns([3, 1])
+        
+        with search_col:
+            query = st.text_input("搜尋 Ref. 或關鍵字", key="search_input", 
+                                 placeholder="例：2Ti 3:10")
+        
+        with btn_col:
             if st.button("搜尋", type="primary", use_container_width=True):
-                if not search_query:
+                if not query:
                     st.warning("請輸入條件")
-                    st.session_state.search_results = []
                 else:
-                    kw = search_query.lower()
+                    kw = query.lower()
                     st.session_state.search_results = [
                         {"key": k, "選": False, "Ref.": v.get("ref", k), 
-                         "內容": v.get("en", "")[:60] + ("..." if len(v.get("en","")) > 60 else ""),
+                         "內容": v.get("en", "")[:50] + "..." if len(v.get("en","")) > 50 else v.get("en", ""),
                          "日期": v.get("date_added", "")[:10]}
                         for k, v in st.session_state.sentences.items()
                         if kw in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
@@ -445,25 +429,26 @@ except FileNotFoundError:
                     if not st.session_state.search_results:
                         st.info("找不到資料")
 
+        # 刪除鈕與表格
         if st.session_state.search_results:
             if st.button("🗑️ 刪除勾選項目"):
-                sel = [r["key"] for r in st.session_state.search_results if r.get("選")]
-                if sel:
-                    for k in sel: 
+                selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
+                if selected:
+                    for k in selected:
                         st.session_state.sentences.pop(k, None)
                     save_sentences(st.session_state.sentences)
-                    st.success(f"已刪 {len(sel)} 筆")
+                    st.success(f"已刪 {len(selected)} 筆")
                     st.session_state.search_results = []
                     st.rerun()
                 else:
                     st.warning("請先勾選")
-
-            if st.checkbox("☑️ 全選"):
-                for r in st.session_state.search_results: 
-                    r["選"] = True
-                    
-            st.write(f"共 {len(st.session_state.search_results)} 筆")
             
+            # 全選
+            if st.checkbox("☑️ 全選"):
+                for r in st.session_state.search_results:
+                    r["選"] = True
+            
+            # 表格
             df = pd.DataFrame(st.session_state.search_results)
             edited = st.data_editor(
                 df,
@@ -475,10 +460,8 @@ except FileNotFoundError:
                     "日期": st.column_config.TextColumn("日期", width="small")
                 },
                 hide_index=True,
-                use_container_width=True,
-                height=min(350, len(df) * 35 + 40)
+                use_container_width=True
             )
-            
             for i, row in edited.iterrows():
                 st.session_state.search_results[i]["選"] = row["選"]
 
