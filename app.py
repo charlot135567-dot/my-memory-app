@@ -303,25 +303,25 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-    # ---------- 🎨 Snoopy 背景（對齊上方欄框）----------
-    try:
-        with open("Snoopy.jpg", "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        
-        # 用 st.markdown 注入 CSS
-        st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: 10% auto;
-            background-position: right 100px bottom 30px;  /* 往左移100px，與欄框對齊 */
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-    except:
-        pass
+# ---------- 🎨 Snoopy 15% + 置中對齊 ----------
+try:
+    with open("Snoopy.jpg", "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+    
+    st.markdown(f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/jpeg;base64,{img_b64}");
+        background-size: 15% auto;           /* 加大到 15% */
+        background-position: center bottom;  /* 水平置中，垂直底部 */
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+except FileNotFoundError:
+    pass
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
