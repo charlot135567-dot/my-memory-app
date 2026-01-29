@@ -249,7 +249,7 @@ with tabs[1]:
                 item_id = f"{d_str}_{idx}"
                 emo, pure_title = get_clean_title(item.get("title", ""))
 
-                c1, c2, c3 = st.columns([1, 7, 2], vertical_alignment="top")
+                c1, c2, c3 = st.columns([0.25, 7.75, 2], vertical_alignment="top")
 
                 with c1:
                     if st.button("💟", key=f"h_{item_id}"):
