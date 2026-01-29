@@ -141,26 +141,33 @@ with tabs[0]:
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦（穩定最終版）
 # ===================================================================
+# ===================================================================
+# 4. TAB2 ─ 月曆待辦（穩定最終版，史奴比移除 & Reboot 資料持久化）
+# ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
     from streamlit_calendar import calendar
-    import streamlit as st
 
     # ---------- 0. 檔案持久化 ----------
-    TODO_FILE = "todos.json"
+    DATA_DIR = "data"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    TODO_FILE = os.path.join(DATA_DIR, "todos.json")
 
     def load_todos():
         if os.path.exists(TODO_FILE):
             try:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except:
-                pass
+            except Exception as e:
+                print("載入待辦失敗:", e)
         return {}
 
     def save_todos():
-        with open(TODO_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+        try:
+            with open(TODO_FILE, "w", encoding="utf-8") as f:
+                json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print("儲存待辦失敗:", e)
 
     # ---------- 1. 初始化 ----------
     if "todo" not in st.session_state:
@@ -172,40 +179,13 @@ with tabs[1]:
     if "active_del_id" not in st.session_state:
         st.session_state.active_del_id = None
 
-    # ---------- 2. 背景圖 ----------
-    st.markdown("""
-    <style>
-    section[data-testid="stSidebar"] + div [data-testid="stVerticalBlock"] {
-        background-image: url("assets/68254faebaafed9dafb41918f74c202e.jpg");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-    }
-    section[data-testid="stSidebar"] + div [data-testid="stVerticalBlock"]::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: rgba(255,255,255,0.82);
-        z-index: -1;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ---------- 3. 史奴比圖片 ----------
-    IMG_URLS = {"SNOOPY": "assets/snoopy.jpg"}
-    st.markdown(f"""
-    <div style="text-align:center; margin-bottom:10px;">
-        <img src="{IMG_URLS['SNOOPY']}" style="width:200px; margin-bottom:10px;">
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ---------- 4. Emoji 工具 ----------
+    # ---------- 2. Emoji 工具 ----------
     _EMOJI_RE = re.compile(r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+', flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
 
-    # ---------- 5. 月曆事件 ----------
+    # ---------- 3. 月曆事件 ----------
     def build_events():
         ev = []
         for d, items in st.session_state.todo.items():
@@ -221,10 +201,14 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 6. 月曆 UI ----------
+    # ---------- 4. 月曆（折疊欄） ----------
     with st.expander("📅 聖經學習生活月曆", expanded=True):
         cal_options = {
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+            "headerToolbar": {
+                "left": "prev,next today",
+                "center": "title",
+                "right": ""
+            },
             "initialView": "dayGridMonth",
             "displayEventTime": False,
             "height": "auto"
@@ -240,8 +224,9 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 7. 三日待辦清單 ----------
+    # ---------- 5. 下方三日清單（💟 → 🗑️） ----------
     st.markdown("##### 📋 待辦事項")
+
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
@@ -253,13 +238,19 @@ with tabs[1]:
         if d_str in st.session_state.todo:
             for idx, item in enumerate(st.session_state.todo[d_str]):
                 item_id = f"{d_str}_{idx}"
+
                 c1, c2, c3 = st.columns([1, 7, 2], vertical_alignment="top")
+
                 with c1:
                     if st.button("💟", key=f"h_{item_id}"):
-                        st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
+                        st.session_state.active_del_id = (
+                            None if st.session_state.active_del_id == item_id else item_id
+                        )
                         st.rerun()
+
                 with c2:
                     st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {item.get('emoji','')}{item['title']}")
+
                 with c3:
                     if st.session_state.active_del_id == item_id:
                         if st.button("🗑️", key=f"d_{item_id}"):
@@ -269,7 +260,7 @@ with tabs[1]:
                             st.session_state.active_del_id = None
                             st.rerun()
 
-    # ---------- 8. 新增待辦 ----------
+    # ---------- 6. 新增待辦 ----------
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         with st.form("todo_form", clear_on_submit=True):
@@ -277,8 +268,10 @@ with tabs[1]:
             with col1:
                 in_date = st.date_input("日期", base_date)
             with col2:
-                in_time = st.time_input("時間", dt.time(9,0))
+                in_time = st.time_input("時間", dt.time(9, 0))
+
             in_title = st.text_input("待辦事項（可含 Emoji）")
+
             if st.form_submit_button("💾 儲存"):
                 if in_title:
                     k = str(in_date)
