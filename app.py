@@ -303,37 +303,25 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64
     
-    # ---------- 🎨 Snoopy 背景 ----------
-    try:
-        with open("Snoopy.jpg", "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        
-        st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }}
-        /* 輸入框深色底確保可讀 */
-        .stTextArea textarea {{
-            background-color: rgba(30,30,40,0.95) !important;
-            color: #f0f0f0 !important;
-            font-size: 16px !important;
-        }}
-        /* 折疊欄背景半透明毛玻璃效果 */
-        .stExpander {{
-            background-color: rgba(30,30,46,0.88) !important;
-            backdrop-filter: blur(8px);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-        
-    except FileNotFoundError:
-        st.warning("⚠️ 未找到 Snoopy.jpg")
+# ---------- 🎨 Snoopy 背景（只顯示上半部）----------
+try:
+    with open("Snoopy.jpg", "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+    
+    st.markdown(f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/jpeg;base64,{img_b64}");
+        background-size: cover;           /* 填滿畫面 */
+        background-position: top center;  /* 強制顯示上方（Snoopy） */
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+except FileNotFoundError:
+    st.warning("⚠️ 未找到 Snoopy.jpg")
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
