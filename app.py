@@ -312,7 +312,8 @@ with tabs[3]:
         <style>
         .stApp {{
             background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: 25% auto;      /* 寬度 25%，高度自動（保持比例） */
+            background-size: 6% auto;      /* 改這個數字：6% = 超小，25% = 較大 */
+            background-position: right 20px bottom 20px;  /* 強制右下角 */
             background-position: right bottom;  /* 固定在右下角 */
             background-attachment: fixed;   /* 捲動時固定不動 */
             background-repeat: no-repeat;   /* 不重複 */
