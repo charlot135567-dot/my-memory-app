@@ -141,12 +141,15 @@ with tabs[0]:
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦（穩定最終版，史奴比移除 & Reboot 資料持久化）
 # ===================================================================
+
+# ===================================================================
+# 4. TAB2 ─ 月曆待辦（穩定最終版，史奴比移除 & Reboot 資料持久化）
+# ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
-    import streamlit as st
     from streamlit_calendar import calendar
 
-    # ---------- 0. 檔案持久化 (Persistence) ----------
+    # ---------- 0. 檔案持久化 ----------
     DATA_DIR = "data"
     os.makedirs(DATA_DIR, exist_ok=True)
     TODO_FILE = os.path.join(DATA_DIR, "todos.json")
@@ -157,7 +160,7 @@ with tabs[1]:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
-                st.error(f"載入失敗: {e}")
+                print("載入待辦失敗:", e)
         return {}
 
     def save_todos():
@@ -165,35 +168,33 @@ with tabs[1]:
             with open(TODO_FILE, "w", encoding="utf-8") as f:
                 json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            st.error(f"儲存失敗: {e}")
+            print("儲存待辦失敗:", e)
 
-    # ---------- 1. 初始化 (Initialization) ----------
+    # ---------- 1. 初始化 ----------
     if "todo" not in st.session_state:
         st.session_state.todo = load_todos()
     if "sel_date" not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
+    if "active_del_id" not in st.session_state:
+        st.session_state.active_del_id = None
 
-    # ---------- 2. Emoji 工具 (Emoji Utils) ----------
+    # ---------- 2. Emoji 工具 ----------
     _EMOJI_RE = re.compile(r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+', flags=re.UNICODE)
-    
-    def get_clean_title(text: str) -> tuple:
-        """回傳 (單個Emoji, 無Emoji的標題)"""
-        found = _EMOJI_RE.search(text)
-        emoji = found.group(0)[0] if found else "" # 只取第一個字元
-        clean_text = _EMOJI_RE.sub('', text).strip() # 移除所有 Emoji
-        return emoji, clean_text
+    def first_emoji(text: str) -> str:
+        m = _EMOJI_RE.search(text)
+        return m.group(0) if m else ""
 
-    # ---------- 3. 月曆事件 (Calendar Events) ----------
+    # ---------- 3. 月曆事件 ----------
     def build_events():
         ev = []
         for d, items in st.session_state.todo.items():
+            if not isinstance(items, list):
+                continue
             for t in items:
-                # 重新解析，確保格子內不重複
-                emo, pure_title = get_clean_title(t['title'])
                 ev.append({
-                    "title": f"{emo} {pure_title}",
+                    "title": f"{t.get('emoji','')}{t['title']}",
                     "start": f"{d}T{t.get('time','00:00:00')}",
                     "backgroundColor": "#FFE4E1",
                     "borderColor": "#FFE4E1",
@@ -201,52 +202,92 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 4. 月曆組件 ----------
+    # ---------- 4. 月曆（折疊欄） ----------
     with st.expander("📅 聖經學習生活月曆", expanded=True):
         cal_options = {
-            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+            "headerToolbar": {
+                "left": "prev,next today",
+                "center": "title",
+                "right": ""
+            },
             "initialView": "dayGridMonth",
+            "displayEventTime": False,
             "height": "auto"
         }
-        state = calendar(events=build_events(), options=cal_options, key=f"cal_{st.session_state.cal_key}")
+
+        state = calendar(
+            events=build_events(),
+            options=cal_options,
+            key=f"calendar_{st.session_state.cal_key}"
+        )
+
         if state.get("dateClick"):
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 5. 待辦清單 (CRUD Operations) ----------
-    st.markdown(f"##### 📋 {st.session_state.sel_date} 起三日清單")
-    base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    # ---------- 5. 下方三日清單（💟 → 🗑️） ----------
+    st.markdown("##### 📋 待辦事項")
+
+    try:
+        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+    except:
+        base_date = dt.date.today()
 
     for offset in range(3):
-        curr_d = str(base_date + dt.timedelta(days=offset))
-        if curr_d in st.session_state.todo:
-            # 倒序刪除才不會影響 index
-            for idx, item in enumerate(st.session_state.todo[curr_d]):
-                emo, txt = get_clean_title(item['title'])
-                c1, c2, c3 = st.columns([1, 8, 1])
-                c1.write("📍")
-                c2.write(f"**{item['time'][:5]}** {emo} {txt}")
-                if c3.button("🗑️", key=f"del_{curr_d}_{idx}"):
-                    st.session_state.todo[curr_d].pop(idx)
-                    save_todos() # 立即存檔
+        d_obj = base_date + dt.timedelta(days=offset)
+        d_str = str(d_obj)
+        if d_str in st.session_state.todo:
+            for idx, item in enumerate(st.session_state.todo[d_str]):
+                item_id = f"{d_str}_{idx}"
+
+                c1, c2, c3 = st.columns([1, 7, 2], vertical_alignment="top")
+
+                with c1:
+                    if st.button("💟", key=f"h_{item_id}"):
+                        st.session_state.active_del_id = (
+                            None if st.session_state.active_del_id == item_id else item_id
+                        )
+                        st.rerun()
+
+                with c2:
+                    # 只取第一個 Emoji 顯示在前面
+                    emoji_display = first_emoji(item['title'])
+                    st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {emoji_display} {item['title']}")
+
+                with c3:
+                    if st.session_state.active_del_id == item_id:
+                        if st.button("🗑️", key=f"d_{item_id}"):
+                            st.session_state.todo[d_str].pop(idx)
+                            save_todos()
+                            st.session_state.cal_key += 1
+                            st.session_state.active_del_id = None
+                            st.rerun()
+
+    # ---------- 6. 新增待辦 ----------
+    st.divider()
+    with st.expander("➕ 新增待辦", expanded=True):
+        with st.form("todo_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                in_date = st.date_input("日期", base_date)
+            with col2:
+                in_time = st.time_input("時間", dt.time(9, 0))
+
+            in_title = st.text_input("待辦事項（可含 Emoji）")
+
+            if st.form_submit_button("💾 儲存"):
+                if in_title:
+                    k = str(in_date)
+                    if k not in st.session_state.todo:
+                        st.session_state.todo[k] = []
+                    st.session_state.todo[k].append({
+                        "title": in_title,
+                        "time": str(in_time),
+                        "emoji": first_emoji(in_title)
+                    })
+                    save_todos()
                     st.session_state.cal_key += 1
                     st.rerun()
-
-    # ---------- 6. 新增 (Create) ----------
-    with st.form("add_todo"):
-        col1, col2 = st.columns(2)
-        in_date = col1.date_input("日期", base_date)
-        in_time = col2.time_input("時間", dt.time(9, 0))
-        in_title = st.text_input("事項內容 (可輸入 Emoji)")
-        if st.form_submit_button("💾 儲存並同步"):
-            if in_title:
-                d_key = str(in_date)
-                if d_key not in st.session_state.todo:
-                    st.session_state.todo[d_key] = []
-                st.session_state.todo[d_key].append({"title": in_title, "time": str(in_time)})
-                save_todos() # 立即存檔
-                st.session_state.cal_key += 1
-                st.rerun()
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
