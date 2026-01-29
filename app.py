@@ -144,11 +144,35 @@ with tabs[0]:
 with tabs[1]:
     import datetime as dt, re, os, json
     from streamlit_calendar import calendar
-    from pathlib import Path
-    from PIL import Image
     import streamlit as st
 
-    # ---------- 背景圖（淡化） ----------
+    # ---------- 0. 檔案持久化 ----------
+    TODO_FILE = "todos.json"
+
+    def load_todos():
+        if os.path.exists(TODO_FILE):
+            try:
+                with open(TODO_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+
+    def save_todos():
+        with open(TODO_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+
+    # ---------- 1. 初始化 ----------
+    if "todo" not in st.session_state:
+        st.session_state.todo = load_todos()
+    if "sel_date" not in st.session_state:
+        st.session_state.sel_date = str(dt.date.today())
+    if "cal_key" not in st.session_state:
+        st.session_state.cal_key = 0
+    if "active_del_id" not in st.session_state:
+        st.session_state.active_del_id = None
+
+    # ---------- 2. 背景圖 ----------
     st.markdown("""
     <style>
     section[data-testid="stSidebar"] + div [data-testid="stVerticalBlock"] {
@@ -167,42 +191,21 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ---------- 0. 檔案持久化 ----------
-    TODO_FILE = Path("todos.json")  # 使用 Path 提升穩定性
+    # ---------- 3. 史奴比圖片 ----------
+    IMG_URLS = {"SNOOPY": "assets/snoopy.jpg"}
+    st.markdown(f"""
+    <div style="text-align:center; margin-bottom:10px;">
+        <img src="{IMG_URLS['SNOOPY']}" style="width:200px; margin-bottom:10px;">
+    </div>
+    """, unsafe_allow_html=True)
 
-    def load_todos():
-        if TODO_FILE.exists():
-            try:
-                with open(TODO_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
-
-    def save_todos():
-        if "todo" in st.session_state:
-            with open(TODO_FILE, "w", encoding="utf-8") as f:
-                json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
-
-    # ---------- 1. 初始化 ----------
-    if "todo" not in st.session_state:
-        st.session_state.todo = load_todos()
-    if "sel_date" not in st.session_state:
-        st.session_state.sel_date = str(dt.date.today())
-    if "cal_key" not in st.session_state:
-        st.session_state.cal_key = 0
-    if "active_del_id" not in st.session_state:
-        st.session_state.active_del_id = None
-
-    # ---------- 2. Emoji 工具 ----------
-    _EMOJI_RE = re.compile(
-        r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+', flags=re.UNICODE
-    )
+    # ---------- 4. Emoji 工具 ----------
+    _EMOJI_RE = re.compile(r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+', flags=re.UNICODE)
     def first_emoji(text: str) -> str:
         m = _EMOJI_RE.search(text)
         return m.group(0) if m else ""
 
-    # ---------- 3. 月曆事件 ----------
+    # ---------- 5. 月曆事件 ----------
     def build_events():
         ev = []
         for d, items in st.session_state.todo.items():
@@ -218,14 +221,10 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 4. 月曆 ----------
+    # ---------- 6. 月曆 UI ----------
     with st.expander("📅 聖經學習生活月曆", expanded=True):
         cal_options = {
-            "headerToolbar": {
-                "left": "prev,next today",
-                "center": "title",
-                "right": ""
-            },
+            "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
             "initialView": "dayGridMonth",
             "displayEventTime": False,
             "height": "auto"
@@ -241,9 +240,8 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 5. 下方三日清單 ----------
+    # ---------- 7. 三日待辦清單 ----------
     st.markdown("##### 📋 待辦事項")
-
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
@@ -256,17 +254,12 @@ with tabs[1]:
             for idx, item in enumerate(st.session_state.todo[d_str]):
                 item_id = f"{d_str}_{idx}"
                 c1, c2, c3 = st.columns([1, 7, 2], vertical_alignment="top")
-
                 with c1:
                     if st.button("💟", key=f"h_{item_id}"):
-                        st.session_state.active_del_id = (
-                            None if st.session_state.active_del_id == item_id else item_id
-                        )
+                        st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
                         st.rerun()
-
                 with c2:
                     st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {item.get('emoji','')}{item['title']}")
-
                 with c3:
                     if st.session_state.active_del_id == item_id:
                         if st.button("🗑️", key=f"d_{item_id}"):
@@ -276,7 +269,7 @@ with tabs[1]:
                             st.session_state.active_del_id = None
                             st.rerun()
 
-    # ---------- 6. 新增待辦 ----------
+    # ---------- 8. 新增待辦 ----------
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         with st.form("todo_form", clear_on_submit=True):
@@ -284,7 +277,7 @@ with tabs[1]:
             with col1:
                 in_date = st.date_input("日期", base_date)
             with col2:
-                in_time = st.time_input("時間", dt.time(9, 0))
+                in_time = st.time_input("時間", dt.time(9,0))
             in_title = st.text_input("待辦事項（可含 Emoji）")
             if st.form_submit_button("💾 儲存"):
                 if in_title:
@@ -300,19 +293,6 @@ with tabs[1]:
                     st.session_state.cal_key += 1
                     st.rerun()
 
-    # ---------- 7. 顯示史奴比圖 ----------
-    st.divider()
-    st.markdown("### 🐶 今日小提醒")
-    try:
-        snoopy_path = Path("assets/snoopy.jpg")
-        if snoopy_path.exists():
-            img = Image.open(snoopy_path)
-            st.image(img, use_column_width=True)
-        else:
-            st.warning("📌 史奴比圖片未找到，請確認 assets/snoopy.png 是否存在")
-    except Exception as e:
-        st.error(f"顯示史奴比圖失敗: {e}")
-
 # ===================================================================
 # 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
 # ===================================================================
@@ -327,6 +307,9 @@ with tabs[2]:
 
 # ===================================================================
 # 6. TAB4 ─ AI 控制台（電腦手機都兩行版）
+# ===================================================================
+# ===================================================================
+# 4. TAB4 ─ AI 控制台（無 CSS 純淨版 - 最穩定）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse
@@ -353,59 +336,24 @@ with tabs[3]:
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
 
-    # ---------- ⭐ 強制兩列布局 CSS（放在按鈕之前）----------
-    st.markdown("""
-    <style>
-    /* 強制所有兩欄布局在手機上也維持並排 */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        width: 100% !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div {
-        width: 50% !important;
-        flex: 0 0 50% !important;
-        min-width: 0 !important;
-    }
-    /* 按鈕文字縮小避免換行 */
-    button, .stLinkButton a {
-        font-size: 14px !important;
-        padding: 8px 4px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    /* 手機板輸入框高度調整 */
-    @media (max-width: 640px) {
-        .stTextArea textarea {
-            font-size: 16px !important; /* 防止 iOS 縮放 */
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ---------- 第一排：GPT + K2 ----------
-    c1, c2 = st.columns(2)
+    # ---------- 上方功能列 ----------
+    c1, c2, c3, c4 = st.columns(4)
     
     current_input = st.session_state.get("main_input", "")
     ai_prompt = f"""分析經文回傳JSON：{{\"ref_no\":\"編號\",\"ref_article\":\"英文\",\"zh_translation\":\"中文\",\"words\":[],\"phrases\":[],\"grammar\":[]}}。經文：{current_input}"""
     encoded_prompt = urllib.parse.quote(ai_prompt)
     
     with c1:
-        st.link_button("💬 ChatGPT", f"https://chat.openai.com/?q={encoded_prompt}", 
+        st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", 
                        use_container_width=True)
     with c2:
-        st.link_button("🌙 Kimi K2", f"https://kimi.com/?q={encoded_prompt}", 
+        st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", 
                        use_container_width=True)
-
-    # ---------- 第二排：Google + 存 ----------
-    c3, c4 = st.columns(2)
-    
     with c3:
-        st.link_button("🔍 Google", f"https://gemini.google.com/app?q={encoded_prompt}", 
+        st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", 
                        use_container_width=True)
     with c4:
-        if st.button("💾 儲存", type="primary", use_container_width=True):
+        if st.button("💾 存", type="primary", use_container_width=True):
             if not current_input.strip():
                 st.error("請輸入內容")
             else:
@@ -422,7 +370,7 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"✓ 已存：{ref}")
+                    st.success(f"已存：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
                 except:
@@ -433,74 +381,70 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"✓ 已存筆記：{ref}")
+                    st.success(f"已存筆記：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
 
     # ---------- 輸入框 ----------
-    input_text = st.text_area(
+    st.text_area(
         "",
         height=260,
         key="main_input",
-        placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「儲存」\n🔍 輸入Ref.或關鍵字→點下方「搜尋」→勾選刪除\n例：2Ti 3:10 或 love",
+        placeholder="貼經文→點AI連結→複製回貼→按「存」\n搜尋：輸入Ref.如 2Ti 3:10 或 love 再點「搜尋」",
         label_visibility="collapsed"
     )
 
-    # ---------- 第三排：搜尋 + 刪除 ----------
-    c5, c6 = st.columns(2)
-    
-    with c5:
-        if st.button("🔍 搜尋資料庫", use_container_width=True, type="primary"):
-            if not input_text.strip():
-                st.warning("請輸入條件")
-                st.session_state.search_results = []
+    # ---------- 下方操作列 ----------
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔍 搜尋", type="primary", use_container_width=True):
+            query = st.session_state.get("main_input", "")
+            if not query:
+                st.warning("請輸入搜尋條件")
             else:
-                keyword = input_text.lower()
+                keyword = query.lower()
                 st.session_state.search_results = [
                     {"key": k, "選": False, "Ref.": v.get("ref", k), 
-                     "內容": (v.get("en", "")[:45] + "…") if len(v.get("en", "")) > 45 else v.get("en", ""),
+                     "內容": v.get("en", "")[:50] + "..." if len(v.get("en","")) > 50 else v.get("en", ""),
                      "日期": v.get("date_added", "")[:10]}
                     for k, v in st.session_state.sentences.items()
                     if keyword in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
                 ]
-                st.session_state["select_all"] = False
-                if not st.session_state.search_results:
-                    st.info("找不到資料")
-
-    with c6:
-        if st.button("🗑️ 刪除所選", use_container_width=True, type="secondary"):
+                
+    with col2:
+        if st.button("🗑️ 刪除", use_container_width=True):
             selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
-            if not selected:
-                st.warning("請先勾選")
-            else:
+            if selected:
                 for k in selected:
                     st.session_state.sentences.pop(k, None)
                 save_sentences(st.session_state.sentences)
-                st.success(f"✓ 已刪除 {len(selected)} 筆")
+                st.success(f"已刪 {len(selected)} 筆")
                 st.session_state.search_results = []
                 st.rerun()
+            else:
+                st.warning("請先勾選")
 
-    # ---------- 搜尋結果表格 ----------
+    # ---------- 搜尋結果 ----------
     if st.session_state.search_results:
-        all_sel = st.checkbox(f"☑️ 全選（共 {len(st.session_state.search_results)} 筆）", 
-                              key="select_all")
-        if all_sel:
+        st.write(f"共 {len(st.session_state.search_results)} 筆")
+        
+        # 全選
+        if st.checkbox("☑️ 全選"):
             for r in st.session_state.search_results:
                 r["選"] = True
-        
+                
         df = pd.DataFrame(st.session_state.search_results)
         edited = st.data_editor(
             df,
             column_config={
                 "選": st.column_config.CheckboxColumn("選", width="small"),
                 "key": None,
-                "Ref.": st.column_config.TextColumn("Ref.", width="small"),
-                "內容": st.column_config.TextColumn("內容預覽", width="large"),
-                "日期": st.column_config.TextColumn("日期", width="small")
+                "Ref.": st.column_config.TextColumn("Ref", width="small"),
+                "內容": st.column_config.TextColumn("內容", width="large"),
+                "日期": st.column_config.TextColumn("日", width="small")
             },
             hide_index=True,
-            use_container_width=True,
-            height=min(350, len(df) * 35 + 40)
+            use_container_width=True
         )
         
         for i, row in edited.iterrows():
