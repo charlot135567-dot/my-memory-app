@@ -139,7 +139,7 @@ with tabs[0]:
         st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
 
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦（穩定最終版，史奴比移除 & Reboot 資料持久化）
+# 4. TAB2 ─ 月曆待辦（Emoji 清洗版，避免重複顯示）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -176,11 +176,22 @@ with tabs[1]:
     if "active_del_id" not in st.session_state:
         st.session_state.active_del_id = None
 
-    # ---------- 2. Emoji 工具 ----------
-    _EMOJI_RE = re.compile(r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+', flags=re.UNICODE)
-    def first_emoji(text: str) -> str:
-        m = _EMOJI_RE.search(text)
-        return m.group(0) if m else ""
+    # ---------- 2. Emoji 清洗工具（核心修正） ----------
+    _EMOJI_RE = re.compile(
+        r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+',
+        flags=re.UNICODE
+    )
+
+    def get_clean_title(text: str) -> tuple:
+        """
+        從標題中：
+        1. 擷取第一個 Emoji
+        2. 移除所有 Emoji，保留純文字
+        """
+        found = _EMOJI_RE.search(text)
+        emoji = found.group(0)[0] if found else ""
+        clean_text = _EMOJI_RE.sub('', text).strip()
+        return emoji, clean_text
 
     # ---------- 3. 月曆事件 ----------
     def build_events():
@@ -189,8 +200,9 @@ with tabs[1]:
             if not isinstance(items, list):
                 continue
             for t in items:
+                emo, pure_title = get_clean_title(t.get("title", ""))
                 ev.append({
-                    "title": f"{t.get('emoji','')}{t['title']}",
+                    "title": f"{emo} {pure_title}".strip(),
                     "start": f"{d}T{t.get('time','00:00:00')}",
                     "backgroundColor": "#FFE4E1",
                     "borderColor": "#FFE4E1",
@@ -198,7 +210,7 @@ with tabs[1]:
                 })
         return ev
 
-    # ---------- 4. 月曆（折疊欄） ----------
+    # ---------- 4. 月曆 ----------
     with st.expander("📅 聖經學習生活月曆", expanded=True):
         cal_options = {
             "headerToolbar": {
@@ -221,7 +233,7 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 5. 下方三日清單（💟 → 🗑️） ----------
+    # ---------- 5. 下方三日清單 ----------
     st.markdown("##### 📋 待辦事項")
 
     try:
@@ -235,6 +247,7 @@ with tabs[1]:
         if d_str in st.session_state.todo:
             for idx, item in enumerate(st.session_state.todo[d_str]):
                 item_id = f"{d_str}_{idx}"
+                emo, pure_title = get_clean_title(item.get("title", ""))
 
                 c1, c2, c3 = st.columns([1, 7, 2], vertical_alignment="top")
 
@@ -246,9 +259,11 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
-                    # 只取第一個 Emoji 顯示在前面
-                    emoji_display = first_emoji(item['title'])
-                    st.write(f"{d_obj.month}/{d_obj.day} {item['time'][:5]} {emoji_display} {item['title']}")
+                    st.write(
+                        f"{d_obj.month}/{d_obj.day} "
+                        f"{item['time'][:5]} "
+                        f"{emo} {pure_title}".strip()
+                    )
 
                 with c3:
                     if st.session_state.active_del_id == item_id:
@@ -278,8 +293,7 @@ with tabs[1]:
                         st.session_state.todo[k] = []
                     st.session_state.todo[k].append({
                         "title": in_title,
-                        "time": str(in_time),
-                        "emoji": first_emoji(in_title)
+                        "time": str(in_time)
                     })
                     save_todos()
                     st.session_state.cal_key += 1
