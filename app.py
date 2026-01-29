@@ -326,7 +326,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（手機優化版：無標題 + 緊湊布局）
+# 6. TAB4 ─ AI 控制台（手機兩排版：最穩定）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse
@@ -353,53 +353,28 @@ with tabs[3]:
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
 
-    # ---------- CSS 強制手機一排四鍵 ----------
-    st.markdown("""
-    <style>
-    /* 強制按鈕容器水平排列 */
-    .stHorizontalBlock {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
-    }
-    /* 按鈕 column 寬度壓縮 */
-    .stHorizontalBlock > div[data-testid="column"] {
-        flex: 1 1 0% !important;
-        width: auto !important;
-        min-width: 0 !important;
-    }
-    /* 按鈕文字大小縮小 */
-    .stButton > button {
-        font-size: 14px !important;
-        padding: 8px 4px !important;
-        white-space: nowrap !important;
-    }
-    /* 連結按鈕也縮小 */
-    .stLinkButton > a {
-        font-size: 14px !important;
-        padding: 8px 4px !important;
-        white-space: nowrap !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ---------- 上方功能列（強制一排）----------
-    c1, c2, c3, c4 = st.columns(4)  # 明確指定4等分
+    # ---------- 第一排：GPT + K2 ----------
+    c1, c2 = st.columns(2)
     
     current_input = st.session_state.get("main_input", "")
-    
-    ai_prompt = f"""分析經文並回傳JSON：{{\"ref_no\":\"編號\",\"ref_article\":\"英文\",\"zh_translation\":\"中文\",\"words\":[],\"phrases\":[],\"grammar\":[]}}。經文：{current_input}"""
+    ai_prompt = f"""分析經文回傳JSON：{{\"ref_no\":\"編號\",\"ref_article\":\"英文\",\"zh_translation\":\"中文\",\"words\":[],\"phrases\":[],\"grammar\":[]}}。經文：{current_input}"""
     encoded_prompt = urllib.parse.quote(ai_prompt)
     
     with c1:
-        st.link_button("💬GPT", f"https://chat.openai.com/?q={encoded_prompt}", use_container_width=True)
+        st.link_button("💬 ChatGPT", f"https://chat.openai.com/?q={encoded_prompt}", 
+                       use_container_width=True)
     with c2:
-        st.link_button("🌙K2", f"https://kimi.com/?q={encoded_prompt}", use_container_width=True)
+        st.link_button("🌙 Kimi K2", f"https://kimi.com/?q={encoded_prompt}", 
+                       use_container_width=True)
+
+    # ---------- 第二排：Google + 存 ----------
+    c3, c4 = st.columns(2)
+    
     with c3:
-        st.link_button("🔍G", f"https://gemini.google.com/app?q={encoded_prompt}", use_container_width=True)
+        st.link_button("🔍 Google", f"https://gemini.google.com/app?q={encoded_prompt}", 
+                       use_container_width=True)
     with c4:
-        if st.button("💾存", type="primary", use_container_width=True):
+        if st.button("💾 儲存", type="primary", use_container_width=True):
             if not current_input.strip():
                 st.error("請輸入內容")
             else:
@@ -416,7 +391,7 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"已存：{ref}")
+                    st.success(f"✓ 已存：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
                 except:
@@ -427,23 +402,24 @@ with tabs[3]:
                         "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
                     save_sentences(st.session_state.sentences)
-                    st.success(f"已存筆記：{ref}")
+                    st.success(f"✓ 已存筆記：{ref}")
                     st.session_state["main_input"] = ""
                     st.rerun()
 
     # ---------- 輸入框 ----------
     input_text = st.text_area(
         "",
-        height=280,
+        height=260,
         key="main_input",
-        placeholder="📝貼經文→點上方AI連結→複製結果回貼→按「存」\n🔍輸入Ref.或關鍵字→點下方「搜尋」→勾選刪除\n例：2Ti 3:10 或 love",
+        placeholder="📝 貼經文→點上方AI連結→複製結果回貼→按「儲存」\n🔍 輸入Ref.或關鍵字→點下方「搜尋」→勾選刪除\n例：2Ti 3:10 或 love",
         label_visibility="collapsed"
     )
 
-    # ---------- 下方操作列（也強制一排）----------
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        if st.button("🔍搜尋", use_container_width=True, type="primary"):
+    # ---------- 第三排：搜尋 + 刪除 ----------
+    c5, c6 = st.columns(2)
+    
+    with c5:
+        if st.button("🔍 搜尋資料庫", use_container_width=True, type="primary"):
             if not input_text.strip():
                 st.warning("請輸入條件")
                 st.session_state.search_results = []
@@ -451,15 +427,17 @@ with tabs[3]:
                 keyword = input_text.lower()
                 st.session_state.search_results = [
                     {"key": k, "選": False, "Ref.": v.get("ref", k), 
-                     "內容": (v.get("en", "")[:50] + "…") if len(v.get("en", "")) > 50 else v.get("en", ""),
+                     "內容": (v.get("en", "")[:45] + "…") if len(v.get("en", "")) > 45 else v.get("en", ""),
                      "日期": v.get("date_added", "")[:10]}
                     for k, v in st.session_state.sentences.items()
                     if keyword in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
                 ]
                 st.session_state["select_all"] = False
+                if not st.session_state.search_results:
+                    st.info("找不到資料")
 
-    with c2:
-        if st.button("🗑️刪除", use_container_width=True, type="secondary"):
+    with c6:
+        if st.button("🗑️ 刪除所選", use_container_width=True, type="secondary"):
             selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
             if not selected:
                 st.warning("請先勾選")
@@ -467,77 +445,41 @@ with tabs[3]:
                 for k in selected:
                     st.session_state.sentences.pop(k, None)
                 save_sentences(st.session_state.sentences)
-                st.success(f"刪除{len(selected)}筆")
+                st.success(f"✓ 已刪除 {len(selected)} 筆")
                 st.session_state.search_results = []
                 st.rerun()
 
-    # ---------- 搜尋結果（精簡版）----------
+    # ---------- 搜尋結果表格 ----------
     if st.session_state.search_results:
-        # 全選列
-        all_selected = st.checkbox("☑️全選", key="select_all", 
-                                   value=st.session_state.get("select_all", False))
-        if all_selected:
+        all_sel = st.checkbox(f"☑️ 全選（共 {len(st.session_state.search_results)} 筆）", 
+                              key="select_all")
+        if all_sel:
             for r in st.session_state.search_results:
                 r["選"] = True
-        
-        st.caption(f"共{len(st.session_state.search_results)}筆")
         
         df = pd.DataFrame(st.session_state.search_results)
         edited = st.data_editor(
             df,
             column_config={
-                "選": st.column_config.CheckboxColumn("", width="tiny"),
+                "選": st.column_config.CheckboxColumn("選", width="small"),
                 "key": None,
-                "Ref.": st.column_config.TextColumn("Ref", width="small"),
-                "內容": st.column_config.TextColumn("內容", width="large"),
-                "日期": st.column_config.TextColumn("日", width="tiny")
+                "Ref.": st.column_config.TextColumn("Ref.", width="small"),
+                "內容": st.column_config.TextColumn("內容預覽", width="large"),
+                "日期": st.column_config.TextColumn("日期", width="small")
             },
             hide_index=True,
             use_container_width=True,
-            height=min(300, len(df)*35)
+            height=min(350, len(df) * 35 + 40)
         )
         
-        # 同步選取狀態
         for i, row in edited.iterrows():
             st.session_state.search_results[i]["選"] = row["選"]
-        
-        # 同步選取狀態
-        for idx, row in edited_df.iterrows():
-            st.session_state.search_results[idx]["選"] = row["選"]
-        
-        # 詳細內容（收合式，節省空間）
-        st.markdown("---")
-        for i, row in enumerate(st.session_state.search_results[:3]):  # 手機只顯示前3筆
-            full_data = st.session_state.sentences.get(row["key"], {})
-            
-            with st.expander(f"{row['Ref.']} ({row['日期']})"):
-                st.markdown(f"**📖** {full_data.get('en', '無內容')[:200]}")
-                if full_data.get('zh'):
-                    st.markdown(f"**🈺** {full_data.get('zh')[:100]}")
-                
-                # 分析內容標籤頁（節省空間版本）
-                if full_data.get("words") or full_data.get("phrases"):
-                    tabs_detail = st.tabs(["單", "片", "文"])
-                    with tabs_detail[0]:
-                        if full_data.get("words"):
-                            for w in full_data["words"][:3]:
-                                st.caption(f"{w.get('word','')}：{w.get('meaning','')}")
-                    with tabs_detail[1]:
-                        if full_data.get("phrases"):
-                            for p in full_data["phrases"][:2]:
-                                st.caption(f"{p.get('phrase','')}：{p.get('meaning','')}")
-                    with tabs_detail[2]:
-                        if full_data.get("grammar"):
-                            for g in full_data["grammar"][:2]:
-                                st.caption(f"{g.get('grammar_point','')}")
 
-    # ---------- 底部統計 ----------
+    # ---------- 底部 ----------
     st.divider()
-    st.caption(f"💾 {len(st.session_state.sentences)} 筆資料")
+    st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
     
-    # 小型匯出按鈕（保持功能但不佔空間）
     if st.session_state.sentences:
-        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False)
-        st.download_button("⬇️ 備份", data=json_str, 
-                          file_name=f"bk_{dt.datetime.now().strftime('%m%d')}.json",
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
+        st.download_button("⬇️ 備份", data=json_str, file_name=f"bk_{dt.datetime.now().strftime('%m%d')}.json",
                           mime="application/json", use_container_width=True)
