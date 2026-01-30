@@ -311,9 +311,6 @@ with tabs[2]:
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
-# ===================================================================
-# 6. TAB4 ─ AI 控制台（Snoopy置中版 + 功能修復）
-# ===================================================================
 import streamlit as st
 import os
 import base64
@@ -398,7 +395,7 @@ if 'search_results' not in st.session_state:
 # ==================== 4個 Tabs 主體 ====================
 st.title("您的應用程式")
 
-tabs = st.tabs(["Tab 1", "Tab 2", "Tab 3", "Tab 4"])  # 修改為4個
+tabs = st.tabs(["Tab 1", "Tab 2", "Tab 3", "Tab 4"])
 
 with tabs[0]:
     st.header("這是 Tab 1")
@@ -412,54 +409,10 @@ with tabs[2]:
     st.header("這是 Tab 3")
     # 放您的內容
 
-with tabs[3]:  # 第4個 Tab（索引3）
+# ---------- Tab 4（AI 控制台）----------
+with tabs[3]:
     st.header("這是 Tab 4 - AI控制台/資料庫")
     
-    # 以下是原本您在 tabs[5] 或 tabs[3] 的內容
-    st.subheader("句子管理")
-    
-    # 顯示資料
-    if st.session_state.sentences:
-        st.json(st.session_state.sentences)
-    else:
-        st.info("暫無資料")
-    
-    # 新增功能
-    col1, col2 = st.columns(2)
-    with col1:
-        new_key = st.text_input("Key")
-    with col2:
-        new_value = st.text_input("Value")
-    
-    if st.button("新增句子"):
-        if new_key and new_value:
-            st.session_state.sentences[new_key] = new_value
-            save_sentences(st.session_state.sentences)
-            st.success("已儲存！")
-            st.rerun()
-
-    # ---------- 資料庫持久化 ----------
-    SENTENCES_FILE = "sentences.json"
-
-    def load_sentences():
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    # 初始化 session_state
-    if 'sentences' not in st.session_state:
-        st.session_state.sentences = load_sentences()
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = []
-
     # ---------- 📝 折疊欄 1：輸入與分析 ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
         c1, c2, c3, c4 = st.columns(4)
@@ -469,11 +422,11 @@ with tabs[3]:  # 第4個 Tab（索引3）
         encoded_prompt = urllib.parse.quote(ai_prompt)
 
         with c1:
-            st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded_prompt}", use_container_width=True)
+            st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded_prompt}", use_container_width=True)
         with c2:
-            st.link_button("🌙 K2", f"https://kimi.com/?q={encoded_prompt}", use_container_width=True)
+            st.link_button("🌙 K2", f"https://kimi.com/?q= {encoded_prompt}", use_container_width=True)
         with c3:
-            st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded_prompt}", use_container_width=True)
+            st.link_button("🔍 G", f"https://gemini.google.com/app?q= {encoded_prompt}", use_container_width=True)
         with c4:
             if st.button("💾 存", type="primary", use_container_width=True):
                 if not current_input.strip():
@@ -539,14 +492,13 @@ with tabs[3]:  # 第4個 Tab（索引3）
             st.caption(f"✅ 系統已讀取輸入（{len(current_input)} 字），點擊下方按鈕將自動傳給 AI：")
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="secondary")
+                st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded}", use_container_width=True, type="secondary")
             with c2:
-                st.link_button("🌙 K2", f"https://kimi.com/?q={encoded}", use_container_width=True, type="secondary")
+                st.link_button("🌙 K2", f"https://kimi.com/?q= {encoded}", use_container_width=True, type="secondary")
             with c3:
-                st.link_button("🔍 G", f"https://gemini.google.com/app?q={encoded}", use_container_width=True, type="secondary")
+                st.link_button("🔍 G", f"https://gemini.google.com/app?q= {encoded}", use_container_width=True, type="secondary")
             with c4:
-                # 你原本 save_data 未定義，這裡先註解提示
-                # st.button("💾 存", type="primary", use_container_width=True, on_click=save_data)
+                # save_data 未定義，保留註解
                 pass
         else:
             st.warning("⚠️ 請先在上方輸入框貼上經文，AI 連結才會出現")
@@ -618,4 +570,3 @@ with tabs[3]:  # 第4個 Tab（索引3）
             mime="application/json",
             use_container_width=True
         )
-
