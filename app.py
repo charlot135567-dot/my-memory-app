@@ -313,7 +313,8 @@ with tabs[2]:
 
 # ===================================================================
 # 6. TAB4 ─資料庫 背景圖選擇-sidebar
-# ===================================================================import streamlit as st
+# ===================================================================
+import streamlit as st
 import os, base64, json, datetime as dt, pandas as pd, urllib.parse
 
 # ==================== Sidebar 背景圖片（全域設定） ====================
@@ -338,7 +339,7 @@ with st.sidebar:
     with col2:
         bg_bottom = st.slider("底部間距", 0, 100, 40, format="%dpx")
 
-# 套用背景
+# ==================== 套用背景圖（全域） ====================
 img_file = bg_options[selected_bg]
 try:
     if os.path.exists(img_file):
@@ -380,16 +381,16 @@ def save_sentences(data):
     with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# 初始化
+# 初始化 session_state
 if 'sentences' not in st.session_state:
     st.session_state.sentences = load_sentences()
 if 'search_results' not in st.session_state:
     st.session_state.search_results = []
 
-# ==================== 主程式區域（只執行一次） ====================
+# ==================== 主程式區域 ====================
 st.title("您的應用程式")
 
-# 創建 Tabs - 這行只會執行一次！
+# 🔹 Tabs 創建（確保只執行一次）
 tabs = st.tabs(["Tab 1", "Tab 2", "Tab 3", "Tab 4"])
 
 # ==================== Tab 1 ====================
@@ -408,6 +409,7 @@ with tabs[2]:
     st.write("在這裡放 Tab 3 的內容")
 
 # ==================== Tab 4（AI控制台 - 完整功能） ====================
+# ⚠️ 修正重點：將 TAB4 的內容確保在主程式 scope，不在 Sidebar 裡
 with tabs[3]:
     st.header("這是 Tab 4 - AI控制台")
     
@@ -540,3 +542,4 @@ with tabs[3]:
         st.download_button("⬇️ 備份 JSON", json_str, 
                           file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
                           mime="application/json", use_container_width=True)
+
