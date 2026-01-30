@@ -314,27 +314,103 @@ with tabs[2]:
 # ===================================================================
 # 6. TAB4 ─ AI 控制台（Snoopy置中版 + 功能修復）
 # ===================================================================
-with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse, base64
+import streamlit as st
+import os
+import base64
 
-    # ---------- 🎨 Snoopy 背景（簡化版，不影響內容）----------
-    try:
-        with open("Snoopy.jpg", "rb") as f:
+# ==================== 🎨 Sidebar 背景圖片選擇器 ====================
+with st.sidebar:
+    st.markdown("### 🖼️ 底部背景設定")
+    st.markdown("選擇的圖片會顯示在所有頁面底部中間")
+    
+    # 定義圖片清單：Snoopy + Mashimaro 1~6
+    bg_options = {
+        "🐶 Snoopy": "Snoopy.jpg",
+        "🐰 Mashimaro 1": "Mashimaro1.jpg",
+        "🐰 Mashimaro 2": "Mashimaro2.jpg",
+        "🐰 Mashimaro 3": "Mashimaro3.jpg",
+        "🐰 Mashimaro 4": "Mashimaro4.jpg",
+        "🐰 Mashimaro 5": "Mashimaro5.jpg",
+        "🐰 Mashimaro 6": "Mashimaro6.jpg"
+    }
+    
+    # 圖片選擇下拉選單
+    selected_bg = st.selectbox(
+        "選擇角色",
+        list(bg_options.keys()),
+        index=0,  # 預設選 Snoopy
+        key="global_bg_selector"
+    )
+    
+    # 微調選項
+    col1, col2 = st.columns(2)
+    with col1:
+        bg_size = st.slider("圖片大小", 5, 50, 15, format="%d%%")
+    with col2:
+        # 距離底部距離調整（避免被內容遮擋）
+        bg_bottom = st.slider("底部間距", 0, 100, 40, format="%dpx")
+    
+    # 顯示目前選擇狀態
+    st.info(f"目前使用：**{selected_bg}**")
+
+# ==================== 套用全域背景樣式 ====================
+img_file = bg_options[selected_bg]
+
+try:
+    if os.path.exists(img_file):
+        with open(img_file, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode()
-
+        
+        # 插入 CSS 背景樣式（會影響整個 App 的所有 Tabs）
         st.markdown(f"""
         <style>
         .stApp {{
             background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: 15% auto;
-            background-position: center bottom 30px;
-            background-attachment: fixed;
+            background-size: {bg_size}% auto;
+            background-position: center bottom {bg_bottom}px;
+            background-attachment: fixed;  /* 固定不捲動 */
             background-repeat: no-repeat;
+        }}
+        
+        /* 確保內容區域在背景之上，並預留底部空間給圖片 */
+        .main .block-container {{
+            position: relative;
+            z-index: 1;
+            padding-bottom: 150px;  /* 避免內容被圖片遮擋 */
         }}
         </style>
         """, unsafe_allow_html=True)
-    except:
-        pass  # 沒圖片也沒關係，繼續執行
+    else:
+        st.sidebar.error(f"❌ 找不到檔案：{img_file}")
+        st.sidebar.warning("請確認圖片與程式檔在同一資料夾")
+        
+except Exception as e:
+    st.sidebar.error(f"⚠️ 載入錯誤：{e}")
+
+# ==================== 以下是您的原有 Tabs ====================
+st.title("您的應用程式標題")
+
+tabs = st.tabs(["Tab 1", "Tab 2", "Tab 3", "Tab 4", "Tab 5", "Tab 6"])
+
+with tabs[0]:
+    st.write("這是 Tab 1")
+    
+with tabs[1]:
+    st.write("這是 Tab 2")
+    
+with tabs[2]:
+    st.write("這是 Tab 3")
+
+with tabs[3]:
+    # 您原本的程式碼（已不需要舊的背景設定）
+    import json, datetime as dt, pandas as pd, urllib.parse
+    st.write("Tab 3 內容 - 背景圖片由 Sidebar 控制")
+    
+with tabs[4]:
+    st.write("這是 Tab 4")
+    
+with tabs[5]:
+    st.write("這是 Tab 5")
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
