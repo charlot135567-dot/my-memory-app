@@ -357,7 +357,7 @@ current_bg_bottom = st.session_state.bg_bottom
 # 6. TAB4 ─ AI 控制台（加入Sidebar選擇功能版）
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64
 
     # ---------- 🎨 背景圖片（使用Sidebar選擇的圖片）----------
     try:
@@ -401,27 +401,128 @@ with tabs[3]:
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
 
-    # ---------- 📝 折疊欄 1：輸入與分析 ----------
-    with st.expander("📝 經文輸入與AI分析", expanded=True):
-        c1, c2, c3, c4 = st.columns(4)
+with tabs[3]:
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64
 
-        current_input = st.session_state.get("main_input", "")
-        ai_prompt = f"""分析經文回傳JSON：{{"ref_no":"編號","ref_article":"英文","zh_translation":"中文","words":[],"phrases":[],"grammar":[]}}。經文：{current_input}"""
-        encoded_prompt = urllib.parse.quote(ai_prompt)
+    # [背景圖片程式碼保持不變...]
+    try:
+        if os.path.exists(selected_img_file):
+            with open(selected_img_file, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            st.markdown(f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/jpeg;base64,{img_b64}");
+                background-size: {current_bg_size}% auto;
+                background-position: center bottom {current_bg_bottom}px;
+                background-attachment: fixed;
+                background-repeat: no-repeat;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+    except:
+        pass
 
-        with c1:
-            st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded_prompt}", use_container_width=True)
-        with c2:
-            st.link_button("🌙 K2", f"https://kimi.com/?q= {encoded_prompt}", use_container_width=True)
-        with c3:
-            st.link_button("🔍 G", f"https://gemini.google.com/app?q= {encoded_prompt}", use_container_width=True)
-        with c4:
-            if st.button("💾 存", type="primary", use_container_width=True):
-                if not current_input.strip():
-                    st.error("請輸入內容")
-                else:
+    # [資料庫函數保持不變...]
+    SENTENCES_FILE = "sentences.json"
+    def load_sentences():
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    def save_sentences(data):
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+
+    # ==================== 📝 輸入與分析區 ====================
+    with st.expander("📝 經文/文稿分析", expanded=True):
+        
+        # 1. 先選模式
+        analysis_mode = st.radio(
+            "請選擇分析模式",
+            ["模式 A：聖經經文分析 (JSON格式)", 
+             "模式 B：英文文稿分析 (文章+語言素材)"],
+            horizontal=True,
+            key="analysis_mode"
+        )
+        
+        # 根據模式顯示不同提示
+        if "模式 A" in analysis_mode:
+            st.info("📖 **模式 A**：貼上聖經經文（中英皆可），按 Enter 後出現 AI 按鈕")
+            placeholder = "貼上聖經經文（例如：John 3:16 For God so loved the world...）"
+        else:
+            st.info("📝 **模式 B**：貼上英文講稿或文章，按 Enter 後出現 AI 按鈕")
+            placeholder = "貼上英文文稿（講道逐字稿、文章等）"
+
+        st.divider()
+        
+        # 2. 輸入框（關鍵：使用返回值，不是 session_state.get）
+        # ⚠️ 用戶需要按 Enter 或點擊外部，Streamlit 才會更新這個值
+        user_input = st.text_area(
+            "",
+            height=260,
+            key="main_input",
+            placeholder=placeholder,
+            label_visibility="collapsed"
+        )
+        
+        # 3. 動態生成 Prompt 和按鈕（在輸入框之後！）
+        if user_input.strip():
+            # 根據模式生成對應 Prompt
+            if "模式 A" in analysis_mode:
+                prompt = f"""你是一位聖經語言學專家。請分析以下聖經經文，嚴格以 JSON 格式回傳：
+
+{{
+  "ref_no": "經文編號（自動偵測）",
+  "ref_article": "完整英文經文（ESV/NIV）",
+  "zh_translation": "中文翻譯（繁體）",
+  "words": [{{"word": "單字", "level": "高級", "meaning": "中譯", "synonym": "同義", "antonym": "反義"}}],
+  "phrases": [{{"phrase": "片語", "meaning": "中譯"}}],
+  "grammar": [{{"pattern": "文法", "explanation": "解析"}}]
+}}
+
+待分析經文：{user_input}"""
+            else:
+                prompt = f"""請將以下英文文稿進行「交錯雙語重構」與「語言素材提取」：
+
+### 第一步｜內容交錯 (I-V)：
+純英文精煉稿 + 中英夾雜講章交錯格式（關鍵術語加粗如 **(steadfast)**）
+
+### 第二步｜語言素材：
+1. Vocabulary (20個)：高級單字+中譯+同反義詞+聖經例句
+2. Phrases (15個)：實用片語+中譯+聖經例句  
+3. Grammar List (6個)：文法規則+原稿範例+解析+結構還原+聖經例句
+   格式：1️⃣[解析] 2️⃣[還原句] 3️⃣Ex. [中英例句]
+
+待分析文稿：{user_input}"""
+
+            encoded = urllib.parse.quote(prompt)
+            
+            st.success(f"✅ 已讀取 {len(user_input)} 字元，點擊下方 AI 送出分析：")
+            
+            # 只有這一組按鈕（在輸入框之後，確保有值）
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
+                              use_container_width=True, type="primary")
+            with c2:
+                st.link_button("🌙 K2", f"https://kimi.com/?q={encoded}", 
+                              use_container_width=True)
+            with c3:
+                st.link_button("🔍 Gemini", f"https://gemini.google.com/app?q={encoded}", 
+                              use_container_width=True)
+            with c4:
+                # 儲存按鈕
+                if st.button("💾 存", type="primary", use_container_width=True):
                     try:
-                        data = json.loads(current_input)
+                        data = json.loads(user_input)
                         ref = data.get("ref_no") or data.get("ref") or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
                         st.session_state.sentences[ref] = {
                             "ref": ref,
@@ -432,66 +533,25 @@ with tabs[3]:
                             "grammar": data.get("grammar", []),
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存：{ref}")
-                        st.session_state["main_input"] = ""
-                        st.rerun()
                     except:
                         ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
                         st.session_state.sentences[ref] = {
-                            "ref": ref,
-                            "en": current_input,
-                            "zh": "",
-                            "words": [],
-                            "phrases": [],
-                            "grammar": [],
+                            "ref": ref, "en": user_input, "zh": "",
+                            "words": [], "phrases": [], "grammar": [],
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存筆記：{ref}")
-                        st.session_state["main_input"] = ""
-                        st.rerun()
-
-        # ---------- 輸入框 ----------
-        st.text_area(
-            "",
-            height=260,
-            key="main_input",
-            placeholder="📝 貼經文→點下方AI連結（系統會自動帶上這段文字）",
-            label_visibility="collapsed"
-        )
-
-        # ---------- AI 連結區 ----------
-        current_input = st.session_state.get("main_input", "")
-        if current_input.strip():
-            ai_prompt = f"""請分析以下聖經經文，以 JSON 格式回傳：
-{{
-  "ref_no": "經文編號",
-  "ref_article": "完整英文經文", 
-  "zh_translation": "中文翻譯",
-  "words": [],
-  "phrases": [],
-  "grammar": []
-}}
-待分析經文：
-{current_input}"""
-            encoded = urllib.parse.quote(ai_prompt)
-
-            st.caption(f"✅ 系統已讀取輸入（{len(current_input)} 字），點擊下方按鈕將自動傳給 AI：")
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded}", use_container_width=True, type="secondary")
-            with c2:
-                st.link_button("🌙 K2", f"https://kimi.com/?q= {encoded}", use_container_width=True, type="secondary")
-            with c3:
-                st.link_button("🔍 G", f"https://gemini.google.com/app?q= {encoded}", use_container_width=True, type="secondary")
-            with c4:
-                # 你原本 save_data 未定義，這裡先註解提示
-                # st.button("💾 存", type="primary", use_container_width=True, on_click=save_data)
-                pass
+                    save_sentences(st.session_state.sentences)
+                    st.success(f"✅ 已存：{ref}")
+                    st.session_state["main_input"] = ""
+                    st.rerun()
         else:
-            st.warning("⚠️ 請先在上方輸入框貼上經文，AI 連結才會出現")
-            st.write("（系統需要記錄輸入內容後，才能生成帶資料的連結）")
+            # 沒輸入時顯示提示（告知用戶要按 Enter）
+            st.warning("⚠️ 請貼上內容後按 **Enter**（或點擊輸入框外部），AI 分析按鈕才會出現")
+
+    # [資料管理折疊欄保持不變...]
+    with st.expander("🔍 資料搜尋與管理", expanded=False):
+        # ... 原有程式碼 ...
+        pass
 
     # ---------- 🔍 折疊欄 2：資料管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
