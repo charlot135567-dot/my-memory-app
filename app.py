@@ -444,7 +444,6 @@ with tabs[3]:
         return "document"
 
     # ---------- 📝 經文輸入與AI分析（含完整 Prompt） ----------
-    # ---------- 📝 經文輸入與AI分析（修正版）----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
         
         def on_input_change():
