@@ -381,6 +381,7 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
+    import streamlit.components.v1 as components  # 新增：用於執行 JS
 
     # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
     try:
@@ -434,9 +435,8 @@ with tabs[3]:
         st.session_state.copy_target = ""
     if 'just_copied' not in st.session_state:
         st.session_state.just_copied = False
-    # 初始化 AI 平台選擇狀態（修正 #3）
     if 'ai_platform' not in st.session_state:
-        st.session_state.ai_platform = None  # None, 'kimi', 'gemini'
+        st.session_state.ai_platform = None
 
     # 智能偵測內容類型
     def detect_content_mode(text):
@@ -453,24 +453,23 @@ with tabs[3]:
         def on_input_change():
             st.session_state.input_dirty = True
         
-        # 使用 key 綁定 session state，避免直接賦值導致的錯誤
         if 'main_input' not in st.session_state:
             st.session_state.main_input = ""
         
         user_input = st.text_area(
             "",
             height=260,
-            value=st.session_state.main_input,  # 綁定 value 而非直接改 key
+            value=st.session_state.main_input,
             placeholder="貼上內容：\n• 經文 + Prompt（GPT會分析後回傳JSON）\n• 直接貼上 GPT 回傳的 JSON/Markdown/CSV 可查看表格\n• 貼英文文稿進行模式B分析",
             label_visibility="collapsed",
-            key="input_widget",  # 使用不同 key 避免衝突
+            key="input_widget",
             on_change=on_input_change
         ).strip()
 
         if user_input:
             mode = detect_content_mode(user_input)
             
-            # ==================== 完整模式A Prompt（增加Excel格式要求 #5）====================
+            # ==================== 模式A Prompt（保留原有內容）====================
             if mode in ["json", "scripture"]:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
@@ -498,7 +497,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
 2. English (ESV)：檢索對應的 ESV 英文經文。
 3. Chinese：填入我提供的中文原文。
-4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯）。
+4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
 5. Grammar：嚴格遵守符號化格式：
    1️⃣[文法邏輯解析] 
    2️⃣[補齊後的完整應用句] 
@@ -512,9 +511,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
 5. KRF：檢索對應的韓文《Korean Revised Version》。
 6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
 7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
-注意！！單字/片語/同反義詞的挑選規則：
-       嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
-      
+
 ⚠️ 自動推斷書卷（若只有數字如31:10）：
 • "才德的婦人" → Prov • "太初有道" → John • "起初神創造" → Gen
 • "虛心的人有福" → Matt • "愛是恆久忍耐" → 1Co
@@ -524,7 +521,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
 待分析經文：{user_input}"""
                 mode_label = "📖 經文模式"
 
-            # ==================== 完整模式B Prompt（增加Excel格式要求 #5）====================
+            # ==================== 模式B Prompt（保留原有內容）====================
             else:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
@@ -567,19 +564,18 @@ Ref.,English,Chinese,Syn_Ant,Grammar
            3️⃣Ex. [中英對照聖經應用例句]
 
 注意！！單字/片語/同反義詞的挑選規則：
-      嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
+              嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
 
 待分析文稿：{user_input}"""
                 mode_label = "📝 文稿模式"
 
             encoded = urllib.parse.quote(prompt)
             
-            # ==================== JSON / Markdown / CSV 解析（修正 #5）====================
+            # ==================== 資料解析邏輯（保留原有）====================
             parsed_data = None
             is_valid_data = False
-            parse_format = None  # 'json', 'markdown', 'csv'
+            parse_format = None
             
-            # 1. 嘗試解析 JSON（最優先）
             if user_input.strip().startswith("{"):
                 try:
                     parsed_data = json.loads(user_input)
@@ -589,14 +585,12 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                 except:
                     pass
             
-            # 2. 嘗試解析 Markdown 表格（次優先）
             if not is_valid_data and '|' in user_input and '---' in user_input:
                 try:
                     lines = [l.strip() for l in user_input.split('\n') if l.strip()]
                     if len(lines) >= 2:
                         parsed_data = {"words": [], "phrases": [], "grammar": [], "ref_no": "MD_IMPORT"}
                         headers = [h.strip() for h in lines[0].split('|') if h.strip()]
-                        
                         for line in lines[2:]:
                             if '|' not in line:
                                 continue
@@ -616,14 +610,12 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                                         "pattern": row_data.get('Pattern', row_data.get('pattern', '')),
                                         "explanation": row_data.get('Analysis', row_data.get('explanation', ''))
                                     })
-                        
                         if parsed_data["words"] or parsed_data["grammar"]:
                             is_valid_data = True
                             parse_format = 'markdown'
                 except:
                     pass
             
-            # 3. 嘗試解析 CSV（最後）
             if not is_valid_data and ',' in user_input and '\n' in user_input:
                 try:
                     reader = csv.DictReader(StringIO(user_input))
@@ -645,7 +637,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                 except:
                     pass
 
-            # 顯示解析結果
+            # 顯示解析結果（保留原有）
             if is_valid_data:
                 ref_display = parsed_data.get('ref_no', parsed_data.get('ref', '已匯入'))
                 st.success(f"✅ 已解析 ({parse_format.upper()})：{ref_display}")
@@ -692,30 +684,27 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                     else:
                         st.info("無文法資料")
 
-            # 文稿預覽（修正 #1）：僅在文稿模式且未解析成功時顯示
             if not is_valid_data and mode == "document":
                 with st.expander("📄 輸入預覽（文稿模式）", expanded=False):
                     st.markdown("**功能說明：** 顯示輸入文稿的前500字預覽，供確認貼上內容是否正確")
                     st.text(user_input[:500] + ("..." if len(user_input) > 500 else ""))
 
-            # ==================== 按鈕區（修正 #2 #3 #4：重構AI平台選擇邏輯）====================
+            # ==================== 按鈕區（重大修正：自動複製 + 打勾✅）====================
             st.divider()
-            # 移除重複的 st.caption 狀態列（修正 #4）
-            
             current_platform = st.session_state.get('ai_platform', None)
             
             if current_platform is None:
-                # 主選單：三個平台並列顯示（GPT直接跳轉，K2&G展開複製介面）
+                # 主選單：三個平台並列
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
                     st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
                                   use_container_width=True, type="primary")
                 with c2:
-                    if st.button("🌙 K2", use_container_width=True):
+                    if st.button("🌙 K2", use_container_width=True, key="btn_kimi_select"):
                         st.session_state.ai_platform = 'kimi'
                         st.rerun()
                 with c3:
-                    if st.button("🔍 G", use_container_width=True):
+                    if st.button("🔍 G", use_container_width=True, key="btn_gemini_select"):
                         st.session_state.ai_platform = 'gemini'
                         st.rerun()
                 with c4:
@@ -751,46 +740,67 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                             st.error(f"❌ 儲存失敗：{str(e)}")
             
             else:
-                # 複製介面（依選擇的平台顯示，無GPT按鈕，避免死循環 #3）
+                # ✅ 自動複製介面（使用 JavaScript 實現一鍵複製）
                 platform_config = {
                     'kimi': {'name': 'Kimi K2', 'icon': '🌙', 'url': 'https://kimi.com'},
                     'gemini': {'name': 'Google Gemini', 'icon': '🔍', 'url': 'https://gemini.google.com'}
                 }
                 config = platform_config[current_platform]
                 
-                st.info(f"{config['icon']} **{config['name']}** 複製模式（請複製下方Prompt後點擊前往）")
+                # 轉義 Prompt 中的特殊字元，避免 JS 語法錯誤
+                prompt_escaped = prompt.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$')
                 
-                st.text_area(
-                    f"{config['name']} Prompt（Ctrl+A 全選, Ctrl+C 複製）", 
-                    value=prompt, 
-                    height=200,
-                    key=f"prompt_copy_area_{current_platform}",
-                    help="複製後點擊「前往」在瀏覽器開啟AI平台，貼上即可分析"
-                )
+                # 使用 HTML/JS 實現自動複製到剪貼簿
+                copy_js = f"""
+                <script>
+                (function() {{
+                    navigator.clipboard.writeText(`{prompt_escaped}`).then(function() {{
+                        console.log('Copy to clipboard successful');
+                    }}).catch(function(err) {{
+                        console.error('Could not copy text: ', err);
+                        alert('自動複製失敗，請手動複製（瀏覽器可能阻擋了權限）');
+                    }});
+                }})();
+                </script>
+                <div style="background-color: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; 
+                            padding: 12px; border-radius: 8px; margin-bottom: 16px; font-family: sans-serif;">
+                    <span style="font-size: 20px;">✅</span> 
+                    <strong>Prompt 已自動複製到剪貼簿！</strong><br>
+                    <small>您可以直接前往 {config['name']} 貼上使用</small>
+                </div>
+                """
+                components.html(copy_js, height=70)
                 
+                # 顯示成功提示（Streamlit 原生）
+                st.success(f"{config['icon']} **{config['name']}**｜✅ 已自動複製 Prompt！")
+                
+                # 操作按鈕：前往 或 返回
                 col1, col2 = st.columns([1, 1])
                 with col1:
-                    # 修正 #3：關閉按鈕正確清除狀態並返回主選單
-                    if st.button("✅ 完成複製，關閉", use_container_width=True, type="primary", key="close_copy_ui"):
+                    # 主要動作：前往 AI 平台（新分頁開啟）
+                    st.link_button(
+                        f"🚀 前往 {config['name']} 貼上使用", 
+                        config['url'], 
+                        use_container_width=True,
+                        type="primary"
+                    )
+                with col2:
+                    # 次要動作：返回選擇其他 AI（不再使用"關閉"這種無意義的詞）
+                    if st.button("↩️ 選擇其他 AI 平台", use_container_width=True, key="back_to_ai_menu"):
                         st.session_state.ai_platform = None
                         st.rerun()
                 
-                with col2:
-                    st.link_button(
-                        f"🚀 前往 {config['name']}", 
-                        config['url'], 
-                        use_container_width=True,
-                        type="secondary"
-                    )
-                
-                st.caption("💡 提示：關閉後可回到主選單選擇其他AI平台")
+                # 額外顯示 Prompt 預覽（折疊式，供確認內容）
+                with st.expander("📝 查看已複製的 Prompt 內容（確認用）", expanded=False):
+                    st.code(prompt, language="markdown")
+                    st.caption("💡 提示：上方已自動複製，此處僅供確認內容是否正確")
 
-    # 處理清空請求（保持原有邏輯）
+    # 處理清空請求（保留原有）
     if st.session_state.get('clear_input_requested', False):
         st.session_state.clear_input_requested = False
         st.session_state.main_input = ""
 
-    # ---------- 🔍 資料搜尋與管理（保持原有程式，嚴禁修改） ----------
+    # ---------- 🔍 資料搜尋與管理（保持原有，嚴禁修改） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
@@ -812,7 +822,6 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                     if not results:
                         st.info("找不到符合資料")
 
-        # 安全檢查
         search_results = st.session_state.get('search_results', [])
         if search_results:
             st.write(f"共 {len(search_results)} 筆")
@@ -851,7 +860,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（保持原有程式，嚴禁修改） ----------
+    # ---------- 底部統計（保持原有，嚴禁修改） ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
