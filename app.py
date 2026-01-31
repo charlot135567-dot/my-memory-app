@@ -448,6 +448,14 @@ with tabs[3]:
         
         def on_input_change():
             st.session_state.input_dirty = True
+        user_input = st.text_area(
+            "",
+            height=260,
+            key="main_input",
+            placeholder="貼上內容：\n• 經文（如：Prov 31:10 或 31:10 才德的婦人...）\n• 文稿（英文講稿/文章）\n• JSON（以 { 開頭）",
+            label_visibility="collapsed",
+            on_change=on_input_change
+        ).strip()
         
         if user_input:
             # ... (判定 mode 與生成 prompt 的邏輯保持不變) ...
