@@ -617,7 +617,7 @@ with tabs[3]:
             if show_copy_ui:
                 # 複製介面（簡化版，避免死循環）
                 target = st.session_state.get('copy_target', 'AI')
-                st.info(f"📋 以下 Prompt 已為 **{target}** 優化，請複製：")
+                st.text_area("Prompt 內容（請複製）", value=prompt, height=150, label_visibility="collapsed")
                 
                 # 顯示 Prompt（同時提供複製便利性）
                 st.text_area("Prompt 內容（Ctrl+A 全選後 Ctrl+C 複製）", 
