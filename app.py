@@ -312,13 +312,12 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
 # ===================================================================
-# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt
+# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re
 
     # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
-    # 注意：Sidebar 選擇器應該移到最外層（所有 tabs 之前），這裡只套用背景
     try:
         if 'selected_img_file' in globals() and os.path.exists(selected_img_file):
             with open(selected_img_file, "rb") as f:
@@ -359,7 +358,7 @@ with tabs[3]:
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # 初始化 session_state（確保安全）
+    # 初始化 session_state
     if 'sentences' not in st.session_state:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
@@ -368,8 +367,10 @@ with tabs[3]:
         st.session_state.show_prompt_for_copy = False
     if 'copy_target' not in st.session_state:
         st.session_state.copy_target = ""
+    if 'just_copied' not in st.session_state:
+        st.session_state.just_copied = False
 
-    # 智能偵測內容類型（經文/文稿/JSON）
+    # 智能偵測內容類型
     def detect_content_mode(text):
         text = text.strip()
         if text.startswith("{"):
@@ -378,30 +379,56 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-    # ---------- 📝 經文輸入與AI分析 ----------
+    # ---------- 📝 經文輸入與AI分析（含完整 Prompt） ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
+        
+        def on_input_change():
+            st.session_state.input_dirty = True
         
         user_input = st.text_area(
             "",
             height=260,
             key="main_input",
-            placeholder="貼上內容：\n• 經文（如：Prov 31:10 或 31:10 才德的婦人...）\n• 文稿（英文講稿/文章）\n• JSON（以 { 開頭）\n\n系統自動判斷格式，自動推斷書卷名",
-            label_visibility="collapsed"
+            placeholder="貼上內容：\n• 經文（如：Prov 31:10 或 31:10 才德的婦人...）\n• 文稿（英文講稿/文章）\n• JSON（以 { 開頭）",
+            label_visibility="collapsed",
+            on_change=on_input_change
         ).strip()
 
         if user_input:
             mode = detect_content_mode(user_input)
             
-            # ==================== 模式 A：經文分析 ====================
+            # ==================== 模式 A：完整聖經經文 Prompt ====================
             if mode in ["json", "scripture"]:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
-【模式A：聖經經文分析】
+請根據使用者輸入的內容類型，選擇對應的模式輸出。
 
-請分析以下經文，以 JSON 格式回傳：
+### 模式 A：【聖經經文模式】
+當使用者輸入為「中文聖經經文」時，請嚴格產出以下 V1 與 V2 表格數據，禁止產出講章。
+
+🔹 V1 Sheet 要求：
+1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
+2. English (ESV)：檢索對應的 ESV 英文經文。
+3. Chinese：填入我提供的中文原文。
+4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
+5. Grammar：嚴格遵守符號化格式：
+   1️⃣[文法邏輯解析] 
+   2️⃣[補齊後的完整應用句] 
+   3️⃣Ex. [中英對照聖經應用例句]
+
+🔹 V2 Sheet 要求：
+1. Ref.：同 V1。
+2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
+3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
+4. Note：日文文法或語境的補充說明。
+5. KRF：檢索對應的韓文《Korean Revised Version》。
+6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
+7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
+
+請分析以下經文，並以 JSON 格式回傳（方便程式解析）：
 {{
-  "ref_no": "經文編號（必須使用縮寫，如 Prov 31:10, Gen 1:1, John 3:16）",
-  "ref_article": "完整英文經文（ESV/NIV）",
-  "zh_translation": "中文翻譯（繁體）",
+  "ref_no": "經文編號（自動偵測並用縮寫，如 Prov 31:10, Gen 1:1, John 3:16）",
+  "ref_article": "完整英文經文（ESV）",
+  "zh_translation": "中文原文",
   "words": [{{"word": "單字", "level": "高級/中高級", "meaning": "中文解釋", "synonym": "同義詞", "antonym": "反義詞"}}],
   "phrases": [{{"phrase": "片語", "meaning": "中文解釋"}}],
   "grammar": [{{"pattern": "文法", "explanation": "1️⃣[解析] 2️⃣[還原句] 3️⃣Ex. [中英例句]"}}]
@@ -415,26 +442,41 @@ with tabs[3]:
 • "愛是恆久忍耐" → 1Co（哥林多前書13章）
 以此類推，使用標準縮寫：Gen, Exo, Lev, Num, Deu, Jos, Jdg, Rut, 1Sa, 2Sa, 1Ki, 2Ki, 1Ch, 2Ch, Ezr, Neh, Est, Job, Psa, Pro, Ecc, Son, Isa, Jer, Lam, Eze, Dan, Hos, Joe, Amo, Oba, Jon, Mic, Nah, Hab, Zep, Hag, Zec, Mal, Mat, Mar, Luk, Joh, Act, Rom, 1Co, 2Co, Gal, Eph, Phi, Col, 1Th, 2Th, 1Ti, 2Ti, Tit, Phm, Heb, Jam, 1Pe, 2Pe, 1Jo, 2Jo, 3Jo, Jud, Rev。
 
-🔹 V1 Sheet：Ref.（縮寫）、English (ESV)、Chinese、Syn/Ant（中高級以上）、Grammar（符號化格式）
-🔹 V2 Sheet：口語訳（日文1955）、KRF（韓文）、THSV11（泰文）
-
-待分析：{user_input}"""
+待分析經文：{user_input}"""
                 mode_label = "📖 經文模式"
 
-            # ==================== 模式 B：文稿分析 ====================
+            # ==================== 模式 B：完整英文文稿 Prompt ====================
             else:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
-【模式B：英文文稿分析】
+嚴格根據使用者輸入的內容類型，選擇對應模式輸出。
+當使用者輸入為###模式B：【英文文稿模式】時，請執行以下步驟：
 
-🔹 I-V 交錯格式：
-純英文精煉稿 + 中英夾雜講章（關鍵術語加粗如 **(steadfast)**）
+🔹 第一步｜內容交錯 (I-V)：
+嚴格執行將逐字稿轉化為流暢、文法正確，
+保留原文中的高級/中高級字與片語及中心思想的完整文章，不得偏離原稿內容
+段落呈現：「一段純英文精煉稿」隨即接「一段中英夾雜講章」的格式。
 
-🔹 語言素材：
-1. Vocabulary (20個)：高級單字+中譯+同反義+聖經例句
-2. Phrases (15個)：實用片語+中譯+聖經例句  
-3. Grammar (6個)：1️⃣[解析] 2️⃣[還原句] 3️⃣Ex. [中英例句]
+1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
+2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照。
+3. 上面☝️1&2的關鍵並重要英文術語嵌入中文括號要"加粗体"，如：我們需要保持忠心 (steadfast)。
+4. 排版：大綱標題與內容間須有空行。
 
-挑選規則：高級→中高級→中級→其他
+🔹 第二步｜語言素材：
+1. Vocabulary (20個) & Phrases (15個): 
+    高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
+    翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
+
+2.Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
+           語法邏輯還原 (Grammar Restoration)：針對包含「倒裝、省略、介係詞前置」
+           等高難度結構的句子，
+           嚴格遵守符號化格式：
+           1️⃣[摘錄講稿中的原句作文法邏輯解析] ：
+                 簡單說明語法結構的變化邏輯（如：介係詞為何前移）
+           2️⃣[結構還原完整應用句] 
+           3️⃣Ex. [中英對照聖經應用例句]
+
+注意！！單字/片語/同反義詞的挑選規則：
+              嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
 
 待分析文稿：{user_input}"""
                 mode_label = "📝 文稿模式"
@@ -442,67 +484,98 @@ with tabs[3]:
             encoded = urllib.parse.quote(prompt)
             st.caption(f"{mode_label} | {len(user_input)} 字元 | 含書卷推斷")
             
-            # AI 按鈕列
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
-                              use_container_width=True, type="primary")
-            with c2:
-                if st.button("🌙 K2", use_container_width=True):
-                    st.session_state.show_prompt_for_copy = True
-                    st.session_state.copy_target = "Kimi (K2)"
-                    st.toast("👇 請複製下方 Prompt 貼到 Kimi")
-            with c3:
-                if st.button("🔍 G", use_container_width=True):
-                    st.session_state.show_prompt_for_copy = True
-                    st.session_state.copy_target = "Google Gemini"
-                    st.toast("👇 請複製下方 Prompt 貼到 Gemini")
-            with c4:
-                if st.button("💾 存", type="primary", use_container_width=True):
-                    try:
-                        data = json.loads(user_input)
-                        ref = data.get("ref_no") or data.get("ref") or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
-                        st.session_state.sentences[ref] = {
-                            "ref": ref,
-                            "en": data.get("ref_article", data.get("en", "")),
-                            "zh": data.get("zh_translation", data.get("zh", "")),
-                            "words": data.get("words", []),
-                            "phrases": data.get("phrases", []),
-                            "grammar": data.get("grammar", []),
-                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                        }
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存：{ref}")
-                        st.session_state["main_input"] = ""
-                        st.rerun()
-                    except:
-                        ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
-                        st.session_state.sentences[ref] = {
-                            "ref": ref, "en": user_input, "zh": "",
-                            "words": [], "phrases": [], "grammar": [],
-                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                        }
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存：{ref}")
-                        st.session_state["main_input"] = ""
-                        st.rerun()
+            # ============================================================
+            # 複製介面邏輯（打勾自動關閉，不精簡）
+            # ============================================================
+            show_copy_ui = st.session_state.get('show_prompt_for_copy', False)
+            target = st.session_state.get('copy_target', '')
             
-            # 顯示可複製的 Prompt
-            if st.session_state.get('show_prompt_for_copy', False):
-                target = st.session_state.get('copy_target', 'AI')
+            if show_copy_ui:
+                # 顯示複製介面
                 st.divider()
-                st.markdown(f"**📋 請複製以下 Prompt 貼到 {target}：**")
+                st.markdown(f"**📋 已為 {target} 生成完整 Prompt：**")
                 st.code(prompt, language="text")
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    if st.button("✅ 複製完成，關閉", use_container_width=True):
-                        st.session_state.show_prompt_for_copy = False
-                        st.session_state.copy_target = ""
+                
+                # 檢查是否剛完成複製（打勾狀態）
+                if st.session_state.get('just_copied', False):
+                    # 顯示打勾並自動關閉
+                    st.success("✅ 已複製！自動關閉中...")
+                    st.session_state.show_prompt_for_copy = False
+                    st.session_state.just_copied = False
+                    st.session_state.copy_target = ""
+                    st.rerun()
+                else:
+                    # 顯示複製按鈕列
+                    c1, c2, c3 = st.columns([2, 1, 1])
+                    with c1:
+                        # 點擊「我已複製」→ 標記為已複製 → rerun → 顯示打勾 → 自動關閉
+                        if st.button("📋 我已複製（點此打勾關閉）", use_container_width=True, type="primary"):
+                            st.session_state.just_copied = True
+                            st.rerun()
+                    with c2:
+                        # 直接前往連結
+                        if "Kimi" in target:
+                            st.link_button("🌙 前往 Kimi", "https://kimi.com", use_container_width=True)
+                        else:
+                            st.link_button("🔍 前往 Gemini", "https://gemini.google.com", use_container_width=True)
+                    with c3:
+                        # 取消/關閉按鈕
+                        if st.button("❌ 取消", use_container_width=True):
+                            st.session_state.show_prompt_for_copy = False
+                            st.session_state.copy_target = ""
+                            st.session_state.just_copied = False
+                            st.rerun()
+                    
+                    # GPT 自動帶入連結（下方提供）
+                    st.caption("或開啟 ChatGPT（自動帶入完整 Prompt）：")
+                    st.link_button("💬 GPT 自動帶入", f"https://chat.openai.com/?q={encoded}", 
+                                  use_container_width=True, type="secondary")
+            
+            else:
+                # 正常 AI 按鈕列（未開啟複製介面時）
+                c1, c2, c3, c4 = st.columns(4)
+                with c1:
+                    st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
+                                  use_container_width=True, type="primary")
+                with c2:
+                    if st.button("🌙 K2", use_container_width=True):
+                        st.session_state.show_prompt_for_copy = True
+                        st.session_state.copy_target = "Kimi"
                         st.rerun()
-                with col2:
-                    st.info(f"點擊右上角複製按鈕後，前往 {target} 貼上即可")
+                with c3:
+                    if st.button("🔍 G", use_container_width=True):
+                        st.session_state.show_prompt_for_copy = True
+                        st.session_state.copy_target = "Google"
+                        st.rerun()
+                with c4:
+                    if st.button("💾 存", type="primary", use_container_width=True):
+                        try:
+                            data = json.loads(user_input)
+                            ref = data.get("ref_no") or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
+                            st.session_state.sentences[ref] = {
+                                "ref": ref,
+                                "en": data.get("ref_article", data.get("en", "")),
+                                "zh": data.get("zh_translation", data.get("zh", "")),
+                                "words": data.get("words", []),
+                                "phrases": data.get("phrases", []),
+                                "grammar": data.get("grammar", []),
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                        except:
+                            ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
+                            st.session_state.sentences[ref] = {
+                                "ref": ref, "en": user_input, "zh": "",
+                                "words": [], "phrases": [], "grammar": [],
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                        save_sentences(st.session_state.sentences)
+                        st.success(f"✅ 已存：{ref}")
+                        st.session_state["main_input"] = ""
+                        st.session_state.show_prompt_for_copy = False
+                        st.session_state.just_copied = False
+                        st.rerun()
 
-    # ---------- 🔍 資料搜尋與管理 ----------
+    # ---------- 🔍 資料搜尋與管理（保持完整） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
