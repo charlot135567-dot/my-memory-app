@@ -314,6 +314,117 @@ with tabs[2]:
 # ===================================================================
 # 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt
 # ===================================================================
+import streamlit as st
+import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re
+
+# ==================== 🎨 Sidebar 背景圖片選擇器（全域） ====================
+with st.sidebar:
+    st.markdown("### 🖼️ 底部背景設定")
+    
+    bg_options = {
+        "🐶 Snoopy": "Snoopy.jpg",
+        "🐰 Mashimaro 1": "Mashimaro1.jpg",
+        "🐰 Mashimaro 2": "Mashimaro2.jpg",
+        "🐰 Mashimaro 3": "Mashimaro3.jpg",
+        "🐰 Mashimaro 4": "Mashimaro4.jpg",
+        "🐰 Mashimaro 5": "Mashimaro5.jpg",
+        "🐰 Mashimaro 6": "Mashimaro6.jpg"
+    }
+    
+    # 使用 session_state 儲存選擇
+    if 'selected_bg' not in st.session_state:
+        st.session_state.selected_bg = list(bg_options.keys())[0]
+    if 'bg_size' not in st.session_state:
+        st.session_state.bg_size = 15
+    if 'bg_bottom' not in st.session_state:
+        st.session_state.bg_bottom = 30
+    
+    selected_bg = st.selectbox(
+        "選擇角色", 
+        list(bg_options.keys()), 
+        index=list(bg_options.keys()).index(st.session_state.selected_bg),
+        key="selected_bg"
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        bg_size = st.slider("圖片大小", 5, 50, st.session_state.bg_size, format="%d%%", key="bg_size")
+    with col2:
+        bg_bottom = st.slider("底部間距", 0, 100, st.session_state.bg_bottom, format="%dpx", key="bg_bottom")
+
+# 取得選中的圖片路徑（供 Tab 4 使用）
+selected_img_file = bg_options[st.session_state.selected_bg]
+current_bg_size = st.session_state.bg_size
+current_bg_bottom = st.session_state.bg_bottom
+
+# 套用全域背景（所有 Tabs 都會套用）
+try:
+    if os.path.exists(selected_img_file):
+        with open(selected_img_file, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{img_b64}");
+            background-size: {current_bg_size}% auto;
+            background-position: center bottom {current_bg_bottom}px;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            z-index: 0;
+        }}
+        .main .block-container {{
+            position: relative;
+            z-index: 1;
+            padding-bottom: {current_bg_bottom + 100}px;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.sidebar.error(f"❌ 找不到檔案：{selected_img_file}")
+except Exception as e:
+    st.sidebar.error(f"⚠️ 載入錯誤：{e}")
+
+# ==================== 全域資料庫初始化 ====================
+SENTENCES_FILE = "sentences.json"
+
+def load_sentences():
+    if os.path.exists(SENTENCES_FILE):
+        try:
+            with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_sentences(data):
+    with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+# ⚠️ 確保所有 session_state 都被初始化（修正 AttributeError）
+if 'sentences' not in st.session_state:
+    st.session_state.sentences = load_sentences()
+if 'search_results' not in st.session_state:
+    st.session_state.search_results = []  # 確保初始化為空列表
+if 'show_prompt_for_copy' not in st.session_state:
+    st.session_state.show_prompt_for_copy = False
+if 'copy_target' not in st.session_state:
+    st.session_state.copy_target = ""
+
+# ==================== 主程式標題與 Tabs ====================
+st.title("您的應用程式")
+
+tabs = st.tabs(["Tab 1", "Tab 2", "Tab 3", "Tab 4"])
+
+with tabs[0]:
+    st.header("這是 Tab 1")
+
+with tabs[1]:
+    st.header("這是 Tab 2")
+
+with tabs[2]:
+    st.header("這是 Tab 3")
+
+# ==================== Tab 4（AI 控制台 - 完整功能） ====================
 with tabs[3]:
     
     # 智能偵測內容類型（經文/文稿/JSON）
@@ -389,7 +500,7 @@ with tabs[3]:
             encoded = urllib.parse.quote(prompt)
             st.caption(f"{mode_label} | {len(user_input)} 字元 | 含書卷推斷")
             
-            # AI 按鈕列（K2 和 G 都改為複製模式）
+            # AI 按鈕列
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
@@ -434,7 +545,7 @@ with tabs[3]:
                         st.session_state["main_input"] = ""
                         st.rerun()
             
-            # 顯示可複製的 Prompt（適用於 Kimi 和 Gemini）
+            # 顯示可複製的 Prompt
             if st.session_state.get('show_prompt_for_copy', False):
                 target = st.session_state.get('copy_target', 'AI')
                 st.divider()
@@ -444,12 +555,12 @@ with tabs[3]:
                 with col1:
                     if st.button("✅ 複製完成，關閉", use_container_width=True):
                         st.session_state.show_prompt_for_copy = False
-                        del st.session_state.copy_target
+                        st.session_state.copy_target = ""
                         st.rerun()
                 with col2:
                     st.info(f"點擊右上角複製按鈕後，前往 {target} 貼上即可")
 
-    # ---------- 🔍 資料搜尋與管理（保持不變）----------
+    # ---------- 🔍 資料搜尋與管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
@@ -460,23 +571,29 @@ with tabs[3]:
                     st.warning("請輸入搜尋條件")
                 else:
                     kw = query.lower()
-                    st.session_state.search_results = [
+                    # 安全寫法：確保 search_results 存在
+                    results = [
                         {"key": k, "選": False, "Ref.": v.get("ref", k),
                          "內容": (v.get("en", "")[:50] + "...") if len(v.get("en", "")) > 50 else v.get("en", ""),
                          "日期": v.get("date_added", "")[:10]}
                         for k, v in st.session_state.sentences.items()
                         if kw in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
                     ]
-                    if not st.session_state.search_results:
+                    st.session_state.search_results = results
+                    if not results:
                         st.info("找不到符合資料")
 
-        if st.session_state.search_results:
-            st.write(f"共 {len(st.session_state.search_results)} 筆")
-            if st.checkbox("☑️ 全選"):
-                for r in st.session_state.search_results:
+        # 安全檢查：使用 .get() 避免 AttributeError
+        search_results = st.session_state.get('search_results', [])
+        if search_results:
+            st.write(f"共 {len(search_results)} 筆")
+            if st.checkbox("☑️ 全選", key="select_all"):
+                for r in search_results:
                     r["選"] = True
-            if st.button("🗑️ 刪除勾選項目"):
-                selected = [r["key"] for r in st.session_state.search_results if r.get("選")]
+                st.session_state.search_results = search_results
+            
+            if st.button("🗑️ 刪除勾選項目", key="delete_selected"):
+                selected = [r["key"] for r in search_results if r.get("選")]
                 if selected:
                     for k in selected:
                         st.session_state.sentences.pop(k, None)
@@ -486,7 +603,8 @@ with tabs[3]:
                     st.rerun()
                 else:
                     st.warning("請先勾選要刪除的項目")
-            df = pd.DataFrame(st.session_state.search_results)
+            
+            df = pd.DataFrame(search_results)
             edited = st.data_editor(
                 df,
                 column_config={
@@ -500,13 +618,16 @@ with tabs[3]:
                 use_container_width=True,
                 height=min(350, len(df) * 35 + 40)
             )
+            # 同步回 session_state
             for i, row in edited.iterrows():
-                st.session_state.search_results[i]["選"] = row["選"]
+                if i < len(st.session_state.search_results):
+                    st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（保持不變）----------
+    # ---------- 底部統計 ----------
     st.divider()
-    st.caption(f"💾 資料庫：{len(st.session_state.sentences)} 筆")
-    if st.session_state.sentences:
+    total_count = len(st.session_state.get('sentences', {}))
+    st.caption(f"💾 資料庫：{total_count} 筆")
+    if st.session_state.get('sentences', {}):
         json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
         st.download_button(
             "⬇️ 備份 JSON",
