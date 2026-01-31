@@ -448,6 +448,7 @@ with tabs[3]:
         
         def on_input_change():
             st.session_state.input_dirty = True
+        
         user_input = st.text_area(
             "",
             height=260,
@@ -456,158 +457,14 @@ with tabs[3]:
             label_visibility="collapsed",
             on_change=on_input_change
         ).strip()
-        
+
         if user_input:
-            # ... (判定 mode 與生成 prompt 的邏輯保持不變) ...
             mode = detect_content_mode(user_input)
-            # ... (prompt 字串生成保持不變) ...
-            # ==================== Excel 格式顯示（只有當輸入是 JSON 時） ====================
-            is_valid_json = False
-            parsed_data = None
-            if user_input.startswith("{"):
-                try:
-                    parsed_data = json.loads(user_input)
-                    is_valid_json = True
-                    
-                    # 顯示為漂亮表格（無下載按鈕）
-                    st.success(f"📖 已解析：{parsed_data.get('ref_no', '未指定')} | 點擊下方 AI 進行分析，或編輯上方內容")
-                    
-                    tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words", "🔗 Phrases", "📚 Grammar"])
-                    
-                    with tab_words:
-                        if 'words' in parsed_data and parsed_data['words']:
-                            df = pd.DataFrame(parsed_data['words'])
-                            df_display = df.rename(columns={
-                                'word': '單字', 'level': '級別', 'meaning': '中文解釋',
-                                'synonym': '同義詞', 'antonym': '反義詞'
-                            })
-                            st.dataframe(df_display, use_container_width=True, height=min(400, len(df)*35+40), hide_index=True)
-                        else:
-                            st.info("無單字資料")
-                    
-                    with tab_phrases:
-                        if 'phrases' in parsed_data and parsed_data['phrases']:
-                            df = pd.DataFrame(parsed_data['phrases'])
-                            st.dataframe(df.rename(columns={'phrase': '片語', 'meaning': '中文解釋'}), 
-                                        use_container_width=True, hide_index=True)
-                        else:
-                            st.info("無片語資料")
-                    
-                    with tab_grammar:
-                        if 'grammar' in parsed_data and parsed_data['grammar']:
-                            df = pd.DataFrame(parsed_data['grammar'])
-                            st.dataframe(df.rename(columns={'pattern': '文法結構', 'explanation': '解析'}), 
-                                        use_container_width=True, hide_index=True)
-                        else:
-                            st.info("無文法資料")
-                            
-                except json.JSONDecodeError:
-                    pass # 不是合法 JSON，就當作文稿顯示原始輸入
-
-            # ==================== AI 按鈕與複製介面 ====================
-            encoded = urllib.parse.quote(prompt)
-            st.divider()
-            st.caption(f"{'📖 經文模式' if mode in ['json','scripture'] else '📝 文稿模式'} | {len(user_input)} 字元")
             
-            show_copy_ui = st.session_state.get('show_prompt_for_copy', False)
-            target = st.session_state.get('copy_target', '')
-            
-            if show_copy_ui:
-                import streamlit.components.v1 as components
-                
-                st.markdown(f"**📋 以下為 {target} 專用的完整 Prompt：**")
-                
-                # 使用 text_area 讓使用者容易看到完整內容，同時有原生複製功能
-                st.text_area("Prompt 內容（可在此複製或點擊下方按鈕）", value=prompt, height=200, key="prompt_display", label_visibility="collapsed")
-                
-                # 客製化複製按鈕（實際會複製到剪貼簿）
-                copy_html = f"""
-                <script>
-                function copyText() {{
-                    const text = `{prompt.replace('`', '\\`')}`;
-                    navigator.clipboard.writeText(text).then(function() {{
-                        document.getElementById('copy-status').innerText = "✅ 已複製！";
-                        document.getElementById('copy-btn').style.backgroundColor = "#28a745";
-                        // 延遲一點後再關閉，讓使用者看到成功訊息
-                        setTimeout(function() {{
-                            window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'close_prompt'}}, '*');
-                            // 模擬點擊關閉（實際上要配合 Streamlit 的按鈕）
-                        }}, 800);
-                    }}, function(err) {{
-                        document.getElementById('copy-status').innerText = "❌ 複製失敗，請手動複製上方文字";
-                    }});
-                }}
-                </script>
-                <button id="copy-btn" onclick="copyText()" style="width:100%; padding:10px; background-color:#FF6B6B; color:white; border:none; border-radius:5px; cursor:pointer; font-size:16px;">
-                    📋 點擊此處複製 Prompt
-                </button>
-                <div id="copy-status" style="text-align:center; margin-top:8px; font-weight:bold; color:#28a745;"></div>
-                """
-                components.html(copy_html, height=80)
-                
-                # 由於 JS 無法直接觸發 Python callback，我們保留一個確認按鈕來關閉
-                if st.button("✅ 複製完成（關閉此區塊）", use_container_width=True, type="primary", key="confirm_close"):
-                    st.session_state.show_prompt_for_copy = False
-                    st.session_state.copy_target = ""
-                    st.rerun()
-                
-                st.divider()
-                st.caption("同時提供其他 AI 連結（無需關閉即可點擊）：")
-                
-                # 修正：Google 和 Kimi 都顯示，不論觸發的是誰
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.link_button("💬 ChatGPT", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="primary")
-                with c2:
-                    st.link_button("🌙 前往 Kimi", "https://kimi.com", use_container_width=True)
-                with c3:
-                    st.link_button("🔍 前往 Google", "https://gemini.google.com", use_container_width=True)
-                    
-                if st.button("❌ 取消", use_container_width=True, key="cancel_copy"):
-                    st.session_state.show_prompt_for_copy = False
-                    st.session_state.copy_target = ""
-                    st.rerun()
-            
-            else:
-                # 主按鈕列（四個都在）
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="primary")
-                with c2:
-                    if st.button("🌙 K2", use_container_width=True):
-                        st.session_state.show_prompt_for_copy = True
-                        st.session_state.copy_target = "Kimi"
-                        st.rerun()
-                with c3:
-                    if st.button("🔍 G", use_container_width=True):
-                        st.session_state.show_prompt_for_copy = True
-                        st.session_state.copy_target = "Google"
-                        st.rerun()
-                with c4:
-                    if st.button("💾 存", type="primary", use_container_width=True):
-                        # 儲存邏輯（判斷是否為 JSON 決定儲存方式）
-                        if is_valid_json:
-                            ref = parsed_data.get('ref_no') or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
-                            st.session_state.sentences[ref] = {
-                                "ref": ref, **parsed_data, "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                            }
-                        else:
-                            ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
-                            st.session_state.sentences[ref] = {
-                                "ref": ref, "en": user_input, "zh": "",
-                                "words": [], "phrases": [], "grammar": [],
-                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                            }
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存：{ref}")
-                        st.session_state["main_input"] = ""
-                        st.rerun()
-            
-            # ==================== 模式 A：完整聖經經文 Prompt ====================
+            # ==================== 完整模式A：聖經經文（含V1/V2 Sheet）====================
             if mode in ["json", "scripture"]:
-                prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
-請根據使用者輸入的內容類型，選擇對應的模式輸出。
-
+                prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據使用者輸入的內容類型，選擇對應的模式輸出。
+---
 ### 模式 A：【聖經經文模式】
 當使用者輸入為「中文聖經經文」時，請嚴格產出以下 V1 與 V2 表格數據，禁止產出講章。
 
@@ -651,7 +508,7 @@ with tabs[3]:
 待分析經文：{user_input}"""
                 mode_label = "📖 經文模式"
 
-            # ==================== 模式 B：完整英文文稿 Prompt ====================
+            # ==================== 完整模式B：英文文稿（含I-V交錯格式）====================
             else:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 嚴格根據使用者輸入的內容類型，選擇對應模式輸出。
@@ -687,8 +544,9 @@ with tabs[3]:
 待分析文稿：{user_input}"""
                 mode_label = "📝 文稿模式"
 
+            # ==================== 後續顯示與按鈕邏輯（保持不變）====================
             encoded = urllib.parse.quote(prompt)
-            st.caption(f"{mode_label} | {len(user_input)} 字元 | 含書卷推斷")
+            # ... 後面的表格顯示與按鈕邏輯 ...
             
             # ============================================================
             # 複製介面邏輯（打勾自動關閉，不精簡）
