@@ -311,50 +311,8 @@ with tabs[2]:
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
 
-# ==================== 🎨 Sidebar 背景選擇器（加在最前面，不影響原有 Tabs） ====================
-import base64  # 確保導入
-
-with st.sidebar:
-    st.markdown("### 🖼️ 底部背景設定")
-    
-    bg_options = {
-        "🐶 Snoopy": "Snoopy.jpg",
-        "🐰 Mashimaro 1": "Mashimaro1.jpg",
-        "🐰 Mashimaro 2": "Mashimaro2.jpg",
-        "🐰 Mashimaro 3": "Mashimaro3.jpg",
-        "🐰 Mashimaro 4": "Mashimaro4.jpg",
-        "🐰 Mashimaro 5": "Mashimaro5.jpg",
-        "🐰 Mashimaro 6": "Mashimaro6.jpg"
-    }
-    
-    # 使用 session_state 儲存選擇，避免切換 Tab 時重置
-    if 'selected_bg' not in st.session_state:
-        st.session_state.selected_bg = list(bg_options.keys())[0]
-    if 'bg_size' not in st.session_state:
-        st.session_state.bg_size = 15
-    if 'bg_bottom' not in st.session_state:
-        st.session_state.bg_bottom = 30
-    
-    selected_bg = st.selectbox(
-        "選擇角色", 
-        list(bg_options.keys()), 
-        index=list(bg_options.keys()).index(st.session_state.selected_bg),
-        key="selected_bg"
-    )
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        bg_size = st.slider("圖片大小", 5, 50, st.session_state.bg_size, format="%d%%", key="bg_size")
-    with col2:
-        bg_bottom = st.slider("底部間距", 0, 100, st.session_state.bg_bottom, format="%dpx", key="bg_bottom")
-
-# 取得選中的圖片路徑（供 Tab 4 使用）
-selected_img_file = bg_options[st.session_state.selected_bg]
-current_bg_size = st.session_state.bg_size
-current_bg_bottom = st.session_state.bg_bottom
-
 # ===================================================================
-# 6. TAB4 ─ AI 控制台（加入Sidebar選擇功能版）
+# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt
 # ===================================================================
 with tabs[3]:
     
