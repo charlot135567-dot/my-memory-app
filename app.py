@@ -314,119 +314,61 @@ with tabs[2]:
 # ===================================================================
 # 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt
 # ===================================================================
-import streamlit as st
-import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re
-
-# ==================== 🎨 Sidebar 背景圖片選擇器（全域） ====================
-with st.sidebar:
-    st.markdown("### 🖼️ 底部背景設定")
-    
-    bg_options = {
-        "🐶 Snoopy": "Snoopy.jpg",
-        "🐰 Mashimaro 1": "Mashimaro1.jpg",
-        "🐰 Mashimaro 2": "Mashimaro2.jpg",
-        "🐰 Mashimaro 3": "Mashimaro3.jpg",
-        "🐰 Mashimaro 4": "Mashimaro4.jpg",
-        "🐰 Mashimaro 5": "Mashimaro5.jpg",
-        "🐰 Mashimaro 6": "Mashimaro6.jpg"
-    }
-    
-    # 使用 session_state 儲存選擇
-    if 'selected_bg' not in st.session_state:
-        st.session_state.selected_bg = list(bg_options.keys())[0]
-    if 'bg_size' not in st.session_state:
-        st.session_state.bg_size = 15
-    if 'bg_bottom' not in st.session_state:
-        st.session_state.bg_bottom = 30
-    
-    selected_bg = st.selectbox(
-        "選擇角色", 
-        list(bg_options.keys()), 
-        index=list(bg_options.keys()).index(st.session_state.selected_bg),
-        key="selected_bg"
-    )
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        bg_size = st.slider("圖片大小", 5, 50, st.session_state.bg_size, format="%d%%", key="bg_size")
-    with col2:
-        bg_bottom = st.slider("底部間距", 0, 100, st.session_state.bg_bottom, format="%dpx", key="bg_bottom")
-
-# 取得選中的圖片路徑（供 Tab 4 使用）
-selected_img_file = bg_options[st.session_state.selected_bg]
-current_bg_size = st.session_state.bg_size
-current_bg_bottom = st.session_state.bg_bottom
-
-# 套用全域背景（所有 Tabs 都會套用）
-try:
-    if os.path.exists(selected_img_file):
-        with open(selected_img_file, "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpeg;base64,{img_b64}");
-            background-size: {current_bg_size}% auto;
-            background-position: center bottom {current_bg_bottom}px;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-            z-index: 0;
-        }}
-        .main .block-container {{
-            position: relative;
-            z-index: 1;
-            padding-bottom: {current_bg_bottom + 100}px;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-    else:
-        st.sidebar.error(f"❌ 找不到檔案：{selected_img_file}")
-except Exception as e:
-    st.sidebar.error(f"⚠️ 載入錯誤：{e}")
-
-# ==================== 全域資料庫初始化 ====================
-SENTENCES_FILE = "sentences.json"
-
-def load_sentences():
-    if os.path.exists(SENTENCES_FILE):
-        try:
-            with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-    return {}
-
-def save_sentences(data):
-    with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-# ⚠️ 確保所有 session_state 都被初始化（修正 AttributeError）
-if 'sentences' not in st.session_state:
-    st.session_state.sentences = load_sentences()
-if 'search_results' not in st.session_state:
-    st.session_state.search_results = []  # 確保初始化為空列表
-if 'show_prompt_for_copy' not in st.session_state:
-    st.session_state.show_prompt_for_copy = False
-if 'copy_target' not in st.session_state:
-    st.session_state.copy_target = ""
-
-# ==================== 主程式標題與 Tabs ====================
-st.title("您的應用程式")
-
-tabs = st.tabs(["Tab 1", "Tab 2", "Tab 3", "Tab 4"])
-
-with tabs[0]:
-    st.header("這是 Tab 1")
-
-with tabs[1]:
-    st.header("這是 Tab 2")
-
-with tabs[2]:
-    st.header("這是 Tab 3")
-
-# ==================== Tab 4（AI 控制台 - 完整功能） ====================
 with tabs[3]:
-    
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re
+
+    # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
+    # 注意：Sidebar 選擇器應該移到最外層（所有 tabs 之前），這裡只套用背景
+    try:
+        if 'selected_img_file' in globals() and os.path.exists(selected_img_file):
+            with open(selected_img_file, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            st.markdown(f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/jpeg;base64,{img_b64}");
+                background-size: {current_bg_size if 'current_bg_size' in globals() else 15}% auto;
+                background-position: center bottom {current_bg_bottom if 'current_bg_bottom' in globals() else 30}px;
+                background-attachment: fixed;
+                background-repeat: no-repeat;
+                z-index: 0;
+            }}
+            .main .block-container {{
+                position: relative;
+                z-index: 1;
+                padding-bottom: {(current_bg_bottom if 'current_bg_bottom' in globals() else 30) + 100}px;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+    except:
+        pass
+
+    # ---------- 資料庫持久化 ----------
+    SENTENCES_FILE = "sentences.json"
+
+    def load_sentences():
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+
+    def save_sentences(data):
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # 初始化 session_state（確保安全）
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+    if 'show_prompt_for_copy' not in st.session_state:
+        st.session_state.show_prompt_for_copy = False
+    if 'copy_target' not in st.session_state:
+        st.session_state.copy_target = ""
+
     # 智能偵測內容類型（經文/文稿/JSON）
     def detect_content_mode(text):
         text = text.strip()
@@ -571,7 +513,6 @@ with tabs[3]:
                     st.warning("請輸入搜尋條件")
                 else:
                     kw = query.lower()
-                    # 安全寫法：確保 search_results 存在
                     results = [
                         {"key": k, "選": False, "Ref.": v.get("ref", k),
                          "內容": (v.get("en", "")[:50] + "...") if len(v.get("en", "")) > 50 else v.get("en", ""),
@@ -583,7 +524,7 @@ with tabs[3]:
                     if not results:
                         st.info("找不到符合資料")
 
-        # 安全檢查：使用 .get() 避免 AttributeError
+        # 安全檢查
         search_results = st.session_state.get('search_results', [])
         if search_results:
             st.write(f"共 {len(search_results)} 筆")
@@ -618,7 +559,6 @@ with tabs[3]:
                 use_container_width=True,
                 height=min(350, len(df) * 35 + 40)
             )
-            # 同步回 session_state
             for i, row in edited.iterrows():
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
