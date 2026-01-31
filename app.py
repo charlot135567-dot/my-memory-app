@@ -54,11 +54,75 @@ def to_excel(result: dict) -> bytes:
 with st.sidebar:
     st.divider()
     c1, c2 = st.columns(2)
-    c1.link_button("✨ Google AI", "https://gemini.google.com/ ")
-    c2.link_button("🤖 Kimi K2",   "https://kimi.moonshot.cn/ ")
+    c1.link_button("✨ Google AI", "https://gemini.google.com/")
+    c2.link_button("🤖 Kimi K2",   "https://kimi.moonshot.cn/")
     c3, c4 = st.columns(2)
-    c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb ")
-    c4.link_button("THSV11",    "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11 ")
+    c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
+    c4.link_button("THSV11",    "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    
+    # ✅ 加在這裡（仍在 with st.sidebar: 內部）
+    st.divider()
+    st.markdown("### 🖼️ 底部背景設定")
+    
+    bg_options = {
+        "🐶 Snoopy": "Snoopy.jpg",
+        "🐰 Mashimaro 1": "Mashimaro1.jpg",
+        "🐰 Mashimaro 2": "Mashimaro2.jpg",
+        "🐰 Mashimaro 3": "Mashimaro3.jpg",
+        "🐰 Mashimaro 4": "Mashimaro4.jpg",
+        "🐰 Mashimaro 5": "Mashimaro5.jpg",
+        "🐰 Mashimaro 6": "Mashimaro6.jpg"
+    }
+    
+    if 'selected_bg' not in st.session_state:
+        st.session_state.selected_bg = list(bg_options.keys())[0]
+    if 'bg_size' not in st.session_state:
+        st.session_state.bg_size = 15
+    if 'bg_bottom' not in st.session_state:
+        st.session_state.bg_bottom = 30
+    
+    selected_bg = st.selectbox(
+        "選擇角色", 
+        list(bg_options.keys()), 
+        index=list(bg_options.keys()).index(st.session_state.selected_bg),
+        key="selected_bg"
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        bg_size = st.slider("圖片大小", 5, 50, st.session_state.bg_size, format="%d%%", key="bg_size")
+    with col2:
+        bg_bottom = st.slider("底部間距", 0, 100, st.session_state.bg_bottom, format="%dpx", key="bg_bottom")
+
+# ✅ 注意這裡已經不在 with st.sidebar: 裡面了！
+# 背景 CSS 要放在這裡（sidebar 外面，但在 tabs 前面）
+selected_img_file = bg_options[st.session_state.selected_bg]
+current_bg_size = st.session_state.bg_size
+current_bg_bottom = st.session_state.bg_bottom
+
+try:
+    if os.path.exists(selected_img_file):
+        with open(selected_img_file, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{img_b64}");
+            background-size: {current_bg_size}% auto;
+            background-position: center bottom {current_bg_bottom}px;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            z-index: 0;
+        }}
+        .main .block-container {{
+            position: relative;
+            z-index: 1;
+            padding-bottom: {current_bg_bottom + 100}px;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+except:
+    pass
 
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
