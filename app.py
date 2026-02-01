@@ -381,7 +381,6 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
-    import streamlit.components.v1 as components
 
     # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
     try:
@@ -424,16 +423,16 @@ with tabs[3]:
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # 初始化 session_state（修正：分開儲存輸入值和狀態）
+    # 初始化 session_state
     if 'sentences' not in st.session_state:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
     if 'is_prompt_generated' not in st.session_state:
         st.session_state.is_prompt_generated = False
-    if 'main_input_value' not in st.session_state:  # 儲存輸入框的值
+    if 'main_input_value' not in st.session_state:
         st.session_state.main_input_value = ""
-    if 'original_text' not in st.session_state:  # 儲存原始經文
+    if 'original_text' not in st.session_state:
         st.session_state.original_text = ""
 
     # 智能偵測內容類型
@@ -445,7 +444,7 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-    # Callback 函數：產生完整指令（在渲染前執行）
+    # Callback 函數：產生完整指令
     def generate_full_prompt():
         raw_text = st.session_state.get("raw_input_temp", "").strip()
         if not raw_text:
@@ -541,26 +540,25 @@ with tabs[3]:
 
 待分析文稿：{raw_text}"""
         
-        # 儲存到 session state（這裡不觸發 Widget 錯誤，因為這在 callback 中）
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
 
-    # ---------- 📝 經文輸入與分析（修正版） ----------
+    # ---------- 📝 經文輸入與分析 ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
         
         # 狀態 1：尚未生成 Prompt（顯示原始輸入框）
         if not st.session_state.get('is_prompt_generated', False):
             st.caption("步驟 1：貼上經文或文稿後，點擊下方按鈕生成完整指令")
             
-            # 原始輸入（使用不同 key 避免衝突）
+            # 原始輸入
             raw_input = st.text_area(
                 "原始輸入",
                 height=200,
                 value=st.session_state.get('original_text', ''),
                 placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
                 label_visibility="collapsed",
-                key="raw_input_temp"  # 暫存原始輸入
+                key="raw_input_temp"
             )
             
             # 生成按鈕（使用 callback，確保在渲染前更新值）
@@ -568,51 +566,39 @@ with tabs[3]:
                 generate_full_prompt()
                 st.rerun()
         
-        # 狀態 2：已生成 Prompt（顯示合併後內容）
+        # 狀態 2：已生成 Prompt
         else:
-            st.caption(f"步驟 2：已生成 {'經文' if '模式 A' in st.session_state.main_input_value else '文稿'}分析指令 - 可直接編輯、複製或操作下方按鈕")
+            st.caption(f"步驟 2：已生成 {'經文' if '模式 A' in st.session_state.main_input_value else '文稿'}分析指令")
             
-            # 顯示合併後的完整內容（Prompt + 原始經文）
+            # 顯示合併後的完整內容
             user_input = st.text_area(
                 "完整指令",
                 height=300,
                 value=st.session_state.get('main_input_value', ''),
-                placeholder="完整指令將顯示在此",
                 label_visibility="collapsed",
-                key="full_prompt_display"  # 新的 key，顯示合併後內容
+                key="full_prompt_display"
             )
+            
+            # 關鍵：手動複製指引（100% 可靠）
+            st.info("📋 **複製方式**：點擊上方輸入框內任意處 → 按 `Ctrl+A` 全選 → `Ctrl+C` 複製 → 點下方按鈕前往 AI 平台貼上")
             
             st.divider()
             
-            # 一排按鈕（整合在一起）
-            btn_col1, btn_col2, btn_col3, btn_col4, btn_col5, btn_col6 = st.columns([1.2, 1.2, 1, 1, 0.8, 1])
+            # 一排按鈕（移除不可靠的自動複製按鈕，改為操作指引）
+            btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns([1.2, 1, 1, 0.8, 0.8])
             
             with btn_col1:
-                if st.button("📋 複製全部", use_container_width=True, type="primary"):
-                    text_to_copy = st.session_state.get('main_input_value', '')
-                    if text_to_copy:
-                        safe_text = json.dumps(text_to_copy)
-                        components.html(f"""
-                        <script>
-                        navigator.clipboard.writeText({safe_text}).catch(err => {{
-                            alert('自動複製失敗，請手動 Ctrl+A 全選再 Ctrl+C');
-                        }});
-                        </script>
-                        """, height=0)
-                        st.toast("📋 已嘗試複製")
-            
-            with btn_col2:
                 encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
                 st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q= {encoded}", 
                               use_container_width=True, type="primary")
             
-            with btn_col3:
+            with btn_col2:
                 st.link_button("🌙 Kimi", "https://kimi.com", use_container_width=True)
             
-            with btn_col4:
+            with btn_col3:
                 st.link_button("🔍 Google", "https://gemini.google.com", use_container_width=True)
             
-            with btn_col5:
+            with btn_col4:
                 if st.button("💾 存", use_container_width=True):
                     try:
                         ref = f"S_{dt.datetime.now().strftime('%m%d%H%M')}"
@@ -628,11 +614,9 @@ with tabs[3]:
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{str(e)}")
             
-            with btn_col6:
+            with btn_col5:
                 if st.button("↩️ 清除", use_container_width=True):
                     st.session_state.is_prompt_generated = False
-                    st.session_state.main_input_value = ""
-                    # 保留 original_text 讓用戶可以繼續編輯原始內容
                     st.rerun()
 
         # 解析貼回的資料（支援 Markdown 表格和 JSON）
@@ -680,19 +664,22 @@ with tabs[3]:
                         st.success(f"📖 已解析 JSON：{parsed_data.get('ref_no', '資料')}")
                         
                         tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words", "🔗 Phrases", "📚 Grammar"])
+                        
                         with tab_words:
                             if 'words' in parsed_data and parsed_data['words']:
                                 st.dataframe(pd.DataFrame(parsed_data['words']), use_container_width=True, hide_index=True)
+                        
                         with tab_phrases:
                             if 'phrases' in parsed_data and parsed_data['phrases']:
                                 st.dataframe(pd.DataFrame(parsed_data['phrases']), use_container_width=True, hide_index=True)
+                        
                         with tab_grammar:
                             if 'grammar' in parsed_data and parsed_data['grammar']:
                                 st.dataframe(pd.DataFrame(parsed_data['grammar']), use_container_width=True, hide_index=True)
                 except:
                     pass
 
-    # ---------- 🔍 資料搜尋與管理（保持完整） ----------
+    # ---------- 🔍 資料搜尋與管理（保持完整，嚴禁修改） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
@@ -752,7 +739,7 @@ with tabs[3]:
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（保持完整） ----------
+    # ---------- 底部統計（保持完整，嚴禁修改） ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
