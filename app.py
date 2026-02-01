@@ -610,11 +610,10 @@ with tabs[3]:
                 except Exception as e:
                     st.error(f"解析錯誤：{str(e)}")
 
-            # ==================== 按鈕區（優化後：一鍵合併 + 自動複製）====================
-# ==================== 按鈕區（修正版：確保 Prompt 完整複製）====================
+# ==================== 按鈕區（修正：穩定複製版）====================
             st.divider()
             
-            # 1. 核心修正：在按鈕外先行定義 full_content，確保它被正確捕捉
+            # 先定義好要複製的全文
             full_content = f"{prompt}\n\n---\n\n{user_input}"
             
             c1, c2, c3, c4 = st.columns(4)
@@ -626,115 +625,78 @@ with tabs[3]:
             with c2:
                 if st.button("🌙 K2", use_container_width=True):
                     st.session_state.ai_platform = 'kimi'
-                    st.session_state.current_full_text = full_content # 存入 session 確保穩定
+                    # 直接在點擊時確保 full_content 被存入
+                    st.session_state.temp_copy_text = full_content
                     st.rerun()
             
             with c3:
                 if st.button("🔍 G", use_container_width=True):
                     st.session_state.ai_platform = 'gemini'
-                    st.session_state.current_full_text = full_content # 存入 session 確保穩定
+                    st.session_state.temp_copy_text = full_content
                     st.rerun()
             
             with c4:
-                # 💾 存 按鈕邏輯保持不變...
+                # 💾 存 按鈕（保留您的原始邏輯）
                 if st.button("💾 存", type="primary", use_container_width=True):
-                    # (原有的儲存代碼，此處省略以節省篇幅)
-                    pass
+                    try:
+                        if is_valid_data and parsed_data:
+                            ref = parsed_data.get('ref_no') or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
+                            st.session_state.sentences[ref] = {**parsed_data, "import_format": parse_format, "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
+                            save_sentences(st.session_state.sentences)
+                            st.success(f"✅ 已儲存：{ref}")
+                        else:
+                            ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
+                            st.session_state.sentences[ref] = {"ref": ref, "en": user_input, "zh": "", "words": [], "phrases": [], "grammar": [], "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
+                            save_sentences(st.session_state.sentences)
+                            st.success(f"✅ 已儲存文稿：{ref}")
+                        st.session_state.clear_input_requested = True
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ 儲存失敗：{str(e)}")
 
-            # --- 自動複製邏輯強化 ---
+            # --- 自動複製引導邏輯 ---
             if st.session_state.get('ai_platform') in ['kimi', 'gemini']:
-                platform = st.session_state.ai_platform
-                # 抓取剛才存入的完整文本
-                text_to_copy = st.session_state.get('current_full_text', full_content)
+                target = st.session_state.ai_platform
+                # 取得剛才存好的全文
+                text_to_copy = st.session_state.get('temp_copy_text', full_content)
                 
                 platform_info = {
                     'kimi': {'name': 'Kimi K2', 'icon': '🌙', 'url': 'https://kimi.moonshot.cn'},
                     'gemini': {'name': 'Google Gemini', 'icon': '🔍', 'url': 'https://gemini.google.com'}
                 }
-                cfg = platform_info[platform]
+                cfg = platform_info[target]
                 
-                # 使用 json.dumps 處理所有可能的特殊字元與換行
+                # 強制轉義，解決換行與引號中斷 JS 的問題
                 import json
-                safe_text = json.dumps(text_to_copy)
+                safe_text_js = json.dumps(text_to_copy)
                 
-                copy_js = f"""
+                # 這裡改用 st.code 讓您可以手動點擊「複製」圖示作為最強力備援
+                st.info(f"{cfg['icon']} **已切換至 {cfg['name']} 模式**")
+                st.write("👇 **請點擊下方框框右上角的複製圖示**，然後點擊前往：")
+                st.code(text_to_copy, language=None)
+                
+                # 同時嘗試背景 JS 自動複製
+                components.html(f"""
                 <script>
-                (function() {{
-                    const text = {safe_text};
-                    const textArea = document.createElement("textarea");
-                    textArea.value = text;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    try {{
-                        document.execCommand('copy');
-                        console.log('Copying full text successful');
-                    }} catch (err) {{
-                        console.error('Copying failed', err);
-                    }}
-                    document.body.removeChild(textArea);
-                }})();
+                const text = {safe_text_js};
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
                 </script>
-                """
-                components.html(copy_js, height=0)
-                
-                st.success(f"{cfg['icon']} **{cfg['name']}**｜✅ **Prompt + 經文** 已合併複製！")
-                
-                # 備援顯示區
-                with st.expander("📝 檢查複製內容", expanded=False):
-                    st.text_area("當前已複製的完整內容：", text_to_copy, height=150)
+                """, height=0)
 
                 col_go, col_back = st.columns([2, 1])
                 with col_go:
-                    st.link_button(f"🚀 前往 {cfg['name']}", cfg['url'], use_container_width=True, type="primary")
+                    st.link_button(f"🚀 前往 {cfg['name']} (Ctrl+V 貼上)", cfg['url'], 
+                                   use_container_width=True, type="primary")
                 with col_back:
                     if st.button("↩️ 返回", use_container_width=True):
                         st.session_state.ai_platform = None
+                        st.session_state.temp_copy_text = None
                         st.rerun()
-
-            # --- 自動複製與跳轉引導區 ---
-            if st.session_state.get('ai_platform') in ['kimi', 'gemini']:
-                platform = st.session_state.ai_platform
-                platform_info = {
-                    'kimi': {'name': 'Kimi K2', 'icon': '🌙', 'url': 'https://kimi.moonshot.cn'},
-                    'gemini': {'name': 'Google Gemini', 'icon': '🔍', 'url': 'https://gemini.google.com'}
-                }
-                cfg = platform_info[platform]
-                
-                # 使用 JSON 轉義確保內容安全
-                prompt_json_safe = json.dumps(full_content)
-                
-                # JS 執行區 (高度 0)
-                copy_js = f"""
-                <script>
-                (function() {{
-                    const text = {prompt_json_safe};
-                    navigator.clipboard.writeText(text).then(function() {{
-                        console.log('Copied');
-                    }}).catch(function(err) {{
-                        console.error('Failed', err);
-                    }});
-                }})();
-                </script>
-                """
-                components.html(copy_js, height=0)
-                
-                st.success(f"{cfg['icon']} **{cfg['name']}**｜✅ 合併內容已複製！")
-                
-                with st.expander("⚠️ 若貼上失敗，請點此手動複製", expanded=False):
-                    st.text_area("完整內容", full_content, height=200)
-
-                col_go, col_back = st.columns([2, 1])
-                with col_go:
-                    st.link_button(f"🚀 前往 {cfg['name']}", cfg['url'], use_container_width=True, type="primary")
-                with col_back:
-                    if st.button("↩️ 返回", use_container_width=True):
-                        st.session_state.ai_platform = None
-                        st.rerun()
-
-    # 處理清空請求
-    if st.session_state.get('clear_input_requested', False):
-        st.session_state.clear_input_requested = False
-        st.session_state.main_input = ""
 
     # ---------- 🔍 資料搜尋與管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
