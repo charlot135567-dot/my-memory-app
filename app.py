@@ -377,13 +377,15 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
         
 # ===================================================================
-# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
+# 6. TAB4 ─ AI 控制台 Sidebar 背景圖挑選 + K2/Google prompt + 完整版 AI prompts
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
+    import streamlit as st
+    import streamlit.components.v1 as components
 
-    # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
+    # ---------- 背景圖片（使用 Sidebar 選擇的圖片） ----------
     try:
         if 'selected_img_file' in globals() and os.path.exists(selected_img_file):
             with open(selected_img_file, "rb") as f:
@@ -405,22 +407,24 @@ with tabs[3]:
             }}
             </style>
             """, unsafe_allow_html=True)
-    except:
-        pass
+    except Exception as e:
+        st.warning(f"背景圖載入失敗：{e}")
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
 
     def load_sentences():
+        """讀取本地 JSON 資料庫"""
         if os.path.exists(SENTENCES_FILE):
             try:
                 with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except:
-                pass
+            except Exception as e:
+                st.warning(f"讀取 JSON 失敗：{e}")
         return {}
 
     def save_sentences(data):
+        """保存 JSON 資料庫"""
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -435,19 +439,33 @@ with tabs[3]:
         st.session_state.main_input_value = ""
     if 'original_text' not in st.session_state:
         st.session_state.original_text = ""
-    if 'content_mode' not in st.session_state:
-        st.session_state.content_mode = ""
 
-    # 智能偵測內容類型
-    def detect_content_mode(text):
+    # ---------- 智能偵測內容類型（整合版） ----------
+    def detect_content_mode(text: str) -> str:
+        """
+        偵測使用者貼入內容的類型：
+        - JSON 格式
+        - 聖經經文（含中文或章節數字）
+        - 一般文稿
+        """
         text = text.strip()
+        if not text:
+            return "document"
+        
+        # 1. 偵測是否為 JSON
         if text.startswith("{"):
             return "json"
-        if re.search(r'\b\d+\s*:\s*\d+\b', text[:100]):
+        
+        # 2. 偵測中文字元
+        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
+        if has_chinese:
+            # 只要包含中文，就判定為模式 A (經文模式)
             return "scripture"
+        
+        # 3. 若無中文，純英文則判定為模式 B (文稿模式)
         return "document"
 
-    # Callback 函數：產生完整指令
+    # ---------- Callback 函數：產生完整指令 ----------
     def generate_full_prompt():
         raw_text = st.session_state.get("raw_input_temp", "").strip()
         if not raw_text:
@@ -460,9 +478,9 @@ with tabs[3]:
             # 模式 A：聖經經文分析
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
-### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
+### 模式 A：【聖經經文分析時】＝》一定要產出 V1 + V2 Excel 格式（Markdown 表格）
 
-⚠️ 輸出格式要求：請使用 **Markdown 表格格式**（如下範例），方便我直接複製貼回 Excel：
+⚠️ 輸出格式要求：請使用 **Markdown 表格格式**，方便直接複製貼回 Excel：
 
 【V1 Sheet 範例】
 | Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
@@ -473,14 +491,28 @@ with tabs[3]:
 | Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
 |------|--------|---------|------|-----|---------|--------|
 
+# V1 Sheet 欄位要求
+# 1. Ref.：自動偵測經卷章節並用標準縮寫 (如 Pro, Rom, Gen)
+# 2. English (ESV)：檢索對應英文經文
+# 3. Chinese：填入使用者提供的中文原文
+# 4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出
+# 5. Grammar：嚴格符號化格式 1️⃣[解析] 2️⃣[補齊應用句] 3️⃣Ex. [中英對照例句]
+
+# V2 Sheet 欄位要求
+# 1. Ref.：同 V1
+# 2. 口語訳：檢索日本《口語訳聖經》
+# 3. Grammar：解析日文文法
+# 4. Note：日文文法或語境補充說明
+# 5. KRF：韓文《Korean Revised Version》
+# 6. Syn/Ant：韓文高/中高級字詞
+# 7. THSV11：泰文《Thai Holy Bible, Standard Version 2011》
+
 待分析經文：{raw_text}"""
-            st.session_state.content_mode = "A"
-        
         else:
             # 模式 B：英文文稿分析
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
-### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
+### 模式 B：【英文文稿分析時】＝》一定要產出 W + P Excel 格式（Markdown 表格）
 
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
@@ -491,19 +523,33 @@ with tabs[3]:
 
 【P Sheet - 文稿段落】
 | Paragraph | English Refinement | 中英夾雜講章 |
-|-----------|-------------------|--------------|
+|-----------|-----------------|---------------|
 | 1 | We need to be steadfast... | 我們需要 (**steadfast**) ... |
 
-待分析文稿：{raw_text}"""
-            st.session_state.content_mode = "B"
+【Grammar List】
+| Pattern | Original | Analysis | Restoration | Example |
+|---------|----------|----------|-------------|---------|
+| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |
 
+# 內容交錯 (I-V)
+# 1. 純英文段落：修復句式 + 講員語氣 + 確保神學用詞精確優雅
+# 2. 中英夾雜段落：完整中文敘述 + 對應高級英文詞彙嵌入括號
+# 3. 重要術語用 **粗體** 表示，如 (**steadfast**)
+# 4. 大綱標題與內容間須有空行
+
+# 語言素材
+# Vocabulary (20) & Phrases (15)：高級/中高級單字片語 + 中譯 + 同反義詞 + 中英對照例句
+# Grammar List (6)：規則名 + 原稿範例 + 文法解析 + 結構還原 + 中英對照例句
+
+待分析文稿：{raw_text}"""
+
+        # 保存生成結果到 session_state
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
 
-    # ---------- 📝 經文輸入與分析 ----------
-    with st.expander("📝 經文輸入與AI分析", expanded=True):
-        
+    # ---------- 經文/文稿輸入與分析 ----------
+    with st.expander("📝 經文輸入與 AI 分析", expanded=True):
         if not st.session_state.get('is_prompt_generated', False):
             st.caption("步驟 1：貼上經文或文稿後，點擊下方按鈕生成完整指令")
             
@@ -515,21 +561,13 @@ with tabs[3]:
                 label_visibility="collapsed",
                 key="raw_input_temp"
             )
-            
-            if st.button(
-                "⚡ 產生完整分析指令（自動加上 Prompt）",
-                use_container_width=True,
-                type="primary"
-            ):
+
+            if st.button("⚡ 產生完整分析指令（自動加上 Prompt）", use_container_width=True, type="primary"):
                 generate_full_prompt()
                 st.rerun()
-        
         else:
-            st.caption(
-                f"步驟 2：已生成 "
-                f"{'經文' if st.session_state.content_mode=='A' else '文稿'}分析指令"
-            )
-            
+            st.caption(f"步驟 2：已生成 {'經文' if '模式 A' in st.session_state.main_input_value else '文稿'}分析指令")
+            st.markdown("##### 📋 完整指令（點一下 → Cmd+C / Ctrl+C）")
             components.html(
                 f"""
                 <textarea
@@ -550,7 +588,7 @@ with tabs[3]:
                 height=330
             )
 
-            st.divider()
+        st.divider()
             
             # 一排按鈕
             btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns([1.2, 1, 1, 0.8, 0.8])
