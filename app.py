@@ -375,15 +375,17 @@ with tabs[2]:
         st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
-
+        
 # ===================================================================
-# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
+# 6. TAB4 ─ AI 控制台 Sidebar 背景圖挑選 + K2/Google prompt + 完整版 AI prompts
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
+    import streamlit as st
+    import streamlit.components.v1 as components
 
-    # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
+    # ---------- 背景圖片（使用 Sidebar 選擇的圖片） ----------
     try:
         if 'selected_img_file' in globals() and os.path.exists(selected_img_file):
             with open(selected_img_file, "rb") as f:
@@ -405,22 +407,24 @@ with tabs[3]:
             }}
             </style>
             """, unsafe_allow_html=True)
-    except:
-        pass
+    except Exception as e:
+        st.warning(f"背景圖載入失敗：{e}")
 
     # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
 
     def load_sentences():
+        """讀取本地 JSON 資料庫"""
         if os.path.exists(SENTENCES_FILE):
             try:
                 with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except:
-                pass
+            except Exception as e:
+                st.warning(f"讀取 JSON 失敗：{e}")
         return {}
 
     def save_sentences(data):
+        """保存 JSON 資料庫"""
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -436,8 +440,14 @@ with tabs[3]:
     if 'original_text' not in st.session_state:
         st.session_state.original_text = ""
 
-    # 智能偵測內容類型
-    def detect_content_mode(text):
+    # ---------- 智能偵測內容類型 ----------
+    def detect_content_mode(text: str) -> str:
+        """
+        偵測使用者貼入內容的類型：
+        - JSON 格式
+        - 聖經經文（含章節數字）
+        - 一般文稿
+        """
         text = text.strip()
         if text.startswith("{"):
             return "json"
@@ -445,7 +455,7 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-    # Callback 函數：產生完整指令
+    # ---------- Callback 函數：產生完整指令 ----------
     def generate_full_prompt():
         raw_text = st.session_state.get("raw_input_temp", "").strip()
         if not raw_text:
@@ -455,11 +465,12 @@ with tabs[3]:
         mode = detect_content_mode(raw_text)
         
         if mode in ["json", "scripture"]:
+            # 模式 A：聖經經文分析
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
-### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
+### 模式 A：【聖經經文分析時】＝》一定要產出 V1 + V2 Excel 格式（Markdown 表格）
 
-⚠️ 輸出格式要求：請使用 **Markdown 表格格式**（如下範例），方便我直接複製貼回 Excel：
+⚠️ 輸出格式要求：請使用 **Markdown 表格格式**，方便直接複製貼回 Excel：
 
 【V1 Sheet 範例】
 | Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
@@ -470,36 +481,28 @@ with tabs[3]:
 | Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
 |------|--------|---------|------|-----|---------|--------|
 
-🔹 V1 Sheet 欄位要求：
-1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
-2. English (ESV)：檢索對應的 ESV 英文經文。
-3. Chinese：填入我提供的中文原文。
-4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
-5. Grammar：嚴格遵守符號化格式：1️⃣[文法邏輯解析] 2️⃣[補齊後的完整應用句] 3️⃣Ex. [中英對照聖經應用例句]
+# V1 Sheet 欄位要求
+# 1. Ref.：自動偵測經卷章節並用標準縮寫 (如 Pro, Rom, Gen)
+# 2. English (ESV)：檢索對應英文經文
+# 3. Chinese：填入使用者提供的中文原文
+# 4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出
+# 5. Grammar：嚴格符號化格式 1️⃣[解析] 2️⃣[補齊應用句] 3️⃣Ex. [中英對照例句]
 
-🔹 V2 Sheet 欄位要求：
-1. Ref.：同 V1。
-2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
-3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
-4. Note：日文文法或語境的補充說明。
-5. KRF：檢索對應的韓文《Korean Revised Version》。
-6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
-7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
-
-⚠️ 自動推斷書卷（若只有數字如31:6）：
-• "可以把濃酒" → Pro
-• "才德的婦人" → Prov • "太初有道" → John • "起初神創造" → Gen
-• "虛心的人有福" → Matt • "愛是恆久忍耐" → 1Co
-
-標準縮寫：Gen,Exo,Lev,Num,Deu,Jos,Jdg,Rut,1Sa,2Sa,1Ki,2Ki,1Ch,2Ch,Ezr,Neh,Est,Job,Psa,Pro,Ecc,Son,Isa,Jer,Lam,Eze,Dan,Hos,Joe,Amo,Oba,Jon,Mic,Nah,Hab,Zep,Hag,Zec,Mal,Mat,Mar,Luk,Joh,Act,Rom,1Co,2Co,Gal,Eph,Phi,Col,1Th,2Th,1Ti,2Ti,Tit,Phm,Heb,Jam,1Pe,2Pe,1Jo,2Jo,3Jo,Jud,Rev
-
-請以 **Markdown 表格格式**輸出（非 JSON），方便我貼回 Excel。
+# V2 Sheet 欄位要求
+# 1. Ref.：同 V1
+# 2. 口語訳：檢索日本《口語訳聖經》
+# 3. Grammar：解析日文文法
+# 4. Note：日文文法或語境補充說明
+# 5. KRF：韓文《Korean Revised Version》
+# 6. Syn/Ant：韓文高/中高級字詞
+# 7. THSV11：泰文《Thai Holy Bible, Standard Version 2011》
 
 待分析經文：{raw_text}"""
         else:
+            # 模式 B：英文文稿分析
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
-### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
+### 模式 B：【英文文稿分析時】＝》一定要產出 W + P Excel 格式（Markdown 表格）
 
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
@@ -510,96 +513,71 @@ with tabs[3]:
 
 【P Sheet - 文稿段落】
 | Paragraph | English Refinement | 中英夾雜講章 |
-|-----------|-------------------|--------------|
+|-----------|-----------------|---------------|
 | 1 | We need to be steadfast... | 我們需要 (**steadfast**) ... |
 
 【Grammar List】
 | Pattern | Original | Analysis | Restoration | Example |
 |---------|----------|----------|-------------|---------|
-| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |
+| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |
 
-🔹 第一步｜內容交錯 (I-V)：
-1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
-2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照。
-3. 上面☝️1&2的關鍵並重要英文術語嵌入中文括號要"加粗体"，如：我們需要保持忠心 (**steadfast**)。
-4. 排版：大綱標題與內容間須有空行。
+# 內容交錯 (I-V)
+# 1. 純英文段落：修復句式 + 講員語氣 + 確保神學用詞精確優雅
+# 2. 中英夾雜段落：完整中文敘述 + 對應高級英文詞彙嵌入括號
+# 3. 重要術語用 **粗體** 表示，如 (**steadfast**)
+# 4. 大綱標題與內容間須有空行
 
-🔹 第二步｜語言素材：
-1. Vocabulary (20個) & Phrases (15個): 
-    高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
-    翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
-
-2. Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
-           嚴格遵守符號化格式：
-           1️⃣[摘錄講稿中的原句作文法邏輯解析]
-           2️⃣[結構還原完整應用句] 
-           3️⃣Ex. [中英對照聖經應用例句]
-
-注意！！單字/片語/同反義詞的挑選規則：嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
-
-請以 **Markdown 表格格式**輸出（非 JSON）。
+# 語言素材
+# Vocabulary (20) & Phrases (15)：高級/中高級單字片語 + 中譯 + 同反義詞 + 中英對照例句
+# Grammar List (6)：規則名 + 原稿範例 + 文法解析 + 結構還原 + 中英對照例句
 
 待分析文稿：{raw_text}"""
-        
+
+        # 保存生成結果到 session_state
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
 
-# ---------- 📝 經文輸入與分析 ----------
-with st.expander("📝 經文輸入與AI分析", expanded=True):
-    
-    # 狀態 1：尚未生成 Prompt（顯示原始輸入框）
-    if not st.session_state.get('is_prompt_generated', False):
-        st.caption("步驟 1：貼上經文或文稿後，點擊下方按鈕生成完整指令")
-        
-        # 原始輸入
-        raw_input = st.text_area(
-            "原始輸入",
-            height=200,
-            value=st.session_state.get('original_text', ''),
-            placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
-            label_visibility="collapsed",
-            key="raw_input_temp"
-        )
-        
-        # 生成按鈕（使用 callback，確保在渲染前更新值）
-        if st.button(
-            "⚡ 產生完整分析指令（自動加上 Prompt）",
-            use_container_width=True,
-            type="primary"
-        ):
-            generate_full_prompt()
-            st.rerun()
-    
-    # 狀態 2：已生成 Prompt
-    else:
-        st.caption(
-            f"步驟 2：已生成 "
-            f"{'經文' if '模式 A' in st.session_state.main_input_value else '文稿'}分析指令"
-        )
-        
-        # 顯示合併後的完整內容（點一下自動全選）
-        st.markdown("##### 📋 完整指令（點一下 → Cmd+C / Ctrl+C）")
+    # ---------- 經文/文稿輸入與分析 ----------
+    with st.expander("📝 經文輸入與 AI 分析", expanded=True):
+        if not st.session_state.get('is_prompt_generated', False):
+            st.caption("步驟 1：貼上經文或文稿後，點擊下方按鈕生成完整指令")
+            
+            raw_input = st.text_area(
+                "原始輸入",
+                height=200,
+                value=st.session_state.get('original_text', ''),
+                placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
+                label_visibility="collapsed",
+                key="raw_input_temp"
+            )
 
-        components.html(
-            f"""
-            <textarea
-                readonly
-                onclick="this.select()"
-                style="
-                    width:100%;
-                    height:300px;
-                    padding:12px;
-                    font-size:14px;
-                    line-height:1.5;
-                    border-radius:8px;
-                    border:1px solid #ccc;
-                    box-sizing:border-box;
-                "
-            >{st.session_state.get('main_input_value','')}</textarea>
-            """,
-            height=330
-        )
+            if st.button("⚡ 產生完整分析指令（自動加上 Prompt）", use_container_width=True, type="primary"):
+                generate_full_prompt()
+                st.rerun()
+        else:
+            st.caption(f"步驟 2：已生成 {'經文' if '模式 A' in st.session_state.main_input_value else '文稿'}分析指令")
+            st.markdown("##### 📋 完整指令（點一下 → Cmd+C / Ctrl+C）")
+            components.html(
+                f"""
+                <textarea
+                    readonly
+                    onclick="this.select()"
+                    style="
+                        width:100%;
+                        height:300px;
+                        padding:12px;
+                        font-size:14px;
+                        line-height:1.5;
+                        border-radius:8px;
+                        border:1px solid #ccc;
+                        box-sizing:border-box;
+                    "
+                >{st.session_state.get('main_input_value','')}</textarea>
+                """,
+                height=330
+            )
+
 
         st.divider()
         
