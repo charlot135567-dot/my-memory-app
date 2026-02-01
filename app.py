@@ -512,14 +512,6 @@ def generate_full_prompt():
 |---------|----------|----------|-------------|---------|
 | 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |"""
 
-    # ==============================
-    # 更新 session_state
-    # ==============================
-    st.session_state.original_text = raw_text
-    st.session_state.main_input_value = full_prompt
-    st.session_state.is_prompt_generated = True
-
-
 🔹 第一步｜內容交錯 (I-V)：
 1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
 2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照。
@@ -541,11 +533,12 @@ def generate_full_prompt():
 
 請以 **Markdown 表格格式**輸出（非 JSON）。
 
-待分析文稿：{raw_text}"""
-        
-        st.session_state.original_text = raw_text
-        st.session_state.main_input_value = full_prompt
-        st.session_state.is_prompt_generated = True
+    # ==============================
+    # 更新 session_state
+    # ==============================
+    st.session_state.original_text = raw_text
+    st.session_state.main_input_value = full_prompt
+    st.session_state.is_prompt_generated = True
 
 # ---------- 📝 經文輸入與分析 ----------
 with st.expander("📝 經文輸入與AI分析", expanded=True):
