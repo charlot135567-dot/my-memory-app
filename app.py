@@ -376,6 +376,7 @@ with tabs[2]:
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
         
+        
 # ===================================================================
 # 6. TAB4 ─ AI 控制台 Sidebar 背景圖挑選 + K2/Google prompt + 完整版 AI prompts
 # ===================================================================
@@ -440,29 +441,19 @@ with tabs[3]:
     if 'original_text' not in st.session_state:
         st.session_state.original_text = ""
 
-    # ---------- 智能偵測內容類型（整合版） ----------
+    # ---------- 智能偵測內容類型 ----------
     def detect_content_mode(text: str) -> str:
         """
         偵測使用者貼入內容的類型：
         - JSON 格式
-        - 聖經經文（含中文或章節數字）
+        - 聖經經文（含章節數字）
         - 一般文稿
         """
         text = text.strip()
-        if not text:
-            return "document"
-        
-        # 1. 偵測是否為 JSON
         if text.startswith("{"):
             return "json"
-        
-        # 2. 偵測中文字元
-        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
-        if has_chinese:
-            # 只要包含中文，就判定為模式 A (經文模式)
+        if re.search(r'\b\d+\s*:\s*\d+\b', text[:100]):
             return "scripture"
-        
-        # 3. 若無中文，純英文則判定為模式 B (文稿模式)
         return "document"
 
     # ---------- Callback 函數：產生完整指令 ----------
@@ -588,43 +579,118 @@ with tabs[3]:
                 height=330
             )
 
-        st.divider()
-            
-            # 一排按鈕
-            btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns([1.2, 1, 1, 0.8, 0.8])
-            
-            with btn_col1:
-                encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
-                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="primary")
-            
-            with btn_col2:
-                st.link_button("🌙 Kimi", "https://kimi.com", use_container_width=True)
-            
-            with btn_col3:
-                st.link_button("🔍 Google", "https://gemini.google.com", use_container_width=True)
-            
-            with btn_col4:
-                if st.button("💾 存", use_container_width=True):
-                    try:
-                        ref = f"S_{dt.datetime.now().strftime('%m%d%H%M')}"
-                        st.session_state.sentences[ref] = {
-                            "ref": ref,
-                            "content": st.session_state.get('main_input_value', ''),
-                            "original": st.session_state.get('original_text', ''),
-                            "type": "full_prompt",
-                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                        }
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已儲存：{ref}")
-                    except Exception as e:
-                        st.error(f"❌ 儲存失敗：{str(e)}")
-            
-            with btn_col5:
-                if st.button("↩️ 清除", use_container_width=True):
-                    st.session_state.is_prompt_generated = False
-                    st.rerun()
 
-    # ---------- 🔍 資料搜尋與管理（保持完整） ----------
+        st.divider()
+        
+        # 一排按鈕
+        btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(
+            [1.2, 1, 1, 0.8, 0.8]
+        )
+        
+        with btn_col1:
+            encoded = urllib.parse.quote(
+                st.session_state.get('main_input_value', '')
+            )
+            st.link_button(
+                "💬 GPT（自動）",
+                f"https://chat.openai.com/?q={encoded}",
+                use_container_width=True,
+                type="primary"
+            )
+        
+        with btn_col2:
+            st.link_button("🌙 Kimi", "https://kimi.com", use_container_width=True)
+        
+        with btn_col3:
+            st.link_button(
+                "🔍 Google",
+                "https://gemini.google.com",
+                use_container_width=True
+            )
+        
+        with btn_col4:
+            if st.button("💾 存", use_container_width=True):
+                try:
+                    ref = f"S_{dt.datetime.now().strftime('%m%d%H%M')}"
+                    st.session_state.sentences[ref] = {
+                        "ref": ref,
+                        "content": st.session_state.get('main_input_value', ''),
+                        "original": st.session_state.get('original_text', ''),
+                        "type": "full_prompt",
+                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    }
+                    save_sentences(st.session_state.sentences)
+                    st.success(f"✅ 已儲存：{ref}")
+                except Exception as e:
+                    st.error(f"❌ 儲存失敗：{str(e)}")
+        
+        with btn_col5:
+            if st.button("↩️ 清除", use_container_width=True):
+                st.session_state.is_prompt_generated = False
+                st.rerun()
+
+
+        # 解析貼回的資料（支援 Markdown 表格和 JSON）
+        # 檢查原始輸入（如果不是生成狀態，或從其他地方貼回）
+        check_input = st.session_state.get('original_text', '') if not st.session_state.get('is_prompt_generated') else ''
+        
+        if check_input and not st.session_state.get('is_prompt_generated'):
+            # Markdown 表格偵測
+            if '|' in check_input and '---' in check_input and not check_input.startswith("你是一位"):
+                try:
+                    lines = [l.strip() for l in check_input.split('\n') if l.strip()]
+                    if len(lines) >= 2 and lines[0].startswith('|'):
+                        st.success("📊 偵測到 Markdown 表格（AI 回傳結果）")
+                        
+                        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
+                        data_rows = []
+                        for line in lines[2:]:
+                            if '|' in line:
+                                cells = [c.strip() for c in line.split('|') if c.strip()]
+                                if len(cells) >= 2:
+                                    data_rows.append(cells)
+                        
+                        if data_rows:
+                            df = pd.DataFrame(data_rows, columns=headers[:len(data_rows[0])])
+                            st.dataframe(df, use_container_width=True, hide_index=True)
+                            
+                            if st.button("💾 儲存表格", key="save_md"):
+                                ref = f"Table_{dt.datetime.now().strftime('%m%d%H%M')}"
+                                st.session_state.sentences[ref] = {
+                                    "ref": ref,
+                                    "type": "markdown_table",
+                                    "content": check_input,
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                }
+                                save_sentences(st.session_state.sentences)
+                                st.success(f"✅ 已儲存：{ref}")
+                except:
+                    pass
+            
+            # JSON 偵測
+            elif check_input.startswith("{"):
+                try:
+                    parsed_data = json.loads(check_input)
+                    if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'words' in parsed_data):
+                        st.success(f"📖 已解析 JSON：{parsed_data.get('ref_no', '資料')}")
+                        
+                        tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words", "🔗 Phrases", "📚 Grammar"])
+                        
+                        with tab_words:
+                            if 'words' in parsed_data and parsed_data['words']:
+                                st.dataframe(pd.DataFrame(parsed_data['words']), use_container_width=True, hide_index=True)
+                        
+                        with tab_phrases:
+                            if 'phrases' in parsed_data and parsed_data['phrases']:
+                                st.dataframe(pd.DataFrame(parsed_data['phrases']), use_container_width=True, hide_index=True)
+                        
+                        with tab_grammar:
+                            if 'grammar' in parsed_data and parsed_data['grammar']:
+                                st.dataframe(pd.DataFrame(parsed_data['grammar']), use_container_width=True, hide_index=True)
+                except:
+                    pass
+
+    # ---------- 🔍 資料搜尋與管理（保持完整，嚴禁修改） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
@@ -684,7 +750,7 @@ with tabs[3]:
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（保持完整） ----------
+    # ---------- 底部統計（保持完整，嚴禁修改） ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
@@ -697,4 +763,3 @@ with tabs[3]:
             mime="application/json",
             use_container_width=True
         )
-
