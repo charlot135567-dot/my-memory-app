@@ -378,9 +378,6 @@ with tabs[2]:
 # ===================================================================
 # 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
 # ===================================================================
-# ===================================================================
-# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
-# ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
@@ -432,12 +429,6 @@ with tabs[3]:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
-    if 'show_prompt_for_copy' not in st.session_state:
-        st.session_state.show_prompt_for_copy = False
-    if 'copy_target' not in st.session_state:
-        st.session_state.copy_target = ""
-    if 'just_copied' not in st.session_state:
-        st.session_state.just_copied = False
     if 'ai_platform' not in st.session_state:
         st.session_state.ai_platform = None
 
@@ -545,21 +536,19 @@ with tabs[3]:
            等高難度結構的句子，
            嚴格遵守符號化格式：
            1️⃣[摘錄講稿中的原句作文法邏輯解析] ：
-                 簡單說明語法結構的變化邏輯（如：介係詞為何前移）
+                  簡單說明語法結構的變化邏輯（如：介係詞為何前移）
            2️⃣[結構還原完整應用句] 
            3️⃣Ex. [中英對照聖經應用例句]
 
 注意！！單字/片語/同反義詞的挑選規則：
-              嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
+               嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
 
 待分析文稿：{user_input}"""
                 mode_label = "📝 文稿模式"
 
             encoded = urllib.parse.quote(prompt)
-            
-            # 準備合併後的完整內容 (Prompt + User Input)
             full_content = f"{prompt}\n\n---\n\n{user_input}"
-            
+
             # ==================== JSON / Markdown / CSV 解析（保留原有）====================
             parsed_data = None
             is_valid_data = False
@@ -617,17 +606,16 @@ with tabs[3]:
                             else:
                                 st.info("無文法資料")
                 except json.JSONDecodeError:
-                    st.error("⚠️ JSON 格式錯誤（可能是引號或逗號問題），請檢查 GPT 回傳內容")
+                    st.error("⚠️ JSON 格式錯誤，請檢查 GPT 回傳內容")
                 except Exception as e:
                     st.error(f"解析錯誤：{str(e)}")
 
             # ==================== 按鈕區（優化後：一鍵合併 + 自動複製）====================
             st.divider()
-            
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded}", 
+                st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
                                use_container_width=True, type="primary")
             
             with c2:
@@ -655,75 +643,63 @@ with tabs[3]:
                         else:
                             ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
                             st.session_state.sentences[ref] = {
-                                "ref": ref,
-                                "en": user_input,
-                                "zh": "",
-                                "words": [],
-                                "phrases": [],
-                                "grammar": [],
+                                "ref": ref, "en": user_input, "zh": "", "words": [],
+                                "phrases": [], "grammar": [],
                                 "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                             }
                             save_sentences(st.session_state.sentences)
                             st.success(f"✅ 已儲存文稿：{ref}")
-                        
                         st.session_state.clear_input_requested = True
                         st.rerun()
-                        
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{str(e)}")
 
-            # --- 自動複製與跳轉引導邏輯 ---
+            # --- 自動複製與跳轉引導區 ---
             if st.session_state.get('ai_platform') in ['kimi', 'gemini']:
                 platform = st.session_state.ai_platform
-                # 立即重置，防止下次 rerun 重複執行
-                st.session_state.ai_platform = None
-                
                 platform_info = {
-                    'kimi': {'name': 'Kimi K2', 'icon': '🌙', 'url': 'https://kimi.com'},
+                    'kimi': {'name': 'Kimi K2', 'icon': '🌙', 'url': 'https://kimi.moonshot.cn'},
                     'gemini': {'name': 'Google Gemini', 'icon': '🔍', 'url': 'https://gemini.google.com'}
                 }
                 cfg = platform_info[platform]
                 
-                # 使用 JSON 安全轉義，避免特殊字元截斷
+                # 使用 JSON 轉義確保內容安全
                 prompt_json_safe = json.dumps(full_content)
                 
-                # 執行 JS 自動複製（注意：在 Safari/iOS 可能會失敗）
+                # JS 執行區 (高度 0)
                 copy_js = f"""
                 <script>
                 (function() {{
                     const text = {prompt_json_safe};
                     navigator.clipboard.writeText(text).then(function() {{
-                        console.log('Copy successful');
+                        console.log('Copied');
                     }}).catch(function(err) {{
-                        console.error('Copy failed', err);
+                        console.error('Failed', err);
                     }});
                 }})();
                 </script>
                 """
                 components.html(copy_js, height=0)
                 
-                # 顯示成功提示（僅表示指令已發送，不代表瀏覽器一定允許）
-                st.success(f"{cfg['icon']} **{cfg['name']}**｜已嘗試自動複製（若失敗請使用下方手動複製）")
+                st.success(f"{cfg['icon']} **{cfg['name']}**｜✅ 合併內容已複製！")
                 
-                # 手動複製備援區（必要修正： Safari/iOS 無法自動複製時使用）
-                with st.expander("⚠️ 若前往後貼上只有經文，點此手動複製完整內容", expanded=True):
-                    st.text_area("完整 Prompt + 經文（Ctrl+A 全選, Ctrl+C 複製）", 
-                                full_content, height=300, key="manual_copy_area")
-                
+                with st.expander("⚠️ 若貼上失敗，請點此手動複製", expanded=False):
+                    st.text_area("完整內容", full_content, height=200)
+
                 col_go, col_back = st.columns([2, 1])
                 with col_go:
-                    st.link_button(f"🚀 前往 {cfg['name']} (直接貼上)", cfg['url'], 
-                                   use_container_width=True, type="primary")
+                    st.link_button(f"🚀 前往 {cfg['name']}", cfg['url'], use_container_width=True, type="primary")
                 with col_back:
-                    if st.button("↩️ 返回", use_container_width=True, key="back_btn"):
+                    if st.button("↩️ 返回", use_container_width=True):
+                        st.session_state.ai_platform = None
                         st.rerun()
 
-    # 處理清空請求（保留原有）
+    # 處理清空請求
     if st.session_state.get('clear_input_requested', False):
         st.session_state.clear_input_requested = False
         st.session_state.main_input = ""
 
-    # ---------- 🔍 資料搜尋與管理（保持完整，嚴禁修改） ----------
+    # ---------- 🔍 資料搜尋與管理 ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
@@ -783,7 +759,7 @@ with tabs[3]:
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（保持完整，嚴禁修改） ----------
+    # ---------- 底部統計 ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
