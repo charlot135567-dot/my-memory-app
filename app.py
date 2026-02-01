@@ -4,6 +4,7 @@
 import streamlit as st
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 from streamlit_calendar import calendar
+import streamlit.components.v1 as components
 
 # ========== 除錯測試 ==========
 st.sidebar.markdown("## 🔧 除錯資訊")
