@@ -439,16 +439,19 @@ with tabs[3]:
     if 'content_mode' not in st.session_state:
         st.session_state.content_mode = ""
 
-    # 智能偵測內容類型
+    # 1. 智能偵測內容類型 (修正版：改用語言區分)
     def detect_content_mode(text):
         text = text.strip()
-        if text.startswith("{"):
+        if not text:
+            return "document"
+        if text.startswith("{"): # 保留 JSON 偵測
             return "json"
-        if re.search(r'\b\d+\s*:\s*\d+\b', text[:100]):
-            return "scripture"
-        return "document"
+        
+        # 偵測是否含有中文字元
+        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
+        return "scripture" if has_chinese else "document"
 
-    # Callback 函數：產生完整指令
+    # 2. Callback 函數：產生完整指令
     def generate_full_prompt():
         raw_text = st.session_state.get("raw_input_temp", "").strip()
         if not raw_text:
@@ -457,8 +460,9 @@ with tabs[3]:
         
         mode = detect_content_mode(raw_text)
         
+        # 根據偵測結果決定 Prompt 內容
         if mode in ["json", "scripture"]:
-            # 模式 A：聖經經文分析
+            # 模式 A：聖經經文分析 (包含中文時)
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
