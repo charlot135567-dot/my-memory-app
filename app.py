@@ -378,6 +378,9 @@ with tabs[2]:
 # ===================================================================
 # 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
 # ===================================================================
+# ===================================================================
+# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
+# ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
@@ -435,7 +438,6 @@ with tabs[3]:
         st.session_state.copy_target = ""
     if 'just_copied' not in st.session_state:
         st.session_state.just_copied = False
-    # 新增：AI 平台選擇狀態（用于自動複製流程）
     if 'ai_platform' not in st.session_state:
         st.session_state.ai_platform = None
 
@@ -454,17 +456,16 @@ with tabs[3]:
         def on_input_change():
             st.session_state.input_dirty = True
         
-        # 使用 key 綁定 session state，避免直接賦值導致的錯誤
         if 'main_input' not in st.session_state:
             st.session_state.main_input = ""
         
         user_input = st.text_area(
             "",
             height=260,
-            value=st.session_state.main_input,  # 綁定 value 而非直接改 key
+            value=st.session_state.main_input,
             placeholder="貼上內容：\n• 經文 + Prompt（GPT會分析後回傳JSON）\n• 直接貼上 GPT 回傳的 JSON/Markdown/CSV 可查看表格\n• 貼英文文稿進行模式B分析",
             label_visibility="collapsed",
-            key="input_widget",  # 使用不同 key 避免衝突
+            key="input_widget",
             on_change=on_input_change
         ).strip()
 
@@ -556,39 +557,32 @@ with tabs[3]:
 
             encoded = urllib.parse.quote(prompt)
             
-            # 準備合併後的完整內容 (Prompt + User Input) 供複製使用
+            # 準備合併後的完整內容 (Prompt + User Input)
             full_content = f"{prompt}\n\n---\n\n{user_input}"
-            # 使用 JSON dumps 安全轉義，避免 JavaScript 語法錯誤
-            prompt_json_safe = json.dumps(full_content)
             
             # ==================== JSON / Markdown / CSV 解析（保留原有）====================
             parsed_data = None
             is_valid_data = False
             parse_format = None
             
-            # 嘗試解析是否為 GPT 回傳的 JSON
             if user_input.startswith("{"):
                 try:
                     parsed_data = json.loads(user_input)
-                    # 確認必要欄位存在
                     if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'ref_article' in parsed_data):
                         is_valid_data = True
                         parse_format = 'json'
                         
-                        # 顯示成功訊息與基本資訊
                         ref_display = parsed_data.get('ref_no', '未指定編號')
                         en_preview = parsed_data.get('ref_article', '')[:60]
                         st.success(f"📖 已解析：{ref_display}")
                         if en_preview:
                             st.caption(f"經文預覽：{en_preview}...")
                         
-                        # 分頁顯示詳細資料（Excel 風格但不可下載）
                         tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words 單字表", "🔗 Phrases 片語表", "📚 Grammar 文法表"])
                         
                         with tab_words:
                             if 'words' in parsed_data and parsed_data['words'] and len(parsed_data['words']) > 0:
                                 df_words = pd.DataFrame(parsed_data['words'])
-                                # 確保所有欄位存在
                                 for col in ['word', 'level', 'meaning', 'synonym', 'antonym']:
                                     if col not in df_words.columns:
                                         df_words[col] = ''
@@ -623,15 +617,9 @@ with tabs[3]:
                             else:
                                 st.info("無文法資料")
                 except json.JSONDecodeError:
-                    # 是 JSON 格式但解析失敗，顯示錯誤提示
                     st.error("⚠️ JSON 格式錯誤（可能是引號或逗號問題），請檢查 GPT 回傳內容")
                 except Exception as e:
                     st.error(f"解析錯誤：{str(e)}")
-
-            # 如果不是 JSON，顯示文稿預覽（保留原有邏輯）
-            if not is_valid_data and not user_input.startswith("{"):
-                with st.expander("📄 輸入預覽（文稿模式）", expanded=False):
-                    st.text(user_input[:500] + ("..." if len(user_input) > 500 else ""))
 
             # ==================== 按鈕區（優化後：一鍵合併 + 自動複製）====================
             st.divider()
@@ -639,7 +627,6 @@ with tabs[3]:
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                # GPT 維持原有的 URL 傳參方式（保留原有）
                 st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded}", 
                                use_container_width=True, type="primary")
             
@@ -654,7 +641,6 @@ with tabs[3]:
                     st.rerun()
             
             with c4:
-                # 保留原有的存按鈕完整邏輯（含 import_format）
                 if st.button("💾 存", type="primary", use_container_width=True):
                     try:
                         if is_valid_data and parsed_data:
@@ -686,10 +672,10 @@ with tabs[3]:
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{str(e)}")
 
-            # --- 自動複製與跳轉引導邏輯（按上述邏輯新增）---
+            # --- 自動複製與跳轉引導邏輯 ---
             if st.session_state.get('ai_platform') in ['kimi', 'gemini']:
                 platform = st.session_state.ai_platform
-                # 立即重置，防止下次 rerun 重複執行複製
+                # 立即重置，防止下次 rerun 重複執行
                 st.session_state.ai_platform = None
                 
                 platform_info = {
@@ -698,7 +684,10 @@ with tabs[3]:
                 }
                 cfg = platform_info[platform]
                 
-                # 執行 JS 自動複製（使用 json.dumps 安全轉義後的內容）
+                # 使用 JSON 安全轉義，避免特殊字元截斷
+                prompt_json_safe = json.dumps(full_content)
+                
+                # 執行 JS 自動複製（注意：在 Safari/iOS 可能會失敗）
                 copy_js = f"""
                 <script>
                 (function() {{
@@ -713,8 +702,13 @@ with tabs[3]:
                 """
                 components.html(copy_js, height=0)
                 
-                # 顯示成功提示與一鍵跳轉連結
-                st.success(f"{cfg['icon']} **{cfg['name']}**｜✅ Prompt 與文稿已合併複製！")
+                # 顯示成功提示（僅表示指令已發送，不代表瀏覽器一定允許）
+                st.success(f"{cfg['icon']} **{cfg['name']}**｜已嘗試自動複製（若失敗請使用下方手動複製）")
+                
+                # 手動複製備援區（必要修正： Safari/iOS 無法自動複製時使用）
+                with st.expander("⚠️ 若前往後貼上只有經文，點此手動複製完整內容", expanded=True):
+                    st.text_area("完整 Prompt + 經文（Ctrl+A 全選, Ctrl+C 複製）", 
+                                full_content, height=300, key="manual_copy_area")
                 
                 col_go, col_back = st.columns([2, 1])
                 with col_go:
@@ -751,7 +745,6 @@ with tabs[3]:
                     if not results:
                         st.info("找不到符合資料")
 
-        # 安全檢查
         search_results = st.session_state.get('search_results', [])
         if search_results:
             st.write(f"共 {len(search_results)} 筆")
