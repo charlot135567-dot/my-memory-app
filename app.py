@@ -429,7 +429,7 @@ with tabs[3]:
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
     if 'combined_content' not in st.session_state:
-        st.session_state.combined_content = None  # 儲存合併後的完整內容
+        st.session_state.combined_content = None
     if 'input_text' not in st.session_state:
         st.session_state.input_text = ""
 
@@ -442,7 +442,7 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-    # ---------- 📝 經文輸入與分析 (新流程：手動合併版) ----------
+    # ---------- 📝 經文輸入與分析 (Excel 格式版) ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
         
         # 步驟 1：輸入區（純經文或文稿）
@@ -460,22 +460,30 @@ with tabs[3]:
                 mode = detect_content_mode(user_input)
                 
                 if mode in ["json", "scripture"]:
-                    # 模式 A Prompt（經文分析）
+                    # 模式 A Prompt（經文分析）- 要求 Excel/Markdown 格式
                     full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
-### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式
+### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
 
-🔹 V1 Sheet 要求：
+⚠️ 輸出格式要求：請使用 **Markdown 表格格式**（如下範例），方便我直接複製貼回 Excel：
+
+【V1 Sheet 範例】
+| Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
+|------|---------------|---------|---------|---------|
+| Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[祈使句解析] 2️⃣[Give strong drink to him who is perishing] 3️⃣Ex. [Go and make disciples...] |
+
+【V2 Sheet 範例】
+| Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
+|------|--------|---------|------|-----|---------|--------|
+
+🔹 V1 Sheet 欄位要求：
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
 2. English (ESV)：檢索對應的 ESV 英文經文。
 3. Chinese：填入我提供的中文原文。
 4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
-5. Grammar：嚴格遵守符號化格式：
-   1️⃣[文法邏輯解析] 
-   2️⃣[補齊後的完整應用句] 
-   3️⃣Ex. [中英對照聖經應用例句]
+5. Grammar：嚴格遵守符號化格式：1️⃣[文法邏輯解析] 2️⃣[補齊後的完整應用句] 3️⃣Ex. [中英對照聖經應用例句]
 
-🔹 V2 Sheet 要求：
+🔹 V2 Sheet 欄位要求：
 1. Ref.：同 V1。
 2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
 3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
@@ -484,29 +492,39 @@ with tabs[3]:
 6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
 7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
 
-⚠️ 自動推斷書卷（若只有數字如31:10）：
+⚠️ 自動推斷書卷（若只有數字如31:6）：
+• "可以把濃酒" → Pro
 • "才德的婦人" → Prov • "太初有道" → John • "起初神創造" → Gen
 • "虛心的人有福" → Matt • "愛是恆久忍耐" → 1Co
 
 標準縮寫：Gen,Exo,Lev,Num,Deu,Jos,Jdg,Rut,1Sa,2Sa,1Ki,2Ki,1Ch,2Ch,Ezr,Neh,Est,Job,Psa,Pro,Ecc,Son,Isa,Jer,Lam,Eze,Dan,Hos,Joe,Amo,Oba,Jon,Mic,Nah,Hab,Zep,Hag,Zec,Mal,Mat,Mar,Luk,Joh,Act,Rom,1Co,2Co,Gal,Eph,Phi,Col,1Th,2Th,1Ti,2Ti,Tit,Phm,Heb,Jam,1Pe,2Pe,1Jo,2Jo,3Jo,Jud,Rev
 
-請以 **JSON** 格式回傳（方便程式解析）：
-{{
-  "ref_no": "縮寫格式",
-  "ref_article": "ESV英文經文",
-  "zh_translation": "中文原文",
-  "words": [{{"word":"單字","level":"中高級","meaning":"中譯","synonym":"同義","antonym":"反義"}}],
-  "phrases": [{{"phrase":"片語","meaning":"中譯"}}],
-  "grammar": [{{"pattern":"文法","explanation":"1️⃣[解析] 2️⃣[還原句] 3️⃣Ex.[例句]"}}]
-}}
+待分析經文：{user_input}
 
-待分析經文：{user_input}"""
+請直接輸出 Markdown 表格，不要輸出 JSON。"""
                     mode_label = "📖 經文模式"
                 else:
-                    # 模式 B Prompt（文稿分析）
+                    # 模式 B Prompt（文稿分析）- 要求 Excel/Markdown 格式
                     full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
-### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式
+### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
+
+⚠️ 輸出格式要求：請使用 **Markdown 表格格式**，方便我直接複製貼回 Excel：
+
+【W Sheet - 字詞表】
+| No | Word/Phrase | Level | Chinese | Synonym | Antonym | Bible Example |
+|----|-------------|-------|---------|---------|---------|---------------|
+| 1 | steadfast | 高級 | 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
+
+【P Sheet - 文稿段落】
+| Paragraph | English Refinement | 中英夾雜講章 |
+|-----------|-------------------|--------------|
+| 1 | We need to be steadfast... | 我們需要 (**steadfast**) ... |
+
+【Grammar List】
+| Pattern | Original | Analysis | Restoration | Example |
+|---------|----------|----------|-------------|---------|
+| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |
 
 🔹 第一步｜內容交錯 (I-V)：
 嚴格執行將逐字稿轉化為流暢、文法正確，
@@ -523,7 +541,7 @@ with tabs[3]:
     高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
     翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
 
-2.Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
+2. Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
            語法邏輯還原 (Grammar Restoration)：針對包含「倒裝、省略、介係詞前置」
            等高難度結構的句子，
            嚴格遵守符號化格式：
@@ -532,33 +550,32 @@ with tabs[3]:
            2️⃣[結構還原完整應用句] 
            3️⃣Ex. [中英對照聖經應用例句]
 
-注意！！單字/片語/同反義詞的挑選規則：
-              嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
+注意！！單字/片語/同反義詞的挑選規則：嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
 
-待分析文稿：{user_input}"""
+待分析文稿：{user_input}
+
+請直接輸出 Markdown 表格，不要輸出 JSON。"""
                     mode_label = "📝 文稿模式"
                 
-                # 儲存到 session_state 並顯示
                 st.session_state.combined_content = full_prompt
                 st.session_state.input_text = user_input
                 st.rerun()
             else:
                 st.warning("請先貼上內容再點擊")
 
-        # 步驟 3：顯示合併後的完整指令（使用 st.code 才有複製按鈕！）
+        # 步驟 3：顯示合併後的完整指令（高度限制 300px，有捲軸）
         if st.session_state.get('combined_content'):
             st.divider()
-            st.success(f"✅ 已生成完整指令（{ '經文模式' if '模式 A' in st.session_state.combined_content else '文稿模式'}）")
+            st.success(f"✅ 已生成完整指令（{'經文模式' if '模式 A' in st.session_state.combined_content else '文稿模式'}）")
             st.caption("💡 **點擊右上角「複製」圖示，再點下方按鈕前往 AI 平台**")
             
-            # 關鍵：使用 st.code 顯示，右上角會自動出現複製按鈕（100% 成功）
+            # 關鍵修正：高度設為 300px，有捲軸，不佔滿畫面
             st.code(st.session_state.combined_content, language='markdown')
             
             # AI 平台連結（四鍵並列）
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                # GPT 使用 URL 傳參（自動帶入合併後內容）
                 encoded = urllib.parse.quote(st.session_state.combined_content)
                 st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q= {encoded}", 
                               use_container_width=True, type="primary")
@@ -572,7 +589,6 @@ with tabs[3]:
             with c4:
                 if st.button("💾 存", type="primary", use_container_width=True):
                     try:
-                        # 嘗試解析是否為回傳的 JSON（簡化版判斷）
                         is_json = st.session_state.combined_content.strip().startswith('{')
                         if is_json:
                             parsed = json.loads(st.session_state.combined_content.split('待分析')[0].strip() if '待分析' in st.session_state.combined_content else st.session_state.combined_content)
@@ -591,7 +607,6 @@ with tabs[3]:
                         save_sentences(st.session_state.sentences)
                         st.success(f"✅ 已儲存：{ref}")
                         
-                        # 清空
                         st.session_state.combined_content = None
                         st.session_state.input_text = ""
                         st.rerun()
@@ -604,31 +619,70 @@ with tabs[3]:
                 st.session_state.input_text = ""
                 st.rerun()
 
-        # 步驟 4：如果是貼回 JSON 的解析邏輯（保留原有功能）
-        if user_input.startswith("{") and not st.session_state.get('combined_content'):
-            try:
-                parsed_data = json.loads(user_input)
-                if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'words' in parsed_data):
-                    st.success(f"📖 已解析 JSON：{parsed_data.get('ref_no', '資料')}")
-                    
-                    tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words 單字表", "🔗 Phrases 片語表", "📚 Grammar 文法表"])
-                    
-                    with tab_words:
-                        if 'words' in parsed_data and parsed_data['words']:
-                            df = pd.DataFrame(parsed_data['words'])
+        # 步驟 4：解析貼回的資料（支援 JSON 或 Markdown 表格）
+        if user_input and not st.session_state.get('combined_content'):
+            # 如果是 Markdown 表格格式（AI 回傳的 Excel 格式）
+            if '|' in user_input and '---' in user_input:
+                try:
+                    lines = [l.strip() for l in user_input.split('\n') if l.strip()]
+                    if len(lines) >= 2 and lines[0].startswith('|'):
+                        st.success("📊 偵測到 Markdown 表格格式")
+                        
+                        # 簡易解析邏輯
+                        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
+                        data_rows = []
+                        
+                        for line in lines[2:]:  # 跳過標題和分隔線
+                            if '|' in line:
+                                cells = [c.strip() for c in line.split('|') if c.strip()]
+                                if len(cells) >= 2:
+                                    data_rows.append(cells)
+                        
+                        if data_rows:
+                            # 嘗試轉為 DataFrame 顯示
+                            import pandas as pd
+                            df = pd.DataFrame(data_rows, columns=headers[:len(data_rows[0])])
                             st.dataframe(df, use_container_width=True, hide_index=True)
-                    
-                    with tab_phrases:
-                        if 'phrases' in parsed_data and parsed_data['phrases']:
-                            df = pd.DataFrame(parsed_data['phrases'])
-                            st.dataframe(df, use_container_width=True, hide_index=True)
-                    
-                    with tab_grammar:
-                        if 'grammar' in parsed_data and parsed_data['grammar']:
-                            df = pd.DataFrame(parsed_data['grammar'])
-                            st.dataframe(df, use_container_width=True, hide_index=True)
-            except:
-                pass
+                            
+                            # 儲存按鈕
+                            if st.button("💾 儲存此表格", key="save_md_table"):
+                                ref = f"Table_{dt.datetime.now().strftime('%m%d%H%M')}"
+                                st.session_state.sentences[ref] = {
+                                    "ref": ref,
+                                    "type": "markdown_table",
+                                    "content": user_input,
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                }
+                                save_sentences(st.session_state.sentences)
+                                st.success(f"✅ 已儲存表格：{ref}")
+                except Exception as e:
+                    st.error(f"表格解析錯誤：{e}")
+            
+            # 原有的 JSON 解析邏輯
+            elif user_input.startswith("{"):
+                try:
+                    parsed_data = json.loads(user_input)
+                    if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'words' in parsed_data):
+                        st.success(f"📖 已解析 JSON：{parsed_data.get('ref_no', '資料')}")
+                        
+                        tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words 單字表", "🔗 Phrases 片語表", "📚 Grammar 文法表"])
+                        
+                        with tab_words:
+                            if 'words' in parsed_data and parsed_data['words']:
+                                df = pd.DataFrame(parsed_data['words'])
+                                st.dataframe(df, use_container_width=True, hide_index=True)
+                        
+                        with tab_phrases:
+                            if 'phrases' in parsed_data and parsed_data['phrases']:
+                                df = pd.DataFrame(parsed_data['phrases'])
+                                st.dataframe(df, use_container_width=True, hide_index=True)
+                        
+                        with tab_grammar:
+                            if 'grammar' in parsed_data and parsed_data['grammar']:
+                                df = pd.DataFrame(parsed_data['grammar'])
+                                st.dataframe(df, use_container_width=True, hide_index=True)
+                except:
+                    pass
 
     # ---------- 🔍 資料搜尋與管理（保持完整，嚴禁修改） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
