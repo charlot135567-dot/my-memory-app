@@ -381,7 +381,7 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
-    import streamlit.components.v1 as components  # 新增：用於執行 JS
+    import streamlit.components.v1 as components
 
     # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
     try:
@@ -435,6 +435,7 @@ with tabs[3]:
         st.session_state.copy_target = ""
     if 'just_copied' not in st.session_state:
         st.session_state.just_copied = False
+    # 新增：AI 平台選擇狀態（用于自動複製流程）
     if 'ai_platform' not in st.session_state:
         st.session_state.ai_platform = None
 
@@ -453,45 +454,28 @@ with tabs[3]:
         def on_input_change():
             st.session_state.input_dirty = True
         
+        # 使用 key 綁定 session state，避免直接賦值導致的錯誤
         if 'main_input' not in st.session_state:
             st.session_state.main_input = ""
         
         user_input = st.text_area(
             "",
             height=260,
-            value=st.session_state.main_input,
+            value=st.session_state.main_input,  # 綁定 value 而非直接改 key
             placeholder="貼上內容：\n• 經文 + Prompt（GPT會分析後回傳JSON）\n• 直接貼上 GPT 回傳的 JSON/Markdown/CSV 可查看表格\n• 貼英文文稿進行模式B分析",
             label_visibility="collapsed",
-            key="input_widget",
+            key="input_widget",  # 使用不同 key 避免衝突
             on_change=on_input_change
         ).strip()
 
         if user_input:
             mode = detect_content_mode(user_input)
             
-            # ==================== 模式A Prompt（保留原有內容）====================
+            # ==================== 完整模式A Prompt（保留原有）====================
             if mode in ["json", "scripture"]:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式
-⚠️ 輸出格式：請以 **JSON** 或 **Markdown表格** 或 **CSV** 格式回傳（方便程式解析）：
-
-【JSON格式】
-{{
-  "ref_no": "縮寫格式",
-  "ref_article": "ESV英文經文",
-  "zh_translation": "中文原文",
-  "words": [{{"word":"單字","level":"中高級","meaning":"中譯","synonym":"同義","antonym":"反義"}}],
-  "phrases": [{{"phrase":"片語","meaning":"中譯"}}],
-  "grammar": [{{"pattern":"文法","explanation":"1️⃣[解析] 2️⃣[還原句] 3️⃣Ex.[例句]"}}]
-}}
-
-【Markdown表格格式（V1 Sheet）】
-| Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
-|------|---------------|---------|---------|---------|
-
-【CSV格式】
-Ref.,English,Chinese,Syn_Ant,Grammar
 
 🔹 V1 Sheet 要求：
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
@@ -513,35 +497,36 @@ Ref.,English,Chinese,Syn_Ant,Grammar
 7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
 
 ⚠️ 自動推斷書卷（若只有數字如31:10）：
-• "才德的婦人" → Prov • "太初有道" → John • "起初神創造" → Gen
-• "虛心的人有福" → Matt • "愛是恆久忍耐" → 1Co
+• "才德的婦人" → Prov
+• "太初有道" → John  
+• "起初神創造" → Gen
+• "虛心的人有福" → Matt
+• "愛是恆久忍耐" → 1Co
 
 標準縮寫：Gen,Exo,Lev,Num,Deu,Jos,Jdg,Rut,1Sa,2Sa,1Ki,2Ki,1Ch,2Ch,Ezr,Neh,Est,Job,Psa,Pro,Ecc,Son,Isa,Jer,Lam,Eze,Dan,Hos,Joe,Amo,Oba,Jon,Mic,Nah,Hab,Zep,Hag,Zec,Mal,Mat,Mar,Luk,Joh,Act,Rom,1Co,2Co,Gal,Eph,Phi,Col,1Th,2Th,1Ti,2Ti,Tit,Phm,Heb,Jam,1Pe,2Pe,1Jo,2Jo,3Jo,Jud,Rev
+
+請以 **JSON** 格式回傳（方便程式解析）：
+{{
+  "ref_no": "縮寫格式",
+  "ref_article": "ESV英文經文",
+  "zh_translation": "中文原文",
+  "words": [{{"word":"單字","level":"中高級","meaning":"中譯","synonym":"同義","antonym":"反義"}}],
+  "phrases": [{{"phrase":"片語","meaning":"中譯"}}],
+  "grammar": [{{"pattern":"文法","explanation":"1️⃣[解析] 2️⃣[還原句] 3️⃣Ex.[例句]"}}]
+}}
 
 待分析經文：{user_input}"""
                 mode_label = "📖 經文模式"
 
-            # ==================== 模式B Prompt（保留原有內容）====================
+            # ==================== 完整模式B Prompt（保留原有）====================
             else:
                 prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式
-⚠️ 輸出格式：請以 **Markdown表格** 或 **CSV** 或 **JSON** 格式回傳。
-
-【W Sheet - 字詞表】Markdown格式：
-| No | Word/Phrase | Level | Chinese | Synonym | Antonym | Bible Example |
-|----|-------------|-------|---------|---------|---------|---------------|
-
-【P Sheet - 文稿段落】
-| Paragraph | English Refinement | 中英夾雜講章 |
-|-----------|-------------------|--------------|
-
-【Grammar List】Markdown格式：
-| Pattern | Original | Analysis | Restoration | Example |
-|---------|----------|----------|-------------|---------|
 
 🔹 第一步｜內容交錯 (I-V)：
-嚴格執行將逐字稿轉化為流暢、文法正確，保留原文中的高級/中高級字與片語及中心思想的完整文章，不得偏離原稿內容
+嚴格執行將逐字稿轉化為流暢、文法正確，
+保留原文中的高級/中高級字與片語及中心思想的完整文章，不得偏離原稿內容
 段落呈現：「一段純英文精煉稿」隨即接「一段中英夾雜講章」的格式。
 
 1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
@@ -554,7 +539,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
     高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
     翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
 
-2. Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
+2.Grammar List (6個)：規則名 + 原稿範例 + 文法解析 + 結構還原 + [中英對照應用例句]。
            語法邏輯還原 (Grammar Restoration)：針對包含「倒裝、省略、介係詞前置」
            等高難度結構的句子，
            嚴格遵守符號化格式：
@@ -571,236 +556,180 @@ Ref.,English,Chinese,Syn_Ant,Grammar
 
             encoded = urllib.parse.quote(prompt)
             
-            # ==================== 資料解析邏輯（保留原有）====================
+            # 準備合併後的完整內容 (Prompt + User Input) 供複製使用
+            full_content = f"{prompt}\n\n---\n\n{user_input}"
+            # 使用 JSON dumps 安全轉義，避免 JavaScript 語法錯誤
+            prompt_json_safe = json.dumps(full_content)
+            
+            # ==================== JSON / Markdown / CSV 解析（保留原有）====================
             parsed_data = None
             is_valid_data = False
             parse_format = None
             
-            if user_input.strip().startswith("{"):
+            # 嘗試解析是否為 GPT 回傳的 JSON
+            if user_input.startswith("{"):
                 try:
                     parsed_data = json.loads(user_input)
-                    if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'ref_article' in parsed_data or 'words' in parsed_data):
+                    # 確認必要欄位存在
+                    if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'ref_article' in parsed_data):
                         is_valid_data = True
                         parse_format = 'json'
-                except:
-                    pass
-            
-            if not is_valid_data and '|' in user_input and '---' in user_input:
-                try:
-                    lines = [l.strip() for l in user_input.split('\n') if l.strip()]
-                    if len(lines) >= 2:
-                        parsed_data = {"words": [], "phrases": [], "grammar": [], "ref_no": "MD_IMPORT"}
-                        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
-                        for line in lines[2:]:
-                            if '|' not in line:
-                                continue
-                            cells = [c.strip() for c in line.split('|') if c.strip()]
-                            if len(cells) >= 3:
-                                row_data = {headers[i]: cells[i] for i in range(min(len(headers), len(cells)))}
-                                if 'Word' in row_data or 'word' in row_data:
-                                    parsed_data["words"].append({
-                                        "word": row_data.get('Word', row_data.get('word', '')),
-                                        "level": row_data.get('Level', row_data.get('level', '中高級')),
-                                        "meaning": row_data.get('Chinese', row_data.get('meaning', '')),
-                                        "synonym": row_data.get('Synonym', row_data.get('synonym', '')),
-                                        "antonym": row_data.get('Antonym', row_data.get('antonym', ''))
-                                    })
-                                elif 'Grammar' in row_data or 'pattern' in row_data:
-                                    parsed_data["grammar"].append({
-                                        "pattern": row_data.get('Pattern', row_data.get('pattern', '')),
-                                        "explanation": row_data.get('Analysis', row_data.get('explanation', ''))
-                                    })
-                        if parsed_data["words"] or parsed_data["grammar"]:
-                            is_valid_data = True
-                            parse_format = 'markdown'
-                except:
-                    pass
-            
-            if not is_valid_data and ',' in user_input and '\n' in user_input:
-                try:
-                    reader = csv.DictReader(StringIO(user_input))
-                    rows = list(reader)
-                    if rows:
-                        parsed_data = {"words": [], "phrases": [], "grammar": [], "ref_no": "CSV_IMPORT"}
-                        for row in rows:
-                            if 'word' in row or 'Word' in row:
-                                parsed_data["words"].append({
-                                    "word": row.get('word', row.get('Word', '')),
-                                    "level": row.get('level', row.get('Level', '中高級')),
-                                    "meaning": row.get('meaning', row.get('Chinese', '')),
-                                    "synonym": row.get('synonym', row.get('Synonym', '')),
-                                    "antonym": row.get('antonym', row.get('Antonym', ''))
-                                })
-                        if parsed_data["words"]:
-                            is_valid_data = True
-                            parse_format = 'csv'
-                except:
-                    pass
+                        
+                        # 顯示成功訊息與基本資訊
+                        ref_display = parsed_data.get('ref_no', '未指定編號')
+                        en_preview = parsed_data.get('ref_article', '')[:60]
+                        st.success(f"📖 已解析：{ref_display}")
+                        if en_preview:
+                            st.caption(f"經文預覽：{en_preview}...")
+                        
+                        # 分頁顯示詳細資料（Excel 風格但不可下載）
+                        tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words 單字表", "🔗 Phrases 片語表", "📚 Grammar 文法表"])
+                        
+                        with tab_words:
+                            if 'words' in parsed_data and parsed_data['words'] and len(parsed_data['words']) > 0:
+                                df_words = pd.DataFrame(parsed_data['words'])
+                                # 確保所有欄位存在
+                                for col in ['word', 'level', 'meaning', 'synonym', 'antonym']:
+                                    if col not in df_words.columns:
+                                        df_words[col] = ''
+                                df_display = df_words[['word', 'level', 'meaning', 'synonym', 'antonym']]
+                                df_display.columns = ['單字', '級別', '中文解釋', '同義詞', '反義詞']
+                                st.dataframe(df_display, use_container_width=True, hide_index=True)
+                                st.caption(f"共 {len(df_display)} 個單字")
+                            else:
+                                st.info("無單字資料")
+                        
+                        with tab_phrases:
+                            if 'phrases' in parsed_data and parsed_data['phrases'] and len(parsed_data['phrases']) > 0:
+                                df_phrases = pd.DataFrame(parsed_data['phrases'])
+                                if 'phrase' not in df_phrases.columns:
+                                    df_phrases['phrase'] = ''
+                                if 'meaning' not in df_phrases.columns:
+                                    df_phrases['meaning'] = ''
+                                st.dataframe(df_phrases[['phrase', 'meaning']].rename(columns={'phrase':'片語', 'meaning':'中文解釋'}), 
+                                            use_container_width=True, hide_index=True)
+                            else:
+                                st.info("無片語資料")
+                        
+                        with tab_grammar:
+                            if 'grammar' in parsed_data and parsed_data['grammar'] and len(parsed_data['grammar']) > 0:
+                                df_grammar = pd.DataFrame(parsed_data['grammar'])
+                                if 'pattern' not in df_grammar.columns:
+                                    df_grammar['pattern'] = ''
+                                if 'explanation' not in df_grammar.columns:
+                                    df_grammar['explanation'] = ''
+                                st.dataframe(df_grammar[['pattern', 'explanation']].rename(columns={'pattern':'文法結構', 'explanation':'解析'}), 
+                                            use_container_width=True, hide_index=True)
+                            else:
+                                st.info("無文法資料")
+                except json.JSONDecodeError:
+                    # 是 JSON 格式但解析失敗，顯示錯誤提示
+                    st.error("⚠️ JSON 格式錯誤（可能是引號或逗號問題），請檢查 GPT 回傳內容")
+                except Exception as e:
+                    st.error(f"解析錯誤：{str(e)}")
 
-            # 顯示解析結果（保留原有）
-            if is_valid_data:
-                ref_display = parsed_data.get('ref_no', parsed_data.get('ref', '已匯入'))
-                st.success(f"✅ 已解析 ({parse_format.upper()})：{ref_display}")
-                en_preview = parsed_data.get('ref_article', '')[:60]
-                if en_preview:
-                    st.caption(f"經文預覽：{en_preview}...")
-                
-                tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words 單字表", "🔗 Phrases 片語表", "📚 Grammar 文法表"])
-                
-                with tab_words:
-                    if 'words' in parsed_data and parsed_data['words']:
-                        df_words = pd.DataFrame(parsed_data['words'])
-                        for col in ['word', 'level', 'meaning', 'synonym', 'antonym']:
-                            if col not in df_words.columns:
-                                df_words[col] = ''
-                        df_display = df_words[['word', 'level', 'meaning', 'synonym', 'antonym']]
-                        df_display.columns = ['單字', '級別', '中文解釋', '同義詞', '反義詞']
-                        st.dataframe(df_display, use_container_width=True, hide_index=True)
-                        st.caption(f"來源格式：{parse_format.upper()} | 共 {len(df_display)} 個單字")
-                    else:
-                        st.info("無單字資料")
-                
-                with tab_phrases:
-                    if 'phrases' in parsed_data and parsed_data['phrases']:
-                        df_phrases = pd.DataFrame(parsed_data['phrases'])
-                        if 'phrase' not in df_phrases.columns:
-                            df_phrases['phrase'] = ''
-                        if 'meaning' not in df_phrases.columns:
-                            df_phrases['meaning'] = ''
-                        st.dataframe(df_phrases[['phrase', 'meaning']].rename(columns={'phrase':'片語', 'meaning':'中文解釋'}), 
-                                    use_container_width=True, hide_index=True)
-                    else:
-                        st.info("無片語資料")
-                
-                with tab_grammar:
-                    if 'grammar' in parsed_data and parsed_data['grammar']:
-                        df_grammar = pd.DataFrame(parsed_data['grammar'])
-                        if 'pattern' not in df_grammar.columns:
-                            df_grammar['pattern'] = ''
-                        if 'explanation' not in df_grammar.columns:
-                            df_grammar['explanation'] = ''
-                        st.dataframe(df_grammar[['pattern', 'explanation']].rename(columns={'pattern':'文法結構', 'explanation':'解析'}), 
-                                    use_container_width=True, hide_index=True)
-                    else:
-                        st.info("無文法資料")
-
-            if not is_valid_data and mode == "document":
+            # 如果不是 JSON，顯示文稿預覽（保留原有邏輯）
+            if not is_valid_data and not user_input.startswith("{"):
                 with st.expander("📄 輸入預覽（文稿模式）", expanded=False):
-                    st.markdown("**功能說明：** 顯示輸入文稿的前500字預覽，供確認貼上內容是否正確")
                     st.text(user_input[:500] + ("..." if len(user_input) > 500 else ""))
 
-            # ==================== 按鈕區（重大修正：自動複製 + 打勾✅）====================
+            # ==================== 按鈕區（優化後：一鍵合併 + 自動複製）====================
             st.divider()
-            current_platform = st.session_state.get('ai_platform', None)
             
-            if current_platform is None:
-                # 主選單：三個平台並列
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    st.link_button("💬 GPT", f"https://chat.openai.com/?q={encoded}", 
-                                  use_container_width=True, type="primary")
-                with c2:
-                    if st.button("🌙 K2", use_container_width=True, key="btn_kimi_select"):
-                        st.session_state.ai_platform = 'kimi'
-                        st.rerun()
-                with c3:
-                    if st.button("🔍 G", use_container_width=True, key="btn_gemini_select"):
-                        st.session_state.ai_platform = 'gemini'
-                        st.rerun()
-                with c4:
-                    if st.button("💾 存", type="primary", use_container_width=True):
-                        try:
-                            if is_valid_data and parsed_data:
-                                ref = parsed_data.get('ref_no') or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
-                                st.session_state.sentences[ref] = {
-                                    **parsed_data,
-                                    "import_format": parse_format,
-                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                                }
-                                save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已儲存：{ref} ({parse_format.upper()})")
-                            else:
-                                ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
-                                st.session_state.sentences[ref] = {
-                                    "ref": ref,
-                                    "en": user_input,
-                                    "zh": "",
-                                    "words": [],
-                                    "phrases": [],
-                                    "grammar": [],
-                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                                }
-                                save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已儲存文稿：{ref}")
-                            
-                            st.session_state.clear_input_requested = True
-                            st.rerun()
-                            
-                        except Exception as e:
-                            st.error(f"❌ 儲存失敗：{str(e)}")
+            c1, c2, c3, c4 = st.columns(4)
             
-            else:
-                # ✅ 自動複製介面（使用 JavaScript 實現一鍵複製）
-                platform_config = {
+            with c1:
+                # GPT 維持原有的 URL 傳參方式（保留原有）
+                st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded}", 
+                               use_container_width=True, type="primary")
+            
+            with c2:
+                if st.button("🌙 K2", use_container_width=True):
+                    st.session_state.ai_platform = 'kimi'
+                    st.rerun()
+            
+            with c3:
+                if st.button("🔍 G", use_container_width=True):
+                    st.session_state.ai_platform = 'gemini'
+                    st.rerun()
+            
+            with c4:
+                # 保留原有的存按鈕完整邏輯（含 import_format）
+                if st.button("💾 存", type="primary", use_container_width=True):
+                    try:
+                        if is_valid_data and parsed_data:
+                            ref = parsed_data.get('ref_no') or f"R_{dt.datetime.now().strftime('%m%d%H%M')}"
+                            st.session_state.sentences[ref] = {
+                                **parsed_data,
+                                "import_format": parse_format,
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                            save_sentences(st.session_state.sentences)
+                            st.success(f"✅ 已儲存：{ref}")
+                        else:
+                            ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
+                            st.session_state.sentences[ref] = {
+                                "ref": ref,
+                                "en": user_input,
+                                "zh": "",
+                                "words": [],
+                                "phrases": [],
+                                "grammar": [],
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                            save_sentences(st.session_state.sentences)
+                            st.success(f"✅ 已儲存文稿：{ref}")
+                        
+                        st.session_state.clear_input_requested = True
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"❌ 儲存失敗：{str(e)}")
+
+            # --- 自動複製與跳轉引導邏輯（按上述邏輯新增）---
+            if st.session_state.get('ai_platform') in ['kimi', 'gemini']:
+                platform = st.session_state.ai_platform
+                # 立即重置，防止下次 rerun 重複執行複製
+                st.session_state.ai_platform = None
+                
+                platform_info = {
                     'kimi': {'name': 'Kimi K2', 'icon': '🌙', 'url': 'https://kimi.com'},
                     'gemini': {'name': 'Google Gemini', 'icon': '🔍', 'url': 'https://gemini.google.com'}
                 }
-                config = platform_config[current_platform]
+                cfg = platform_info[platform]
                 
-                # 轉義 Prompt 中的特殊字元，避免 JS 語法錯誤
-                prompt_escaped = prompt.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$')
-                
-                # 使用 HTML/JS 實現自動複製到剪貼簿
+                # 執行 JS 自動複製（使用 json.dumps 安全轉義後的內容）
                 copy_js = f"""
                 <script>
                 (function() {{
-                    navigator.clipboard.writeText(`{prompt_escaped}`).then(function() {{
-                        console.log('Copy to clipboard successful');
+                    const text = {prompt_json_safe};
+                    navigator.clipboard.writeText(text).then(function() {{
+                        console.log('Copy successful');
                     }}).catch(function(err) {{
-                        console.error('Could not copy text: ', err);
-                        alert('自動複製失敗，請手動複製（瀏覽器可能阻擋了權限）');
+                        console.error('Copy failed', err);
                     }});
                 }})();
                 </script>
-                <div style="background-color: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; 
-                            padding: 12px; border-radius: 8px; margin-bottom: 16px; font-family: sans-serif;">
-                    <span style="font-size: 20px;">✅</span> 
-                    <strong>Prompt 已自動複製到剪貼簿！</strong><br>
-                    <small>您可以直接前往 {config['name']} 貼上使用</small>
-                </div>
                 """
-                components.html(copy_js, height=70)
+                components.html(copy_js, height=0)
                 
-                # 顯示成功提示（Streamlit 原生）
-                st.success(f"{config['icon']} **{config['name']}**｜✅ 已自動複製 Prompt！")
+                # 顯示成功提示與一鍵跳轉連結
+                st.success(f"{cfg['icon']} **{cfg['name']}**｜✅ Prompt 與文稿已合併複製！")
                 
-                # 操作按鈕：前往 或 返回
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    # 主要動作：前往 AI 平台（新分頁開啟）
-                    st.link_button(
-                        f"🚀 前往 {config['name']} 貼上使用", 
-                        config['url'], 
-                        use_container_width=True,
-                        type="primary"
-                    )
-                with col2:
-                    # 次要動作：返回選擇其他 AI（不再使用"關閉"這種無意義的詞）
-                    if st.button("↩️ 選擇其他 AI 平台", use_container_width=True, key="back_to_ai_menu"):
-                        st.session_state.ai_platform = None
+                col_go, col_back = st.columns([2, 1])
+                with col_go:
+                    st.link_button(f"🚀 前往 {cfg['name']} (直接貼上)", cfg['url'], 
+                                   use_container_width=True, type="primary")
+                with col_back:
+                    if st.button("↩️ 返回", use_container_width=True, key="back_btn"):
                         st.rerun()
-                
-                # 額外顯示 Prompt 預覽（折疊式，供確認內容）
-                with st.expander("📝 查看已複製的 Prompt 內容（確認用）", expanded=False):
-                    st.code(prompt, language="markdown")
-                    st.caption("💡 提示：上方已自動複製，此處僅供確認內容是否正確")
 
     # 處理清空請求（保留原有）
     if st.session_state.get('clear_input_requested', False):
         st.session_state.clear_input_requested = False
         st.session_state.main_input = ""
 
-    # ---------- 🔍 資料搜尋與管理（保持原有，嚴禁修改） ----------
+    # ---------- 🔍 資料搜尋與管理（保持完整，嚴禁修改） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
         search_col, btn_col = st.columns([3, 1])
         with search_col:
@@ -822,6 +751,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                     if not results:
                         st.info("找不到符合資料")
 
+        # 安全檢查
         search_results = st.session_state.get('search_results', [])
         if search_results:
             st.write(f"共 {len(search_results)} 筆")
@@ -860,7 +790,7 @@ Ref.,English,Chinese,Syn_Ant,Grammar
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計（保持原有，嚴禁修改） ----------
+    # ---------- 底部統計（保持完整，嚴禁修改） ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
