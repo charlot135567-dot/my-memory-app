@@ -381,6 +381,7 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
+    import streamlit.components.v1 as components
 
     # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
     try:
@@ -428,10 +429,10 @@ with tabs[3]:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
-    if 'combined_content' not in st.session_state:
-        st.session_state.combined_content = None
-    if 'input_text' not in st.session_state:
-        st.session_state.input_text = ""
+    if 'is_prompt_generated' not in st.session_state:
+        st.session_state.is_prompt_generated = False
+    if 'original_text' not in st.session_state:
+        st.session_state.original_text = ""  # 儲存原始經文，用於清除時恢復
 
     # 智能偵測內容類型
     def detect_content_mode(text):
@@ -442,26 +443,42 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-    # ---------- 📝 經文輸入與分析 (Excel 格式版) ----------
+    # ---------- 📝 經文輸入與分析（整合版） ----------
     with st.expander("📝 經文輸入與AI分析", expanded=True):
         
-        # 步驟 1：輸入區（純經文或文稿）
+        # 判斷目前狀態：如果是已合併狀態，顯示合併後內容；否則顯示原始輸入
+        if st.session_state.get('is_prompt_generated', False):
+            display_value = st.session_state.get('combined_text', '')
+            input_label = "步驟 2：已生成完整指令（可直接編輯、複製，或點下方按鈕操作）"
+        else:
+            display_value = st.session_state.get('original_text', '')
+            input_label = "步驟 1：貼上經文或文稿（純文字即可）"
+
+        # 主要輸入框（高度 300，可捲動）
         user_input = st.text_area(
-            "步驟 1：貼上經文或文稿（不需 Prompt）",
-            height=200,
-            value=st.session_state.input_text,
-            placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿\n\n貼上後，點擊下方「⚡ 產生完整分析指令」",
-            key="raw_input"
+            input_label,
+            height=300,
+            value=display_value,
+            placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿\n\n貼上後，點擊下方「⚡ 產生完整指令」按鈕",
+            label_visibility="collapsed",
+            key="main_input_widget"
         ).strip()
 
-        # 步驟 2：觸發合併按鈕
-        if st.button("⚡ 產生完整分析指令（自動加上 Prompt）", use_container_width=True, type="primary"):
-            if user_input:
-                mode = detect_content_mode(user_input)
-                
-                if mode in ["json", "scripture"]:
-                    # 模式 A Prompt（經文分析）- 要求 Excel/Markdown 格式
-                    full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
+        # 更新儲存的值（根據狀態）
+        if st.session_state.get('is_prompt_generated', False):
+            st.session_state.combined_text = user_input
+        else:
+            st.session_state.original_text = user_input
+
+        # 步驟 1：產生完整指令按鈕（僅在未合併時顯示）
+        if not st.session_state.get('is_prompt_generated', False):
+            if st.button("⚡ 產生完整分析指令（自動加上 Prompt）", use_container_width=True, type="primary"):
+                if user_input:
+                    mode = detect_content_mode(user_input)
+                    
+                    if mode in ["json", "scripture"]:
+                        # 模式 A Prompt（經文分析）- 要求 Excel/Markdown 格式
+                        full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
 
@@ -502,10 +519,10 @@ with tabs[3]:
 待分析經文：{user_input}
 
 請直接輸出 Markdown 表格，不要輸出 JSON。"""
-                    mode_label = "📖 經文模式"
-                else:
-                    # 模式 B Prompt（文稿分析）- 要求 Excel/Markdown 格式
-                    full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
+                        mode_label = "經文模式"
+                    else:
+                        # 模式 B Prompt（文稿分析）- 要求 Excel/Markdown 格式
+                        full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
 
@@ -555,97 +572,108 @@ with tabs[3]:
 待分析文稿：{user_input}
 
 請直接輸出 Markdown 表格，不要輸出 JSON。"""
-                    mode_label = "📝 文稿模式"
-                
-                st.session_state.combined_content = full_prompt
-                st.session_state.input_text = user_input
-                st.rerun()
-            else:
-                st.warning("請先貼上內容再點擊")
+                        mode_label = "文稿模式"
+                    
+                    # 設定狀態：標記為已合併，並儲存合併後文字
+                    st.session_state.original_text = user_input  # 保留原始文字以便清除時恢復
+                    st.session_state.combined_text = full_prompt
+                    st.session_state.is_prompt_generated = True
+                    st.rerun()
+                else:
+                    st.warning("請先貼上內容再點擊")
 
-        # 步驟 3：顯示合併後的完整指令（高度限制 300px，有捲軸）
-        if st.session_state.get('combined_content'):
+        # 步驟 2：已合併狀態下的操作按鈕（一排並列，直覺式）
+        else:
             st.divider()
-            st.success(f"✅ 已生成完整指令（{'經文模式' if '模式 A' in st.session_state.combined_content else '文稿模式'}）")
-            st.caption("💡 **點擊右上角「複製」圖示，再點下方按鈕前往 AI 平台**")
+            st.caption(f"💡 模式：{'經文' if '模式 A' in st.session_state.combined_text else '文稿'}分析｜點擊「📋 複製」後可直接去 AI 平台貼上")
             
-            # 關鍵修正：高度設為 300px，有捲軸，不佔滿畫面
-            st.code(st.session_state.combined_content, language='markdown')
+            # 將按鈕整合在同一排（直覺式操作）
+            btn_col1, btn_col2, btn_col3, btn_col4, btn_col5, btn_col6 = st.columns([1.2, 1.2, 1, 1, 0.8, 1])
             
-            # AI 平台連結（四鍵並列）
-            c1, c2, c3, c4 = st.columns(4)
+            with btn_col1:
+                # 📋 複製按鈕（使用 JS 嘗試複製，失敗則提示手動）
+                if st.button("📋 複製全部", use_container_width=True, type="primary"):
+                    text_to_copy = st.session_state.get('combined_text', '')
+                    if text_to_copy:
+                        # 使用 JSON 安全轉義
+                        safe_text = json.dumps(text_to_copy)
+                        components.html(f"""
+                        <script>
+                        (function() {{
+                            const text = {safe_text};
+                            navigator.clipboard.writeText(text).then(function() {{
+                                console.log('Copy successful');
+                            }}).catch(function(err) {{
+                                alert('自動複製失敗，請手動按 Ctrl+A 全選再 Ctrl+C');
+                            }});
+                        }})();
+                        </script>
+                        """, height=0)
+                        st.toast("📋 已嘗試複製（若失敗請手動 Ctrl+A/C）")
             
-            with c1:
-                encoded = urllib.parse.quote(st.session_state.combined_content)
-                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q= {encoded}", 
+            with btn_col2:
+                # 💬 GPT（自動傳參）
+                encoded = urllib.parse.quote(st.session_state.get('combined_text', ''))
+                st.link_button("💬 GPT", f"https://chat.openai.com/?q= {encoded}", 
                               use_container_width=True, type="primary")
             
-            with c2:
-                st.link_button("🌙 前往 Kimi", "https://kimi.com", use_container_width=True)
+            with btn_col3:
+                # 🌙 Kimi
+                st.link_button("🌙 Kimi", "https://kimi.com", use_container_width=True)
             
-            with c3:
-                st.link_button("🔍 前往 Gemini", "https://gemini.google.com", use_container_width=True)
+            with btn_col4:
+                # 🔍 Google
+                st.link_button("🔍 Google", "https://gemini.google.com", use_container_width=True)
             
-            with c4:
-                if st.button("💾 存", type="primary", use_container_width=True):
+            with btn_col5:
+                # 💾 存（簡化版：存入文字內容）
+                if st.button("💾 存", use_container_width=True):
                     try:
-                        is_json = st.session_state.combined_content.strip().startswith('{')
-                        if is_json:
-                            parsed = json.loads(st.session_state.combined_content.split('待分析')[0].strip() if '待分析' in st.session_state.combined_content else st.session_state.combined_content)
-                            ref = parsed.get('ref_no', f"R_{dt.datetime.now().strftime('%m%d%H%M')}")
-                            st.session_state.sentences[ref] = {
-                                **parsed,
-                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                            }
-                        else:
-                            ref = f"N_{dt.datetime.now().strftime('%m%d%H%M')}"
-                            st.session_state.sentences[ref] = {
-                                "ref": ref,
-                                "en": st.session_state.input_text,
-                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                            }
+                        ref = f"S_{dt.datetime.now().strftime('%m%d%H%M')}"
+                        st.session_state.sentences[ref] = {
+                            "ref": ref,
+                            "content": st.session_state.get('combined_text', ''),
+                            "original": st.session_state.get('original_text', ''),
+                            "type": "full_prompt",
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
                         save_sentences(st.session_state.sentences)
                         st.success(f"✅ 已儲存：{ref}")
-                        
-                        st.session_state.combined_content = None
-                        st.session_state.input_text = ""
-                        st.rerun()
-                        
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{str(e)}")
             
-            if st.button("↩️ 清除重來", use_container_width=True):
-                st.session_state.combined_content = None
-                st.session_state.input_text = ""
-                st.rerun()
+            with btn_col6:
+                # ↩️ 清除（恢復原始經文）
+                if st.button("↩️ 清除", use_container_width=True):
+                    st.session_state.is_prompt_generated = False
+                    # 恢復原始文字到輸入框
+                    st.session_state.combined_text = ""
+                    st.rerun()
 
-        # 步驟 4：解析貼回的資料（支援 JSON 或 Markdown 表格）
-        if user_input and not st.session_state.get('combined_content'):
-            # 如果是 Markdown 表格格式（AI 回傳的 Excel 格式）
-            if '|' in user_input and '---' in user_input:
+        # 解析貼回的資料邏輯（保留原有功能）
+        # 只有當不是「已合併狀態」且內容為特定格式時才解析
+        if not st.session_state.get('is_prompt_generated', False) and user_input:
+            # 如果是 Markdown 表格格式（AI 回傳的）
+            if '|' in user_input and '---' in user_input and not user_input.startswith("你是一位"):
                 try:
                     lines = [l.strip() for l in user_input.split('\n') if l.strip()]
                     if len(lines) >= 2 and lines[0].startswith('|'):
-                        st.success("📊 偵測到 Markdown 表格格式")
+                        st.success("📊 偵測到 Markdown 表格格式（AI 回傳結果）")
                         
-                        # 簡易解析邏輯
+                        # 簡易解析顯示
                         headers = [h.strip() for h in lines[0].split('|') if h.strip()]
                         data_rows = []
-                        
-                        for line in lines[2:]:  # 跳過標題和分隔線
+                        for line in lines[2:]:
                             if '|' in line:
                                 cells = [c.strip() for c in line.split('|') if c.strip()]
                                 if len(cells) >= 2:
                                     data_rows.append(cells)
                         
                         if data_rows:
-                            # 嘗試轉為 DataFrame 顯示
-                            import pandas as pd
                             df = pd.DataFrame(data_rows, columns=headers[:len(data_rows[0])])
                             st.dataframe(df, use_container_width=True, hide_index=True)
                             
-                            # 儲存按鈕
-                            if st.button("💾 儲存此表格", key="save_md_table"):
+                            if st.button("💾 儲存此表格", key="save_table"):
                                 ref = f"Table_{dt.datetime.now().strftime('%m%d%H%M')}"
                                 st.session_state.sentences[ref] = {
                                     "ref": ref,
@@ -656,16 +684,16 @@ with tabs[3]:
                                 save_sentences(st.session_state.sentences)
                                 st.success(f"✅ 已儲存表格：{ref}")
                 except Exception as e:
-                    st.error(f"表格解析錯誤：{e}")
+                    pass
             
-            # 原有的 JSON 解析邏輯
+            # 原有的 JSON 解析
             elif user_input.startswith("{"):
                 try:
                     parsed_data = json.loads(user_input)
                     if isinstance(parsed_data, dict) and ('ref_no' in parsed_data or 'words' in parsed_data):
                         st.success(f"📖 已解析 JSON：{parsed_data.get('ref_no', '資料')}")
                         
-                        tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words 單字表", "🔗 Phrases 片語表", "📚 Grammar 文法表"])
+                        tab_words, tab_phrases, tab_grammar = st.tabs(["📋 Words", "🔗 Phrases", "📚 Grammar"])
                         
                         with tab_words:
                             if 'words' in parsed_data and parsed_data['words']:
@@ -697,10 +725,10 @@ with tabs[3]:
                     kw = query.lower()
                     results = [
                         {"key": k, "選": False, "Ref.": v.get("ref", k),
-                         "內容": (v.get("en", "")[:50] + "...") if len(v.get("en", "")) > 50 else v.get("en", ""),
+                         "內容": (v.get("en", "")[:50] + "...") if len(v.get("en", "")) > 50 else v.get("en", v.get("content", ""))[:50],
                          "日期": v.get("date_added", "")[:10]}
                         for k, v in st.session_state.sentences.items()
-                        if kw in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')}".lower()
+                        if kw in f"{v.get('ref','')} {v.get('en','')} {v.get('zh','')} {v.get('content','')}".lower()
                     ]
                     st.session_state.search_results = results
                     if not results:
