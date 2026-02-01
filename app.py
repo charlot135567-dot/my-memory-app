@@ -445,17 +445,36 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-    # Callback 函數：產生完整指令
-    def generate_full_prompt():
-        raw_text = st.session_state.get("raw_input_temp", "").strip()
-        if not raw_text:
-            st.warning("請先貼上內容")
-            return
-        
-        mode = detect_content_mode(raw_text)
-        
-        if mode in ["json", "scripture"]:
-            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
+# Callback 函數：產生完整指令
+def generate_full_prompt():
+    raw_text = st.session_state.get("raw_input_temp", "").strip()
+    if not raw_text:
+        st.warning("請先貼上內容")
+        return
+
+    # ==============================
+    # 新增：自動判斷中英文 → 模式 A / B
+    # ==============================
+    def is_chinese_text(text: str, threshold: float = 0.2) -> bool:
+        """判斷文字是否以中文為主"""
+        if not text.strip():
+            return False
+        chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
+        total_chars = len(re.findall(r'\S', text))  # 非空白字元
+        if total_chars == 0:
+            return False
+        return (len(chinese_chars) / total_chars) >= threshold
+
+    if is_chinese_text(raw_text):
+        mode = "A"   # 中文 → 聖經經文模式
+    else:
+        mode = "B"   # 英文 → 文稿模式
+
+    # ==============================
+    # 根據模式生成 Prompt
+    # ==============================
+    if mode == "A":
+        full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
 
@@ -496,8 +515,8 @@ with tabs[3]:
 請以 **Markdown 表格格式**輸出（非 JSON），方便我貼回 Excel。
 
 待分析經文：{raw_text}"""
-        else:
-            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
+    else:
+        full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
 
@@ -516,7 +535,11 @@ with tabs[3]:
 【Grammar List】
 | Pattern | Original | Analysis | Restoration | Example |
 |---------|----------|----------|-------------|---------|
-| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |
+| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |"""
+
+    st.session_state.original_text = raw_text
+    st.session_state.main_input_value = full_prompt
+    st.session_state.is_prompt_generated = True
 
 🔹 第一步｜內容交錯 (I-V)：
 1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
