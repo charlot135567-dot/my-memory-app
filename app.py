@@ -445,36 +445,17 @@ with tabs[3]:
             return "scripture"
         return "document"
 
-# Callback 函數：產生完整指令
-def generate_full_prompt():
-    raw_text = st.session_state.get("raw_input_temp", "").strip()
-    if not raw_text:
-        st.warning("請先貼上內容")
-        return
-
-    # ==============================
-    # 新增：自動判斷中英文 → 模式 A / B
-    # ==============================
-    def is_chinese_text(text: str, threshold: float = 0.2) -> bool:
-        """判斷文字是否以中文為主"""
-        if not text.strip():
-            return False
-        chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
-        total_chars = len(re.findall(r'\S', text))  # 非空白字元
-        if total_chars == 0:
-            return False
-        return (len(chinese_chars) / total_chars) >= threshold
-
-    if is_chinese_text(raw_text):
-        mode = "A"   # 中文 → 聖經經文模式
-    else:
-        mode = "B"   # 英文 → 文稿模式
-
-    # ==============================
-    # 根據模式生成 Prompt
-    # ==============================
-    if mode == "A":
-        full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
+    # Callback 函數：產生完整指令
+    def generate_full_prompt():
+        raw_text = st.session_state.get("raw_input_temp", "").strip()
+        if not raw_text:
+            st.warning("請先貼上內容")
+            return
+        
+        mode = detect_content_mode(raw_text)
+        
+        if mode in ["json", "scripture"]:
+            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
 
@@ -489,9 +470,34 @@ def generate_full_prompt():
 | Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
 |------|--------|---------|------|-----|---------|--------|
 
+🔹 V1 Sheet 欄位要求：
+1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
+2. English (ESV)：檢索對應的 ESV 英文經文。
+3. Chinese：填入我提供的中文原文。
+4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
+5. Grammar：嚴格遵守符號化格式：1️⃣[文法邏輯解析] 2️⃣[補齊後的完整應用句] 3️⃣Ex. [中英對照聖經應用例句]
+
+🔹 V2 Sheet 欄位要求：
+1. Ref.：同 V1。
+2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
+3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
+4. Note：日文文法或語境的補充說明。
+5. KRF：檢索對應的韓文《Korean Revised Version》。
+6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
+7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
+
+⚠️ 自動推斷書卷（若只有數字如31:6）：
+• "可以把濃酒" → Pro
+• "才德的婦人" → Prov • "太初有道" → John • "起初神創造" → Gen
+• "虛心的人有福" → Matt • "愛是恆久忍耐" → 1Co
+
+標準縮寫：Gen,Exo,Lev,Num,Deu,Jos,Jdg,Rut,1Sa,2Sa,1Ki,2Ki,1Ch,2Ch,Ezr,Neh,Est,Job,Psa,Pro,Ecc,Son,Isa,Jer,Lam,Eze,Dan,Hos,Joe,Amo,Oba,Jon,Mic,Nah,Hab,Zep,Hag,Zec,Mal,Mat,Mar,Luk,Joh,Act,Rom,1Co,2Co,Gal,Eph,Phi,Col,1Th,2Th,1Ti,2Ti,Tit,Phm,Heb,Jam,1Pe,2Pe,1Jo,2Jo,3Jo,Jud,Rev
+
+請以 **Markdown 表格格式**輸出（非 JSON），方便我貼回 Excel。
+
 待分析經文：{raw_text}"""
-    else:
-        full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
+        else:
+            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
 
@@ -510,7 +516,7 @@ def generate_full_prompt():
 【Grammar List】
 | Pattern | Original | Analysis | Restoration | Example |
 |---------|----------|----------|-------------|---------|
-| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |"""
+| 倒裝句 | Not only did he... | 1️⃣[Not only 前置形成部分倒裝] 2️⃣[He not only did...] 3️⃣Ex. [Not only will I guide you...] |
 
 🔹 第一步｜內容交錯 (I-V)：
 1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
@@ -533,12 +539,11 @@ def generate_full_prompt():
 
 請以 **Markdown 表格格式**輸出（非 JSON）。
 
-    # ==============================
-    # 更新 session_state
-    # ==============================
-    st.session_state.original_text = raw_text
-    st.session_state.main_input_value = full_prompt
-    st.session_state.is_prompt_generated = True
+待分析文稿：{raw_text}"""
+        
+        st.session_state.original_text = raw_text
+        st.session_state.main_input_value = full_prompt
+        st.session_state.is_prompt_generated = True
 
 # ---------- 📝 經文輸入與分析 ----------
 with st.expander("📝 經文輸入與AI分析", expanded=True):
