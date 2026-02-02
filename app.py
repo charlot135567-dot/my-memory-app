@@ -377,81 +377,11 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
         
 # ===================================================================
-# 6. TAB4 ─AI 控制台 + Notion Database 整合
+# 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv
     from io import StringIO
-
-    # ---------- Notion API 設定 ----------
-    NOTION_TOKEN = st.secrets.get("NOTION_TOKEN", "")  # 建議放在 secrets.toml
-    DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"  # 你的 Database ID
-    
-    # 如果沒有 secrets，允許手動輸入（開發用）
-    if not NOTION_TOKEN:
-        with st.expander("🔑 Notion API 設定（未找到 Secrets）"):
-            NOTION_TOKEN = st.text_input("Notion Integration Token", type="password")
-            st.info("建議將 Token 放在 .streamlit/secrets.toml 中：\n\n[notion]\ntoken = \"secret_xxx\"")
-
-    def save_to_notion(data_dict):
-        """儲存資料到 Notion Database"""
-        if not NOTION_TOKEN:
-            return False, "未設定 Notion Token"
-        
-        url = "https://api.notion.com/v1/pages"
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28"
-        }
-        
-        # 根據你的 Database 欄位結構對應
-        # 請確認以下欄位名稱與你的 Database 完全一致
-        properties = {
-            "Content": {
-                "title": [{"text": {"content": data_dict.get("original", "")[:2000]}}]  # Notion title 限制
-            },
-            "Translation": {
-                "rich_text": [{"text": {"content": data_dict.get("prompt", "")[:2000]}}]
-            },
-            "Ref_No": {
-                "rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]
-            },
-            "Source_Mode": {
-                "select": {"name": data_dict.get("mode", "Unknown")}
-            },
-            "Type": {
-                "select": {"name": data_dict.get("type", "Scripture")}  # 或 "Document"
-            },
-            "Correct_Streak": {"number": 0},
-            "Mistake_Count": {"number": 0},
-            "Hardcore_Flag": {"checkbox": False},
-            "Date_Added": {
-                "date": {"start": dt.datetime.now().isoformat()}
-            }
-        }
-        
-        payload = {
-            "parent": {"database_id": DATABASE_ID},
-            "properties": properties
-        }
-        
-        try:
-            response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                return True, response.json().get("id", "Success")
-            else:
-                return False, f"Error {response.status_code}: {response.text}"
-        except Exception as e:
-            return False, str(e)
-
-    def batch_sync_to_notion(items_list):
-        """批次同步多筆資料到 Notion"""
-        results = []
-        for item in items_list:
-            success, msg = save_to_notion(item)
-            results.append({"success": success, "message": msg, "ref": item.get("ref", "")})
-        return results
 
     # ---------- 背景圖片（使用 Sidebar 選擇的圖片）----------
     try:
@@ -478,7 +408,7 @@ with tabs[3]:
     except:
         pass
 
-    # ---------- 資料庫持久化（本地備援）----------
+    # ---------- 資料庫持久化 ----------
     SENTENCES_FILE = "sentences.json"
 
     def load_sentences():
@@ -507,17 +437,16 @@ with tabs[3]:
         st.session_state.original_text = ""
     if 'content_mode' not in st.session_state:
         st.session_state.content_mode = ""
-    # 新增：獨立儲存 raw_input 的值，避免被清除
-    if 'raw_input_value' not in st.session_state:
-        st.session_state.raw_input_value = ""
 
-    # 1. 智能偵測內容類型
+    # 1. 智能偵測內容類型 (修正版：改用語言區分)
     def detect_content_mode(text):
         text = text.strip()
         if not text:
             return "document"
-        if text.startswith("{"):
+        if text.startswith("{"): # 保留 JSON 偵測
             return "json"
+        
+        # 偵測是否含有中文字元
         has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
         return "scripture" if has_chinese else "document"
 
@@ -528,13 +457,11 @@ with tabs[3]:
             st.warning("請先貼上內容")
             return
         
-        # 儲存原始輸入到獨立的 session_state
-        st.session_state.raw_input_value = raw_text
-        
         mode = detect_content_mode(raw_text)
         
+        # 根據偵測結果決定 Prompt 內容
         if mode in ["json", "scripture"]:
-            # 模式 A：聖經經文分析
+            # 模式 A：聖經經文分析 (包含中文時)
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
@@ -578,7 +505,7 @@ with tabs[3]:
 待分析經文：{raw_text}"""
             st.session_state.content_mode = "A"
         else:
-            # 模式 B：英文文稿分析
+            # 模式 B：英文文稿分析（僅修改此處 Grammar List 要求）
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授.
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
@@ -643,11 +570,10 @@ with tabs[3]:
         if not st.session_state.get('is_prompt_generated', False):
             st.caption("步驟 1：貼上經文或文稿後，點擊下方按鈕生成完整指令")
             
-            # 使用 session_state 的值來初始化，確保清除時能正確重置
             raw_input = st.text_area(
                 "原始輸入",
                 height=200,
-                value=st.session_state.get('raw_input_value', ''),
+                value=st.session_state.get('original_text', ''),
                 placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
                 label_visibility="collapsed",
                 key="raw_input_temp"
@@ -666,16 +592,6 @@ with tabs[3]:
                 f"步驟 2：已生成 "
                 f"{'經文' if st.session_state.content_mode=='A' else '文稿'}分析指令"
             )
-            
-            # 顯示原始輸入（唯讀）
-            with st.expander("📋 原始輸入內容", expanded=False):
-                st.text_area(
-                    "原始內容",
-                    value=st.session_state.get('original_text', ''),
-                    height=150,
-                    disabled=True,
-                    label_visibility="collapsed"
-                )
             
             components.html(
                 f"""
@@ -699,22 +615,21 @@ with tabs[3]:
 
             st.divider()
             
-            # 儲存按鈕列
+            # 一排按鈕
             btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns([1.2, 1, 1, 0.8, 0.8])
             
             with btn_col1:
                 encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
-                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="primary")
+                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q=   {encoded}", use_container_width=True, type="primary")
             
             with btn_col2:
-                st.link_button("🌙 Kimi", "https://kimi.com", use_container_width=True)
+                st.link_button("🌙 Kimi", "https://kimi.com   ", use_container_width=True)
             
             with btn_col3:
-                st.link_button("🔍 Gemini", "https://gemini.google.com", use_container_width=True)
+                st.link_button("🔍 Google", "https://gemini.google.com   ", use_container_width=True)
             
             with btn_col4:
-                # 本地儲存按鈕
-                if st.button("💾 存本地", use_container_width=True):
+                if st.button("💾 存", use_container_width=True):
                     try:
                         ref = f"S_{dt.datetime.now().strftime('%m%d%H%M')}"
                         st.session_state.sentences[ref] = {
@@ -725,97 +640,17 @@ with tabs[3]:
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                         save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已儲存本地：{ref}")
+                        st.success(f"✅ 已儲存：{ref}")
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{str(e)}")
             
             with btn_col5:
-                # 修正：正確清除所有相關狀態
                 if st.button("↩️ 清除", use_container_width=True):
-                    # 清除所有相關的 session_state
-                    keys_to_clear = [
-                        'is_prompt_generated',
-                        'main_input_value', 
-                        'original_text',
-                        'content_mode',
-                        'raw_input_value',
-                        'raw_input_temp'  # text_area 的 key
-                    ]
-                    for key in keys_to_clear:
-                        if key in st.session_state:
-                            del st.session_state[key]
+                    st.session_state.is_prompt_generated = False
                     st.rerun()
-            
-            # Notion 儲存區塊（獨立顯示）
-            st.divider()
-            st.subheader("☁️ 儲存到 Notion Database")
-            
-            notion_cols = st.columns([2, 1, 1])
-            with notion_cols[0]:
-                ref_input = st.text_input(
-                    "參考編號 (Ref_No)", 
-                    value=f"REF_{dt.datetime.now().strftime('%m%d%H%M')}",
-                    placeholder="例：Pro 31:6 或 Sermon_001"
-                )
-            with notion_cols[1]:
-                type_select = st.selectbox(
-                    "類型",
-                    ["Scripture", "Document", "Vocabulary", "Grammar", "Sermon"],
-                    index=0 if st.session_state.content_mode == "A" else 1
-                )
-            with notion_cols[2]:
-                st.write("")
-                st.write("")
-                if st.button("🚀 存到 Notion", use_container_width=True, type="primary"):
-                    if not NOTION_TOKEN:
-                        st.error("請先設定 Notion Token！")
-                    else:
-                        data_to_save = {
-                            "original": st.session_state.get('original_text', ''),
-                            "prompt": st.session_state.get('main_input_value', ''),
-                            "ref": ref_input,
-                            "mode": f"Mode {st.session_state.content_mode}",
-                            "type": type_select
-                        }
-                        success, msg = save_to_notion(data_to_save)
-                        if success:
-                            st.success(f"✅ 已同步到 Notion！Page ID: {msg[:8]}...")
-                        else:
-                            st.error(f"❌ 同步失敗：{msg}")
 
-    # ---------- 🔍 資料搜尋與管理 + Notion 同步 ----------
+    # ---------- 🔍 資料搜尋與管理（保持完整） ----------
     with st.expander("🔍 資料搜尋與管理", expanded=False):
-        
-        # Notion 批次同步區塊
-        if NOTION_TOKEN:
-            with st.container():
-                st.subheader("☁️ 批次同步到 Notion")
-                if st.button("🔄 將所有本地資料同步到 Notion", use_container_width=True):
-                    items_to_sync = []
-                    for k, v in st.session_state.sentences.items():
-                        items_to_sync.append({
-                            "original": v.get("original", ""),
-                            "prompt": v.get("content", ""),
-                            "ref": v.get("ref", k),
-                            "mode": "Mode A" if "scripture" in v.get("type", "").lower() else "Mode B",
-                            "type": v.get("type", "Scripture")
-                        })
-                    
-                    if items_to_sync:
-                        with st.spinner(f"正在同步 {len(items_to_sync)} 筆資料到 Notion..."):
-                            results = batch_sync_to_notion(items_to_sync)
-                            success_count = sum(1 for r in results if r["success"])
-                            st.success(f"✅ 成功：{success_count}/{len(items_to_sync)} 筆")
-                            if success_count < len(items_to_sync):
-                                failed = [r for r in results if not r["success"]]
-                                with st.expander("查看失敗項目"):
-                                    for f in failed[:5]:  # 只顯示前5個
-                                        st.write(f"• {f['ref']}: {f['message']}")
-                    else:
-                        st.info("沒有待同步的本地資料")
-                st.divider()
-        
-        # 搜尋功能
         search_col, btn_col = st.columns([3, 1])
         with search_col:
             query = st.text_input("搜尋 Ref. 或關鍵字", key="search_box", placeholder="例：2Ti 3:10 或 love")
@@ -874,23 +709,16 @@ with tabs[3]:
                 if i < len(st.session_state.search_results):
                     st.session_state.search_results[i]["選"] = row["選"]
 
-    # ---------- 底部統計 ----------
+    # ---------- 底部統計（保持完整） ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
-    notion_status = "✅ 已連線" if NOTION_TOKEN else "❌ 未設定"
-    
-    stats_cols = st.columns([1, 1, 2])
-    with stats_cols[0]:
-        st.caption(f"💾 本地資料庫：{total_count} 筆")
-    with stats_cols[1]:
-        st.caption(f"☁️ Notion：{notion_status}")
-    with stats_cols[2]:
-        if st.session_state.get('sentences', {}):
-            json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
-            st.download_button(
-                "⬇️ 備份 JSON",
-                json_str,
-                file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
-                mime="application/json",
-                use_container_width=True
-            )
+    st.caption(f"💾 資料庫：{total_count} 筆")
+    if st.session_state.get('sentences', {}):
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
+        st.download_button(
+            "⬇️ 備份 JSON",
+            json_str,
+            file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
