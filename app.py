@@ -482,7 +482,7 @@ with tabs[3]:
             st.session_state.content_mode = "A"
         
         else:
-            # 模式 B：英文文稿分析
+            # 模式 B：英文文稿分析（僅修改此處 Grammar List 要求）
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
@@ -498,6 +498,41 @@ with tabs[3]:
 | Paragraph | English Refinement | 中英夾雜講章 |
 |-----------|-------------------|--------------|
 | 1 | We need to be steadfast... | 我們需要 (**steadfast**) ... |
+
+【Grammar List - 重點要求：6 句 × 每句 3-6 解析】
+| No | Original Sentence (from text) | Grammar Rule | Analysis & Example (1️⃣2️⃣3️⃣...6️⃣) |
+|----|------------------------------|--------------|-----------------------------------|
+| 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[句構辨識]...<br>2️⃣[結構還原]...<br>3️⃣[語義分析]...<br>4️⃣[聖經例句]... |
+| ... | ... | ... | ... |
+| 6 | [文稿中的第6個精選句] | [文法規則名稱] | 1️⃣...<br>2️⃣...<br>3️⃣...<br>4️⃣...<br>5️⃣...<br>6️⃣... |
+
+🔹 Grammar List 詳細規範：
+1. **選句標準**：從文稿中精選 6 個**最具教學價值**的句子（優先選擇包含倒裝、省略、分詞構句、複合句、特殊語序、修辭手法的句子）
+2. **解析深度**：每句必須提供 **3-6 個文法解析點**（使用 1️⃣2️⃣3️⃣... 標記）
+   - 1️⃣ **句構/語法現象辨識**：說明此句使用了什麼特殊文法（如：倒裝、省略、分詞構句、關係子句等）
+   - 2️⃣ **結構還原/邏輯解析**：將特殊結構還原為標準語序，或解析邏輯關係（如：由「小」入「大」的遞進邏輯）
+   - 3️⃣ **語義/語用分析**：探討此結構在語境中的特殊含義或修辭效果
+   - 4️⃣ **詞法/搭配分析**（可選）：重要單字或片語的用法說明
+   - 5️⃣ **比較/對照**（可選）：與相似結構或錯誤用法的比較
+   - 6️⃣ **中英對照聖經應用例句**（必須）：提供聖經中**相同文法結構**的經文佐證（含英文與中文）
+3. **格式嚴格遵守**：每個解析點必須以「數字 emoji + [標題] + 內容」呈現，換行使用 `<br>` 或維持在同一儲存格內
+
+🔹 第一步｜內容交錯 (I-V)：
+1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
+2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照。
+3. 上面☝️1&2的關鍵並重要英文術語嵌入中文括框要"加粗体"，如：我們需要保持忠心 (**steadfast**)。
+4. 排版：大綱標題與內容間須有空行。
+
+🔹 第二步｜語言素材：
+1. Vocabulary (20個) & Phrases (15個): 
+    高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
+    翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
+
+2. Grammar List (共 6 句，每句 3-6 解析)：如上表規範，嚴格遵守 1️⃣2️⃣3️⃣Ex. 格式。
+
+注意！！單字/片語/同反義詞的挑選規則：嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
+
+請以 **Markdown 表格格式**輸出（非 JSON）。
 
 待分析文稿：{raw_text}"""
             st.session_state.content_mode = "B"
@@ -562,13 +597,13 @@ with tabs[3]:
             
             with btn_col1:
                 encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
-                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q={encoded}", use_container_width=True, type="primary")
+                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q= {encoded}", use_container_width=True, type="primary")
             
             with btn_col2:
-                st.link_button("🌙 Kimi", "https://kimi.com", use_container_width=True)
+                st.link_button("🌙 Kimi", "https://kimi.com ", use_container_width=True)
             
             with btn_col3:
-                st.link_button("🔍 Google", "https://gemini.google.com", use_container_width=True)
+                st.link_button("🔍 Google", "https://gemini.google.com ", use_container_width=True)
             
             with btn_col4:
                 if st.button("💾 存", use_container_width=True):
