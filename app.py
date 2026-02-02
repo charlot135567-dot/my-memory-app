@@ -478,10 +478,35 @@ with tabs[3]:
 | Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
 |------|--------|---------|------|-----|---------|--------|
 
+🔹 V1 Sheet 欄位要求：
+1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
+2. English (ESV)：檢索對應的 ESV 英文經文。
+3. Chinese：填入我提供的中文原文。
+4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
+5. Grammar：嚴格遵守符號化格式：1️⃣[文法邏輯解析] 2️⃣[補齊後的完整應用句] 3️⃣Ex. [中英對照聖經應用例句]
+
+🔹 V2 Sheet 欄位要求：
+1. Ref.：同 V1。
+2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
+3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
+4. Note：日文文法或語境的補充說明。
+5. KRF：檢索對應的韓文《Korean Revised Version》。
+6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
+7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
+
+⚠️ 自動推斷書卷（若只有數字如31:6）：
+• "可以把濃酒" → Pro
+• "才德的婦人" → Prov • "太初有道" → John • "起初神創造" → Gen
+• "虛心的人有福" → Matt • "愛是恆久忍耐" → 1Co
+
+標準縮寫：Gen,Exo,Lev,Num,Deu,Jos,Jdg,Rut,1Sa,2Sa,1Ki,2Ki,1Ch,2Ch,Ezr,Neh,Est,Job,Psa,Pro,Ecc,Son,Isa,Jer,Lam,Eze,Dan,Hos,Joe,Amo,Oba,Jon,Mic,Nah,Hab,Zep,Hag,Zec,Mal,Mat,Mar,Luk,Joh,Act,Rom,1Co,2Co,Gal,Eph,Phi,Col,1Th,2Th,1Ti,2Ti,Tit,Phm,Heb,Jam,1Pe,2Pe,1Jo,2Jo,3Jo,Jud,Rev
+
+請以 **Markdown 表格格式**輸出（非 JSON），方便我貼回 Excel。
+
 待分析經文：{raw_text}"""
-            st.session_state.content_mode = "A"
-        
         else:
+            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
+            
             # 模式 B：英文文稿分析（僅修改此處 Grammar List 要求）
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
 
