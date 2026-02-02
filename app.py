@@ -376,7 +376,6 @@ with tabs[2]:
     with col_deco:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
         
-        
 # ===================================================================
 # 6. TAB4 ─AI 控制台 Sidebar背景圖挑選＋K2/Google prompt＋完整版AI prompts
 # ===================================================================
@@ -479,20 +478,20 @@ with tabs[3]:
 |------|--------|---------|------|-----|---------|--------|
 
 🔹 V1 Sheet 欄位要求：
-1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen)。
-2. English (ESV)：檢索對應的 ESV 英文經文。
-3. Chinese：填入我提供的中文原文。
-4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出。
+1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen).
+2. English (ESV)：檢索對應的 ESV 英文經文.
+3. Chinese：填入我提供的中文原文.
+4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出.
 5. Grammar：嚴格遵守符號化格式：1️⃣[文法邏輯解析] 2️⃣[補齊後的完整應用句] 3️⃣Ex. [中英對照聖經應用例句]
 
 🔹 V2 Sheet 欄位要求：
-1. Ref.：同 V1。
-2. 口語訳：檢索對應的日本《口語訳聖經》(1955)。
-3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）。
-4. Note：日文文法或語境的補充說明。
-5. KRF：檢索對應的韓文《Korean Revised Version》。
-6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）。
-7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》。
+1. Ref.：同 V1.
+2. 口語訳：檢索對應的日本《口語訳聖經》(1955).
+3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）.
+4. Note：日文文法或語境的補充說明.
+5. KRF：檢索對應的韓文《Korean Revised Version》.
+6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
+7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》.
 
 ⚠️ 自動推斷書卷（若只有數字如31:6）：
 • "可以把濃酒" → Pro
@@ -501,14 +500,13 @@ with tabs[3]:
 
 標準縮寫：Gen,Exo,Lev,Num,Deu,Jos,Jdg,Rut,1Sa,2Sa,1Ki,2Ki,1Ch,2Ch,Ezr,Neh,Est,Job,Psa,Pro,Ecc,Son,Isa,Jer,Lam,Eze,Dan,Hos,Joe,Amo,Oba,Jon,Mic,Nah,Hab,Zep,Hag,Zec,Mal,Mat,Mar,Luk,Joh,Act,Rom,1Co,2Co,Gal,Eph,Phi,Col,1Th,2Th,1Ti,2Ti,Tit,Phm,Heb,Jam,1Pe,2Pe,1Jo,2Jo,3Jo,Jud,Rev
 
-請以 **Markdown 表格格式**輸出（非 JSON），方便我貼回 Excel。
+請以 **Markdown 表格格式**輸出（非 JSON），方便我貼回 Excel.
 
 待分析經文：{raw_text}"""
+            st.session_state.content_mode = "A"
         else:
-            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
-            
             # 模式 B：英文文稿分析（僅修改此處 Grammar List 要求）
-            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。
+            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授.
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
 
@@ -543,21 +541,21 @@ with tabs[3]:
 3. **格式嚴格遵守**：每個解析點必須以「數字 emoji + [標題] + 內容」呈現，換行使用 `<br>` 或維持在同一儲存格內
 
 🔹 第一步｜內容交錯 (I-V)：
-1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度。
-2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照。
-3. 上面☝️1&2的關鍵並重要英文術語嵌入中文括框要"加粗体"，如：我們需要保持忠心 (**steadfast**)。
-4. 排版：大綱標題與內容間須有空行。
+1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度.
+2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照.
+3. 上面☝️1&2的關鍵並重要英文術語嵌入中文括框要"加粗体"，如：我們需要保持忠心 (**steadfast**).
+4. 排版：大綱標題與內容間須有空行.
 
 🔹 第二步｜語言素材：
 1. Vocabulary (20個) & Phrases (15個): 
-    高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句。
-    翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯。
+    高級/中高級字詞＋片語；含中譯、含中譯之同反義詞、中英對照聖經完整例句.
+    翻譯請完全對照聖經裡的經文，禁止自己亂翻，聖經沒時才按邏輯翻譯.
 
-2. Grammar List (共 6 句，每句 3-6 解析)：如上表規範，嚴格遵守 1️⃣2️⃣3️⃣Ex. 格式。
+2. Grammar List (共 6 句，每句 3-6 解析)：如上表規範，嚴格遵守 1️⃣2️⃣3️⃣Ex. 格式.
 
 注意！！單字/片語/同反義詞的挑選規則：嚴格執行優先挑選高級單字-》中高級-》中級-》最後才其他
 
-請以 **Markdown 表格格式**輸出（非 JSON）。
+請以 **Markdown 表格格式**輸出（非 JSON）.
 
 待分析文稿：{raw_text}"""
             st.session_state.content_mode = "B"
@@ -622,13 +620,13 @@ with tabs[3]:
             
             with btn_col1:
                 encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
-                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q= {encoded}", use_container_width=True, type="primary")
+                st.link_button("💬 GPT（自動）", f"https://chat.openai.com/?q=   {encoded}", use_container_width=True, type="primary")
             
             with btn_col2:
-                st.link_button("🌙 Kimi", "https://kimi.com ", use_container_width=True)
+                st.link_button("🌙 Kimi", "https://kimi.com   ", use_container_width=True)
             
             with btn_col3:
-                st.link_button("🔍 Google", "https://gemini.google.com ", use_container_width=True)
+                st.link_button("🔍 Google", "https://gemini.google.com   ", use_container_width=True)
             
             with btn_col4:
                 if st.button("💾 存", use_container_width=True):
