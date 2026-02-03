@@ -542,7 +542,7 @@ with tabs[3]:
 
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
-【W Sheet - 字詞表】
+【W Sheet - 重點要求：取高級/中高級單字15個/片語15個】
 | No | Word/Phrase | Level | Chinese | Synonym | Antonym | Bible Example |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast | 高級 | 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
