@@ -377,7 +377,7 @@ with tabs[2]:
         st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
         
 # ===================================================================
-# 6. TAB4 ─AI 控制台 + Notion Database 整合（修正版）
+# 6. TAB4 ─AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
@@ -404,12 +404,26 @@ with tabs[3]:
             "Notion-Version": "2022-06-28"
         }
         
+        # 合併所有工作表內容
+        full_content = f"""【原始經文/文稿】
+{data_dict.get('original', '')}
+
+【V1 Sheet】
+{data_dict.get('v1_content', '未貼上')}
+
+【V2 Sheet】
+{data_dict.get('v2_content', '未貼上')}
+
+【其他工作表】
+{data_dict.get('other_sheets', '無')}
+"""
+        
         properties = {
             "Content": {
-                "title": [{"text": {"content": data_dict.get("original", "")[:2000]}}]
+                "title": [{"text": {"content": data_dict.get('original', '')[:100] + "..."}}]
             },
             "Translation": {
-                "rich_text": [{"text": {"content": data_dict.get("ai_result", data_dict.get("prompt", ""))[:2000]}}]
+                "rich_text": [{"text": {"content": full_content[:2000]}}]  # Notion 限制
             },
             "Ref_No": {
                 "rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]
@@ -458,7 +472,7 @@ with tabs[3]:
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # 初始化 session_state
+    # 初始化 session_state（新增多工作表儲存）
     defaults = {
         'sentences': load_sentences(),
         'search_results': [],
@@ -467,8 +481,17 @@ with tabs[3]:
         'original_text': "",
         'content_mode': "",
         'raw_input_value': "",
-        'ai_result': "",  # 新增：儲存 AI 分析結果
-        'ref_number': ""
+        'ref_number': "",
+        # 新增：支援多工作表暫存
+        'current_entry': {
+            'v1': '',
+            'v2': '',
+            'w_sheet': '',
+            'p_sheet': '',
+            'grammar_list': '',
+            'other': ''
+        },
+        'saved_entries': []  # 顯示已暫存的工作表
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -542,7 +565,7 @@ with tabs[3]:
 
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
-【W Sheet - 重點要求：取高級/中高級單字15個/片語15個】
+【W Sheet - 字詞表】
 | No | Word/Phrase | Level | Chinese | Synonym | Antonym | Bible Example |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast | 高級 | 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
@@ -556,17 +579,10 @@ with tabs[3]:
 | No | Original Sentence (from text) | Grammar Rule | Analysis & Example (1️⃣2️⃣3️⃣...6️⃣) |
 |----|------------------------------|--------------|-----------------------------------|
 | 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[句構辨識]...<br>2️⃣[結構還原]...<br>3️⃣[語義分析]...<br>4️⃣[聖經例句]... |
-| ... | ... | ... | ... |
-| 6 | [文稿中的第6個精選句] | [文法規則名稱] | 1️⃣...<br>2️⃣...<br>3️⃣...<br>4️⃣...<br>5️⃣...<br>6️⃣... |
 
 🔹 Grammar List 詳細規範：
-1. **選句標準**：從文稿中精選 6 個**最具教學價值**的句子（優先選擇包含倒裝、省略、分詞構句、複合句、特殊語序、修辭手法的句子）
-2. **解析深度**：每句必須提供 **3-6 個文法解析點**（使用 1️⃣2️⃣3️⃣... 標記）
-3. **格式嚴格遵守**：每個解析點必須以「數字 emoji + [標題] + 內容」呈現
-
-🔹 第一步｜內容交錯 (I-V)：
-1. 純英文段落：修復句式＋講員語氣＋確保神學用詞精確優雅但不用艱深的字加重閱讀難度.
-2. 中英夾雜段落：要完整的中文敘述，並對應的高級及中高級英文詞彙與片語嵌入括號中對照.
+1. **選句標準**：從文稿中精選 6 個**最具教學價值**的句子
+2. **解析深度**：每句必須提供 **3-6 個文法解析點**
 
 請以 **Markdown 表格格式**輸出（非 JSON）.
 
@@ -576,13 +592,18 @@ with tabs[3]:
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
-        # 自動生成預設 Ref 編號
         st.session_state.ref_number = f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+        # 重置工作表暫存
+        st.session_state.current_entry = {
+            'v1': '', 'v2': '', 'w_sheet': '', 
+            'p_sheet': '', 'grammar_list': '', 'other': ''
+        }
+        st.session_state.saved_entries = []
 
     # ---------- 📝 主要功能區 ----------
     st.header("📝 AI 分析工作流程")
     
-    # === STEP 1: 輸入區（始終顯示）===
+    # === STEP 1: 輸入區 ===
     with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
         raw_input = st.text_area(
             "原始輸入",
@@ -594,20 +615,15 @@ with tabs[3]:
         )
         
         if not st.session_state.is_prompt_generated:
-            if st.button(
-                "⚡ 產生完整分析指令",
-                use_container_width=True,
-                type="primary"
-            ):
+            if st.button("⚡ 產生完整分析指令", use_container_width=True, type="primary"):
                 generate_full_prompt()
                 st.rerun()
 
     # === STEP 2: Prompt 產生後顯示 ===
     if st.session_state.is_prompt_generated:
-        with st.expander("步驟 2：複製 Prompt 到 AI", expanded=True):
+        with st.expander("步驟 2：複製 Prompt 到 AI", expanded=False):
             st.caption("複製以下內容，貼到 GPT/Kimi/Gemini 進行分析")
             
-            # 顯示 Prompt
             components.html(
                 f"""
                 <textarea
@@ -629,7 +645,6 @@ with tabs[3]:
                 height=280
             )
             
-            # AI 連結按鈕
             cols = st.columns(3)
             with cols[0]:
                 encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
@@ -639,24 +654,69 @@ with tabs[3]:
             with cols[2]:
                 st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
 
-        # === STEP 3: AI 結果回貼區（關鍵修正！）===
-        with st.expander("步驟 3：貼上 AI 分析結果", expanded=True):
-            st.caption("將 AI 產生的 Markdown 表格貼到這裡")
+        # === STEP 3: 多工作表收集區（關鍵修正！）===
+        with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
+            st.info("💡 可以分批貼上 V1、V2、W Sheet、P Sheet 等，貼好一個存一個，最後統一儲存")
             
-            ai_result = st.text_area(
-                "AI 分析結果",
-                height=300,
-                value=st.session_state.get('ai_result', ''),
-                placeholder="請貼上 AI 回傳的 Markdown 表格...\n\n例如：\n| Ref. | English (ESV) | Chinese | ... |\n|------|---------------|---------|-----|\n| Pro 31:6 | Give strong drink... | 可以把濃酒... | ... |",
-                key="ai_result_input"
+            # 根據模式顯示對應的工作表選項
+            if st.session_state.content_mode == "A":
+                sheet_options = ["V1 Sheet", "V2 Sheet", "其他補充"]
+            else:
+                sheet_options = ["W Sheet", "P Sheet", "Grammar List", "其他補充"]
+            
+            selected_sheet = st.selectbox("選擇要貼上的工作表", sheet_options)
+            
+            # 輸入區
+            sheet_content = st.text_area(
+                f"貼上 {selected_sheet} 內容",
+                height=200,
+                key=f"input_{selected_sheet.replace(' ', '_')}"
             )
             
-            # 更新 session_state
-            if ai_result != st.session_state.get('ai_result', ''):
-                st.session_state.ai_result = ai_result
+            # 暫存按鈕
+            col_temp, col_view = st.columns([1, 3])
+            with col_temp:
+                if st.button("➕ 暫存此工作表", use_container_width=True):
+                    key_map = {
+                        "V1 Sheet": "v1",
+                        "V2 Sheet": "v2", 
+                        "W Sheet": "w_sheet",
+                        "P Sheet": "p_sheet",
+                        "Grammar List": "grammar_list",
+                        "其他補充": "other"
+                    }
+                    key = key_map.get(selected_sheet, 'other')
+                    st.session_state.current_entry[key] = sheet_content
+                    if selected_sheet not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append(selected_sheet)
+                    st.success(f"✅ {selected_sheet} 已暫存！")
+                    st.rerun()
+            
+            with col_view:
+                # 顯示已暫存的工作表
+                if st.session_state.saved_entries:
+                    st.write("📋 已暫存：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
+            
+            # 預覽已暫存的內容
+            if st.session_state.saved_entries:
+                with st.expander("👁️ 預覽已暫存的內容"):
+                    for sheet in st.session_state.saved_entries:
+                        key_map = {
+                            "V1 Sheet": "v1", "V2 Sheet": "v2",
+                            "W Sheet": "w_sheet", "P Sheet": "p_sheet",
+                            "Grammar List": "grammar_list", "其他補充": "other"
+                        }
+                        key = key_map.get(sheet, 'other')
+                        content = st.session_state.current_entry.get(key, '')
+                        if content:
+                            st.write(f"**{sheet}：**")
+                            st.code(content[:200] + "..." if len(content) > 200 else content)
 
+        # === STEP 4: 統一儲存區 ===
+        with st.expander("步驟 4：儲存到資料庫", expanded=True):
+            st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
+            
             # 儲存設定
-            st.divider()
             save_cols = st.columns([2, 1, 1])
             with save_cols[0]:
                 ref_input = st.text_input(
@@ -671,67 +731,268 @@ with tabs[3]:
                     index=0 if st.session_state.content_mode == "A" else 1,
                     key="type_select"
                 )
-            with save_cols[2]:
-                st.write("")
-                st.write("")
-                save_local = st.button("💾 存到本地", use_container_width=True)
             
-            # Notion 儲存（獨立按鈕）
-            if NOTION_TOKEN:
-                if st.button("🚀 存到 Notion Database", use_container_width=True, type="primary"):
-                    if not st.session_state.ai_result.strip():
-                        st.error("請先貼上 AI 分析結果！")
+            # 儲存按鈕列
+            btn_cols = st.columns(3)
+            
+            with btn_cols[0]:
+                # 存到本地
+                if st.button("💾 存到本地 JSON", use_container_width=True):
+                    if not st.session_state.saved_entries:
+                        st.error("請先至少暫存一個工作表！")
                     else:
-                        data_to_save = {
-                            "original": st.session_state.original_text,
-                            "prompt": st.session_state.main_input_value,
-                            "ai_result": st.session_state.ai_result,
-                            "ref": ref_input or st.session_state.ref_number,
-                            "mode": f"Mode {st.session_state.content_mode}",
-                            "type": type_select
-                        }
-                        success, msg = save_to_notion(data_to_save)
-                        if success:
-                            st.success(f"✅ 已同步到 Notion！Page ID: {msg[:8]}...")
-                        else:
-                            st.error(f"❌ 同步失敗：{msg}")
-            else:
-                st.info("設定 Notion Token 後可同步到雲端資料庫")
+                        try:
+                            ref = ref_input or st.session_state.ref_number
+                            # 合併所有內容
+                            full_data = {
+                                "ref": ref,
+                                "original": st.session_state.original_text,
+                                "prompt": st.session_state.main_input_value,
+                                "v1_content": st.session_state.current_entry['v1'],
+                                "v2_content": st.session_state.current_entry['v2'],
+                                "w_sheet": st.session_state.current_entry['w_sheet'],
+                                "p_sheet": st.session_state.current_entry['p_sheet'],
+                                "grammar_list": st.session_state.current_entry['grammar_list'],
+                                "other": st.session_state.current_entry['other'],
+                                "saved_sheets": st.session_state.saved_entries,
+                                "type": type_select,
+                                "mode": st.session_state.content_mode,
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                            st.session_state.sentences[ref] = full_data
+                            save_sentences(st.session_state.sentences)
+                            st.success(f"✅ 已儲存本地：{ref}")
+                            st.balloons()
+                        except Exception as e:
+                            st.error(f"❌ 儲存失敗：{str(e)}")
             
-            # 本地儲存邏輯
-            if save_local:
-                if not st.session_state.ai_result.strip():
-                    st.error("請先貼上 AI 分析結果！")
+            with btn_cols[1]:
+                # 存到 Notion
+                if NOTION_TOKEN:
+                    if st.button("🚀 存到 Notion", use_container_width=True, type="primary"):
+                        if not st.session_state.saved_entries:
+                            st.error("請先至少暫存一個工作表！")
+                        else:
+                            data_to_save = {
+                                "original": st.session_state.original_text,
+                                "prompt": st.session_state.main_input_value,
+                                "v1_content": st.session_state.current_entry['v1'],
+                                "v2_content": st.session_state.current_entry['v2'],
+                                "other_sheets": str(st.session_state.current_entry),
+                                "ref": ref_input or st.session_state.ref_number,
+                                "mode": f"Mode {st.session_state.content_mode}",
+                                "type": type_select
+                            }
+                            success, msg = save_to_notion(data_to_save)
+                            if success:
+                                st.success(f"✅ 已同步到 Notion！Page ID: {msg[:8]}...")
+                                st.balloons()
+                            else:
+                                st.error(f"❌ 同步失敗：{msg}")
                 else:
-                    try:
+                    st.button("🚀 存到 Notion", disabled=True, use_container_width=True)
+                    st.caption("請設定 Token")
+            
+            with btn_cols[2]:
+                # 一鍵存兩邊
+                if st.button("💾🚀 同時存本地+Notion", use_container_width=True):
+                    if not st.session_state.saved_entries:
+                        st.error("請先至少暫存一個工作表！")
+                    else:
+                        # 存本地
                         ref = ref_input or st.session_state.ref_number
-                        st.session_state.sentences[ref] = {
+                        full_data = {
                             "ref": ref,
                             "original": st.session_state.original_text,
                             "prompt": st.session_state.main_input_value,
-                            "ai_result": st.session_state.ai_result,
+                            "v1_content": st.session_state.current_entry['v1'],
+                            "v2_content": st.session_state.current_entry['v2'],
+                            "w_sheet": st.session_state.current_entry['w_sheet'],
+                            "p_sheet": st.session_state.current_entry['p_sheet'],
+                            "grammar_list": st.session_state.current_entry['grammar_list'],
+                            "other": st.session_state.current_entry['other'],
+                            "saved_sheets": st.session_state.saved_entries,
                             "type": type_select,
                             "mode": st.session_state.content_mode,
                             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
+                        st.session_state.sentences[ref] = full_data
                         save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已儲存本地：{ref}")
-                    except Exception as e:
-                        st.error(f"❌ 儲存失敗：{str(e)}")
+                        
+                        # 存 Notion
+                        if NOTION_TOKEN:
+                            notion_data = {
+                                "original": st.session_state.original_text,
+                                "prompt": st.session_state.main_input_value,
+                                "v1_content": st.session_state.current_entry['v1'],
+                                "v2_content": st.session_state.current_entry['v2'],
+                                "other_sheets": str(st.session_state.current_entry),
+                                "ref": ref,
+                                "mode": f"Mode {st.session_state.content_mode}",
+                                "type": type_select
+                            }
+                            success, msg = save_to_notion(notion_data)
+                            if success:
+                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref}\nNotion ID: {msg[:8]}...")
+                            else:
+                                st.warning(f"⚠️ 本地儲存成功，但 Notion 失敗：{msg}")
+                        else:
+                            st.success(f"✅ 已存本地（未設定 Notion）：{ref}")
+                        st.balloons()
 
-            # 清除按鈕（放在最下方）
+            # 清除按鈕
             st.divider()
             if st.button("🔄 開始新的分析（清除全部）", use_container_width=True):
                 keys_to_clear = [
                     'is_prompt_generated', 'main_input_value', 'original_text',
-                    'content_mode', 'raw_input_value', 'ai_result', 
-                    'ref_number', 'raw_input_temp', 'ai_result_input',
-                    'ref_no_input'
+                    'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
+                    'current_entry', 'saved_entries', 'ref_no_input'
                 ]
                 for key in keys_to_clear:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
+
+    # ---------- 📊 儲存狀態顯示區（新增！）----------
+    st.divider()
+    status_cols = st.columns([1, 1, 2])
+    
+    with status_cols[0]:
+        total_local = len(st.session_state.get('sentences', {}))
+        st.metric("💾 本地資料庫", f"{total_local} 筆")
+    
+    with status_cols[1]:
+        if NOTION_TOKEN:
+            st.metric("☁️ Notion 狀態", "✅ 已連線")
+        else:
+            st.metric("☁️ Notion 狀態", "❌ 未設定")
+    
+    with status_cols[2]:
+        # 顯示最近儲存的資料
+        if st.session_state.get('sentences'):
+            recent = list(st.session_state.sentences.values())[-3:]  # 最近3筆
+            st.write("🕐 最近儲存：")
+            for item in reversed(recent):
+                sheets = item.get('saved_sheets', ['未知'])
+                st.caption(f"• {item.get('ref', 'N/A')} ({', '.join(sheets)}) - {item.get('date_added', '')}")
+
+        # ---------- 📋 已存資料瀏覽器（取代備份下載）----------
+    with st.expander("📋 查看已儲存的資料", expanded=False):
+        if not st.session_state.get('sentences'):
+            st.info("資料庫是空的，請先儲存資料")
+        else:
+            ref_list = list(st.session_state.sentences.keys())
+            selected_ref = st.selectbox(
+                "選擇資料項目", 
+                ref_list,
+                format_func=lambda x: f"{x} - {st.session_state.sentences[x].get('date_added', '無日期')}"
+            )
+            
+            if selected_ref:
+                item = st.session_state.sentences[selected_ref]
+                st.subheader(f"📄 {selected_ref}")
+                
+                cols = st.columns(3)
+                with cols[0]:
+                    st.write(f"**類型：** {item.get('type', 'N/A')}")
+                with cols[1]:
+                    st.write(f"**模式：** {item.get('mode', 'N/A')}")
+                with cols[2]:
+                    st.write(f"**日期：** {item.get('date_added', 'N/A')}")
+                
+                # 原始內容
+                with st.expander("📝 原始輸入"):
+                    st.text(item.get('original', '無'))
+                
+                # 工作表分頁
+                saved_sheets = item.get('saved_sheets', [])
+                if saved_sheets:
+                    st.write(f"**已儲存工作表：** {', '.join(saved_sheets)}")
+                    tabs = st.tabs(saved_sheets)
+                    for i, sheet in enumerate(saved_sheets):
+                        with tabs[i]:
+                            key_map = {
+                                "V1 Sheet": "v1_content", "V2 Sheet": "v2_content",
+                                "W Sheet": "w_sheet", "P Sheet": "p_sheet",
+                                "Grammar List": "grammar_list", "其他補充": "other"
+                            }
+                            content = item.get(key_map.get(sheet, 'other'), '')
+                            if content:
+                                st.text_area("內容", value=content, height=250, disabled=True)
+                            else:
+                                st.info("無內容")
+                
+                # 操作按鈕
+                st.divider()
+                btn_cols = st.columns([1, 1, 1, 2])
+                
+                with btn_cols[0]:
+                    if st.button("✏️ 載入編輯", key=f"edit_{selected_ref}"):
+                        st.session_state.raw_input_value = item.get('original', '')
+                        st.session_state.current_entry = {
+                            'v1': item.get('v1_content', ''), 'v2': item.get('v2_content', ''),
+                            'w_sheet': item.get('w_sheet', ''), 'p_sheet': item.get('p_sheet', ''),
+                            'grammar_list': item.get('grammar_list', ''), 'other': item.get('other', '')
+                        }
+                        st.session_state.saved_entries = saved_sheets
+                        st.session_state.ref_number = selected_ref
+                        st.session_state.is_prompt_generated = True
+                        st.session_state.original_text = item.get('original', '')
+                        st.session_state.main_input_value = item.get('prompt', '')
+                        st.session_state.content_mode = item.get('mode', 'A')
+                        st.rerun()
+                
+                with btn_cols[1]:
+                    if st.button("🗑️ 刪除", key=f"del_{selected_ref}"):
+                        del st.session_state.sentences[selected_ref]
+                        save_sentences(st.session_state.sentences)
+                        st.rerun()
+                
+                with btn_cols[2]:
+                    notion_synced = item.get('notion_synced', False)
+                    if NOTION_TOKEN and not notion_synced:
+                        if st.button("🚀 同步Notion", key=f"sync_{selected_ref}"):
+                            data = {
+                                "original": item['original'], "prompt": item['prompt'],
+                                "v1_content": item.get('v1_content', ''),
+                                "v2_content": item.get('v2_content', ''),
+                                "ref": selected_ref, "mode": f"Mode {item.get('mode', 'A')}",
+                                "type": item.get('type', 'Scripture')
+                            }
+                            success, msg = save_to_notion(data)
+                            if success:
+                                st.session_state.sentences[selected_ref]['notion_synced'] = True
+                                save_sentences(st.session_state.sentences)
+                                st.success(f"✅ 已同步!")
+                                st.rerun()
+                    elif notion_synced:
+                        st.caption("✅ 已同步")
+
+    # ---------- 🔍 簡易搜尋（取代資料管理）----------
+    with st.expander("🔍 搜尋資料", expanded=False):
+        search_kw = st.text_input("輸入關鍵字", placeholder="搜尋 Ref_No 或內容...")
+        if search_kw:
+            results = []
+            for ref, item in st.session_state.sentences.items():
+                if (search_kw.lower() in ref.lower() or 
+                    search_kw.lower() in item.get('original', '').lower()):
+                    results.append(f"• **{ref}** ({item.get('date_added', '')})")
+            if results:
+                st.write(f"找到 {len(results)} 筆：")
+                for r in results:
+                    st.markdown(r)
+            else:
+                st.info("無符合資料")
+
+    # ---------- 備份下載 ----------
+    if st.session_state.get('sentences', {}):
+        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
+        st.download_button(
+            "⬇️ 備份全部資料為 JSON",
+            json_str,
+            file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
+            mime="application/json"
+        )
 
     # ---------- 底部統計（保持完整） ----------
     st.divider()
