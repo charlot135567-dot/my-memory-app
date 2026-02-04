@@ -545,7 +545,7 @@ with tabs[3]:
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
 6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
-7. THSV11：檢索對應的泰文《Thai Holy Bible, Standard Version 2011》.
+7. THSV11:輸出泰文對應的重要片語《Thai Holy Bible, Standard Version 2011》.
 
 ⚠️ 自動推斷書卷（若只有數字如31:6）：
 • "可以把濃酒" → Pro
