@@ -6,17 +6,18 @@ import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, t
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 
-# ========== 除錯測試 ==========
-st.sidebar.markdown("## 🔧 除錯資訊")
+# 放在 app.py 最開頭（import streamlit as st 之後）
+import streamlit as st
 
-api_key = os.getenv("GEMINI_API_KEY")
-
-if api_key:
-    st.sidebar.success("✅ GEMINI_API_KEY 已設定")
-    st.sidebar.write(f"長度: {len(api_key)} 字元")
-else:
-    st.sidebar.error("❌ GEMINI_API_KEY 未設定")
-    st.sidebar.info("請到 Settings → Secrets 設定")
+# 測試 secrets 是否讀取成功
+st.write("=== Secrets 測試 ===")
+try:
+    st.write(f"Secrets keys: {list(st.secrets.keys())}")
+    if "notion" in st.secrets:
+        st.write(f"notion keys: {list(st.secrets['notion'].keys())}")
+        st.write(f"token exists: {'token' in st.secrets['notion']}")
+except Exception as e:
+    st.write(f"讀取失敗: {e}")
     
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
