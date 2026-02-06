@@ -562,8 +562,6 @@ with tabs[3]:
     if 'saved_entries' not in st.session_state:
         st.session_state.saved_entries = []
 
-    def detect_content_mode(text):
-
     def generate_full_prompt():
         raw_text = st.session_state.get("raw_input_temp", "").strip()
         if not raw_text:
