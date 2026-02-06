@@ -384,19 +384,87 @@ with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
     from io import StringIO
 
-    # ---------- Notion API 設定 ----------
+    # ---------- 新增：Notion API 設定與載入函數 ----------
     NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
     DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
     
-    if not NOTION_TOKEN:
-        with st.expander("🔑 Notion API 設定（未找到 Secrets）"):
-            NOTION_TOKEN = st.text_input("Notion Integration Token", type="password")
-            st.info("建議將 Token 放在 .streamlit/secrets.toml：\n\n[notion]\ntoken = \"secret_xxx\"")
+    # 顯示連線狀態（在 Sidebar）
+    with st.sidebar:
+        if NOTION_TOKEN:
+            st.success("☁️ Notion 已連線")
+        else:
+            st.warning("⚠️ Notion 未設定（Reboot 後資料會消失）")
 
-    def save_to_notion(data_dict):
-        """儲存資料到 Notion Database"""
+    def load_from_notion():
+        """啟動時從 Notion 載入所有資料"""
         if not NOTION_TOKEN:
-            return False, "未設定 Notion Token"
+            return {}
+        
+        url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json"
+        }
+        
+        all_data = {}
+        has_more = True
+        start_cursor = None
+        
+        try:
+            with st.spinner("☁️ 正在從 Notion 載入資料..."):
+                while has_more:
+                    payload = {"page_size": 100}
+                    if start_cursor:
+                        payload["start_cursor"] = start_cursor
+                        
+                    response = requests.post(url, headers=headers, json=payload)
+                    data = response.json()
+                    
+                    for page in data.get("results", []):
+                        props = page.get("properties", {})
+                        ref = props.get("Ref_No", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "unknown")
+                        
+                        # 解析 Translation 欄位取得工作表內容
+                        translation = props.get("Translation", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "")
+                        
+                        # 簡易解析：假設內容格式是固定的
+                        v1_content = ""
+                        v2_content = ""
+                        if "【V1 Sheet】" in translation:
+                            parts = translation.split("【V2 Sheet】")
+                            v1_content = parts[0].split("【V1 Sheet】")[-1].strip() if len(parts) > 0 else ""
+                            v2_content = parts[1].split("【其他工作表】")[0].strip() if len(parts) > 1 else ""
+                        
+                        all_data[ref] = {
+                            "ref": ref,
+                            "original": props.get("Content", {}).get("title", [{}])[0].get("text", {}).get("content", ""),
+                            "v1_content": v1_content,
+                            "v2_content": v2_content,
+                            "ai_result": translation,
+                            "type": props.get("Type", {}).get("select", {}).get("name", "Scripture"),
+                            "mode": "A" if "A" in props.get("Source_Mode", {}).get("select", {}).get("name", "") else "B",
+                            "date_added": props.get("Date_Added", {}).get("date", {}).get("start", ""),
+                            "notion_page_id": page.get("id"),
+                            "notion_synced": True,
+                            "saved_sheets": ["V1", "V2"] if v1_content or v2_content else ["從Notion載入"]
+                        }
+                    
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")
+                
+                if all_data:
+                    st.sidebar.success(f"✅ 已載入 {len(all_data)} 筆")
+                return all_data
+        except Exception as e:
+            st.sidebar.error(f"❌ 載入失敗：{e}")
+            return {}
+
+    # 取代原有的 save_to_notion，加入 page_id 回傳
+    def save_to_notion(data_dict):
+        """儲存到 Notion，成功後回傳 page_id"""
+        if not NOTION_TOKEN:
+            return False, "未設定 Notion Token", None
         
         url = "https://api.notion.com/v1/pages"
         headers = {
@@ -405,7 +473,6 @@ with tabs[3]:
             "Notion-Version": "2022-06-28"
         }
         
-        # 合併所有工作表內容
         full_content = f"""【原始經文/文稿】
 {data_dict.get('original', '')}
 
@@ -416,46 +483,33 @@ with tabs[3]:
 {data_dict.get('v2_content', '未貼上')}
 
 【其他工作表】
-{data_dict.get('other_sheets', '無')}
+{data_dict.get('other', '無')}
 """
         
         properties = {
-            "Content": {
-                "title": [{"text": {"content": data_dict.get('original', '')[:100] + "..."}}]
-            },
-            "Translation": {
-                "rich_text": [{"text": {"content": full_content[:2000]}}]  # Notion 限制
-            },
-            "Ref_No": {
-                "rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]
-            },
-            "Source_Mode": {
-                "select": {"name": data_dict.get("mode", "Unknown")}
-            },
-            "Type": {
-                "select": {"name": data_dict.get("type", "Scripture")}
-            },
+            "Content": {"title": [{"text": {"content": data_dict.get('original', '')[:100] + "..."}}]},
+            "Translation": {"rich_text": [{"text": {"content": full_content[:2000]}}]},
+            "Ref_No": {"rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]},
+            "Source_Mode": {"select": {"name": data_dict.get("mode", "Unknown")}},
+            "Type": {"select": {"name": data_dict.get("type", "Scripture")}},
             "Correct_Streak": {"number": 0},
             "Mistake_Count": {"number": 0},
             "Hardcore_Flag": {"checkbox": False},
-            "Date_Added": {
-                "date": {"start": dt.datetime.now().isoformat()}
-            }
-        }
-        
-        payload = {
-            "parent": {"database_id": DATABASE_ID},
-            "properties": properties
+            "Date_Added": {"date": {"start": dt.datetime.now().isoformat()}}
         }
         
         try:
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, json={
+                "parent": {"database_id": DATABASE_ID},
+                "properties": properties
+            })
             if response.status_code == 200:
-                return True, response.json().get("id", "Success")
+                page_id = response.json().get("id")
+                return True, page_id, page_id
             else:
-                return False, f"Error {response.status_code}: {response.text}"
+                return False, f"Error {response.status_code}", None
         except Exception as e:
-            return False, str(e)
+            return False, str(e), None
 
     # ---------- 本地資料庫 ----------
     SENTENCES_FILE = "sentences.json"
@@ -473,39 +527,42 @@ with tabs[3]:
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # 初始化 session_state（新增多工作表儲存）
-    defaults = {
-        'sentences': load_sentences(),
-        'search_results': [],
-        'is_prompt_generated': False,
-        'main_input_value': "",
-        'original_text': "",
-        'content_mode': "",
-        'raw_input_value': "",
-        'ref_number': "",
-        # 新增：支援多工作表暫存
-        'current_entry': {
-            'v1': '',
-            'v2': '',
-            'w_sheet': '',
-            'p_sheet': '',
-            'grammar_list': '',
-            'other': ''
-        },
-        'saved_entries': []  # 顯示已暫存的工作表
-    }
-    for key, val in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = val
+    # 初始化 session_state【關鍵修改：優先從 Notion 載入】
+    if 'sentences' not in st.session_state:
+        # 先嘗試從 Notion 載入（雲端優先）
+        notion_data = load_from_notion()
+        if notion_data:
+            st.session_state.sentences = notion_data
+            # 同時存本地快取
+            save_sentences(notion_data)
+        else:
+            # 退而求其次讀本地
+            st.session_state.sentences = load_sentences()
+    
+    # 其他初始化保持不變
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+    if 'is_prompt_generated' not in st.session_state:
+        st.session_state.is_prompt_generated = False
+    if 'main_input_value' not in st.session_state:
+        st.session_state.main_input_value = ""
+    if 'original_text' not in st.session_state:
+        st.session_state.original_text = ""
+    if 'content_mode' not in st.session_state:
+        st.session_state.content_mode = ""
+    if 'raw_input_value' not in st.session_state:
+        st.session_state.raw_input_value = ""
+    if 'ref_number' not in st.session_state:
+        st.session_state.ref_number = ""
+    if 'current_entry' not in st.session_state:
+        st.session_state.current_entry = {
+            'v1': '', 'v2': '', 'w_sheet': '', 
+            'p_sheet': '', 'grammar_list': '', 'other': ''
+        }
+    if 'saved_entries' not in st.session_state:
+        st.session_state.saved_entries = []
 
     def detect_content_mode(text):
-        text = text.strip()
-        if not text:
-            return "document"
-        if text.startswith("{"):
-            return "json"
-        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
-        return "scripture" if has_chinese else "document"
 
     def generate_full_prompt():
         raw_text = st.session_state.get("raw_input_temp", "").strip()
@@ -784,9 +841,14 @@ with tabs[3]:
                                 "mode": f"Mode {st.session_state.content_mode}",
                                 "type": type_select
                             }
-                            success, msg = save_to_notion(data_to_save)
+                            success, msg, page_id = save_to_notion(data_to_save)
                             if success:
-                                st.success(f"✅ 已同步到 Notion！Page ID: {msg[:8]}...")
+                                # 同時更新本地快取，標記已同步
+                                full_data['notion_synced'] = True
+                                full_data['notion_page_id'] = page_id
+                                st.session_state.sentences[ref] = full_data
+                                save_sentences(st.session_state.sentences)
+                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref}")
                                 st.balloons()
                             else:
                                 st.error(f"❌ 同步失敗：{msg}")
@@ -832,9 +894,14 @@ with tabs[3]:
                                 "mode": f"Mode {st.session_state.content_mode}",
                                 "type": type_select
                             }
-                            success, msg = save_to_notion(notion_data)
+                            success, msg, page_id = save_to_notion(notion_data)
                             if success:
-                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref}\nNotion ID: {msg[:8]}...")
+                                # 同時更新本地快取，標記已同步
+                                full_data['notion_synced'] = True
+                                full_data['notion_page_id'] = page_id
+                                st.session_state.sentences[ref] = full_data
+                                save_sentences(st.session_state.sentences)
+                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref}")
                             else:
                                 st.warning(f"⚠️ 本地儲存成功，但 Notion 失敗：{msg}")
                         else:
