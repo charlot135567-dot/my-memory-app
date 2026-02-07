@@ -403,9 +403,9 @@ with tabs[3]:
             st.warning("⚠️ Notion 未設定（Reboot 後資料會消失）")
 
     def load_from_notion():
-    """啟動時從 Notion 載入所有資料"""
-    if not NOTION_TOKEN:
-        return {}
+        """啟動時從 Notion 載入所有資料"""
+        if not NOTION_TOKEN:
+            return {}
     
     url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
     headers = {
