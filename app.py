@@ -101,6 +101,7 @@ selected_img_file = bg_options[st.session_state.selected_bg]
 current_bg_size = st.session_state.bg_size
 current_bg_bottom = st.session_state.bg_bottom
 
+# ---------- 背景圖片套用（補上這段！）----------
 try:
     if os.path.exists(selected_img_file):
         with open(selected_img_file, "rb") as f:
@@ -123,7 +124,7 @@ try:
         </style>
         """, unsafe_allow_html=True)
 except:
-    pass
+    pass  # 背景圖失敗時靜默處理
 
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
