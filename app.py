@@ -567,14 +567,14 @@ with tabs[3]:
     def detect_content_mode(text):
         """偵測內容類型（防呆版）"""
         if not isinstance(text, str):
-        return "document"
+           return "document"
 
         text = text.strip()
         if not text:
-        return "document"
+           return "document"
 
         if text.startswith("{"):
-        return "json"
+           return "json"
 
         has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
         return "scripture" if has_chinese else "document"
