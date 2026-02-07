@@ -565,18 +565,30 @@ with tabs[3]:
     # ========== 函數定義（在所有初始化之後）==========
     
     def detect_content_mode(text):
-        """偵測內容類型"""
+        """偵測內容類型（防呆版）"""
+        if not isinstance(text, str):
+        return "document"
+
         text = text.strip()
         if not text:
-            return "document"
+        return "document"
+
         if text.startswith("{"):
-            return "json"
+        return "json"
+
         has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
         return "scripture" if has_chinese else "document"
 
     def generate_full_prompt():
         """產生完整 Prompt"""
-        raw_text = st.session_state.get("raw_input_temp", "").strip()
+        raw_text = st.session_state.get("raw_input_temp", "")
+        
+        # 防呆檢查
+        if not raw_text or not isinstance(raw_text, str):
+            st.warning("請先貼上內容")
+            return
+        
+        raw_text = raw_text.strip()
         if not raw_text:
             st.warning("請先貼上內容")
             return
