@@ -386,6 +386,36 @@ with tabs[3]:
     from io import StringIO
     import streamlit.components.v1 as components
 
+    # ---------- 背景圖片套用（修正：從 st.session_state 讀取）----------
+    try:
+        # 從 st.session_state 讀取 sidebar 的設定（而不是 globals）
+        selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
+        current_bg_size = st.session_state.get('bg_size', 15)
+        current_bg_bottom = st.session_state.get('bg_bottom', 30)
+        
+        if os.path.exists(selected_img_file):
+            with open(selected_img_file, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            st.markdown(f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/jpeg;base64,{img_b64}");
+                background-size: {current_bg_size}% auto;
+                background-position: center bottom {current_bg_bottom}px;
+                background-attachment: fixed;
+                background-repeat: no-repeat;
+                z-index: 0;
+            }}
+            .main .block-container {{
+                position: relative;
+                z-index: 1;
+                padding-bottom: {current_bg_bottom + 100}px;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+    except:
+        pass
+
     # ---------- 新增：Notion API 設定與載入函數 ----------
     NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
     DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
