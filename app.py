@@ -390,6 +390,20 @@ with tabs[3]:
     NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
     DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
 
+    # ---------- 預先檢查 Google Sheet 連線狀態（移到最前面）----------
+    sheet_connected = False
+    GCP_SA = None
+    SHEET_ID = None
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+        GCP_SA = st.secrets.get("gcp_service_account", {})
+        SHEET_ID = st.secrets.get("sheets", {}).get("spreadsheet_id", "")
+        if GCP_SA and SHEET_ID:
+            sheet_connected = True
+    except:
+        pass
+
     # ---------- 輔助工具：安全獲取 Notion 文字 ----------
     def get_notion_text(prop_dict):
         """防止 Index out of range"""
@@ -661,10 +675,10 @@ with tabs[3]:
         }
         st.session_state.saved_entries = []
 
-    # ---------- 📝 主要功能區 ----------
-    st.markdown("<h7>📝 AI 分析工作流程</h7>", unsafe_allow_html=True)
+    # ---------- 📝 主要功能區（標題縮小為 h6）----------
+    st.markdown("<h6>📝 AI 分析工作流程</h6>", unsafe_allow_html=True)
     
-        # === STEP 1: 輸入區 ===
+    # === STEP 1: 輸入區 ===
     with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
         raw_input = st.text_area(
             "原始輸入",
@@ -773,7 +787,7 @@ with tabs[3]:
                             st.write(f"**{sheet}：**")
                             st.code(content[:200] + "..." if len(content) > 200 else content)
 
-                # === STEP 4: 統一儲存區（字體縮小版）===
+        # === STEP 4: 統一儲存區（修正縮排：在 if 區塊內）===
         with st.expander("步驟 4：儲存到資料庫", expanded=True):
             st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
             
@@ -792,18 +806,6 @@ with tabs[3]:
                     index=0 if st.session_state.content_mode == "A" else 1,
                     key="type_select"
                 )
-            
-            # --- Google Sheet 設定（新增）---
-            sheet_connected = False
-            try:
-                import gspread
-                from google.oauth2.service_account import Credentials
-                GCP_SA = st.secrets.get("gcp_service_account", {})
-                SHEET_ID = st.secrets.get("sheets", {}).get("spreadsheet_id", "")
-                if GCP_SA and SHEET_ID:
-                    sheet_connected = True
-            except:
-                pass
             
             # 儲存按鈕列（4個並列：本地、Notion、Google Sheet、全部）
             btn_cols = st.columns(4)
@@ -884,7 +886,7 @@ with tabs[3]:
                     st.button("🚀 Notion", disabled=True, use_container_width=True)
             
             with btn_cols[2]:
-                # 存到 Google Sheet（新增）
+                # 存到 Google Sheet（使用外面定義的 sheet_connected）
                 if sheet_connected:
                     if st.button("📊 Google", use_container_width=True, type="primary"):
                         if not st.session_state.saved_entries:
@@ -950,10 +952,6 @@ with tabs[3]:
                                 st.error(f"❌ Google Sheet 失敗：{str(e)}")
                 else:
                     st.button("📊 Google", disabled=True, use_container_width=True)
-                    if not GCP_SA:
-                        st.caption("未設定憑證")
-                    elif not SHEET_ID:
-                        st.caption("未設定 Sheet ID")
             
             with btn_cols[3]:
                 # 一鍵存全部（本地+Notion+Google）
@@ -1040,7 +1038,7 @@ with tabs[3]:
                         st.success(f"✅ 已同步：{' + '.join(success_list)}")
                         st.balloons()
 
-            # 清除按鈕（縮小字體）
+            # 清除按鈕
             st.divider()
             if st.button("🔄 新的分析", use_container_width=True):
                 keys_to_clear = [
@@ -1052,37 +1050,37 @@ with tabs[3]:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
-        # ---------- 📊 儲存狀態顯示區（字體縮小版）----------
+
+    # ---------- 📊 儲存狀態顯示區（字體縮小版，在 if 區塊外面）----------
     st.divider()
     status_cols = st.columns([1, 1, 1, 2])
     
     with status_cols[0]:
         total_local = len(st.session_state.get('sentences', {}))
-        st.markdown(f"<p style='font-size: 14px; margin: 0;'>💾 本地資料庫</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0;'>{total_local} 筆</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>💾 本地資料庫</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0;'>{total_local} 筆</p>", unsafe_allow_html=True)
     
     with status_cols[1]:
-        # 直接使用 NOTION_TOKEN 變數，不再重新讀取
         if NOTION_TOKEN:
-            st.markdown(f"<p style='font-size: 14px; margin: 0;'>☁️ Notion</p>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: green;'>✅ 已連線</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>☁️ Notion</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #28a745;'>✅ 已連線</p>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<p style='font-size: 14px; margin: 0;'>☁️ Notion</p>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: red;'>❌ 未設定</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>☁️ Notion</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #dc3545;'>❌ 未設定</p>", unsafe_allow_html=True)
     
     with status_cols[2]:
         if sheet_connected:
-            st.markdown(f"<p style='font-size: 14px; margin: 0;'>📊 Google</p>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: green;'>✅ 已連線</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>📊 Google</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #28a745;'>✅ 已連線</p>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<p style='font-size: 14px; margin: 0;'>📊 Google</p>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: red;'>❌ 未設定</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>📊 Google</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #dc3545;'>❌ 未設定</p>", unsafe_allow_html=True)
     
     with status_cols[3]:
         # 顯示最近儲存的資料
         if st.session_state.get('sentences'):
             recent = list(st.session_state.sentences.values())[-3:]
-            st.markdown(f"<small>🕐 最近儲存：</small>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>🕐 最近儲存：</p>", unsafe_allow_html=True)
             for item in reversed(recent):
                 sheets = item.get('saved_sheets', ['未知'])
                 st.caption(f"• {item.get('ref', 'N/A')} ({', '.join(sheets)})")
@@ -1196,7 +1194,7 @@ with tabs[3]:
             else:
                 st.info("無符合資料")
 
-    # ---------- 底部統計（移除重複的備份下載） ----------
+    # ---------- 底部統計（移除重複的備份下載）----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
