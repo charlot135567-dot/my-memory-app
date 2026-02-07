@@ -387,7 +387,14 @@ with tabs[3]:
     # ---------- 新增：Notion API 設定與載入函數 ----------
     NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
     DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
-    
+    # ---------- 輔助工具：安全獲取 Notion 文字 ----------
+    def get_notion_text(prop_dict):
+        """防止 Index out of range"""
+        rt = prop_dict.get("rich_text", [])
+        if rt and len(rt) > 0:
+            return rt[0].get("text", {}).get("content", "")
+        return ""
+
     # 顯示連線狀態（在 Sidebar）
     with st.sidebar:
         if NOTION_TOKEN:
