@@ -173,6 +173,7 @@ with tabs[0]:
     import csv
     from io import StringIO
     import random
+    import re
     
     # 初始化輪換時間
     if 'tab1_last_update' not in st.session_state:
@@ -181,23 +182,20 @@ with tabs[0]:
     
     # 檢查是否需要更新（超過1小時）
     time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
-    if time_diff > 3600:  # 3600秒 = 1小時
+    if time_diff > 3600:
         st.session_state.tab1_last_update = dt.datetime.now()
         st.session_state.tab1_random_seed = random.randint(1, 1000)
         st.rerun()
     
-    # 從資料庫抓取資料
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 儲存資料")
     else:
-        # 用隨機種子選擇一筆資料
         random.seed(st.session_state.tab1_random_seed)
         selected_ref = random.choice(list(sentences.keys()))
         selected_data = sentences[selected_ref]
         
-        # 解析 v1_content (CSV格式)
         v1_content = selected_data.get('v1_content', '')
         v1_rows = []
         if v1_content:
@@ -209,17 +207,14 @@ with tabs[0]:
             except:
                 pass
         
-        # 隨機選一節經文
         selected_verse = random.choice(v1_rows) if v1_rows else {}
         
-        # 顯示區塊
         col_content, col_info = st.columns([0.65, 0.35])
         
         with col_content:
-            # 金句區
             ref = selected_verse.get('Ref.', 'Pro 17:7')
-            english = selected_verse.get('English (ESV)', 'Fine speech is not becoming to a fool...')
-            chinese = selected_verse.get('Chinese', '愚頑人說美言本不相宜...')
+            english = selected_verse.get('English (ESV)', '')
+            chinese = selected_verse.get('Chinese', '')
             
             st.info(f"**{ref}** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
             st.success(f"""
@@ -229,54 +224,109 @@ with tabs[0]:
             
             st.divider()
             
-            # 單字/片語區
-            st.markdown("### 📝 今日單字與片語")
-            syn_ant = selected_verse.get('Syn/Ant', 'Becoming (相稱的) / Unseemly (不體面的)')
-            grammar = selected_verse.get('Grammar', '1️⃣[否定結構] 2️⃣[比較級] 3️⃣Ex. [...]')
+            # ===== 單字提取（從 Syn/Ant）=====
+            syn_ant = selected_verse.get('Syn/Ant', '')
+            word_pair = syn_ant.split('/') if '/' in syn_ant else [syn_ant, '']
             
-            col_word, col_phrase = st.columns(2)
-            with col_word:
-                st.markdown(f"**單字：** {syn_ant.split('/')[0].strip() if '/' in syn_ant else syn_ant}")
-            with col_phrase:
-                # 提取 Grammar 中的例句
-                grammar_parts = grammar.split('3️⃣Ex.')
-                example = grammar_parts[1].strip() if len(grammar_parts) > 1 else grammar[:100]
-                st.markdown(f"**片語：** {example}")
+            word_1 = word_pair[0].strip() if len(word_pair) > 0 else ''
+            match_1 = re.match(r'(.+?)\s*\((.+?)\)', word_1)
+            if match_1:
+                word_en = match_1.group(1).strip()
+                word_cn = match_1.group(2).strip()
+            else:
+                word_en = word_1
+                word_cn = ''
+            
+            word_2 = word_pair[1].strip() if len(word_pair) > 1 else ''
+            match_2 = re.match(r'(.+?)\s*\((.+?)\)', word_2)
+            if match_2:
+                ant_en = match_2.group(1).strip()
+                ant_cn = match_2.group(2).strip()
+            else:
+                ant_en = word_2
+                ant_cn = ''
+            
+            st.markdown("### 📝 今日單字")
+            col_word1, col_word2 = st.columns(2)
+            with col_word1:
+                st.markdown(f"**{word_en}**")
+                st.caption(f"{word_cn}")
+            with col_word2:
+                if ant_en:
+                    st.markdown(f"<span style='color:#dc3545;'>**{ant_en}**</span>", unsafe_allow_html=True)
+                    st.caption(f"{ant_cn} (反義)")
+            
+            # ===== 片語/文法結構 =====
+            grammar = selected_verse.get('Grammar', '')
+            structure = ''
+            if '2️⃣[' in grammar:
+                structure_match = re.search(r'2️⃣\[(.+?)\]', grammar)
+                if structure_match:
+                    structure = structure_match.group(1)
+            else:
+                structure = grammar[:80]
+            
+            st.markdown("### 🔤 文法結構")
+            st.markdown(f"`{structure}`")
         
         with col_info:
-            # 文法解析區（取代原本的圖片）
             st.markdown("### 📚 文法解析")
+            analysis = ''
+            if '1️⃣[' in grammar:
+                analysis_match = re.search(r'1️⃣\[(.+?)\]', grammar)
+                if analysis_match:
+                    analysis = analysis_match.group(1)
+            
             st.markdown(f"""
                 <div style="background-color:#f8f9fa;border-radius:8px;padding:12px;border-left:5px solid #FF8C00;">
-                    <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#333;">經節: {ref}</p>
-                    <p style="margin:2px 0;font-size:13px;color:#555;">{grammar[:200]}...</p>
+                    <p style="margin:2px 0;font-size:13px;font-weight:bold;color:#333;">{analysis[:100]}</p>
                     <hr style="margin:8px 0;">
-                    <p style="margin:2px 0;font-size:12px;color:#666;">來源: {selected_ref}</p>
-                    <p style="margin:2px 0;font-size:12px;color:#666;">下次更新: {((3600 - time_diff) / 60):.0f} 分鐘後</p>
+                    <p style="margin:2px 0;font-size:11px;color:#666;">來源: {selected_ref}</p>
+                    <p style="margin:2px 0;font-size:11px;color:#666;">下次更新: {((3600 - time_diff) / 60):.0f} 分鐘後</p>
                 </div>
             """, unsafe_allow_html=True)
         
         st.divider()
         
-        # 文法運用例句
+        # ===== 文法運用例句（從 3️⃣Ex. 提取，若無則用聖經經文）=====
         st.markdown("### ✍️ 文法運用例句")
+        
+        example_sentences = []
+        if '3️⃣Ex.' in grammar:
+            ex_part = grammar.split('3️⃣Ex.')[-1].strip()
+            ex_sentences = re.split(r'[;；]', ex_part)
+            for ex in ex_sentences[:2]:
+                ex = ex.strip()
+                if ex:
+                    ex = re.sub(r'[\[\]]', '', ex)
+                    example_sentences.append(ex)
+        
+        # 若無 Ex.，用聖經經文作為預設例句
+        if len(example_sentences) < 2:
+            example_sentences = [
+                english,
+                chinese
+            ]
+        
         cl1, cl2 = st.columns(2)
-        
-        # 從 grammar 提取結構來造句
-        grammar_short = grammar.split('2️⃣')[1].split('3️⃣')[0].strip() if '2️⃣' in grammar else "becoming to"
-        
         with cl1:
-            st.markdown(f"**Ex 1:** *Casual attire is not {grammar_short} a CEO...* <p class='small-font'>便服對執行長不相稱...</p>", unsafe_allow_html=True)
+            st.markdown(f"**Ex 1:** *{example_sentences[0][:120]}*")
         with cl2:
-            st.markdown(f"**Ex 2:** *Wealth is not {grammar_short} a man without virtue...* <p class='small-font'>財富對於無德之人不相稱...</p>", unsafe_allow_html=True)
-
+            if len(example_sentences) > 1:
+                st.markdown(f"**Ex 2:** *{example_sentences[1][:120]}*")
+            else:
+                st.markdown(f"**Ex 2:** *{chinese}*")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦（Emoji 清洗版，避免重複顯示）
+# 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
     from streamlit_calendar import calendar
 
+    # ==========================================
+    # 上半部：月曆待辦（原有功能完整保留）
+    # ==========================================
+    
     # ---------- 0. 檔案持久化 ----------
     DATA_DIR = "data"
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -308,18 +358,13 @@ with tabs[1]:
     if "active_del_id" not in st.session_state:
         st.session_state.active_del_id = None
 
-    # ---------- 2. Emoji 清洗工具（核心修正） ----------
+    # ---------- 2. Emoji 清洗工具 ----------
     _EMOJI_RE = re.compile(
         r'[\U0001F300-\U0001FAFF\U00002700-\U000027BF]+',
         flags=re.UNICODE
     )
 
     def get_clean_title(text: str) -> tuple:
-        """
-        從標題中：
-        1. 擷取第一個 Emoji
-        2. 移除所有 Emoji，保留純文字
-        """
         found = _EMOJI_RE.search(text)
         emoji = found.group(0)[0] if found else ""
         clean_text = _EMOJI_RE.sub('', text).strip()
@@ -431,109 +476,239 @@ with tabs[1]:
                     st.session_state.cal_key += 1
                     st.rerun()
 
+    # ==========================================
+    # 下半部：14天滑動金句（新增）
+    # ==========================================
+    st.divider()
+    st.markdown("### ✨ 14天滑動金句")
+    
+    # 參數
+    DAYS_KEEP = 14
+    today = dt.date.today()
+
+    # Session 初始化（使用不同 key 避免衝突）
+    if "daily_sentences_tab2" not in st.session_state:
+        st.session_state.daily_sentences_tab2 = {}
+
+    # 每日推進：刪最舊 → 留最新
+    dates_keep = [today - dt.timedelta(days=i) for i in range(DAYS_KEEP)]
+    
+    # 清理舊資料
+    for d in list(st.session_state.daily_sentences_tab2.keys()):
+        try:
+            if dt.datetime.strptime(d, "%Y-%m-%d").date() not in dates_keep:
+                del st.session_state.daily_sentences_tab2[d]
+        except:
+            pass
+
+    # 摺疊：新增今日金句
+    with st.expander("✏️ 新增今日金句"):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            new_sentence = st.text_input("金句（中英並列）", key="new_sentence_tab2")
+        with col2:
+            st.write("")
+            st.write("")
+            if st.button("儲存", type="primary", key="save_sentence_tab2"):
+                if new_sentence:
+                    st.session_state.daily_sentences_tab2[str(today)] = new_sentence
+                    st.success("已儲存！")
+                else:
+                    st.error("請輸入金句")
+
+    # 14天條列（最新在上）
+    for d in sorted(dates_keep, reverse=True):
+        date_str = str(d)
+        sentence = st.session_state.daily_sentences_tab2.get(date_str, "")
+        col_emoji, col_txt = st.columns([1, 9])
+        with col_emoji:
+            st.caption(f"{d.strftime('%m/%d')}")
+        with col_txt:
+            if sentence:
+                st.info(sentence)
+            else:
+                st.caption("（尚無金句）")
+
+    # 一鍵匯出
+    if st.button("📋 匯出 14 天金句", key="export_tab2"):
+        export = "\n".join([f"{d.strftime('%m/%d')}  {st.session_state.daily_sentences_tab2.get(str(d), '')}" for d in sorted(dates_keep, reverse=True)])
+        st.code(export, language="text")
+
 # ===================================================================
-# 5. TAB3 ─ 挑戰（翻譯題 + 單字/片語題，自動更新）
+# 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
     import csv
     from io import StringIO
     import random
     
-    # 初始化題目
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
+        st.session_state.tab3_show_answers = False
     
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 儲存資料")
     else:
-        # 排序資料：最新60%，次新30%，較舊10%
+        # 排序資料
         sorted_refs = sorted(sentences.keys(), 
                            key=lambda x: sentences[x].get('date_added', ''), 
                            reverse=True)
         total = len(sorted_refs)
         
-        # 分層
         new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
         mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
         old_refs = sorted_refs[int(total*0.9):] if total >= 10 else []
         
-        # 加權隨機選擇
         weighted_pool = (new_refs * 6) + (mid_refs * 3) + (old_refs * 1)
         if not weighted_pool:
             weighted_pool = sorted_refs
         
         random.seed(st.session_state.tab3_quiz_seed)
-        selected_quiz_refs = random.sample(weighted_pool, min(5, len(weighted_pool)))
         
-        # 生成題目
-        quiz_data = []
-        for ref in selected_quiz_refs:
+        # 收集所有經文資料
+        all_verses = []
+        for ref in weighted_pool[:10]:  # 取前10筆資料
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
-            
-            # 解析 CSV
-            v1_rows = []
             if v1_content:
                 try:
                     lines = v1_content.strip().split('\n')
                     if lines:
                         reader = csv.DictReader(lines)
-                        v1_rows = list(reader)
+                        for row in reader:
+                            all_verses.append({
+                                'ref': row.get('Ref.', ''),
+                                'english': row.get('English (ESV)', ''),
+                                'chinese': row.get('Chinese', '')
+                            })
                 except:
                     pass
-            
-            if v1_rows:
-                verse = random.choice(v1_rows)
-                quiz_data.append({
-                    'ref': verse.get('Ref.', ref),
-                    'english': verse.get('English (ESV)', ''),
-                    'chinese': verse.get('Chinese', ''),
-                    'syn_ant': verse.get('Syn/Ant', ''),
-                    'grammar': verse.get('Grammar', '')
-                })
         
-        # 顯示題目
+        # 隨機選6題（3題中翻英，3題英翻中）
+        random.shuffle(all_verses)
+        selected = all_verses[:6] if len(all_verses) >= 6 else all_verses
+        
+        # 分配題目
+        zh_to_en = selected[:3]  # 中翻英
+        en_to_zh = selected[3:6] if len(selected) > 3 else []  # 英翻中
+        
         st.subheader("📝 翻譯挑戰")
         
-        # 題型 1-2: 中翻英、英翻中
-        if len(quiz_data) >= 2:
-            with st.container():
-                st.markdown("**題目 1: 中翻英**")
-                st.write(f"「{quiz_data[0]['chinese'][:50]}...」")
-                st.text_input("請輸入英文翻譯", key="quiz_1", placeholder="Type your English translation...")
-                
-                st.markdown("**題目 2: 英翻中**")
-                st.write(f"「{quiz_data[1]['english'][:80]}...」")
-                st.text_input("請輸入中文翻譯", key="quiz_2", placeholder="請輸入中文翻譯...")
+        # ===== 題目 1-3：中翻英 =====
+        for i, q in enumerate(zh_to_en, 1):
+            st.markdown(f"**{i}.** {q['chinese'][:60]}")
+            st.text_input("", key=f"quiz_zh_en_{i}", placeholder="請翻譯成英文...", label_visibility="collapsed")
+            st.write("")
         
-        # 題型 3-5: 單字/片語題
+        # ===== 題目 4-6：英翻中 =====
+        for i, q in enumerate(en_to_zh, 4):
+            st.markdown(f"**{i}.** {q['english'][:100]}")
+            st.text_input("", key=f"quiz_en_zh_{i}", placeholder="請翻譯成中文...", label_visibility="collapsed")
+            st.write("")
+        
+        # ===== 單字題（3題）=====
+        # 從 Syn/Ant 提取單字
+        word_pool = []
+        for ref in weighted_pool[:5]:
+            data = sentences[ref]
+            v1_content = data.get('v1_content', '')
+            if v1_content:
+                try:
+                    lines = v1_content.strip().split('\n')
+                    if lines:
+                        reader = csv.DictReader(lines)
+                        for row in reader:
+                            syn_ant = row.get('Syn/Ant', '')
+                            if '/' in syn_ant:
+                                parts = syn_ant.split('/')
+                                for p in parts:
+                                    match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
+                                    if match:
+                                        word_pool.append({
+                                            'en': match.group(1).strip(),
+                                            'cn': match.group(2).strip()
+                                        })
+                except:
+                    pass
+        
+        random.shuffle(word_pool)
+        selected_words = word_pool[:3] if len(word_pool) >= 3 else word_pool
+        
+        for i, w in enumerate(selected_words, 7):
+            st.markdown(f"**{i}.** {w['cn']}（請寫出英文）")
+            st.text_input("", key=f"quiz_word_{i}", placeholder="English word...", label_visibility="collapsed")
+            st.write("")
+        
+        # ===== 片語題（3題）=====
+        # 從 Grammar 提取結構
+        phrase_pool = []
+        for ref in weighted_pool[:5]:
+            data = sentences[ref]
+            v1_content = data.get('v1_content', '')
+            if v1_content:
+                try:
+                    lines = v1_content.strip().split('\n')
+                    if lines:
+                        reader = csv.DictReader(lines)
+                        for row in reader:
+                            grammar = row.get('Grammar', '')
+                            if '2️⃣[' in grammar:
+                                match = re.search(r'2️⃣\[(.+?)\]', grammar)
+                                if match:
+                                    phrase_pool.append({
+                                        'structure': match.group(1),
+                                        'ref': row.get('Ref.', '')
+                                    })
+                except:
+                    pass
+        
+        random.shuffle(phrase_pool)
+        selected_phrases = phrase_pool[:3] if len(phrase_pool) >= 3 else phrase_pool
+        
+        for i, p in enumerate(selected_phrases, 10):
+            st.markdown(f"**{i}.** 請用「{p['structure'][:50]}」造一個句子")
+            st.text_area("", key=f"quiz_phrase_{i}", placeholder="Make a sentence...", label_visibility="collapsed", height=68)
+            st.write("")
+        
         st.divider()
-        st.markdown("### 📖 單字與片語")
         
-        for i, q in enumerate(quiz_data[2:5], 3):
-            col_q, col_a = st.columns([2, 1])
-            with col_q:
-                # 單字題：給英文選中文
-                if i % 2 == 1:
-                    word = q['syn_ant'].split('/')[0].strip() if '/' in q['syn_ant'] else q['syn_ant']
-                    word_clean = word.split('(')[0].strip()
-                    st.markdown(f"**題目 {i}:** `{word_clean}` 的意思是？")
-                    options = [word.split('(')[1].replace(')', '').strip() if '(' in word else "相稱的",
-                              "不體面的", "智慧的", "愚頑的"]
-                    random.shuffle(options)
-                    st.radio("選擇答案", options, key=f"quiz_{i}")
-                # 片語題：給文法結構
-                else:
-                    grammar_short = q['grammar'].split('2️⃣')[1].split('3️⃣')[0].strip() if '2️⃣' in q['grammar'] else q['grammar'][:50]
-                    st.markdown(f"**題目 {i}:** 這個文法結構 `{grammar_short}` 該如何使用？")
-                    st.text_input("請造一個句子", key=f"quiz_{i}", placeholder="Make a sentence...")
+        # ===== 翻看答案按 =====
+        col_btn, col_answer = st.columns([1, 3])
+        with col_btn:
+            if st.button("👁️ 翻看正確答案", use_container_width=True, type="primary"):
+                st.session_state.tab3_show_answers = True
+                st.rerun()
         
-        # 重新生成題目按鈕
-        if st.button("🔄 換一批題目", use_container_width=True):
-            st.session_state.tab3_quiz_seed = random.randint(1, 1000)
-            st.rerun()
+        with col_answer:
+            if st.session_state.tab3_show_answers:
+                with st.expander("📖 正確答案", expanded=True):
+                    # 顯示中翻英答案
+                    st.markdown("**中翻英：**")
+                    for i, q in enumerate(zh_to_en, 1):
+                        st.caption(f"{i}. {q['english'][:100]}")
+                    
+                    # 顯示英翻中答案
+                    st.markdown("**英翻中：**")
+                    for i, q in enumerate(en_to_zh, 4):
+                        st.caption(f"{i}. {q['chinese'][:60]}")
+                    
+                    # 顯示單字答案
+                    st.markdown("**單字：**")
+                    for i, w in enumerate(selected_words, 7):
+                        st.caption(f"{i}. {w['en']}")
+                    
+                    # 顯示片語答案
+                    st.markdown("**片語參考：**")
+                    for i, p in enumerate(selected_phrases, 10):
+                        st.caption(f"{i}. {p['ref']}: {p['structure'][:50]}...")
+                
+                if st.button("🔄 換一批題目", use_container_width=True):
+                    st.session_state.tab3_quiz_seed = random.randint(1, 1000)
+                    st.session_state.tab3_show_answers = False
+                    st.rerun()
+            
 # ===================================================================
 # 6. TAB4 ─AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
