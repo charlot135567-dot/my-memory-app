@@ -562,7 +562,20 @@ with tabs[3]:
     if 'saved_entries' not in st.session_state:
         st.session_state.saved_entries = []
 
+    # ========== 函數定義（在所有初始化之後）==========
+    
+    def detect_content_mode(text):
+        """偵測內容類型"""
+        text = text.strip()
+        if not text:
+            return "document"
+        if text.startswith("{"):
+            return "json"
+        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
+        return "scripture" if has_chinese else "document"
+
     def generate_full_prompt():
+        """產生完整 Prompt"""
         raw_text = st.session_state.get("raw_input_temp", "").strip()
         if not raw_text:
             st.warning("請先貼上內容")
@@ -842,11 +855,26 @@ with tabs[3]:
                             success, msg, page_id = save_to_notion(data_to_save)
                             if success:
                                 # 同時更新本地快取，標記已同步
-                                full_data['notion_synced'] = True
-                                full_data['notion_page_id'] = page_id
-                                st.session_state.sentences[ref] = full_data
+                                full_data = {
+                                    "ref": ref_input or st.session_state.ref_number,
+                                    "original": st.session_state.original_text,
+                                    "prompt": st.session_state.main_input_value,
+                                    "v1_content": st.session_state.current_entry['v1'],
+                                    "v2_content": st.session_state.current_entry['v2'],
+                                    "w_sheet": st.session_state.current_entry['w_sheet'],
+                                    "p_sheet": st.session_state.current_entry['p_sheet'],
+                                    "grammar_list": st.session_state.current_entry['grammar_list'],
+                                    "other": st.session_state.current_entry['other'],
+                                    "saved_sheets": st.session_state.saved_entries,
+                                    "type": type_select,
+                                    "mode": st.session_state.content_mode,
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "notion_synced": True,
+                                    "notion_page_id": page_id
+                                }
+                                st.session_state.sentences[ref_input or st.session_state.ref_number] = full_data
                                 save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref}")
+                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref_input or st.session_state.ref_number}")
                                 st.balloons()
                             else:
                                 st.error(f"❌ 同步失敗：{msg}")
@@ -942,7 +970,7 @@ with tabs[3]:
                 sheets = item.get('saved_sheets', ['未知'])
                 st.caption(f"• {item.get('ref', 'N/A')} ({', '.join(sheets)}) - {item.get('date_added', '')}")
 
-        # ---------- 📋 已存資料瀏覽器（取代備份下載）----------
+    # ---------- 📋 已存資料瀏覽器（取代備份下載）----------
     with st.expander("📋 查看已儲存的資料", expanded=False):
         if not st.session_state.get('sentences'):
             st.info("資料庫是空的，請先儲存資料")
@@ -1025,9 +1053,10 @@ with tabs[3]:
                                 "ref": selected_ref, "mode": f"Mode {item.get('mode', 'A')}",
                                 "type": item.get('type', 'Scripture')
                             }
-                            success, msg = save_to_notion(data)
+                            success, msg, page_id = save_to_notion(data)
                             if success:
                                 st.session_state.sentences[selected_ref]['notion_synced'] = True
+                                st.session_state.sentences[selected_ref]['notion_page_id'] = page_id
                                 save_sentences(st.session_state.sentences)
                                 st.success(f"✅ 已同步!")
                                 st.rerun()
