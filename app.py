@@ -662,8 +662,9 @@ with tabs[3]:
 
     # ---------- 📝 主要功能區 ----------
     st.header("📝 AI 分析工作流程")
+    st.markdown("<h3>📝 AI 分析工作流程</h3>", unsafe_allow_html=True)。這樣對嗎？
     
-    # === STEP 1: 輸入區 ===
+        # === STEP 1: 輸入區 ===
     with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
         raw_input = st.text_area(
             "原始輸入",
