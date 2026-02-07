@@ -393,6 +393,7 @@ with tabs[2]:
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
     from io import StringIO
+    import streamlit.components.v1 as components
 
     # ---------- 新增：Notion API 設定與載入函數 ----------
     NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
@@ -522,6 +523,67 @@ with tabs[3]:
                 return False, f"Notion API Error: {response.text}", None
         except Exception as e:
             return False, str(e), None
+
+    # ---------- 資料庫持久化 ----------
+    SENTENCES_FILE = "sentences.json"
+
+    def load_sentences():
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+
+    def save_sentences(data):
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # ---------- 初始化所有 session_state ----------
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+    if 'is_prompt_generated' not in st.session_state:
+        st.session_state.is_prompt_generated = False
+    if 'main_input_value' not in st.session_state:
+        st.session_state.main_input_value = ""
+    if 'original_text' not in st.session_state:
+        st.session_state.original_text = ""
+    if 'content_mode' not in st.session_state:
+        st.session_state.content_mode = ""
+    if 'raw_input_value' not in st.session_state:
+        st.session_state.raw_input_value = ""
+    if 'ref_number' not in st.session_state:
+        st.session_state.ref_number = ""
+    if 'current_entry' not in st.session_state:
+        st.session_state.current_entry = {
+            'v1': '', 'v2': '', 'w_sheet': '', 
+            'p_sheet': '', 'grammar_list': '', 'other': ''
+        }
+    if 'saved_entries' not in st.session_state:
+        st.session_state.saved_entries = []
+
+    # 1. 智能偵測內容類型
+    def detect_content_mode(text):
+        text = text.strip()
+        if not text:
+            return "document"
+        if text.startswith("{"):
+            return "json"
+        
+        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
+        return "scripture" if has_chinese else "document"
+
+    # 2. 產生完整指令（修正：獨立函數，不再包在 save_to_notion 內）
+    def generate_full_prompt():
+        raw_text = st.session_state.get("raw_input_temp", "").strip()
+        if not raw_text:
+            st.warning("請先貼上內容")
+            return
+        
+        mode = detect_content_mode(raw_text)
         
         if mode in ["json", "scripture"]:
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
@@ -662,7 +724,7 @@ with tabs[3]:
             with cols[2]:
                 st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
 
-        # === STEP 3: 多工作表收集區（關鍵修正！）===
+        # === STEP 3: 多工作表收集區 ===
         with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
             st.info("💡 可以分批貼上 V1、V2、W Sheet、P Sheet 等，貼好一個存一個，最後統一儲存")
             
@@ -886,7 +948,7 @@ with tabs[3]:
                         del st.session_state[key]
                 st.rerun()
 
-    # ---------- 📊 儲存狀態顯示區（新增！）----------
+    # ---------- 📊 儲存狀態顯示區 ----------
     st.divider()
     status_cols = st.columns([1, 1, 2])
     
@@ -909,7 +971,7 @@ with tabs[3]:
                 sheets = item.get('saved_sheets', ['未知'])
                 st.caption(f"• {item.get('ref', 'N/A')} ({', '.join(sheets)}) - {item.get('date_added', '')}")
 
-    # ---------- 📋 已存資料瀏覽器（取代備份下載）----------
+    # ---------- 📋 已存資料瀏覽器 ----------
     with st.expander("📋 查看已儲存的資料", expanded=False):
         if not st.session_state.get('sentences'):
             st.info("資料庫是空的，請先儲存資料")
@@ -941,9 +1003,9 @@ with tabs[3]:
                 saved_sheets = item.get('saved_sheets', [])
                 if saved_sheets:
                     st.write(f"**已儲存工作表：** {', '.join(saved_sheets)}")
-                    tabs = st.tabs(saved_sheets)
+                    tabs_sheets = st.tabs(saved_sheets)
                     for i, sheet in enumerate(saved_sheets):
-                        with tabs[i]:
+                        with tabs_sheets[i]:
                             key_map = {
                                 "V1 Sheet": "v1_content", "V2 Sheet": "v2_content",
                                 "W Sheet": "w_sheet", "P Sheet": "p_sheet",
@@ -1002,7 +1064,7 @@ with tabs[3]:
                     elif notion_synced:
                         st.caption("✅ 已同步")
 
-    # ---------- 🔍 簡易搜尋（取代資料管理）----------
+    # ---------- 🔍 簡易搜尋 ----------
     with st.expander("🔍 搜尋資料", expanded=False):
         search_kw = st.text_input("輸入關鍵字", placeholder="搜尋 Ref_No 或內容...")
         if search_kw:
@@ -1018,17 +1080,7 @@ with tabs[3]:
             else:
                 st.info("無符合資料")
 
-    # ---------- 備份下載 ----------
-    if st.session_state.get('sentences', {}):
-        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
-        st.download_button(
-            "⬇️ 備份全部資料為 JSON",
-            json_str,
-            file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
-            mime="application/json"
-        )
-
-    # ---------- 底部統計（保持完整） ----------
+    # ---------- 底部統計（移除重複的備份下載） ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
