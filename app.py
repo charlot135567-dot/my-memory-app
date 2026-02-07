@@ -1052,43 +1052,31 @@ with tabs[3]:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
-    # ---------- 📊 儲存狀態顯示區（字體縮小版）----------
+        # ---------- 📊 儲存狀態顯示區（字體縮小版）----------
     st.divider()
     status_cols = st.columns([1, 1, 1, 2])
     
     with status_cols[0]:
         total_local = len(st.session_state.get('sentences', {}))
-        # 使用較小的標題
-        st.markdown(f"<small>💾 本地資料庫</small>", unsafe_allow_html=True)
-        st.markdown(f"<h4>{total_local} 筆</h4>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size: 14px; margin: 0;'>💾 本地資料庫</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0;'>{total_local} 筆</p>", unsafe_allow_html=True)
     
     with status_cols[1]:
+        # 直接使用 NOTION_TOKEN 變數，不再重新讀取
         if NOTION_TOKEN:
-            st.markdown(f"<small>☁️ Notion</small>", unsafe_allow_html=True)
-            st.markdown(f"<h4>✅ 已連線</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 14px; margin: 0;'>☁️ Notion</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: green;'>✅ 已連線</p>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<small>☁️ Notion</small>", unsafe_allow_html=True)
-            st.markdown(f"<h4>❌ 未設定</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 14px; margin: 0;'>☁️ Notion</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: red;'>❌ 未設定</p>", unsafe_allow_html=True)
     
     with status_cols[2]:
-        # 檢查 Google Sheet 連線狀態
-        sheet_connected = False
-        try:
-            import gspread
-            from google.oauth2.service_account import Credentials
-            GCP_SA = st.secrets.get("gcp_service_account", {})
-            SHEET_ID = st.secrets.get("sheets", {}).get("spreadsheet_id", "")
-            if GCP_SA and SHEET_ID:
-                sheet_connected = True
-        except:
-            pass
-        
         if sheet_connected:
-            st.markdown(f"<small>📊 Google</small>", unsafe_allow_html=True)
-            st.markdown(f"<h4>✅ 已連線</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 14px; margin: 0;'>📊 Google</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: green;'>✅ 已連線</p>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<small>📊 Google</small>", unsafe_allow_html=True)
-            st.markdown(f"<h4>❌ 未設定</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 14px; margin: 0;'>📊 Google</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 18px; font-weight: bold; margin: 0; color: red;'>❌ 未設定</p>", unsafe_allow_html=True)
     
     with status_cols[3]:
         # 顯示最近儲存的資料
