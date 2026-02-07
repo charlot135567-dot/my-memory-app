@@ -469,9 +469,9 @@ with tabs[3]:
         return {}
 
     def save_to_notion(data_dict):
-    """儲存到 Notion，成功後回傳 page_id"""
-    if not NOTION_TOKEN:
-        return False, "未設定 Notion Token", None
+        """儲存到 Notion，成功後回傳 page_id"""
+        if not NOTION_TOKEN:
+            return False, "未設定 Notion Token", None
     
     url = "https://api.notion.com/v1/pages"
     headers = {
