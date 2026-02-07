@@ -1070,6 +1070,18 @@ with tabs[3]:
             st.markdown(f"<h4>❌ 未設定</h4>", unsafe_allow_html=True)
     
     with status_cols[2]:
+        # 檢查 Google Sheet 連線狀態
+        sheet_connected = False
+        try:
+            import gspread
+            from google.oauth2.service_account import Credentials
+            GCP_SA = st.secrets.get("gcp_service_account", {})
+            SHEET_ID = st.secrets.get("sheets", {}).get("spreadsheet_id", "")
+            if GCP_SA and SHEET_ID:
+                sheet_connected = True
+        except:
+            pass
+        
         if sheet_connected:
             st.markdown(f"<small>📊 Google</small>", unsafe_allow_html=True)
             st.markdown(f"<h4>✅ 已連線</h4>", unsafe_allow_html=True)
