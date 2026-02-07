@@ -772,7 +772,7 @@ with tabs[3]:
                             st.write(f"**{sheet}：**")
                             st.code(content[:200] + "..." if len(content) > 200 else content)
 
-        # === STEP 4: 統一儲存區 ===
+                # === STEP 4: 統一儲存區（字體縮小版）===
         with st.expander("步驟 4：儲存到資料庫", expanded=True):
             st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
             
@@ -792,18 +792,29 @@ with tabs[3]:
                     key="type_select"
                 )
             
-            # 儲存按鈕列
-            btn_cols = st.columns(3)
+            # --- Google Sheet 設定（新增）---
+            sheet_connected = False
+            try:
+                import gspread
+                from google.oauth2.service_account import Credentials
+                GCP_SA = st.secrets.get("gcp_service_account", {})
+                SHEET_ID = st.secrets.get("sheets", {}).get("spreadsheet_id", "")
+                if GCP_SA and SHEET_ID:
+                    sheet_connected = True
+            except:
+                pass
+            
+            # 儲存按鈕列（4個並列：本地、Notion、Google Sheet、全部）
+            btn_cols = st.columns(4)
             
             with btn_cols[0]:
                 # 存到本地
-                if st.button("💾 存到本地 JSON", use_container_width=True):
+                if st.button("💾 本地", use_container_width=True):
                     if not st.session_state.saved_entries:
                         st.error("請先至少暫存一個工作表！")
                     else:
                         try:
                             ref = ref_input or st.session_state.ref_number
-                            # 合併所有內容
                             full_data = {
                                 "ref": ref,
                                 "original": st.session_state.original_text,
@@ -821,7 +832,7 @@ with tabs[3]:
                             }
                             st.session_state.sentences[ref] = full_data
                             save_sentences(st.session_state.sentences)
-                            st.success(f"✅ 已儲存本地：{ref}")
+                            st.success(f"✅ 已存本地：{ref}")
                             st.balloons()
                         except Exception as e:
                             st.error(f"❌ 儲存失敗：{str(e)}")
@@ -829,7 +840,7 @@ with tabs[3]:
             with btn_cols[1]:
                 # 存到 Notion
                 if NOTION_TOKEN:
-                    if st.button("🚀 存到 Notion", use_container_width=True, type="primary"):
+                    if st.button("🚀 Notion", use_container_width=True, type="primary"):
                         if not st.session_state.saved_entries:
                             st.error("請先至少暫存一個工作表！")
                         else:
@@ -845,7 +856,6 @@ with tabs[3]:
                             }
                             success, msg, page_id = save_to_notion(data_to_save)
                             if success:
-                                # 同時更新本地快取，標記已同步
                                 full_data = {
                                     "ref": ref_input or st.session_state.ref_number,
                                     "original": st.session_state.original_text,
@@ -865,22 +875,95 @@ with tabs[3]:
                                 }
                                 st.session_state.sentences[ref_input or st.session_state.ref_number] = full_data
                                 save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref_input or st.session_state.ref_number}")
+                                st.success(f"✅ 已同步 Notion！")
                                 st.balloons()
                             else:
                                 st.error(f"❌ 同步失敗：{msg}")
                 else:
-                    st.button("🚀 存到 Notion", disabled=True, use_container_width=True)
-                    st.caption("請設定 Token")
+                    st.button("🚀 Notion", disabled=True, use_container_width=True)
             
             with btn_cols[2]:
-                # 一鍵存兩邊
-                if st.button("💾🚀 同時存本地+Notion", use_container_width=True):
+                # 存到 Google Sheet（新增）
+                if sheet_connected:
+                    if st.button("📊 Google", use_container_width=True, type="primary"):
+                        if not st.session_state.saved_entries:
+                            st.error("請先至少暫存一個工作表！")
+                        else:
+                            try:
+                                # 認證
+                                creds = Credentials.from_service_account_info(
+                                    GCP_SA,
+                                    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+                                )
+                                gc = gspread.authorize(creds)
+                                sh = gc.open_by_key(SHEET_ID)
+                                
+                                # 取得或建立工作表
+                                sheet_name = st.session_state.content_mode
+                                try:
+                                    worksheet = sh.worksheet(sheet_name)
+                                except:
+                                    worksheet = sh.add_worksheet(title=sheet_name, rows=1000, cols=20)
+                                
+                                # 準備資料
+                                ref = ref_input or st.session_state.ref_number
+                                row_data = [
+                                    ref,
+                                    type_select,
+                                    st.session_state.original_text[:100],
+                                    st.session_state.current_entry['v1'][:500] if st.session_state.current_entry['v1'] else "",
+                                    st.session_state.current_entry['v2'][:500] if st.session_state.current_entry['v2'] else "",
+                                    st.session_state.current_entry['w_sheet'][:500] if st.session_state.current_entry['w_sheet'] else "",
+                                    st.session_state.current_entry['p_sheet'][:500] if st.session_state.current_entry['p_sheet'] else "",
+                                    dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    ", ".join(st.session_state.saved_entries)
+                                ]
+                                
+                                # 寫入
+                                worksheet.append_row(row_data)
+                                
+                                # 標記已同步
+                                full_data = {
+                                    "ref": ref,
+                                    "original": st.session_state.original_text,
+                                    "prompt": st.session_state.main_input_value,
+                                    "v1_content": st.session_state.current_entry['v1'],
+                                    "v2_content": st.session_state.current_entry['v2'],
+                                    "w_sheet": st.session_state.current_entry['w_sheet'],
+                                    "p_sheet": st.session_state.current_entry['p_sheet'],
+                                    "grammar_list": st.session_state.current_entry['grammar_list'],
+                                    "other": st.session_state.current_entry['other'],
+                                    "saved_sheets": st.session_state.saved_entries,
+                                    "type": type_select,
+                                    "mode": st.session_state.content_mode,
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "google_sheet_synced": True
+                                }
+                                st.session_state.sentences[ref] = full_data
+                                save_sentences(st.session_state.sentences)
+                                
+                                st.success(f"✅ 已存 Google Sheet：{sheet_name}")
+                                st.balloons()
+                                
+                            except Exception as e:
+                                st.error(f"❌ Google Sheet 失敗：{str(e)}")
+                else:
+                    st.button("📊 Google", disabled=True, use_container_width=True)
+                    if not GCP_SA:
+                        st.caption("未設定憑證")
+                    elif not SHEET_ID:
+                        st.caption("未設定 Sheet ID")
+            
+            with btn_cols[3]:
+                # 一鍵存全部（本地+Notion+Google）
+                if st.button("💾🚀📊 全部", use_container_width=True):
                     if not st.session_state.saved_entries:
                         st.error("請先至少暫存一個工作表！")
                     else:
-                        # 存本地
                         ref = ref_input or st.session_state.ref_number
+                        success_list = []
+                        
+                        # 1. 存本地
                         full_data = {
                             "ref": ref,
                             "original": st.session_state.original_text,
@@ -898,8 +981,9 @@ with tabs[3]:
                         }
                         st.session_state.sentences[ref] = full_data
                         save_sentences(st.session_state.sentences)
+                        success_list.append("本地")
                         
-                        # 存 Notion
+                        # 2. 存 Notion
                         if NOTION_TOKEN:
                             notion_data = {
                                 "original": st.session_state.original_text,
@@ -911,23 +995,53 @@ with tabs[3]:
                                 "mode": f"Mode {st.session_state.content_mode}",
                                 "type": type_select
                             }
-                            success, msg, page_id = save_to_notion(notion_data)
-                            if success:
-                                # 同時更新本地快取，標記已同步
+                            success_notion, msg, page_id = save_to_notion(notion_data)
+                            if success_notion:
                                 full_data['notion_synced'] = True
                                 full_data['notion_page_id'] = page_id
-                                st.session_state.sentences[ref] = full_data
-                                save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已同步到本地 **和** Notion！\nRef: {ref}")
-                            else:
-                                st.warning(f"⚠️ 本地儲存成功，但 Notion 失敗：{msg}")
-                        else:
-                            st.success(f"✅ 已存本地（未設定 Notion）：{ref}")
+                                success_list.append("Notion")
+                        
+                        # 3. 存 Google Sheet
+                        if sheet_connected:
+                            try:
+                                creds = Credentials.from_service_account_info(
+                                    GCP_SA,
+                                    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+                                )
+                                gc = gspread.authorize(creds)
+                                sh = gc.open_by_key(SHEET_ID)
+                                sheet_name = st.session_state.content_mode
+                                try:
+                                    worksheet = sh.worksheet(sheet_name)
+                                except:
+                                    worksheet = sh.add_worksheet(title=sheet_name, rows=1000, cols=20)
+                                
+                                row_data = [
+                                    ref, type_select,
+                                    st.session_state.original_text[:100],
+                                    st.session_state.current_entry['v1'][:500],
+                                    st.session_state.current_entry['v2'][:500],
+                                    st.session_state.current_entry['w_sheet'][:500],
+                                    st.session_state.current_entry['p_sheet'][:500],
+                                    dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    ", ".join(st.session_state.saved_entries)
+                                ]
+                                worksheet.append_row(row_data)
+                                full_data['google_sheet_synced'] = True
+                                success_list.append("Google Sheet")
+                            except:
+                                pass
+                        
+                        # 更新本地資料
+                        st.session_state.sentences[ref] = full_data
+                        save_sentences(st.session_state.sentences)
+                        
+                        st.success(f"✅ 已同步：{' + '.join(success_list)}")
                         st.balloons()
 
-            # 清除按鈕
+            # 清除按鈕（縮小字體）
             st.divider()
-            if st.button("🔄 開始新的分析（清除全部）", use_container_width=True):
+            if st.button("🔄 新的分析", use_container_width=True):
                 keys_to_clear = [
                     'is_prompt_generated', 'main_input_value', 'original_text',
                     'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
@@ -937,29 +1051,40 @@ with tabs[3]:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
-
-    # ---------- 📊 儲存狀態顯示區 ----------
+    # ---------- 📊 儲存狀態顯示區（字體縮小版）----------
     st.divider()
-    status_cols = st.columns([1, 1, 2])
+    status_cols = st.columns([1, 1, 1, 2])
     
     with status_cols[0]:
         total_local = len(st.session_state.get('sentences', {}))
-        st.metric("💾 本地資料庫", f"{total_local} 筆")
+        # 使用較小的標題
+        st.markdown(f"<small>💾 本地資料庫</small>", unsafe_allow_html=True)
+        st.markdown(f"<h4>{total_local} 筆</h4>", unsafe_allow_html=True)
     
     with status_cols[1]:
         if NOTION_TOKEN:
-            st.metric("☁️ Notion 狀態", "✅ 已連線")
+            st.markdown(f"<small>☁️ Notion</small>", unsafe_allow_html=True)
+            st.markdown(f"<h4>✅ 已連線</h4>", unsafe_allow_html=True)
         else:
-            st.metric("☁️ Notion 狀態", "❌ 未設定")
+            st.markdown(f"<small>☁️ Notion</small>", unsafe_allow_html=True)
+            st.markdown(f"<h4>❌ 未設定</h4>", unsafe_allow_html=True)
     
     with status_cols[2]:
+        if sheet_connected:
+            st.markdown(f"<small>📊 Google</small>", unsafe_allow_html=True)
+            st.markdown(f"<h4>✅ 已連線</h4>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<small>📊 Google</small>", unsafe_allow_html=True)
+            st.markdown(f"<h4>❌ 未設定</h4>", unsafe_allow_html=True)
+    
+    with status_cols[3]:
         # 顯示最近儲存的資料
         if st.session_state.get('sentences'):
-            recent = list(st.session_state.sentences.values())[-3:]  # 最近3筆
-            st.write("🕐 最近儲存：")
+            recent = list(st.session_state.sentences.values())[-3:]
+            st.markdown(f"<small>🕐 最近儲存：</small>", unsafe_allow_html=True)
             for item in reversed(recent):
                 sheets = item.get('saved_sheets', ['未知'])
-                st.caption(f"• {item.get('ref', 'N/A')} ({', '.join(sheets)}) - {item.get('date_added', '')}")
+                st.caption(f"• {item.get('ref', 'N/A')} ({', '.join(sheets)})")
 
     # ---------- 📋 已存資料瀏覽器 ----------
     with st.expander("📋 查看已儲存的資料", expanded=False):
