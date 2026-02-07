@@ -662,7 +662,7 @@ with tabs[3]:
         st.session_state.saved_entries = []
 
     # ---------- 📝 主要功能區 ----------
-    st.markdown("<h3>📝 AI 分析工作流程</h3>", unsafe_allow_html=True)
+    st.markdown("<h5>📝 AI 分析工作流程</h5>", unsafe_allow_html=True)
     
         # === STEP 1: 輸入區 ===
     with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
