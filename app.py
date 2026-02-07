@@ -18,15 +18,10 @@ def init_session_state():
 
 init_session_state()
 
-# 測試 secrets 是否讀取成功
-st.write("=== Secrets 測試 ===")
-try:
-    st.write(f"Secrets keys: {list(st.secrets.keys())}")
-    if "notion" in st.secrets:
-        st.write(f"notion keys: {list(st.secrets['notion'].keys())}")
-        st.write(f"token exists: {'token' in st.secrets['notion']}")
 except Exception as e:
-    st.write(f"讀取失敗: {e}")
+    # 只在 Sidebar 顯示，不打擾主畫面
+    with st.sidebar:
+        st.caption(f"⚠️ 背景圖未載入")
     
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
