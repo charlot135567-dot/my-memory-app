@@ -17,11 +17,6 @@ def init_session_state():
             st.session_state[key] = value
 
 init_session_state()
-
-except Exception as e:
-    # 只在 Sidebar 顯示，不打擾主畫面
-    with st.sidebar:
-        st.caption(f"⚠️ 背景圖未載入")
     
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
