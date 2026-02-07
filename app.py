@@ -167,43 +167,108 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（單純經文與例句，無月曆）
+# 3. TAB1 ─ 書桌（單字/片語/金句/文法，每小時自動輪換）
 # ===================================================================
 with tabs[0]:
-    col_content, col_m1 = st.columns([0.65, 0.35])
-
-    with col_content:
-        st.info("**Becoming** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-        st.success("""
-            🌟 **Pro 17:07** Fine speech is not becoming to a fool; still less is false speech to a prince.   
-            🇯🇵 すぐれた言葉は愚か者にはふさわしくない。偽りの言葉は君主にはなおさらふさわしくない。   
-            🇨🇳 愚頑人說美言本不相稱，何況君王說謊話呢？
-            """, icon="📖")
-    with col_m1:
-        st.markdown(f"""
-            <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:250px;text-align:center;">
-                <div style="flex-grow:1;display:flex;align-items:center;justify-content:center;">
-                    <img src="{IMG_URLS['M1']}" style="width:200px;margin-bottom:10px;">
+    import csv
+    from io import StringIO
+    import random
+    
+    # 初始化輪換時間
+    if 'tab1_last_update' not in st.session_state:
+        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_random_seed = random.randint(1, 1000)
+    
+    # 檢查是否需要更新（超過1小時）
+    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
+    if time_diff > 3600:  # 3600秒 = 1小時
+        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_random_seed = random.randint(1, 1000)
+        st.rerun()
+    
+    # 從資料庫抓取資料
+    sentences = st.session_state.get('sentences', {})
+    
+    if not sentences:
+        st.warning("資料庫為空，請先在 TAB4 儲存資料")
+    else:
+        # 用隨機種子選擇一筆資料
+        random.seed(st.session_state.tab1_random_seed)
+        selected_ref = random.choice(list(sentences.keys()))
+        selected_data = sentences[selected_ref]
+        
+        # 解析 v1_content (CSV格式)
+        v1_content = selected_data.get('v1_content', '')
+        v1_rows = []
+        if v1_content:
+            try:
+                lines = v1_content.strip().split('\n')
+                if lines:
+                    reader = csv.DictReader(lines)
+                    v1_rows = list(reader)
+            except:
+                pass
+        
+        # 隨機選一節經文
+        selected_verse = random.choice(v1_rows) if v1_rows else {}
+        
+        # 顯示區塊
+        col_content, col_info = st.columns([0.65, 0.35])
+        
+        with col_content:
+            # 金句區
+            ref = selected_verse.get('Ref.', 'Pro 17:7')
+            english = selected_verse.get('English (ESV)', 'Fine speech is not becoming to a fool...')
+            chinese = selected_verse.get('Chinese', '愚頑人說美言本不相宜...')
+            
+            st.info(f"**{ref}** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
+            st.success(f"""
+                🌟 **{ref}** {english}  
+                🇨🇳 {chinese}
+                """, icon="📖")
+            
+            st.divider()
+            
+            # 單字/片語區
+            st.markdown("### 📝 今日單字與片語")
+            syn_ant = selected_verse.get('Syn/Ant', 'Becoming (相稱的) / Unseemly (不體面的)')
+            grammar = selected_verse.get('Grammar', '1️⃣[否定結構] 2️⃣[比較級] 3️⃣Ex. [...]')
+            
+            col_word, col_phrase = st.columns(2)
+            with col_word:
+                st.markdown(f"**單字：** {syn_ant.split('/')[0].strip() if '/' in syn_ant else syn_ant}")
+            with col_phrase:
+                # 提取 Grammar 中的例句
+                grammar_parts = grammar.split('3️⃣Ex.')
+                example = grammar_parts[1].strip() if len(grammar_parts) > 1 else grammar[:100]
+                st.markdown(f"**片語：** {example}")
+        
+        with col_info:
+            # 文法解析區（取代原本的圖片）
+            st.markdown("### 📚 文法解析")
+            st.markdown(f"""
+                <div style="background-color:#f8f9fa;border-radius:8px;padding:12px;border-left:5px solid #FF8C00;">
+                    <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#333;">經節: {ref}</p>
+                    <p style="margin:2px 0;font-size:13px;color:#555;">{grammar[:200]}...</p>
+                    <hr style="margin:8px 0;">
+                    <p style="margin:2px 0;font-size:12px;color:#666;">來源: {selected_ref}</p>
+                    <p style="margin:2px 0;font-size:12px;color:#666;">下次更新: {((3600 - time_diff) / 60):.0f} 分鐘後</p>
                 </div>
-                <div class="grammar-box-container" style="margin-top:auto;">
-                    <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#333;">時態: 現在簡單式</p>
-                    <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#333;">核心片語:</p>
-                    <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.4;color:#555;">
-                        <li>Fine speech (優美言辭)</li>
-                        <li>Becoming to (相稱)</li>
-                        <li>Still less (何況)</li>
-                        <li>False speech (虛假言辭)</li>
-                    </ul>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-    st.divider()
-    st.markdown("### ✍️ 文法運用例句")
-    cl1, cl2 = st.columns(2)
-    with cl1:
-        st.markdown("**Ex 1:** *Casual attire is not becoming to a CEO; still less is unprofessional language.* <p class='small-font'>便服對執行長不相稱；更不用說不專業的言語了。</p>", unsafe_allow_html=True)
-    with cl2:
-        st.markdown("**Ex 2:** *Wealth is not becoming to a man without virtue; still less is power.* <p class='small-font'>財富對於無德之人不相稱；更不用說權力了。</p>", unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # 文法運用例句
+        st.markdown("### ✍️ 文法運用例句")
+        cl1, cl2 = st.columns(2)
+        
+        # 從 grammar 提取結構來造句
+        grammar_short = grammar.split('2️⃣')[1].split('3️⃣')[0].strip() if '2️⃣' in grammar else "becoming to"
+        
+        with cl1:
+            st.markdown(f"**Ex 1:** *Casual attire is not {grammar_short} a CEO...* <p class='small-font'>便服對執行長不相稱...</p>", unsafe_allow_html=True)
+        with cl2:
+            st.markdown(f"**Ex 2:** *Wealth is not {grammar_short} a man without virtue...* <p class='small-font'>財富對於無德之人不相稱...</p>", unsafe_allow_html=True)
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦（Emoji 清洗版，避免重複顯示）
@@ -367,17 +432,108 @@ with tabs[1]:
                     st.rerun()
 
 # ===================================================================
-# 5. TAB3 ─ 挑戰（單純翻譯題，無月曆）
+# 5. TAB3 ─ 挑戰（翻譯題 + 單字/片語題，自動更新）
 # ===================================================================
 with tabs[2]:
-    col_challenge, col_deco = st.columns([0.7, 0.3])
-    with col_challenge:
-        st.subheader("📝 翻譯挑戰")
-        st.write("題目 1: 愚頑人說美言本不相稱...")
-        st.text_input("請輸入英文翻譯", key="ans_1_final", placeholder="Type your translation here...")
-    with col_deco:
-        st.image(IMG_URLS.get("B"), width=150, caption="Keep Going!")
+    import csv
+    from io import StringIO
+    import random
+    
+    # 初始化題目
+    if 'tab3_quiz_seed' not in st.session_state:
+        st.session_state.tab3_quiz_seed = random.randint(1, 1000)
+    
+    sentences = st.session_state.get('sentences', {})
+    
+    if not sentences:
+        st.warning("資料庫為空，請先在 TAB4 儲存資料")
+    else:
+        # 排序資料：最新60%，次新30%，較舊10%
+        sorted_refs = sorted(sentences.keys(), 
+                           key=lambda x: sentences[x].get('date_added', ''), 
+                           reverse=True)
+        total = len(sorted_refs)
         
+        # 分層
+        new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
+        mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
+        old_refs = sorted_refs[int(total*0.9):] if total >= 10 else []
+        
+        # 加權隨機選擇
+        weighted_pool = (new_refs * 6) + (mid_refs * 3) + (old_refs * 1)
+        if not weighted_pool:
+            weighted_pool = sorted_refs
+        
+        random.seed(st.session_state.tab3_quiz_seed)
+        selected_quiz_refs = random.sample(weighted_pool, min(5, len(weighted_pool)))
+        
+        # 生成題目
+        quiz_data = []
+        for ref in selected_quiz_refs:
+            data = sentences[ref]
+            v1_content = data.get('v1_content', '')
+            
+            # 解析 CSV
+            v1_rows = []
+            if v1_content:
+                try:
+                    lines = v1_content.strip().split('\n')
+                    if lines:
+                        reader = csv.DictReader(lines)
+                        v1_rows = list(reader)
+                except:
+                    pass
+            
+            if v1_rows:
+                verse = random.choice(v1_rows)
+                quiz_data.append({
+                    'ref': verse.get('Ref.', ref),
+                    'english': verse.get('English (ESV)', ''),
+                    'chinese': verse.get('Chinese', ''),
+                    'syn_ant': verse.get('Syn/Ant', ''),
+                    'grammar': verse.get('Grammar', '')
+                })
+        
+        # 顯示題目
+        st.subheader("📝 翻譯挑戰")
+        
+        # 題型 1-2: 中翻英、英翻中
+        if len(quiz_data) >= 2:
+            with st.container():
+                st.markdown("**題目 1: 中翻英**")
+                st.write(f"「{quiz_data[0]['chinese'][:50]}...」")
+                st.text_input("請輸入英文翻譯", key="quiz_1", placeholder="Type your English translation...")
+                
+                st.markdown("**題目 2: 英翻中**")
+                st.write(f"「{quiz_data[1]['english'][:80]}...」")
+                st.text_input("請輸入中文翻譯", key="quiz_2", placeholder="請輸入中文翻譯...")
+        
+        # 題型 3-5: 單字/片語題
+        st.divider()
+        st.markdown("### 📖 單字與片語")
+        
+        for i, q in enumerate(quiz_data[2:5], 3):
+            col_q, col_a = st.columns([2, 1])
+            with col_q:
+                # 單字題：給英文選中文
+                if i % 2 == 1:
+                    word = q['syn_ant'].split('/')[0].strip() if '/' in q['syn_ant'] else q['syn_ant']
+                    word_clean = word.split('(')[0].strip()
+                    st.markdown(f"**題目 {i}:** `{word_clean}` 的意思是？")
+                    options = [word.split('(')[1].replace(')', '').strip() if '(' in word else "相稱的",
+                              "不體面的", "智慧的", "愚頑的"]
+                    random.shuffle(options)
+                    st.radio("選擇答案", options, key=f"quiz_{i}")
+                # 片語題：給文法結構
+                else:
+                    grammar_short = q['grammar'].split('2️⃣')[1].split('3️⃣')[0].strip() if '2️⃣' in q['grammar'] else q['grammar'][:50]
+                    st.markdown(f"**題目 {i}:** 這個文法結構 `{grammar_short}` 該如何使用？")
+                    st.text_input("請造一個句子", key=f"quiz_{i}", placeholder="Make a sentence...")
+        
+        # 重新生成題目按鈕
+        if st.button("🔄 換一批題目", use_container_width=True):
+            st.session_state.tab3_quiz_seed = random.randint(1, 1000)
+            st.rerun()
 # ===================================================================
 # 6. TAB4 ─AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
