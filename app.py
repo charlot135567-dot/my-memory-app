@@ -476,34 +476,63 @@ with tabs[1]:
                     st.session_state.cal_key += 1
                     st.rerun()
 
-        # ==========================================
-    # 下半部：14天滑動金句（可任意日期輸入）
+    # ==========================================
+    # 下半部：14天滑動金句（檔案持久化 + 美觀互動）
     # ==========================================
     st.divider()
     st.markdown("### ✨ 14天滑動金句")
     
+    # 檔案持久化設定
+    SENTENCES_FILE = os.path.join(DATA_DIR, "daily_sentences.json")
+    
+    def load_daily_sentences():
+        """從檔案載入金句"""
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print("載入金句失敗:", e)
+        return {}
+    
+    def save_daily_sentences():
+        """儲存金句到檔案"""
+        try:
+            with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+                json.dump(st.session_state.daily_sentences_tab2, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print("儲存金句失敗:", e)
+            st.error(f"儲存失敗: {e}")
+    
     # 參數
     DAYS_KEEP = 14
     today = dt.date.today()
-
-    # Session 初始化（使用不同 key 避免衝突）
+    
+    # Session 初始化
     if "daily_sentences_tab2" not in st.session_state:
-        st.session_state.daily_sentences_tab2 = {}
+        # 先從檔案載入
+        loaded = load_daily_sentences()
         
-        # 預設放入5句金句（最近5天）
-        default_sentences = [
-            "遮掩人過的，尋求人愛；屢次挑錯的，離間密友。 箴言 17:9\nWhoever covers an offense seeks love, but he who repeats a matter separates close friends. (Proverbs 17:9 ESV)",
-            "因為耶和華是你所倚靠的；他必保守你的腳不陷入網羅。(箴言 3:26)\nfor the LORD will be your confidence and will keep your foot from being caught. (Proverbs 3:26 ESV)",
-            "箴言 17:27 寡少言語的，有知識；性情溫良的，有聰明。\nWhoever restrains his words has knowledge, and he who has a cool spirit is a man of understanding. (Proverbs 17:27 ESV)",
-            "箴言 17:28 愚昧人若靜默不言也可算為智慧，閉口不說也可算為聰明\nEven a fool who keeps silent is considered wise; when he closes his lips, he is deemed intelligent. (Proverbs 17:28 ESV)",
-            "詩 50:23 凡以感謝獻上為祭的便是榮耀我；那按正路而行的，我必使他得着我的救恩。\nWhoever offers praise glorifies Me; And to him who orders his conduct aright I will show the salvation of God. (Psalms 50:23 NKJV)"
-        ]
+        # 如果是空的，放入預設5句金句
+        if not loaded:
+            loaded = {}
+            default_sentences = [
+                "遮掩人過的，尋求人愛；屢次挑錯的，離間密友。 箴言 17:9\nWhoever covers an offense seeks love, but he who repeats a matter separates close friends. (Proverbs 17:9 ESV)",
+                "因為耶和華是你所倚靠的；他必保守你的腳不陷入網羅。(箴言 3:26)\nfor the LORD will be your confidence and will keep your foot from being caught. (Proverbs 3:26 ESV)",
+                "箴言 17:27 寡少言語的，有知識；性情溫良的，有聰明。\nWhoever restrains his words has knowledge, and he who has a cool spirit is a man of understanding. (Proverbs 17:27 ESV)",
+                "箴言 17:28 愚昧人若靜默不言也可算為智慧，閉口不說也可算為聰明\nEven a fool who keeps silent is considered wise; when he closes his lips, he is deemed intelligent. (Proverbs 17:28 ESV)",
+                "詩 50:23 凡以感謝獻上為祭的便是榮耀我；那按正路而行的，我必使他得着我的救恩。\nWhoever offers praise glorifies Me; And to him who orders his conduct aright I will show the salvation of God. (Psalms 50:23 NKJV)"
+            ]
+            for i, sentence in enumerate(default_sentences):
+                date_key = str(today - dt.timedelta(days=i))
+                loaded[date_key] = sentence
         
-        # 分配到最近5天（今天往前推）
-        for i, sentence in enumerate(default_sentences):
-            date_key = str(today - dt.timedelta(days=i))
-            st.session_state.daily_sentences_tab2[date_key] = sentence
-
+        st.session_state.daily_sentences_tab2 = loaded
+    
+    # 初始化刪除狀態
+    if "active_sentence_del" not in st.session_state:
+        st.session_state.active_sentence_del = None
+    
     # 每日清理：只保留最近14天
     dates_keep = [today - dt.timedelta(days=i) for i in range(DAYS_KEEP)]
     
@@ -514,12 +543,14 @@ with tabs[1]:
                 del st.session_state.daily_sentences_tab2[d]
         except:
             pass
+    
+    # 清理後立即存檔
+    save_daily_sentences()
 
     # 摺疊：新增/更新金句（可選任意日期）
     with st.expander("✏️ 新增或更新金句"):
         col1, col2, col3 = st.columns([2, 5, 1])
         with col1:
-            # 可選任意日期（預設今天）
             selected_date = st.date_input("選擇日期", today, key="sentence_date_tab2")
         with col2:
             new_sentence = st.text_input("金句（中英並列）", key="new_sentence_tab2")
@@ -529,67 +560,32 @@ with tabs[1]:
             if st.button("儲存", type="primary", key="save_sentence_tab2"):
                 if new_sentence:
                     date_key = str(selected_date)
-                    # 覆蓋或新增
                     st.session_state.daily_sentences_tab2[date_key] = new_sentence
+                    save_daily_sentences()  # 立即存檔
                     st.success(f"已儲存到 {selected_date}！")
                     st.rerun()
                 else:
                     st.error("請輸入金句")
 
-    # 14天條列（最新在上）
+    # 14天條列（最新在上，💝 點擊出現垃圾桶）
     st.markdown("##### 📖 最近14天金句列表")
     
     for d in sorted(dates_keep, reverse=True):
         date_str = str(d)
         sentence = st.session_state.daily_sentences_tab2.get(date_str, "")
-        col_date, col_txt, col_del = st.columns([1, 8, 1])
         
-        with col_date:
-            # 標記今天
-            if d == today:
-                st.markdown(f"**{d.strftime('%m/%d')}** 🌟")
-            else:
-                st.caption(f"{d.strftime('%m/%d')}")
-        
-        with col_txt:
-            if sentence:
-                st.info(sentence)
-            else:
-                st.caption("（尚無金句）")
-        
-        with col_del:
-            # 刪除按鈕
-            if sentence:
-                if st.button("🗑️", key=f"del_sent_{date_str}"):
-                    del st.session_state.daily_sentences_tab2[date_str]
-                    st.rerun()
-
-    # 統計與匯出
-    st.divider()
-    total_sentences = len([s for s in st.session_state.daily_sentences_tab2.values() if s])
-    st.caption(f"已儲存 {total_sentences} / 14 天金句")
-    
-    col_export, col_clear = st.columns([1, 1])
-    with col_export:
-        if st.button("📋 匯出全部金句", key="export_tab2"):
-            export_lines = []
-            for d in sorted(dates_keep, reverse=True):
-                date_str = str(d)
-                sent = st.session_state.daily_sentences_tab2.get(date_str, "")
-                if sent:
-                    export_lines.append(f"{d.strftime('%m/%d')}  {sent}")
+        # 只有有金句的才顯示 💝 和垃圾桶功能
+        if sentence:
+            # 產生唯一 ID
+            item_id = f"sent_{date_str}"
             
-            if export_lines:
-                export = "\n\n".join(export_lines)
-                st.code(export, language="text")
-            else:
-                st.info("尚無金句可匯出")
-    
-    with col_clear:
-        if st.button("🧹 清空全部", key="clear_all_tab2"):
-            st.session_state.daily_sentences_tab2 = {}
-            st.success("已清空！")
-            st.rerun()
+            # 三欄布局：愛心、內容、垃圾桶（條件顯示）
+            c1, c2, c3 = st.columns([0.5, 9, 1.5], vertical_alignment="top")
+            
+            with c1:
+                # 💝 點擊切換刪除模式
+                if st.button("💝", key=f"heart_{item_id}"):
+                    st.session_state.active_sentence_del = (
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
