@@ -830,20 +830,25 @@ with tabs[3]:
     from io import StringIO
     import streamlit.components.v1 as components
 
-    # ---------- 測試 Notion API ----------
-    if NOTION_TOKEN:
-        import requests
-        test_url = "https://api.notion.com/v1/users/me"
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Notion-Version": "2022-06-28"
-        }
-        response = requests.get(test_url, headers=headers)
-        st.sidebar.write(f"API Test: {response.status_code}")
-        if response.status_code == 200:
-            st.sidebar.success(f"✅ API 連線成功：{response.json().get('name', 'Unknown')}")
+    # ---------- 1. 先定義 NOTION_TOKEN ----------
+    NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
+    DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
+    
+    # ---------- 2. 測試 API（在定義之後）----------
+    with st.sidebar:
+        if NOTION_TOKEN:
+            test_url = "https://api.notion.com/v1/users/me"
+            headers = {
+                "Authorization": f"Bearer {NOTION_TOKEN}",
+                "Notion-Version": "2022-06-28"
+            }
+            response = requests.get(test_url, headers=headers)
+            if response.status_code == 200:
+                st.success(f"✅ Notion 連線成功")
+            else:
+                st.error(f"❌ Notion 連線失敗：{response.status_code}")
         else:
-            st.sidebar.error(f"❌ API 連線失敗：{response.text[:100]}")
+            st.error("❌ Notion Token 未設定")
             
     # ---------- 背景圖片套用（修正：從 st.session_state 讀取）----------
     try:
@@ -874,10 +879,6 @@ with tabs[3]:
             """, unsafe_allow_html=True)
     except:
         pass
-
-    # ---------- 新增：Notion API 設定與載入函數 ----------
-    NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
-    DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
 
     # ---------- 預先檢查 Google Sheet 連線狀態（移到最前面）----------
     sheet_connected = False
