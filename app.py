@@ -585,8 +585,12 @@ with tabs[1]:
             with c1:
                 # 💝 點擊切換刪除模式
                 if st.button("💝", key=f"heart_{item_id}"):
-                    st.session_state.active_sentence_del = (
-
+                    if st.session_state.active_sentence_del == item_id:
+                        st.session_state.active_sentence_del = None
+                    else:
+                        st.session_state.active_sentence_del = item_id
+                    st.rerun()
+                    
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
