@@ -561,28 +561,43 @@ with tabs[1]:
                 if new_sentence:
                     date_key = str(selected_date)
                     st.session_state.daily_sentences_tab2[date_key] = new_sentence
-                    save_daily_sentences()  # 立即存檔
+                    save_daily_sentences()
                     st.success(f"已儲存到 {selected_date}！")
                     st.rerun()
                 else:
                     st.error("請輸入金句")
 
-    # 14天條列（最新在上，💝 點擊出現垃圾桶）
+    # 14天條列（最新在上）
     st.markdown("##### 📖 最近14天金句列表")
     
     for d in sorted(dates_keep, reverse=True):
         date_str = str(d)
         sentence = st.session_state.daily_sentences_tab2.get(date_str, "")
         
-        # 只有有金句的才顯示 💝 和垃圾桶功能
-        if sentence:
-            # 產生唯一 ID
-            item_id = f"sent_{date_str}"
-            
-            # 三欄布局：愛心、內容、垃圾桶（條件顯示）
-            c1, c2, c3 = st.columns([0.5, 9, 1.5], vertical_alignment="top")
-            
-            with c1:
+        # 產生唯一 ID
+        item_id = f"sent_{date_str}"
+        
+        # 三欄布局：日期、內容、操作
+        c1, c2, c3 = st.columns([1, 8, 1.5], vertical_alignment="top")
+        
+        with c1:
+            # 標記今天
+            if d == today:
+                st.markdown(f"**{d.strftime('%m/%d')}** 🌟")
+            else:
+                st.caption(f"{d.strftime('%m/%d')}")
+        
+        with c2:
+            if sentence:
+                # 顯示金句內容
+                st.info(sentence)
+            else:
+                # 無金句時顯示提示
+                st.caption("（尚無金句）")
+        
+        with c3:
+            # 只有有金句的才顯示 💝 和垃圾桶
+            if sentence:
                 # 💝 點擊切換刪除模式
                 if st.button("💝", key=f"heart_{item_id}"):
                     if st.session_state.active_sentence_del == item_id:
@@ -590,6 +605,45 @@ with tabs[1]:
                     else:
                         st.session_state.active_sentence_del = item_id
                     st.rerun()
+                
+                # 垃圾桶（條件顯示）
+                if st.session_state.active_sentence_del == item_id:
+                    if st.button("🗑️", key=f"del_{item_id}"):
+                        del st.session_state.daily_sentences_tab2[date_str]
+                        save_daily_sentences()
+                        st.session_state.active_sentence_del = None
+                        st.rerun()
+            else:
+                # 無金句時顯示佔位符
+                st.caption("—")
+
+    # 統計與匯出
+    st.divider()
+    total_sentences = len([s for s in st.session_state.daily_sentences_tab2.values() if s])
+    st.caption(f"已儲存 {total_sentences} / 14 天金句")
+    
+    col_export, col_clear = st.columns([1, 1])
+    with col_export:
+        if st.button("📋 匯出全部金句", key="export_tab2"):
+            export_lines = []
+            for d in sorted(dates_keep, reverse=True):
+                date_str = str(d)
+                sent = st.session_state.daily_sentences_tab2.get(date_str, "")
+                if sent:
+                    export_lines.append(f"{d.strftime('%m/%d')}  {sent}")
+            
+            if export_lines:
+                export = "\n\n".join(export_lines)
+                st.code(export, language="text")
+            else:
+                st.info("尚無金句可匯出")
+    
+    with col_clear:
+        if st.button("🧹 清空全部", key="clear_all_tab2"):
+            st.session_state.daily_sentences_tab2 = {}
+            save_daily_sentences()
+            st.success("已清空！")
+            st.rerun()
                     
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
