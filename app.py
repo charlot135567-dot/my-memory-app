@@ -19,19 +19,7 @@ def init_session_state():
 init_session_state()
 
 import streamlit as st
-
-st.write("=== Secrets 測試 ===")
-st.write(f"Keys: {list(st.secrets.keys())}")
-
-# 檢查 notion
-try:
-    notion_token = st.secrets["notion"]["token"]
-    st.success(f"Notion token 前10碼: {notion_token[:10]}...")
-except Exception as e:
-    st.error(f"讀取 notion 失敗: {e}")
-
-# 檢查整個 secrets 結構
-st.write("Raw secrets:", dict(st.secrets))    
+   
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
