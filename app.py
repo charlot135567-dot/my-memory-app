@@ -830,6 +830,33 @@ with tabs[3]:
     from io import StringIO
     import streamlit.components.v1 as components
 
+        # ---------- 測試 Notion API 連線 ----------
+    if NOTION_TOKEN:
+        # 測試 1: 驗證 Token
+        test_url = "https://api.notion.com/v1/users/me"
+        test_headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28"
+        }
+        test_response = requests.get(test_url, headers=test_headers)
+        
+        if test_response.status_code == 200:
+            st.sidebar.success(f"✅ Token 有效：{test_response.json().get('name', 'Unknown')}")
+        else:
+            st.sidebar.error(f"❌ Token 無效：{test_response.status_code}")
+            st.sidebar.code(test_response.text)
+        
+        # 測試 2: 驗證 Database 存取
+        db_url = f"https://api.notion.com/v1/databases/{DATABASE_ID}"
+        db_response = requests.get(db_url, headers=test_headers)
+        
+        if db_response.status_code == 200:
+            db_title = db_response.json().get('title', [{}])[0].get('text', {}).get('content', 'Unknown')
+            st.sidebar.success(f"✅ Database 可存取：{db_title}")
+        else:
+            st.sidebar.error(f"❌ Database 無法存取：{db_response.status_code}")
+            st.sidebar.code(db_response.text)
+            
     # ---------- 背景圖片套用（修正：從 st.session_state 讀取）----------
     try:
         # 從 st.session_state 讀取 sidebar 的設定（而不是 globals）
