@@ -5,6 +5,23 @@ import streamlit as st  # ← 這裡已經有了
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
+import requests
+
+token = "secret_ntn_j43799613399XOBBQtD54MQzAvMvU2CMzpZKwrLfg8M0Vx"
+database_id = "2f910510e7fb80c4a67ff8735ea90cdf"
+
+headers = {
+    "Authorization": f"Bearer {token}",
+    "Notion-Version": "2022-06-28"
+}
+
+response = requests.get(
+    f"{{<https://api.notion.com/v1/databases/{database_id}>}}",
+    headers=headers
+)
+
+print(f"狀態碼: {response.status_code}")
+print(f"回應內容: {response.json()}")
 
 # 在文件最開始初始化所有 session state 變量
 def init_session_state():
