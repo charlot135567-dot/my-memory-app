@@ -933,11 +933,11 @@ with tabs[3]:
         if not NOTION_TOKEN:
             return {}
 
-        url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
+        url = "<https://api.notion.com/v1/databases/2f910510e7fb80c4a67ff8735ea90cdf/query>"
         headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json"
+          "Authorization": f"Bearer {token}",
+          "Notion-Version": "2022-06-28",
+          "Content-Type": "application/json"
         }
 
         all_data = {}
