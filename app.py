@@ -6,7 +6,13 @@ import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, t
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 
-# 在文件最開始初始化所有 session state 變量
+ # ---------- 詳細除錯測試 ----------
+    with st.sidebar:
+        st.write("=== 詳細除錯 ===")
+        st.write(f"Token 前5碼: {NOTION_TOKEN[:5]}...")
+        st.write(f"Token 長度: {len(NOTION_TOKEN)}")
+        st.write(f"Database ID: {DATABASE_ID}")
+        # 在文件最開始初始化所有 session state 變量
 def init_session_state():
     defaults = {
         "is_prompt_generated": False,
