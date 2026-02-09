@@ -16,7 +16,7 @@ headers = {
 }
 
 response = requests.get(
-    f"{{<https://api.notion.com/v1/databases/{database_id}>}}",
+    f"https://api.notion.com/v1/databases/{database_id}",
     headers=headers
 )
 
