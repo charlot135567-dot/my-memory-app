@@ -1,12 +1,12 @@
 # ===================================================================
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
-import streamlit as st
+import streamlit as st  # ← 這裡已經有了
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 
-        # 在文件最開始初始化所有 session state 變量
+# 在文件最開始初始化所有 session state 變量
 def init_session_state():
     defaults = {
         "is_prompt_generated": False,
@@ -17,8 +17,6 @@ def init_session_state():
             st.session_state[key] = value
 
 init_session_state()
-
-import streamlit as st
    
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
