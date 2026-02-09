@@ -6,12 +6,16 @@ import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, t
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 
- # ---------- 詳細除錯測試 ----------
-    with st.sidebar:
-        st.write("=== 詳細除錯 ===")
-        st.write(f"Token 前5碼: {NOTION_TOKEN[:5]}...")
-        st.write(f"Token 長度: {len(NOTION_TOKEN)}")
-        st.write(f"Database ID: {DATABASE_ID}")
+st.write("=== Secrets Debug ===")
+st.write(f"Keys: {list(st.secrets.keys())}")
+
+try:
+    token = st.secrets["notion"]["token"]
+    st.write(f"Token 前20碼: {token[:20]}...")
+    st.write(f"Token 長度: {len(token)}")
+except Exception as e:
+    st.error(f"讀取失敗: {e}")
+
         # 在文件最開始初始化所有 session state 變量
 def init_session_state():
     defaults = {
