@@ -902,7 +902,7 @@ with tabs[3]:
         # 測試 2: 驗證 Database
         try:
             db_response = requests.get(
-                f"https://api.notion.com/v1/databases/{DATABASE_ID}",
+                f"https://api.notion.com/v1/databases/{database_id}",
                 headers={
                     "Authorization": f"Bearer {NOTION_TOKEN}",
                     "Notion-Version": "2022-06-28"
