@@ -820,11 +820,10 @@ with tabs[2]:
                     st.session_state.tab3_show_answers = False
                     st.rerun()
             
-# ===================================================================
 # 6. TAB4 ─AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests  # ← 加入 requests
     from io import StringIO
     import streamlit.components.v1 as components
 
@@ -835,16 +834,20 @@ with tabs[3]:
     # ---------- 2. 測試 API（在定義之後）----------
     with st.sidebar:
         if NOTION_TOKEN:
-            test_url = "https://api.notion.com/v1/users/me"
+            test_url = "https://api.notion.com/v1/users/me"  # ← 移除空格
             headers = {
                 "Authorization": f"Bearer {NOTION_TOKEN}",
                 "Notion-Version": "2022-06-28"
             }
-            response = requests.get(test_url, headers=headers)
-            if response.status_code == 200:
-                st.success(f"✅ Notion 連線成功")
-            else:
-                st.error(f"❌ Notion 連線失敗：{response.status_code}")
+            try:
+                response = requests.get(test_url, headers=headers)
+                if response.status_code == 200:
+                    st.success(f"✅ Notion 連線成功")
+                else:
+                    st.error(f"❌ Notion 連線失敗：{response.status_code}")
+                    st.code(response.text[:200])
+            except Exception as e:
+                st.error(f"❌ 測試錯誤：{e}")
         else:
             st.error("❌ Notion Token 未設定")
             
