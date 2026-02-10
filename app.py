@@ -830,13 +830,30 @@ with tabs[3]:
     import streamlit.components.v1 as components
 
     # ---------- 1. 先定義 NOTION_TOKEN ----------
-    NOTION_TOKEN = st.secrets.get("notion", {}).get("token", "")
+    # ✅ 修正：更穩健的 secrets 讀取方式，加入除錯訊息
+    NOTION_TOKEN = ""
+    try:
+        # 方法 1：直接讀取 st.secrets["notion"]["token"]
+        if "notion" in st.secrets and "token" in st.secrets["notion"]:
+            NOTION_TOKEN = st.secrets["notion"]["token"]
+            st.sidebar.success(f"✅ Token 載入成功 (長度: {len(NOTION_TOKEN)})")
+        # 方法 2：直接讀取 st.secrets["notion_token"]
+        elif "notion_token" in st.secrets:
+            NOTION_TOKEN = st.secrets["notion_token"]
+            st.sidebar.success(f"✅ Token 載入成功 (替代方式)")
+        else:
+            st.sidebar.error("❌ secrets.toml 中找不到 notion.token 或 notion_token")
+            st.sidebar.write("可用的 secrets keys:", list(st.secrets.keys()))
+    except Exception as e:
+        st.sidebar.error(f"❌ 讀取 secrets 失敗: {e}")
+        NOTION_TOKEN = ""
+    
     DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
     
     # ---------- 2. 測試 API（在定義之後）----------
     with st.sidebar:
         if NOTION_TOKEN:
-            test_url = "https://api.notion.com/v1/users/me "  # ← 移除空格
+            test_url = "https://api.notion.com/v1/users/me"
             headers = {
                 "Authorization": f"Bearer {NOTION_TOKEN}",
                 "Notion-Version": "2022-06-28"
@@ -1390,7 +1407,7 @@ with tabs[3]:
                                 # 認證
                                 creds = Credentials.from_service_account_info(
                                     GCP_SA,
-                                    scopes=["https://www.googleapis.com/auth/spreadsheets "]
+                                    scopes=["https://www.googleapis.com/auth/spreadsheets"]
                                 )
                                 gc = gspread.authorize(creds)
                                 sh = gc.open_by_key(SHEET_ID)
