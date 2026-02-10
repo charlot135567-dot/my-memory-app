@@ -952,12 +952,22 @@ with tabs[3]:
                     if start_cursor:
                         payload["start_cursor"] = start_cursor
 
+                    # 發送請求
                     response = requests.post(url, headers=headers, json=payload)
+                    
+                    # --- [除錯專區] 檢查連線狀態 ---
+                    if response.status_code != 200:
+                        st.sidebar.error(f"🚫 Notion 連線失敗 ({response.status_code})")
+                        st.sidebar.json(response.json()) # 這裡會顯示具體報錯原因
+                        return {} 
+                    # ----------------------------
+
                     data = response.json()
 
                     for page in data.get("results", []):
                         props = page.get("properties", {})
 
+                        # 安全提取文字
                         ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
                         translation = get_notion_text(props.get("Translation", {}))
 
