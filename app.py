@@ -1098,7 +1098,6 @@ with tabs[3]:
             st.warning("請先貼上內容")
             return
 
-        
         mode = detect_content_mode(raw_text)
         
         if mode in ["json", "scripture"]:
@@ -1297,6 +1296,7 @@ with tabs[3]:
                         if content:
                             st.write(f"**{sheet}：**")
                             st.code(content[:200] + "..." if len(content) > 200 else content)
+
 
         # === STEP 4: 統一儲存區（修正縮排：在 if 區塊內）===
         with st.expander("步驟 4：儲存到資料庫", expanded=True):
