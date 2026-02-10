@@ -1,27 +1,11 @@
 # ===================================================================
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
-import streamlit as st  # ← 這裡已經有了
+import streamlit as st  
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 import requests
-
-token = "secret_ntn_j43799613399XOBBQtD54MQzAvMvU2CMzpZKwrLfg8M0Vx"
-database_id = "2f910510e7fb80c4a67ff8735ea90cdf"
-
-headers = {
-    "Authorization": f"Bearer {token}",
-    "Notion-Version": "2022-06-28"
-}
-
-response = requests.get(
-    f"https://api.notion.com/v1/databases/{database_id}",
-    headers=headers
-)
-
-print(f"狀態碼: {response.status_code}")
-print(f"回應內容: {response.json()}")
 
 # 在文件最開始初始化所有 session state 變量
 def init_session_state():
@@ -852,7 +836,7 @@ with tabs[3]:
     # ---------- 2. 測試 API（在定義之後）----------
     with st.sidebar:
         if NOTION_TOKEN:
-            test_url = "https://api.notion.com/v1/users/me"  # ← 移除空格
+            test_url = "https://api.notion.com/v1/users/me "  # ← 移除空格
             headers = {
                 "Authorization": f"Bearer {NOTION_TOKEN}",
                 "Notion-Version": "2022-06-28"
@@ -933,11 +917,11 @@ with tabs[3]:
         if not NOTION_TOKEN:
             return {}
 
-        url = "<https://api.notion.com/v1/databases/2f910510e7fb80c4a67ff8735ea90cdf/query>"
+        url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
         headers = {
-          "Authorization": f"Bearer {token}",
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json"
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json"
         }
 
         all_data = {}
@@ -1096,6 +1080,7 @@ with tabs[3]:
         if not raw_text:
             st.warning("請先貼上內容")
             return
+
         
         mode = detect_content_mode(raw_text)
         
@@ -1405,7 +1390,7 @@ with tabs[3]:
                                 # 認證
                                 creds = Credentials.from_service_account_info(
                                     GCP_SA,
-                                    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+                                    scopes=["https://www.googleapis.com/auth/spreadsheets "]
                                 )
                                 gc = gspread.authorize(creds)
                                 sh = gc.open_by_key(SHEET_ID)
@@ -1430,7 +1415,6 @@ with tabs[3]:
                                     dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
                                     ", ".join(st.session_state.saved_entries)
                                 ]
-                                
                                 # 寫入
                                 worksheet.append_row(row_data)
                                 
