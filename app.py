@@ -945,7 +945,7 @@ with tabs[3]:
         has_more = True
         start_cursor = None
 
-        try:
+try:
             with st.spinner("☁️ 正在從 Notion 載入資料..."):
                 while has_more:
                     payload = {"page_size": 100}
