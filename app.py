@@ -952,15 +952,12 @@ with tabs[3]:
                     if start_cursor:
                         payload["start_cursor"] = start_cursor
 
-                    # 發送請求
                     response = requests.post(url, headers=headers, json=payload)
                     
-                    # --- [除錯專區] ---
                     if response.status_code != 200:
                         st.sidebar.error(f"🚫 Notion 連線失敗 ({response.status_code})")
                         st.sidebar.json(response.json())
                         return {} 
-                    # ------------------
 
                     data = response.json()
 
@@ -971,7 +968,7 @@ with tabs[3]:
 
                         v1_content = ""
                         v2_content = ""
-                        if "【V1 Sheet】" in translation:
+                        if translation and "【V1 Sheet】" in translation:
                             parts = translation.split("【V2 Sheet】")
                             v1_content = parts[0].split("【V1 Sheet】")[-1].strip() if len(parts) > 0 else ""
                             v2_content = parts[1].split("【其他工作表】")[0].strip() if len(parts) > 1 else ""
@@ -995,9 +992,14 @@ with tabs[3]:
 
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
-        
+
+            # 迴圈結束後，回傳前顯示成功訊息
+            if all_data:
+                st.sidebar.success(f"✅ 已從 Notion 載入 {len(all_data)} 筆資料")
+            return all_data
+
         except Exception as e:
-            st.error(f"❌ 載入過程發生錯誤: {e}")
+            st.sidebar.error(f"❌ 載入失敗：{e}")
             return {}
 
         return all_data
