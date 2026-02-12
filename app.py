@@ -825,54 +825,45 @@ with tabs[2]:
 # 6. TAB4 ─AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests  # ← 加入 requests
+    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
     from io import StringIO
     import streamlit.components.v1 as components
 
-    # ---------- 1. 先定義 NOTION_TOKEN ----------
-    # ✅ 修正：更穩健的 secrets 讀取方式，加入除錯訊息
+    # ═══════════════════════════════════════════════════════════════
+    # 🔒 NOTION 設定集中管理區（更新時請勿修改此區塊結構）
+    # ═══════════════════════════════════════════════════════════════
+    # 讀取 secrets.toml 的 [notion] 區段
     NOTION_TOKEN = ""
+    DATABASE_ID = ""
+    
     try:
-        # 方法 1：直接讀取 st.secrets["notion"]["token"]
-        if "notion" in st.secrets and "token" in st.secrets["notion"]:
-            NOTION_TOKEN = st.secrets["notion"]["token"]
-            st.sidebar.success(f"✅ Token 載入成功 (長度: {len(NOTION_TOKEN)})")
-        # 方法 2：直接讀取 st.secrets["notion_token"]
-        elif "notion_token" in st.secrets:
-            NOTION_TOKEN = st.secrets["notion_token"]
-            st.sidebar.success(f"✅ Token 載入成功 (替代方式)")
-        else:
-            st.sidebar.error("❌ secrets.toml 中找不到 notion.token 或 notion_token")
-            st.sidebar.write("可用的 secrets keys:", list(st.secrets.keys()))
-    except Exception as e:
-        st.sidebar.error(f"❌ 讀取 secrets 失敗: {e}")
-        NOTION_TOKEN = ""
-    
-    DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
-    
-    # ---------- 2. 測試 API（在定義之後）----------
-    with st.sidebar:
-        if NOTION_TOKEN:
-            test_url = "https://api.notion.com/v1/users/me"
-            headers = {
-                "Authorization": f"Bearer {NOTION_TOKEN}",
-                "Notion-Version": "2022-06-28"
-            }
-            try:
-                response = requests.get(test_url, headers=headers)
-                if response.status_code == 200:
-                    st.success(f"✅ Notion 連線成功")
-                else:
-                    st.error(f"❌ Notion 連線失敗：{response.status_code}")
-                    st.code(response.text[:200])
-            except Exception as e:
-                st.error(f"❌ 測試錯誤：{e}")
-        else:
-            st.error("❌ Notion Token 未設定")
+        if "notion" in st.secrets:
+            notion_cfg = st.secrets["notion"]
+            NOTION_TOKEN = notion_cfg.get("token", "")
+            # 優先從 secrets 讀取 database_id，沒有則使用預設值
+            DATABASE_ID = notion_cfg.get("database_id", "2f910510e7fb80c4a67ff8735ea90cdf")
             
-    # ---------- 背景圖片套用（修正：從 st.session_state 讀取）----------
+            # 驗證
+            if NOTION_TOKEN and DATABASE_ID:
+                st.sidebar.success(f"✅ Notion 設定載入成功")
+            else:
+                st.sidebar.warning(f"⚠️ Notion 設定不完整: Token={'有' if NOTION_TOKEN else '無'}, ID={'有' if DATABASE_ID else '無'}")
+        else:
+            st.sidebar.error("❌ secrets.toml 缺少 [notion] 區段")
+            # 使用預設值讓程式能繼續執行（雖然會失敗）
+            DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
+    except Exception as e:
+        st.sidebar.error(f"❌ 讀取 Notion 設定失敗: {e}")
+        DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
+    
+    # 常數定義（避免魔法字串）
+    NOTION_API_VERSION = "2022-06-28"
+    NOTION_BASE_URL = "https://api.notion.com/v1"
+    
+    # ═══════════════════════════════════════════════════════════════
+    
+    # ---------- 背景圖片套用 ----------
     try:
-        # 從 st.session_state 讀取 sidebar 的設定（而不是 globals）
         selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
         current_bg_size = st.session_state.get('bg_size', 15)
         current_bg_bottom = st.session_state.get('bg_bottom', 30)
@@ -900,7 +891,7 @@ with tabs[3]:
     except:
         pass
 
-    # ---------- 預先檢查 Google Sheet 連線狀態（移到最前面）----------
+    # ---------- Google Sheet 連線檢查 ----------
     sheet_connected = False
     GCP_SA = None
     SHEET_ID = None
@@ -914,20 +905,200 @@ with tabs[3]:
     except:
         pass
 
-    # ---------- 輔助工具：安全獲取 Notion 文字 ----------
+    # ---------- 輔助函式 ----------
     def get_notion_text(prop_dict):
-        """防止 Index out of range"""
+        """安全取得 Notion rich_text 內容"""
         rt = prop_dict.get("rich_text", [])
         if rt and len(rt) > 0:
             return rt[0].get("text", {}).get("content", "")
         return ""
 
-    # 顯示連線狀態（在 Sidebar）
+    # ---------- Notion 核心函式 ----------
+    def load_from_notion():
+        """從 Notion 資料庫載入所有資料"""
+        # 使用頂層定義的 NOTION_TOKEN 和 DATABASE_ID
+        if not NOTION_TOKEN:
+            st.sidebar.error("❌ NOTION_TOKEN 未設定，無法載入")
+            return {}
+        
+        if not DATABASE_ID:
+            st.sidebar.error("❌ DATABASE_ID 未設定")
+            return {}
+        
+        # ✅ 修正：確保 URL 沒有空格
+        url = f"{NOTION_BASE_URL}/databases/{DATABASE_ID}/query"
+        
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": NOTION_API_VERSION,
+            "Content-Type": "application/json"
+        }
+
+        all_data = {}
+        has_more = True
+        start_cursor = None
+
+        try:
+            with st.spinner("☁️ 正在從 Notion 載入資料..."):
+                while has_more:
+                    payload = {"page_size": 100}
+                    if start_cursor:
+                        payload["start_cursor"] = start_cursor
+
+                    response = requests.post(url, headers=headers, json=payload)
+                    
+                    if response.status_code != 200:
+                        st.sidebar.error(f"🚫 Notion API 錯誤 ({response.status_code})")
+                        try:
+                            st.sidebar.json(response.json())
+                        except:
+                            st.sidebar.code(response.text[:300])
+                        return {}
+
+                    data = response.json()
+
+                    for page in data.get("results", []):
+                        props = page.get("properties", {})
+                        ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
+                        translation = get_notion_text(props.get("Translation", {}))
+
+                        v1_content = ""
+                        v2_content = ""
+                        if translation and "【V1 Sheet】" in translation:
+                            parts = translation.split("【V2 Sheet】")
+                            v1_content = parts[0].split("【V1 Sheet】")[-1].strip() if len(parts) > 0 else ""
+                            v2_content = parts[1].split("【其他工作表】")[0].strip() if len(parts) > 1 else ""
+
+                        title_list = props.get("Content", {}).get("title", [])
+                        original = title_list[0].get("text", {}).get("content", "") if title_list else ""
+
+                        all_data[ref] = {
+                            "ref": ref,
+                            "original": original,
+                            "v1_content": v1_content,
+                            "v2_content": v2_content,
+                            "ai_result": translation,
+                            "type": props.get("Type", {}).get("select", {}).get("name", "Scripture"),
+                            "mode": props.get("Source_Mode", {}).get("select", {}).get("name", "Mode A"),
+                            "date_added": props.get("Date_Added", {}).get("date", {}).get("start", "") if props.get("Date_Added", {}).get("date") else "",
+                            "notion_page_id": page.get("id"),
+                            "notion_synced": True,
+                            "saved_sheets": ["V1", "V2"] if v1_content or v2_content else ["載入成功"]
+                        }
+
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")
+
+            if all_data:
+                st.sidebar.success(f"✅ 已從 Notion 載入 {len(all_data)} 筆資料")
+            return all_data
+
+        except Exception as e:
+            st.sidebar.error(f"❌ 載入失敗：{e}")
+            return {}
+
+    def save_to_notion(data_dict):
+        """儲存資料到 Notion"""
+        if not NOTION_TOKEN:
+            return False, "NOTION_TOKEN 未設定", None
+
+        # ✅ 修正：確保 URL 沒有空格
+        url = f"{NOTION_BASE_URL}/pages"
+        
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Content-Type": "application/json",
+            "Notion-Version": NOTION_API_VERSION
+        }
+
+        full_content = f"""【V1 Sheet】
+{data_dict.get('v1_content', '無')}
+
+【V2 Sheet】
+{data_dict.get('v2_content', '無')}
+
+【其他補充】
+{data_dict.get('other_sheets', '無')}
+"""
+
+        properties = {
+            "Content": {"title": [{"text": {"content": data_dict.get('original', '')[:100]}}]},
+            "Translation": {"rich_text": [{"text": {"content": full_content[:2000]}}]},
+            "Ref_No": {"rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]},
+            "Source_Mode": {"select": {"name": data_dict.get("mode", "Mode A")}},
+            "Type": {"select": {"name": data_dict.get("type", "Scripture")}},
+            "Date_Added": {"date": {"start": dt.datetime.now().isoformat()}}
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json={
+                "parent": {"database_id": DATABASE_ID},
+                "properties": properties
+            })
+            if response.status_code == 200:
+                page_id = response.json().get("id")
+                return True, "成功", page_id
+            else:
+                return False, f"API Error: {response.text}", None
+        except Exception as e:
+            return False, str(e), None
+
+    # ---------- 本地資料庫 ----------
+    SENTENCES_FILE = "sentences.json"
+
+    def load_sentences():
+        if os.path.exists(SENTENCES_FILE):
+            try:
+                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+
+    def save_sentences(data):
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # ---------- Session State 初始化 ----------
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+    if 'is_prompt_generated' not in st.session_state:
+        st.session_state.is_prompt_generated = False
+    if 'main_input_value' not in st.session_state:
+        st.session_state.main_input_value = ""
+    if 'original_text' not in st.session_state:
+        st.session_state.original_text = ""
+    if 'content_mode' not in st.session_state:
+        st.session_state.content_mode = ""
+    if 'raw_input_value' not in st.session_state:
+        st.session_state.raw_input_value = ""
+    if 'ref_number' not in st.session_state:
+        st.session_state.ref_number = ""
+    if 'current_entry' not in st.session_state:
+        st.session_state.current_entry = {
+            'v1': '', 'v2': '', 'w_sheet': '', 
+            'p_sheet': '', 'grammar_list': '', 'other': ''
+        }
+    if 'saved_entries' not in st.session_state:
+        st.session_state.saved_entries = []
+
+    # 顯示連線狀態（Sidebar）
     with st.sidebar:
+        st.divider()
+        st.subheader("☁️ 連線狀態")
         if NOTION_TOKEN:
-            st.success("☁️ Notion 已連線")
+            st.success("✅ Notion Token 已設定")
         else:
-            st.warning("⚠️ Notion 未設定（Reboot 後資料會消失）")
+            st.error("❌ Notion Token 未設定")
+        
+        if sheet_connected:
+            st.success("✅ Google Sheet 已連線")
+        else:
+            st.error("❌ Google Sheet 未連線")
+
+    # ... 其餘程式碼（generate_full_prompt, UI 等）保持不變 ...
 
     def load_from_notion():
         # --- 強制診斷區 ---
