@@ -930,20 +930,51 @@ with tabs[3]:
             st.warning("⚠️ Notion 未設定（Reboot 後資料會消失）")
 
     def load_from_notion():
-        """啟動時從 Notion 載入所有資料"""
-        # ✅ 除錯：檢查 NOTION_TOKEN
+        """從 Notion 載入資料 (針對 [notion] 階層式 secrets 優化)"""
+        # ✅ 除錯：檢查 secrets 結構
         st.sidebar.divider()
         st.sidebar.subheader("🔧 load_from_notion 除錯")
-        st.sidebar.write(f"NOTION_TOKEN 是否存在: {bool(NOTION_TOKEN)}")
-        st.sidebar.write(f"NOTION_TOKEN 長度: {len(NOTION_TOKEN) if NOTION_TOKEN else 0}")
         
-        if not NOTION_TOKEN:
-            st.sidebar.error("❌ NOTION_TOKEN 為空，無法載入")
+        try:
+            # 依照 secrets.toml 結構讀取
+            st.sidebar.write("嘗試讀取 st.secrets['notion']...")
+            
+            if "notion" not in st.secrets:
+                st.sidebar.error("❌ st.secrets 中找不到 'notion' 區段")
+                st.sidebar.write(f"可用的 keys: {list(st.secrets.keys())}")
+                return {}
+            
+            notion_section = st.secrets["notion"]
+            st.sidebar.write(f"✅ 'notion' 區段類型: {type(notion_section)}")
+            
+            if hasattr(notion_section, 'keys'):
+                st.sidebar.write(f"   內部 keys: {list(notion_section.keys())}")
+            
+            if "token" not in notion_section:
+                st.sidebar.error("❌ 'notion' 區段內找不到 'token'")
+                return {}
+            
+            NOTION_TOKEN = notion_section["token"]
+            st.sidebar.success(f"✅ Token 讀取成功 (長度: {len(NOTION_TOKEN)})")
+            st.sidebar.write(f"   Token 前10碼: {NOTION_TOKEN[:10]}...")
+            
+            # 檢查是否有 database_id，沒有則使用預設值
+            if "database_id" in notion_section:
+                DATABASE_ID = notion_section["database_id"]
+                st.sidebar.write(f"✅ 從 secrets 讀取 database_id")
+            else:
+                DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
+                st.sidebar.write(f"⚠️ 使用預設 database_id")
+                
+        except Exception as e:
+            st.sidebar.error(f"🚫 無法從 secrets 讀取設定: {e}")
+            import traceback
+            st.sidebar.code(traceback.format_exc())
             return {}
 
         # ✅ 修正：移除 URL 中的空格
         url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
-        st.sidebar.write(f"請求 URL: {url[:50]}...")
+        st.sidebar.write(f"請求 URL: {url}")
         
         headers = {
             "Authorization": f"Bearer {NOTION_TOKEN}",
@@ -956,25 +987,38 @@ with tabs[3]:
         start_cursor = None
 
         try:
-            with st.spinner("☁️ 正在從 Notion 載入資料..."):
+            with st.spinner("☁️ 正在連線至 Notion..."):
                 while has_more:
                     payload = {"page_size": 100}
                     if start_cursor:
                         payload["start_cursor"] = start_cursor
 
-                    st.sidebar.write(f"發送請求... (has_more={has_more})")
+                    st.sidebar.write(f"發送 POST 請求...")
                     response = requests.post(url, headers=headers, json=payload)
                     
+                    # --- 除錯診斷 ---
                     st.sidebar.write(f"回應狀態碼: {response.status_code}")
                     
-                    if response.status_code != 200:
-                        st.sidebar.error(f"🚫 Notion 連線失敗 ({response.status_code})")
+                    if response.status_code == 401:
+                        st.sidebar.error("❌ 身份驗證失敗 (401)")
+                        st.sidebar.write("可能原因：")
+                        st.sidebar.write("- Token 格式錯誤或已過期")
+                        st.sidebar.write("- Token 包含空格或隱藏字元")
+                        st.sidebar.write(f"- Token 實際長度: {len(NOTION_TOKEN)}")
+                        return {}
+                    elif response.status_code == 404:
+                        st.sidebar.error(f"❌ 資料庫不存在 (404)")
+                        st.sidebar.write(f"請檢查 DATABASE_ID: {DATABASE_ID}")
+                        return {}
+                    elif response.status_code != 200:
+                        st.sidebar.error(f"🚫 載入失敗 ({response.status_code})")
                         try:
                             error_detail = response.json()
                             st.sidebar.json(error_detail)
                         except:
                             st.sidebar.code(response.text[:500])
-                        return {} 
+                        return {}
+                    # ----------------
 
                     data = response.json()
                     results_count = len(data.get("results", []))
@@ -984,7 +1028,8 @@ with tabs[3]:
                         props = page.get("properties", {})
                         ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
                         translation = get_notion_text(props.get("Translation", {}))
-
+                        
+                        # 內容拆分邏輯
                         v1_content = ""
                         v2_content = ""
                         if translation and "【V1 Sheet】" in translation:
@@ -992,6 +1037,7 @@ with tabs[3]:
                             v1_content = parts[0].split("【V1 Sheet】")[-1].strip() if len(parts) > 0 else ""
                             v2_content = parts[1].split("【其他工作表】")[0].strip() if len(parts) > 1 else ""
 
+                        # 取得標題 (Original Content)
                         title_list = props.get("Content", {}).get("title", [])
                         original = title_list[0].get("text", {}).get("content", "") if title_list else ""
 
@@ -1011,17 +1057,18 @@ with tabs[3]:
 
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
-                    st.sidebar.write(f"下一頁: {has_more}, cursor: {start_cursor[:10] if start_cursor else 'None'}...")
+                    if has_more:
+                        st.sidebar.write(f"繼續載入下一頁...")
 
             # 迴圈結束後，回傳前顯示成功訊息
             if all_data:
-                st.sidebar.success(f"✅ 已從 Notion 載入 {len(all_data)} 筆資料")
+                st.sidebar.success(f"✅ 成功載入 {len(all_data)} 筆資料")
             else:
                 st.sidebar.warning("⚠️ 資料庫為空，沒有載入任何資料")
             return all_data
 
         except Exception as e:
-            st.sidebar.error(f"❌ 載入失敗：{e}")
+            st.sidebar.error(f"❌ 執行異常: {e}")
             import traceback
             st.sidebar.code(traceback.format_exc())
             return {}
