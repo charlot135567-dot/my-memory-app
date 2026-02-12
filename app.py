@@ -945,7 +945,7 @@ with tabs[3]:
         has_more = True
         start_cursor = None
 
-try:
+        try:
             with st.spinner("☁️ 正在從 Notion 載入資料..."):
                 while has_more:
                     payload = {"page_size": 100}
@@ -955,19 +955,17 @@ try:
                     # 發送請求
                     response = requests.post(url, headers=headers, json=payload)
                     
-                    # --- [除錯專區] 檢查連線狀態 ---
+                    # --- [除錯專區] ---
                     if response.status_code != 200:
                         st.sidebar.error(f"🚫 Notion 連線失敗 ({response.status_code})")
-                        st.sidebar.json(response.json()) # 這裡會顯示具體報錯原因
+                        st.sidebar.json(response.json())
                         return {} 
-                    # ----------------------------
+                    # ------------------
 
                     data = response.json()
 
                     for page in data.get("results", []):
                         props = page.get("properties", {})
-
-                        # 安全提取文字
                         ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
                         translation = get_notion_text(props.get("Translation", {}))
 
@@ -992,12 +990,17 @@ try:
                             "date_added": props.get("Date_Added", {}).get("date", {}).get("start", "") if props.get("Date_Added", {}).get("date") else "",
                             "notion_page_id": page.get("id"),
                             "notion_synced": True,
-                            "saved_sheets": ["V1", "V2"] if v1_content or v2_content else ["從Notion載入"]
+                            "saved_sheets": ["V1", "V2"] if v1_content or v2_content else ["載入成功"]
                         }
 
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
+        
+        except Exception as e:
+            st.error(f"❌ 載入過程發生錯誤: {e}")
+            return {}
 
+        return all_data
                 if all_data:
                     st.sidebar.success(f"✅ 已載入 {len(all_data)} 筆")
                 return all_data
