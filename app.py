@@ -930,23 +930,34 @@ with tabs[3]:
             st.warning("⚠️ Notion 未設定（Reboot 後資料會消失）")
 
     def load_from_notion():
-        """啟動時從 Notion 載入所有資料"""
-        # ✅ 除錯：檢查 NOTION_TOKEN
+        # --- 強制診斷區 ---
         st.sidebar.divider()
-        st.sidebar.subheader("🔧 load_from_notion 除錯")
-        st.sidebar.write(f"NOTION_TOKEN 是否存在: {bool(NOTION_TOKEN)}")
-        st.sidebar.write(f"NOTION_TOKEN 長度: {len(NOTION_TOKEN) if NOTION_TOKEN else 0}")
+        st.sidebar.subheader("🔧 Notion 連線診斷")
         
-        if not NOTION_TOKEN:
-            st.sidebar.error("❌ NOTION_TOKEN 為空，無法載入")
+        if "notion" not in st.secrets:
+            st.sidebar.warning("⚠️ 偵測不到 [notion] 區塊")
+            st.sidebar.write(f"可用的 secrets keys: {list(st.secrets.keys())}")
             return {}
+        
+        token = st.secrets["notion"].get("token")
+        db_id = st.secrets["notion"].get("database_id")
+        
+        st.sidebar.write(f"Token 存在: {bool(token)}")
+        st.sidebar.write(f"Database ID 存在: {bool(db_id)}")
+        
+        if not token or not db_id:
+            st.sidebar.error(f"🚫 憑證缺失: Token={'有' if token else '無'}, ID={'有' if db_id else '無'}")
+            return {}
+        
+        st.sidebar.success("✅ 憑證檢查通過")
+        # ----------------
 
-        # ✅ 修正：移除 URL 中的空格
-        url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
-        st.sidebar.write(f"請求 URL: {url[:50]}...")
+        # ✅ 修正：移除 URL 中的空格（這是關鍵！）
+        url = f"https://api.notion.com/v1/databases/{db_id}/query"
+        st.sidebar.write(f"URL: {url[:50]}...")
         
         headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Authorization": f"Bearer {token}",
             "Notion-Version": "2022-06-28",
             "Content-Type": "application/json"
         }
@@ -954,32 +965,27 @@ with tabs[3]:
         all_data = {}
         has_more = True
         start_cursor = None
-
+        
         try:
-            with st.spinner("☁️ 正在從 Notion 載入資料..."):
+            with st.spinner("☁️ 正在連線 Notion..."):
                 while has_more:
                     payload = {"page_size": 100}
                     if start_cursor:
                         payload["start_cursor"] = start_cursor
-
-                    st.sidebar.write(f"發送請求... (has_more={has_more})")
+                        
                     response = requests.post(url, headers=headers, json=payload)
                     
-                    st.sidebar.write(f"回應狀態碼: {response.status_code}")
-                    
                     if response.status_code != 200:
-                        st.sidebar.error(f"🚫 Notion 連線失敗 ({response.status_code})")
+                        st.sidebar.error(f"❌ Notion 拒絕連線 ({response.status_code})")
                         try:
                             error_detail = response.json()
                             st.sidebar.json(error_detail)
                         except:
-                            st.sidebar.code(response.text[:500])
-                        return {} 
+                            st.sidebar.code(response.text[:300])
+                        return {}
 
                     data = response.json()
-                    results_count = len(data.get("results", []))
-                    st.sidebar.write(f"取得 {results_count} 筆資料")
-
+                    
                     for page in data.get("results", []):
                         props = page.get("properties", {})
                         ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
@@ -1011,17 +1017,12 @@ with tabs[3]:
 
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
-                    st.sidebar.write(f"下一頁: {has_more}, cursor: {start_cursor[:10] if start_cursor else 'None'}...")
 
-            # 迴圈結束後，回傳前顯示成功訊息
-            if all_data:
-                st.sidebar.success(f"✅ 已從 Notion 載入 {len(all_data)} 筆資料")
-            else:
-                st.sidebar.warning("⚠️ 資料庫為空，沒有載入任何資料")
+            st.sidebar.success(f"✅ 已連線：載入 {len(all_data)} 筆")
             return all_data
-
+            
         except Exception as e:
-            st.sidebar.error(f"❌ 載入失敗：{e}")
+            st.sidebar.error(f"❌ 執行異常: {e}")
             import traceback
             st.sidebar.code(traceback.format_exc())
             return {}
