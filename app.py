@@ -931,10 +931,20 @@ with tabs[3]:
 
     def load_from_notion():
         """啟動時從 Notion 載入所有資料"""
+        # ✅ 除錯：檢查 NOTION_TOKEN
+        st.sidebar.divider()
+        st.sidebar.subheader("🔧 load_from_notion 除錯")
+        st.sidebar.write(f"NOTION_TOKEN 是否存在: {bool(NOTION_TOKEN)}")
+        st.sidebar.write(f"NOTION_TOKEN 長度: {len(NOTION_TOKEN) if NOTION_TOKEN else 0}")
+        
         if not NOTION_TOKEN:
+            st.sidebar.error("❌ NOTION_TOKEN 為空，無法載入")
             return {}
 
+        # ✅ 修正：移除 URL 中的空格
         url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
+        st.sidebar.write(f"請求 URL: {url[:50]}...")
+        
         headers = {
             "Authorization": f"Bearer {NOTION_TOKEN}",
             "Notion-Version": "2022-06-28",
@@ -952,14 +962,23 @@ with tabs[3]:
                     if start_cursor:
                         payload["start_cursor"] = start_cursor
 
+                    st.sidebar.write(f"發送請求... (has_more={has_more})")
                     response = requests.post(url, headers=headers, json=payload)
+                    
+                    st.sidebar.write(f"回應狀態碼: {response.status_code}")
                     
                     if response.status_code != 200:
                         st.sidebar.error(f"🚫 Notion 連線失敗 ({response.status_code})")
-                        st.sidebar.json(response.json())
+                        try:
+                            error_detail = response.json()
+                            st.sidebar.json(error_detail)
+                        except:
+                            st.sidebar.code(response.text[:500])
                         return {} 
 
                     data = response.json()
+                    results_count = len(data.get("results", []))
+                    st.sidebar.write(f"取得 {results_count} 筆資料")
 
                     for page in data.get("results", []):
                         props = page.get("properties", {})
@@ -992,22 +1011,19 @@ with tabs[3]:
 
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
+                    st.sidebar.write(f"下一頁: {has_more}, cursor: {start_cursor[:10] if start_cursor else 'None'}...")
 
             # 迴圈結束後，回傳前顯示成功訊息
             if all_data:
                 st.sidebar.success(f"✅ 已從 Notion 載入 {len(all_data)} 筆資料")
+            else:
+                st.sidebar.warning("⚠️ 資料庫為空，沒有載入任何資料")
             return all_data
 
         except Exception as e:
             st.sidebar.error(f"❌ 載入失敗：{e}")
-            return {}
-
-        return all_data
-                if all_data:
-                    st.sidebar.success(f"✅ 已載入 {len(all_data)} 筆")
-                return all_data
-        except Exception as e:
-            st.sidebar.error(f"❌ 載入失敗：{e}")
+            import traceback
+            st.sidebar.code(traceback.format_exc())
             return {}
 
     def save_to_notion(data_dict):
