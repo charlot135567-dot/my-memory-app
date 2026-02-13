@@ -168,7 +168,7 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（新版四區塊版面）
+# 3. TAB1 ─ 書桌（修正版：四區塊版面）
 # ===================================================================
 with tabs[0]:
     import csv
@@ -198,15 +198,30 @@ with tabs[0]:
         selected_data = sentences[selected_ref]
         
         v1_content = selected_data.get('v1_content', '')
+        w_content = selected_data.get('w_content', '')  # W sheet 內容
+        
         v1_rows = []
+        w_rows = []
+        
+        # 解析 V1 CSV
         if v1_content:
             try:
                 lines = v1_content.strip().split('\n')
                 if lines:
                     reader = csv.DictReader(lines)
                     v1_rows = list(reader)
-            except:
-                pass
+            except Exception as e:
+                st.error(f"V1 CSV 解析錯誤: {e}")
+        
+        # 解析 W sheet CSV
+        if w_content:
+            try:
+                lines = w_content.strip().split('\n')
+                if lines:
+                    reader = csv.DictReader(lines)
+                    w_rows = list(reader)
+            except Exception as e:
+                st.error(f"W sheet CSV 解析錯誤: {e}")
         
         selected_verse = random.choice(v1_rows) if v1_rows else {}
         
@@ -214,98 +229,124 @@ with tabs[0]:
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # ===== 左上：多語言單字（來自 Syn/Ant）=====
+            # ===== 左上：多語言單字（來自 V1 的 Syn/Ant）=====
             syn_ant = selected_verse.get('Syn/Ant', '')
-            st.markdown("### 🌍 單字學習")
+            st.markdown("### 🌍")  # 只留 Emoji
             
             if syn_ant:
-                entries = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant)
+                if '|' in syn_ant:
+                    entries = syn_ant.split('|')
+                else:
+                    entries = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant)
+                
                 for entry in entries:
                     entry = entry.strip()
                     if not entry:
                         continue
-                    if '🇯🇵' in entry or any(c in entry for c in ['言い', '覆い']):
-                        st.markdown(f"🇯🇵 **{entry.replace('🇯🇵', '').strip()}**")
-                    elif '🇰🇷' in entry or any(c in entry for c in ['화합', '이간']):
-                        st.markdown(f"🇰🇷 **{entry.replace('🇰🇷', '').strip()}**")
-                    elif '🇹🇭' in entry or any(c in entry for c in ['ให้อภัย', 'บั่นทอน']):
-                        st.markdown(f"🇹🇭 **{entry.replace('🇹🇭', '').strip()}**")
-                    elif '🇨🇳' in entry or any(c in entry for c in ['Covers', 'Repeats', 'Separates']):
-                        st.markdown(f"🇨🇳 **{entry.replace('🇨🇳', '').strip()}**")
+                    
+                    if entry.startswith('🇯🇵'):
+                        st.markdown(f"🇯🇵 **{entry[2:].strip()}**")
+                    elif entry.startswith('🇰🇷'):
+                        st.markdown(f"🇰🇷 **{entry[2:].strip()}**")
+                    elif entry.startswith('🇹🇭'):
+                        st.markdown(f"🇹🇭 **{entry[2:].strip()}**")
+                    elif entry.startswith('🇨🇳'):
+                        st.markdown(f"🇨🇳 **{entry[2:].strip()}**")
                     else:
                         st.markdown(f"• {entry}")
             else:
-                st.info("暫無單字資料")
+                st.info("無單字資料")
             
             st.divider()
             
-            # ===== 左中：片語（4個片語）=====
-            st.markdown("### 🔤 今日片語")
-            grammar = selected_verse.get('Grammar', '')
+            # ===== 左中：片語（來自 W sheet 的 word/phrases 欄位）=====
+            st.markdown("### 🔤")  # 只留 Emoji
             
             phrases = []
-            if '2️⃣[' in grammar:
-                phrases.extend(re.findall(r'2️⃣\[(.+?)\]', grammar))
             
-            if len(phrases) < 4:
-                for row in v1_rows:
-                    if len(phrases) >= 4:
-                        break
-                    g = row.get('Grammar', '')
-                    if '2️⃣[' in g:
-                        for m in re.findall(r'2️⃣\[(.+?)\]', g):
-                            if len(phrases) >= 4 or m in phrases:
-                                continue
-                            phrases.append(m)
+            # 從 W sheet 的 word/phrases 欄位取片語
+            if w_rows:
+                for row in w_rows[:4]:
+                    word_phrase = row.get('word/phrases', '')
+                    if word_phrase and word_phrase.strip():
+                        phrases.append(word_phrase.strip())
             
-            for i, phrase in enumerate(phrases[:4]):
-                parts = phrase.split('/')
-                if len(parts) >= 2:
-                    c1, c2 = st.columns([0.6, 0.4])
-                    with c1:
-                        st.markdown(f"**{parts[0].strip()}**")
-                    with c2:
-                        st.caption(f"↔ {'/'.join(parts[1:]).strip()}")
-                else:
-                    st.markdown(f"**{phrase}**")
-                if i < 3:
-                    st.markdown("---")
+            # 如果 W sheet 沒有資料，從 V1 的 Grammar 欄位備援
+            if not phrases and v1_rows:
+                grammar = selected_verse.get('Grammar', '')
+                if '2️⃣[' in grammar:
+                    matches = re.findall(r'2️⃣\[(.+?)\]', grammar)
+                    phrases = matches[:4]
             
-            if not phrases:
-                st.info("暫無片語資料")
+            # 顯示片語
+            if phrases:
+                for i, phrase in enumerate(phrases[:4]):
+                    parts = phrase.split('/')
+                    if len(parts) >= 2:
+                        col1, col2 = st.columns([0.6, 0.4])
+                        with col1:
+                            st.markdown(f"**{parts[0].strip()}**")
+                        with col2:
+                            st.caption(f"↔ {'/'.join(parts[1:]).strip()}")
+                    else:
+                        st.markdown(f"**{phrase}**")
+                    
+                    if i < 3:
+                        st.markdown("---")
+            else:
+                st.info("無片語資料")
+                # 除錯資訊
+                if not w_rows:
+                    st.caption("W sheet 無資料")
+                elif w_rows:
+                    st.caption(f"W sheet 欄位: {list(w_rows[0].keys())}")
             
             st.divider()
             
             # ===== 左下：經文（英日韓中）=====
-            st.markdown("### 📖🌟 今日金句")
-            ref = selected_verse.get('Ref.', 'Pro 17:7')
+            st.markdown("### 📖")  # 只留 Emoji
+            
+            ref = selected_verse.get('Ref.', '')
             english = selected_verse.get('English (ESV)', '')
             chinese = selected_verse.get('Chinese', '')
             japanese = selected_verse.get('Japanese', '')
             korean = selected_verse.get('Korean', '')
             
-            st.markdown(f"**🇬🇧 {ref}**  \n>{english}")
+            if english:
+                st.markdown(f"🇬🇧 **{ref}**  \n>{english}")
             if japanese:
-                st.markdown(f"**🇯🇵**  \n>{japanese}")
+                st.markdown(f"🇯🇵 **{ref}**  \n>{japanese}")
             if korean:
-                st.markdown(f"**🇰🇷**  \n>{korean}")
-            st.markdown(f"**🇨🇳**  \n>{chinese}")
+                st.markdown(f"🇰🇷 **{ref}**  \n>{korean}")
+            if chinese:
+                st.markdown(f"🇨🇳 **{ref}**  \n>{chinese}")
+            
+            if not any([english, chinese, japanese, korean]):
+                st.info("無經文資料")
         
         with col_right:
             # ===== 右側：文法解析（縱向長條）=====
-            st.markdown("### 📚 文法解析")
+            st.markdown("### 📚")  # 只留 Emoji
+            
             grammar_full = selected_verse.get('Grammar', '')
             
             with st.container():
-                st.markdown("<div style='background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #FF8C00;'>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #FF8C00;'>",
+                    unsafe_allow_html=True
+                )
+                
+                has_content = False
                 
                 if '1️⃣[' in grammar_full:
                     for m in re.findall(r'1️⃣\[(.+?)\]', grammar_full):
                         st.markdown(f"📌 **{m}**")
+                        has_content = True
                 
                 if '2️⃣[' in grammar_full:
                     for m in re.findall(r'2️⃣\[(.+?)\]', grammar_full):
                         st.markdown(f"🔤 `{m}`")
+                        has_content = True
                 
                 if '3️⃣Ex.' in grammar_full:
                     ex_part = grammar_full.split('3️⃣Ex.')[-1].strip()
@@ -313,11 +354,20 @@ with tabs[0]:
                         ex = re.sub(r'[\[\]]', '', ex.strip())
                         if ex:
                             st.markdown(f"✍️ *{ex}*")
+                            has_content = True
                 
-                if not any(x in grammar_full for x in ['1️⃣[', '2️⃣[', '3️⃣Ex.']):
+                if not has_content and grammar_full:
                     st.write(grammar_full)
+                    has_content = True
                 
-                st.markdown(f"<small>來源: {selected_ref}｜{((3600-time_diff)/60):.0f}分鐘後更新</small>", unsafe_allow_html=True)
+                if not has_content:
+                    st.info("無文法資料")
+                
+                minutes_left = max(0, (3600 - time_diff) / 60)
+                st.markdown(
+                    f"<small>來源: {selected_ref}｜{minutes_left:.0f}分鐘後更新</small>",
+                    unsafe_allow_html=True
+                )
                 st.markdown("</div>", unsafe_allow_html=True)
                 
 # ===================================================================
