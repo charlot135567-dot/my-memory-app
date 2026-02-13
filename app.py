@@ -1313,7 +1313,7 @@ with tabs[3]:
 【V1 Sheet 範例】
 | Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
 |------|---------------|---------|---------|---------|
-| Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[祈使句解析] 2️⃣[Give strong drink to him who is perishing] 3️⃣Ex. [Go and make disciples...] |
+| Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析]...<br>2️⃣[語法標籤]...<br>3️⃣[詞性辨析]。...<br>4️⃣[修辭與結構或遞進邏輯]...<br>5️⃣[語意解釋]...|
 
 【V2 Sheet 範例】
 | Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
@@ -1324,12 +1324,19 @@ with tabs[3]:
 2. English (ESV)：檢索對應的 ESV 英文經文.
 3. Chinese：填入我提供的中文原文.
 4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出.
-5. Grammar：嚴格遵守符號化格式：1️⃣[文法邏輯解析] 2️⃣[補齊後的完整應用句] 3️⃣Ex. [中英對照聖經應用例句]
-
+5. Grammar：嚴格遵守符號化格式＋嚴格提供詳細規範如下：
+1️⃣分段解析： 將句子拆解為前半句與後半句。
+2️⃣語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
+3️⃣詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
+4️⃣修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
+  或遞進邏輯 (Still less / A fortiori)。
+5️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
+  請以 **Markdown 表格格式**輸出（非 JSON）.
+  
 🔹 V2 Sheet 欄位要求：
 1. Ref.：同 V1.
 2. 口語訳：檢索對應的日本《口語訳聖經》(1955).
-3. Grammar：解析日文文法（格式同 V1，使用 1️⃣2️⃣3️⃣Ex.）.
+3. Grammar格式同 V1
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
 6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
