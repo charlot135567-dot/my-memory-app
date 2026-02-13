@@ -167,7 +167,7 @@ with st.sidebar:
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 # ===================================================================
-# 3. TAB1 ─ 書桌（最終修正版：支援雙模式文法來源）
+# 3. TAB1 ─ 書桌（修正版：只抓2筆文法，內容有序編排）
 # ===================================================================
 with tabs[0]:
     import csv
@@ -235,11 +235,15 @@ with tabs[0]:
             st.markdown("### 🌍")
             
             if syn_ant:
-                entries = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant)
+                # 先嘗試用 | 分割
+                if '|' in syn_ant:
+                    entries = [e.strip() for e in syn_ant.split('|') if e.strip()]
+                else:
+                    entries = [e.strip() for e in re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant) if e.strip()]
+                
                 for entry in entries:
-                    entry = entry.strip()
-                    if not entry:
-                        continue
+                    entry = entry.lstrip('•').strip()
+                    
                     if entry.startswith('🇯🇵'):
                         st.markdown(f"🇯🇵 **{entry[2:].strip()}**")
                     elif entry.startswith('🇰🇷'):
@@ -249,28 +253,49 @@ with tabs[0]:
                     elif entry.startswith('🇨🇳'):
                         st.markdown(f"🇨🇳 **{entry[2:].strip()}**")
                     else:
-                        st.markdown(f"• {entry}")
+                        # 根據內容判斷語言
+                        if any(c in entry for c in ['ふさわ', '言い', '覆い']):
+                            st.markdown(f"🇯🇵 **{entry}**")
+                        elif any(c in entry for c in ['화합', '이간', '어울']):
+                            st.markdown(f"🇰🇷 **{entry}**")
+                        elif any(c in entry for c in ['ให้อภัย', 'บั่นทอน', 'เหมาะ']):
+                            st.markdown(f"🇹🇭 **{entry}**")
+                        else:
+                            st.markdown(f"🇬🇧 **{entry}**")
+            else:
+                st.info("無單字資料")
             
             st.divider()
             
-            # ===== 左中：片語（來自 W sheet 的 word/phrases）=====
+            # ===== 左中：片語（來自 W sheet）=====
             st.markdown("### 🔤")
             
             phrases = []
+            
+            # 從 W sheet 讀取
             if w_rows:
                 for row in w_rows[:4]:
                     wp = row.get('word/phrases', '')
                     if wp and wp.strip():
                         phrases.append(wp.strip())
             
+            # 備援：從 V1 Grammar 提取
+            if not phrases:
+                grammar = selected_verse.get('Grammar', '')
+                if '2️⃣[' in grammar:
+                    matches = re.findall(r'2️⃣\[(.+?)\]', grammar)
+                    for m in matches[:4]:
+                        clean_phrase = re.sub(r'\s*\([^)]*詞[^)]*\)', '', m)
+                        phrases.append(clean_phrase)
+            
             if phrases:
                 for i, phrase in enumerate(phrases[:4]):
                     parts = phrase.split('/')
                     if len(parts) >= 2:
-                        col1, col2 = st.columns([0.65, 0.35])
+                        col1, col2 = st.columns([0.6, 0.4])
                         with col1:
                             st.markdown(f"**{parts[0].strip()}**")
-                        with col2:
+                        with c2:
                             st.caption(f"↔ {'/'.join(parts[1:]).strip()}")
                     else:
                         st.markdown(f"**{phrase}**")
@@ -281,7 +306,7 @@ with tabs[0]:
             
             st.divider()
             
-            # ===== 左下：經文（英日韓中順序）=====
+            # ===== 左下：經文（英日韓中）=====
             st.markdown("### 📖🌟")
             
             ref = selected_verse.get('Ref.', '')
@@ -300,70 +325,84 @@ with tabs[0]:
                 st.markdown(f"🇨🇳 **{ref}**  \n>{cn}")
         
         with col_right:
-            # ===== 右側：文法解析（完整顯示，支援雙來源）=====
+            # ===== 右側：文法解析（只抓2筆，有序編排）=====
             st.markdown("### 📚")
             
-            # 判斷文法資料來源
-            grammar_content = []
+            # 收集文法資料（最多2筆）
+            grammar_items = []
             
-            # 模式 A：從 V1 的 Grammar 欄位讀取
+            # 來源 1：V1 的 Grammar 欄位（只取2筆）
             if v1_rows:
-                for row in v1_rows:
+                for row in v1_rows[:2]:
                     grammar_text = row.get('Grammar', '')
                     if grammar_text and grammar_text.strip():
-                        grammar_content.append(grammar_text.strip())
+                        grammar_items.append(grammar_text.strip())
             
-            # 模式 B：從 grammar_list 讀取（如果 V1 沒有資料）
-            if not grammar_content and grammar_list:
+            # 來源 2：grammar_list（如果 V1 沒有）
+            if not grammar_items and grammar_list:
                 if isinstance(grammar_list, list):
-                    for item in grammar_list:
+                    for item in grammar_list[:2]:
                         if isinstance(item, dict):
-                            # 如果是字典，取得所有值
                             item_text = '\n'.join(str(v) for v in item.values() if v)
-                            grammar_content.append(item_text)
+                            grammar_items.append(item_text)
                         else:
-                            grammar_content.append(str(item))
-                else:
-                    grammar_content.append(str(grammar_list))
+                            grammar_items.append(str(item))
             
-            # 顯示文法內容
+            # 顯示文法內容（有序編排）
             with st.container():
                 st.markdown(
-                    "<div style='background:#f8f9fa;padding:15px;border-radius:8px;border-left:5px solid #FF8C00;'>",
+                    "<div style='background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #FF8C00;'>",
                     unsafe_allow_html=True
                 )
                 
-                if grammar_content:
-                    for idx, grammar_text in enumerate(grammar_content):
-                        # 格式化文法內容
-                        formatted = grammar_text
+                if grammar_items:
+                    for idx, grammar_text in enumerate(grammar_items):
+                        # 1️⃣ 分段解析
+                        if '1️⃣[' in grammar_text:
+                            match = re.search(r'1️⃣\[(.+?)\]', grammar_text, re.DOTALL)
+                            if match:
+                                st.markdown("📌 **分段解析**")
+                                for line in match.group(1).strip().split('\n'):
+                                    if line.strip():
+                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
                         
-                        # 將標記轉換為圖示
-                        formatted = re.sub(r'1️⃣\[', '📌 ', formatted)
-                        formatted = re.sub(r'2️⃣\[', '🔤 ', formatted)
-                        formatted = re.sub(r'3️⃣\[', '📖 ', formatted)
-                        formatted = re.sub(r'4️⃣\[', '💡 ', formatted)
-                        formatted = re.sub(r'3️⃣Ex\.', '✍️ 例句：', formatted)
-                        formatted = re.sub(r'\]', '', formatted)
+                        # 2️⃣ 詞性辨析
+                        if '2️⃣[' in grammar_text:
+                            match = re.search(r'2️⃣\[(.+?)\]', grammar_text, re.DOTALL)
+                            if match:
+                                st.markdown("🔤 **詞性辨析**")
+                                for line in match.group(1).strip().split('\n'):
+                                    if line.strip():
+                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
                         
-                        # 分行顯示，保留原始格式
-                        lines = formatted.split('\n')
-                        for line in lines:
-                            line = line.strip()
-                            if line:
-                                # 檢查是否為標題行（以數字或圖示開頭）
-                                if re.match(r'^(📌|🔤|📖|💡|✍️|[0-9]️⃣)', line):
-                                    st.markdown(f"**{line}**")
-                                else:
-                                    st.markdown(line)
+                        # 3️⃣ 修辭與結構
+                        if '3️⃣[' in grammar_text:
+                            match = re.search(r'3️⃣\[(.+?)\]', grammar_text, re.DOTALL)
+                            if match:
+                                st.markdown("📖 **修辭與結構**")
+                                for line in match.group(1).strip().split('\n'):
+                                    if line.strip():
+                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
                         
-                        # 多個文法項目之間加分隔線
-                        if idx < len(grammar_content) - 1:
+                        # 4️⃣ 語意解釋
+                        if '4️⃣[' in grammar_text:
+                            match = re.search(r'4️⃣\[(.+?)\]', grammar_text, re.DOTALL)
+                            if match:
+                                st.markdown("💡 **語意解釋**")
+                                for line in match.group(1).strip().split('\n'):
+                                    if line.strip():
+                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
+                        
+                        # 如果沒有標記，直接顯示
+                        if not any(x in grammar_text for x in ['1️⃣[', '2️⃣[', '3️⃣[', '4️⃣[']):
+                            st.markdown(grammar_text)
+                        
+                        # 2筆之間加分隔線
+                        if idx < len(grammar_items) - 1:
                             st.markdown("---")
                 else:
                     st.info("無文法資料")
                 
-                # 底部資訊
                 minutes_left = max(0, (3600 - time_diff) / 60)
                 st.markdown(
                     f"<small>來源: {selected_ref}｜{minutes_left:.0f}分後更新</small>",
