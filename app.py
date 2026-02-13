@@ -196,12 +196,6 @@ with tabs[0]:
         random.seed(st.session_state.tab1_random_seed)
         selected_ref = random.choice(list(sentences.keys()))
         selected_data = sentences[selected_ref]
-                # 除錯資訊（暫時開啟查看問題）
-        st.write("DEBUG - 資料鍵:", list(selected_data.keys()))
-        st.write("DEBUG - w_content 長度:", len(w_content) if w_content else 0)
-        st.write("DEBUG - v1_content 長度:", len(v1_content) if v1_content else 0)        
-        v1_content = selected_data.get('v1_content', '')
-        w_content = selected_data.get('w_content', '')  # W sheet 內容
         
         v1_rows = []
         w_rows = []
