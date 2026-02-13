@@ -1313,7 +1313,7 @@ with tabs[3]:
 【V1 Sheet 範例】
 | Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
 |------|---------------|---------|---------|---------|
-| Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析]...<br>2️⃣[語法標籤]...<br>3️⃣[詞性辨析]。...<br>4️⃣[修辭與結構或遞進邏輯]...<br>5️⃣[語意解釋]...|
+| Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 
 【V2 Sheet 範例】
 | Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
@@ -1325,12 +1325,18 @@ with tabs[3]:
 3. Chinese：填入我提供的中文原文.
 4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出.
 5. Grammar：嚴格遵守符號化格式＋嚴格提供詳細規範如下：
-1️⃣分段解析： 將句子拆解為前半句與後半句。
-2️⃣語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
-3️⃣詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
-4️⃣修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
+   例箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
+1️⃣[分段解析+語法標籤]： 前半句："Fine spech" is not becoming to a fool
+                    後半句：still less is "false speech" to a prince
+   語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
+* 主語 (Subject): Fine speech（優美的言辭/高雅的談吐）。
+* 動詞 (Verb): is (系動詞)。
+* 形容詞/補語 (Complement): becoming:為形容詞，意為「相稱的」、「得體的」。
+* 介系詞短語: to a fool。說明此不合宜的對象是「愚頑人」。
+2️⃣詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
+3️⃣修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
   或遞進邏輯 (Still less / A fortiori)。
-5️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
+4️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
   請以 **Markdown 表格格式**輸出（非 JSON）.
   
 🔹 V2 Sheet 欄位要求：
@@ -1370,19 +1376,25 @@ with tabs[3]:
 |-----------|-------------------|--------------|
 | 1 | We need to be steadfast... | 我們需要 (**steadfast**) ... |
 
-【Grammar List - 重點要求：6 句 × 每句 5個解析】
+【Grammar List - 重點要求：6 句 × 每句4個解析】
 | No | Original Sentence (from text) | Grammar Rule | Analysis & Example (1️⃣2️⃣3️⃣...5️⃣) |
 |----|------------------------------|--------------|-----------------------------------|
-| 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[分段解析]...<br>2️⃣[語法標籤]...<br>3️⃣[詞性辨析]。...<br>4️⃣[修辭與結構或遞進邏輯]...<br>5️⃣[語意解釋]...|
+| 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 🔹 Grammar List 詳細規範：
 1. **選句標準**：從文稿中精選 6 個**最具教學價值**的句子
 2. **解析深度**：每句必須提供以下解析內容
-a)分段解析： 將句子拆解為前半句與後半句。
-b)語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
-c)詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
-d)修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
-  或 遞進邏輯 (Still less / A fortiori)。
-e)語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
+     例：箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
+1️⃣[分段解析+語法標籤]： 前半句："Fine spech" is not becoming to a fool
+                    後半句：still less is "false speech" to a prince
+   語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
+* 主語 (Subject): Fine speech（優美的言辭/高雅的談吐）。
+* 動詞 (Verb): is (系動詞)。
+* 形容詞/補語 (Complement): becoming:為形容詞，意為「相稱的」、「得體的」。
+* 介系詞短語: to a fool。說明此不合宜的對象是「愚頑人」。
+2️⃣詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
+3️⃣修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
+  或遞進邏輯 (Still less / A fortiori)。
+4️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
   請以 **Markdown 表格格式**輸出（非 JSON）.
 
 待分析文稿：{raw_text}"""
