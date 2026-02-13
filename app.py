@@ -1346,8 +1346,7 @@ its part of speech and meaning in this sentence must be clearly identified.
     * Meaning here: appropriate, fitting, proper
 
 3️⃣修辭與結構Rhetoric and Structure： 識別並解釋特定的文法現象Identify and explain specific grammatical phenomena, such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
-4️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
-This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
+4️⃣語意解釋：This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
   
 🔹 V2 Sheet 欄位要求：
@@ -1417,8 +1416,7 @@ its part of speech and meaning in this sentence must be clearly identified.
 
 3️⃣修辭與結構Rhetoric and Structure： 識別並解釋特定的文法現象Identify and explain specific grammatical phenomena, 
    such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
-4️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
-This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
+4️⃣語意解釋： This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
 
 待分析文稿：{raw_text}"""
