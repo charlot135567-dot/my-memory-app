@@ -168,7 +168,7 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（單字/片語/金句/文法，每小時自動輪換）
+# 3. TAB1 ─ 書桌（新版四區塊版面）
 # ===================================================================
 with tabs[0]:
     import csv
@@ -210,113 +210,116 @@ with tabs[0]:
         
         selected_verse = random.choice(v1_rows) if v1_rows else {}
         
-        col_content, col_info = st.columns([0.65, 0.35])
+        # 版面配置：左側 (2/3) + 右側 (1/3)
+        col_left, col_right = st.columns([0.67, 0.33])
         
-        with col_content:
-            ref = selected_verse.get('Ref.', 'Pro 17:7')
-            english = selected_verse.get('English (ESV)', '')
-            chinese = selected_verse.get('Chinese', '')
+        with col_left:
+            # ===== 左上：多語言單字（來自 Syn/Ant）=====
+            syn_ant = selected_verse.get('Syn/Ant', '')
+            st.markdown("### 🌍 單字學習")
             
-            st.info(f"**{ref}** / 🇯🇵 ふさわしい | 🇰🇷 어울리는 | 🇹🇭 เหมาะสม | 🇨🇳 相稱")
-            st.success(f"""
-                🌟 **{ref}** {english}  
-                🇨🇳 {chinese}
-                """, icon="📖")
+            if syn_ant:
+                entries = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant)
+                for entry in entries:
+                    entry = entry.strip()
+                    if not entry:
+                        continue
+                    if '🇯🇵' in entry or any(c in entry for c in ['言い', '覆い']):
+                        st.markdown(f"🇯🇵 **{entry.replace('🇯🇵', '').strip()}**")
+                    elif '🇰🇷' in entry or any(c in entry for c in ['화합', '이간']):
+                        st.markdown(f"🇰🇷 **{entry.replace('🇰🇷', '').strip()}**")
+                    elif '🇹🇭' in entry or any(c in entry for c in ['ให้อภัย', 'บั่นทอน']):
+                        st.markdown(f"🇹🇭 **{entry.replace('🇹🇭', '').strip()}**")
+                    elif '🇨🇳' in entry or any(c in entry for c in ['Covers', 'Repeats', 'Separates']):
+                        st.markdown(f"🇨🇳 **{entry.replace('🇨🇳', '').strip()}**")
+                    else:
+                        st.markdown(f"• {entry}")
+            else:
+                st.info("暫無單字資料")
             
             st.divider()
             
-            # ===== 單字提取（從 Syn/Ant）=====
-            syn_ant = selected_verse.get('Syn/Ant', '')
-            word_pair = syn_ant.split('/') if '/' in syn_ant else [syn_ant, '']
-            
-            word_1 = word_pair[0].strip() if len(word_pair) > 0 else ''
-            match_1 = re.match(r'(.+?)\s*\((.+?)\)', word_1)
-            if match_1:
-                word_en = match_1.group(1).strip()
-                word_cn = match_1.group(2).strip()
-            else:
-                word_en = word_1
-                word_cn = ''
-            
-            word_2 = word_pair[1].strip() if len(word_pair) > 1 else ''
-            match_2 = re.match(r'(.+?)\s*\((.+?)\)', word_2)
-            if match_2:
-                ant_en = match_2.group(1).strip()
-                ant_cn = match_2.group(2).strip()
-            else:
-                ant_en = word_2
-                ant_cn = ''
-            
-            st.markdown("### 📝 今日單字")
-            col_word1, col_word2 = st.columns(2)
-            with col_word1:
-                st.markdown(f"**{word_en}**")
-                st.caption(f"{word_cn}")
-            with col_word2:
-                if ant_en:
-                    st.markdown(f"<span style='color:#dc3545;'>**{ant_en}**</span>", unsafe_allow_html=True)
-                    st.caption(f"{ant_cn} (反義)")
-            
-            # ===== 片語/文法結構 =====
+            # ===== 左中：片語（4個片語）=====
+            st.markdown("### 🔤 今日片語")
             grammar = selected_verse.get('Grammar', '')
-            structure = ''
+            
+            phrases = []
             if '2️⃣[' in grammar:
-                structure_match = re.search(r'2️⃣\[(.+?)\]', grammar)
-                if structure_match:
-                    structure = structure_match.group(1)
-            else:
-                structure = grammar[:80]
+                phrases.extend(re.findall(r'2️⃣\[(.+?)\]', grammar))
             
-            st.markdown("### 🔤 文法結構")
-            st.markdown(f"`{structure}`")
+            if len(phrases) < 4:
+                for row in v1_rows:
+                    if len(phrases) >= 4:
+                        break
+                    g = row.get('Grammar', '')
+                    if '2️⃣[' in g:
+                        for m in re.findall(r'2️⃣\[(.+?)\]', g):
+                            if len(phrases) >= 4 or m in phrases:
+                                continue
+                            phrases.append(m)
+            
+            for i, phrase in enumerate(phrases[:4]):
+                parts = phrase.split('/')
+                if len(parts) >= 2:
+                    c1, c2 = st.columns([0.6, 0.4])
+                    with c1:
+                        st.markdown(f"**{parts[0].strip()}**")
+                    with c2:
+                        st.caption(f"↔ {'/'.join(parts[1:]).strip()}")
+                else:
+                    st.markdown(f"**{phrase}**")
+                if i < 3:
+                    st.markdown("---")
+            
+            if not phrases:
+                st.info("暫無片語資料")
+            
+            st.divider()
+            
+            # ===== 左下：經文（英日韓中）=====
+            st.markdown("### 📖🌟 今日金句")
+            ref = selected_verse.get('Ref.', 'Pro 17:7')
+            english = selected_verse.get('English (ESV)', '')
+            chinese = selected_verse.get('Chinese', '')
+            japanese = selected_verse.get('Japanese', '')
+            korean = selected_verse.get('Korean', '')
+            
+            st.markdown(f"**🇬🇧 {ref}**  \n>{english}")
+            if japanese:
+                st.markdown(f"**🇯🇵**  \n>{japanese}")
+            if korean:
+                st.markdown(f"**🇰🇷**  \n>{korean}")
+            st.markdown(f"**🇨🇳**  \n>{chinese}")
         
-        with col_info:
+        with col_right:
+            # ===== 右側：文法解析（縱向長條）=====
             st.markdown("### 📚 文法解析")
-            analysis = ''
-            if '1️⃣[' in grammar:
-                analysis_match = re.search(r'1️⃣\[(.+?)\]', grammar)
-                if analysis_match:
-                    analysis = analysis_match.group(1)
+            grammar_full = selected_verse.get('Grammar', '')
             
-            st.markdown(f"""
-                <div style="background-color:#f8f9fa;border-radius:8px;padding:12px;border-left:5px solid #FF8C00;">
-                    <p style="margin:2px 0;font-size:13px;font-weight:bold;color:#333;">{analysis[:100]}</p>
-                    <hr style="margin:8px 0;">
-                    <p style="margin:2px 0;font-size:11px;color:#666;">來源: {selected_ref}</p>
-                    <p style="margin:2px 0;font-size:11px;color:#666;">下次更新: {((3600 - time_diff) / 60):.0f} 分鐘後</p>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        st.divider()
-        
-        # ===== 文法運用例句（從 3️⃣Ex. 提取，若無則用聖經經文）=====
-        st.markdown("### ✍️ 文法運用例句")
-        
-        example_sentences = []
-        if '3️⃣Ex.' in grammar:
-            ex_part = grammar.split('3️⃣Ex.')[-1].strip()
-            ex_sentences = re.split(r'[;；]', ex_part)
-            for ex in ex_sentences[:2]:
-                ex = ex.strip()
-                if ex:
-                    ex = re.sub(r'[\[\]]', '', ex)
-                    example_sentences.append(ex)
-        
-        # 若無 Ex.，用聖經經文作為預設例句
-        if len(example_sentences) < 2:
-            example_sentences = [
-                english,
-                chinese
-            ]
-        
-        cl1, cl2 = st.columns(2)
-        with cl1:
-            st.markdown(f"**Ex 1:** *{example_sentences[0][:120]}*")
-        with cl2:
-            if len(example_sentences) > 1:
-                st.markdown(f"**Ex 2:** *{example_sentences[1][:120]}*")
-            else:
-                st.markdown(f"**Ex 2:** *{chinese}*")
+            with st.container():
+                st.markdown("<div style='background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #FF8C00;'>", unsafe_allow_html=True)
+                
+                if '1️⃣[' in grammar_full:
+                    for m in re.findall(r'1️⃣\[(.+?)\]', grammar_full):
+                        st.markdown(f"📌 **{m}**")
+                
+                if '2️⃣[' in grammar_full:
+                    for m in re.findall(r'2️⃣\[(.+?)\]', grammar_full):
+                        st.markdown(f"🔤 `{m}`")
+                
+                if '3️⃣Ex.' in grammar_full:
+                    ex_part = grammar_full.split('3️⃣Ex.')[-1].strip()
+                    for ex in re.split(r'[;；]', ex_part)[:3]:
+                        ex = re.sub(r'[\[\]]', '', ex.strip())
+                        if ex:
+                            st.markdown(f"✍️ *{ex}*")
+                
+                if not any(x in grammar_full for x in ['1️⃣[', '2️⃣[', '3️⃣Ex.']):
+                    st.write(grammar_full)
+                
+                st.markdown(f"<small>來源: {selected_ref}｜{((3600-time_diff)/60):.0f}分鐘後更新</small>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
 # ===================================================================
@@ -1266,6 +1269,7 @@ with tabs[3]:
         
         if mode in ["json", "scripture"]:
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
+            所有翻譯嚴格規定按聖經語言翻譯，不可私自亂翻譯
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
 
