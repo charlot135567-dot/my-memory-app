@@ -861,7 +861,6 @@ with tabs[3]:
     NOTION_BASE_URL = "https://api.notion.com/v1"
     
     # ═══════════════════════════════════════════════════════════════
-    
     # ---------- 背景圖片套用 ----------
     try:
         selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
@@ -1326,17 +1325,29 @@ with tabs[3]:
 4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出.
 5. Grammar：嚴格遵守符號化格式＋嚴格提供詳細規範如下：
    例箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
-1️⃣[分段解析+語法標籤]： 前半句："Fine spech" is not becoming to a fool
-                    後半句：still less is "false speech" to a prince
-   語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
-* 主語 (Subject): Fine speech（優美的言辭/高雅的談吐）。
-* 動詞 (Verb): is (系動詞)。
-* 形容詞/補語 (Complement): becoming:為形容詞，意為「相稱的」、「得體的」。
-* 介系詞短語: to a fool。說明此不合宜的對象是「愚頑人」。
-2️⃣詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
-3️⃣修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
-  或遞進邏輯 (Still less / A fortiori)。
+1️⃣[分段解析+語法標籤]： 1st clause：”Fine speech" is not becoming to a fool
+                    2nd clause：still less is "false speech" to a prince
+   語法標籤必須標註出Grammar labels (must be identified):
+   主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
+* 主語 (Subject): Fine speech（Elegant words優美的言辭/Refined talk高雅的談吐）。
+* 動詞 (Verb): is (Linking verb/Copula 系動詞)。
+* 形容詞Adjective/Complement補語 (Complement): becoming(Adjective meaning「fitting相稱的」or「appropriate得體的」。
+* 介系詞短語(Prepositional Phrase): to a fool。(Specifies the inappropriate recipient).
+   說明此不合宜的對象是「愚頑人」。
+2️⃣詞性辨析Part-of-Speech Distinction： 若單字有歧義（例如 becoming 是動詞還是形容詞），
+If a word has potential ambiguity (for example, becoming can be a verb or an adjective), 
+請特別說明其在句中的詞性與意義。
+its part of speech and meaning in this sentence must be clearly identified.
+* becoming
+    * Possible forms:
+        * Verb (to become)
+        * Adjective (suitable, fitting)
+    * In this sentence: adjective
+    * Meaning here: appropriate, fitting, proper
+
+3️⃣修辭與結構Rhetoric and Structure： 識別並解釋特定的文法現象Identify and explain specific grammatical phenomena, such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
 4️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
+This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
   
 🔹 V2 Sheet 欄位要求：
@@ -1383,18 +1394,31 @@ with tabs[3]:
 🔹 Grammar List 詳細規範：
 1. **選句標準**：從文稿中精選 6 個**最具教學價值**的句子
 2. **解析深度**：每句必須提供以下解析內容
-     例：箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
-1️⃣[分段解析+語法標籤]： 前半句："Fine spech" is not becoming to a fool
-                    後半句：still less is "false speech" to a prince
-   語法標籤： 必須標註出 主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
-* 主語 (Subject): Fine speech（優美的言辭/高雅的談吐）。
-* 動詞 (Verb): is (系動詞)。
-* 形容詞/補語 (Complement): becoming:為形容詞，意為「相稱的」、「得體的」。
-* 介系詞短語: to a fool。說明此不合宜的對象是「愚頑人」。
-2️⃣詞性辨析： 若單字有歧義（例如 becoming 是動詞還是形容詞），請特別說明其在句中的詞性與意義。
-3️⃣修辭與結構： 識別並解釋特定的文法現象，如 倒裝 (Inversion)、省略 (Ellipsis) 
-  或遞進邏輯 (Still less / A fortiori)。
+   例箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
+1️⃣[分段解析+語法標籤]： 1st clause：”Fine speech" is not becoming to a fool
+                    2nd clause：still less is "false speech" to a prince
+   語法標籤必須標註出Grammar labels (must be identified):
+   主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
+* 主語 (Subject): Fine speech（Elegant words優美的言辭/Refined talk高雅的談吐）。
+* 動詞 (Verb): is (Linking verb/Copula 系動詞)。
+* 形容詞Adjective/Complement補語 (Complement): becoming(Adjective meaning「fitting相稱的」or「appropriate得體的」。
+* 介系詞短語(Prepositional Phrase): to a fool。(Specifies the inappropriate recipient).
+   說明此不合宜的對象是「愚頑人」。
+2️⃣詞性辨析Part-of-Speech Distinction： 若單字有歧義（例如 becoming 是動詞還是形容詞），
+If a word has potential ambiguity (for example, becoming can be a verb or an adjective), 
+請特別說明其在句中的詞性與意義。
+its part of speech and meaning in this sentence must be clearly identified.
+* becoming
+    * Possible forms:
+        * Verb (to become)
+        * Adjective (suitable, fitting)
+    * In this sentence: adjective
+    * Meaning here: appropriate, fitting, proper
+
+3️⃣修辭與結構Rhetoric and Structure： 識別並解釋特定的文法現象Identify and explain specific grammatical phenomena, 
+   such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
 4️⃣語意解釋： 簡述該語法結構如何強化經文的邏輯（如：內在品格與外在言語的對比）。
+This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
 
 待分析文稿：{raw_text}"""
