@@ -1284,7 +1284,7 @@ with tabs[3]:
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen).
 2. English (ESV)：檢索對應的 ESV 英文經文.
 3. Chinese：填入我提供的中文原文.
-4. Syn/Ant：ESV 中的中高級單字或片語（含中/英翻譯），低於中級不列出.
+4. Syn/Ant："同義字與反義字"，取自ESV中的高級/中高級單字或片語（含中/英翻譯）
 5. Grammar：嚴格遵守符號化格式＋嚴格提供詳細規範如下：
    例箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
 1️⃣[分段解析+語法標籤]： 1st clause：”Fine speech" is not becoming to a fool
