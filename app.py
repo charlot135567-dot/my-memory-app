@@ -753,39 +753,6 @@ with tabs[2]:
             st.text_input("", key=f"quiz_word_{i}", placeholder="English word...", label_visibility="collapsed")
             st.write("")
         
-        # ===== 片語題（3題）=====
-        # 從 Grammar 提取結構
-        phrase_pool = []
-        for ref in weighted_pool[:5]:
-            data = sentences[ref]
-            v1_content = data.get('v1_content', '')
-            if v1_content:
-                try:
-                    lines = v1_content.strip().split('\n')
-                    if lines:
-                        reader = csv.DictReader(lines)
-                        for row in reader:
-                            grammar = row.get('Grammar', '')
-                            if '2️⃣[' in grammar:
-                                match = re.search(r'2️⃣\[(.+?)\]', grammar)
-                                if match:
-                                    phrase_pool.append({
-                                        'structure': match.group(1),
-                                        'ref': row.get('Ref.', '')
-                                    })
-                except:
-                    pass
-        
-        random.shuffle(phrase_pool)
-        selected_phrases = phrase_pool[:3] if len(phrase_pool) >= 3 else phrase_pool
-        
-        for i, p in enumerate(selected_phrases, 10):
-            st.markdown(f"**{i}.** 請用「{p['structure'][:50]}」造一個句子")
-            st.text_area("", key=f"quiz_phrase_{i}", placeholder="Make a sentence...", label_visibility="collapsed", height=68)
-            st.write("")
-        
-        st.divider()
-        
         # ===== 翻看答案按 =====
         col_btn, col_answer = st.columns([1, 3])
         with col_btn:
@@ -810,12 +777,7 @@ with tabs[2]:
                     st.markdown("**單字：**")
                     for i, w in enumerate(selected_words, 7):
                         st.caption(f"{i}. {w['en']}")
-                    
-                    # 顯示片語答案
-                    st.markdown("**片語參考：**")
-                    for i, p in enumerate(selected_phrases, 10):
-                        st.caption(f"{i}. {p['ref']}: {p['structure'][:50]}...")
-                
+                             
                 if st.button("🔄 換一批題目", use_container_width=True):
                     st.session_state.tab3_quiz_seed = random.randint(1, 1000)
                     st.session_state.tab3_show_answers = False
