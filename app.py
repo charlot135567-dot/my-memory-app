@@ -168,44 +168,39 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (初始化修正版)
+# 3. TAB1 ─ 書桌 (輪流顯示版 - 語法修正)
 # ===================================================================
 with tabs[0]:
     import csv, random, re, datetime as dt
     from io import StringIO
 
-    # --- 確保所有session state變數初始化 ---
-    defaults = {
-        'tab1_last_update': dt.datetime.now(),
-        'tab1_random_seed': random.randint(1, 1000),
-        'tab1_v1_index': 0,
-        'tab1_w_index': 15,
-        'tab1_g_index': 0
-    }
-
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
+    # --- 輪換與種子初始化 ---
+    if 'tab1_last_update' not in st.session_state:
+        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_random_seed = random.randint(1, 1000)
+        st.session_state.tab1_v1_index = 0
+        st.session_state.tab1_w_index = 15
+        st.session_state.tab1_g_index = 0
+    
     # 檢查是否需要更新（超過1小時）
-    time_diff = (dt.datetime.now() - st.session_state['tab1_last_update']).total_seconds()
+    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
-        st.session_state['tab1_last_update'] = dt.datetime.now()
-        st.session_state['tab1_random_seed'] = random.randint(1, 1000)
-        st.session_state['tab1_v1_index'] += 1
-        st.session_state['tab1_w_index'] += 4
-        st.session_state['tab1_g_index'] += 1
+        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_random_seed = random.randint(1, 1000)
+        st.session_state.tab1_v1_index += 1
+        st.session_state.tab1_w_index += 4
+        st.session_state.tab1_g_index += 1
         st.rerun()
-
+    
     sentences = st.session_state.get('sentences', {})
-
+    
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
     else:
-        random.seed(st.session_state['tab1_random_seed'])
+        random.seed(st.session_state.tab1_random_seed)
         selected_ref = random.choice(list(sentences.keys()))
         data = sentences[selected_ref]
-
+        
         def parse_csv(content):
             if not content: return []
             try:
@@ -216,31 +211,31 @@ with tabs[0]:
         v2_rows = parse_csv(data.get('v2_content', ''))
         w_rows = parse_csv(data.get('w_sheet', ''))
         g_rows = parse_csv(data.get('grammar_list', ''))
-
+        
         is_mode_a = bool(v1_rows)
         is_mode_b = bool(w_rows and not v1_rows)
-
+        
         # --- 輪流索引計算 ---
         v1_total = len(v1_rows) if v1_rows else 0
         v2_total = len(v2_rows) if v2_rows else 0
-
+        
         # 1) V1/V2 輪流
         if v1_total > 0:
-            v1_idx = st.session_state['tab1_v1_index'] % v1_total
+            v1_idx = st.session_state.tab1_v1_index % v1_total
             v1_main = v1_rows[v1_idx]
             v2_idx = v1_idx % v2_total if v2_total > 0 else 0
             v2_main = v2_rows[v2_idx] if v2_rows else {}
         else:
             v1_main = {}
             v2_main = v2_rows[0] if v2_rows else {}
-
+        
         main_ref = v1_main.get('Ref.', selected_ref)
-
+        
         # 2) W Sheet 片語輪流（從16開始，每次4個）
         w_total = len(w_rows) if w_rows else 0
         w_start = 0
         if w_total > 0:
-            w_start = 15 + (st.session_state['tab1_w_index'] % max(1, w_total - 15))
+            w_start = 15 + (st.session_state.tab1_w_index % max(1, w_total - 15))
             if w_start >= w_total:
                 w_start = 15
             w_phrases = w_rows[w_start:w_start+4]
@@ -248,14 +243,14 @@ with tabs[0]:
                 w_phrases.extend(w_rows[:4-len(w_phrases)])
         else:
             w_phrases = []
-
+        
         # 3) 文法輪流
         grammar_row = {}
         grammar_ref = "N/A"
         g_idx = 0
-
+        
         if is_mode_a and v1_total > 0:
-            g_idx = (st.session_state['tab1_g_index'] % max(1, v1_total - 1)) + 1
+            g_idx = (st.session_state.tab1_g_index % max(1, v1_total - 1)) + 1
             if g_idx < v1_total:
                 grammar_row = v1_rows[g_idx]
             else:
@@ -263,12 +258,12 @@ with tabs[0]:
             grammar_ref = grammar_row.get('Ref.', 'N/A')
         elif is_mode_b and g_rows:
             g_total = len(g_rows)
-            g_idx = st.session_state['tab1_g_index'] % g_total
+            g_idx = st.session_state.tab1_g_index % g_total
             grammar_row = g_rows[g_idx]
             grammar_ref = "Grammar-" + str(g_idx + 1)
 
         col_left, col_right = st.columns([0.67, 0.33])
-
+        
         with col_left:
             # 1) 單字 (V1輪流)
             if is_mode_a:
@@ -281,7 +276,7 @@ with tabs[0]:
                 if v2_syn:
                     syn_ant_parts.append(v2_syn)
                 v2_thai = v2_main.get('THSV11 (Key Phrases)', '')
-
+                
                 if syn_ant_parts:
                     st.markdown("🌍 " + " ; ".join(syn_ant_parts))
                     if v2_thai:
@@ -299,7 +294,7 @@ with tabs[0]:
                     st.markdown("🌍 " + " | ".join(vocab_items))
                 else:
                     st.caption("無單字資料")
-
+            
             st.divider()
 
             # 2) 片語 (W Sheet第16起輪流4個，最小間距)
@@ -310,7 +305,7 @@ with tabs[0]:
                     s = row.get('Synonym', '')
                     a = row.get('Antonym', '')
                     bible_ex = row.get('Bible Example (Full sentence)', '')
-
+                    
                     if p:
                         parts = ["🔤 **" + p + "**"]
                         if c:
@@ -363,14 +358,14 @@ with tabs[0]:
             # 4) 文法 (輪流)
             st.markdown("📚")
             all_grammar = []
-
+            
             if is_mode_a and grammar_row:
                 g_ref = grammar_row.get('Ref.', '')
                 g_en = grammar_row.get('English (ESV)', '')
                 g_cn = grammar_row.get('Chinese', '')
                 g_syn = grammar_row.get('Syn/Ant', '')
                 g_grammar = grammar_row.get('Grammar', '')
-
+                
                 header = "<b>" + g_ref + "</b>"
                 if g_en:
                     header += f"<br>🇬🇧 {g_en}"
@@ -379,7 +374,7 @@ with tabs[0]:
                 if g_syn:
                     header += f"<br>🌍 {g_syn}"
                 all_grammar.append(header)
-
+                
                 if g_grammar:
                     formatted = str(g_grammar)
                     formatted = formatted.replace('1️⃣[', '<br><br>📌 <b>1️⃣ 分段解析</b><br>')
@@ -388,7 +383,7 @@ with tabs[0]:
                     formatted = formatted.replace('4️⃣[', '<br>💡 <b>4️⃣ 語意解釋</b><br>')
                     formatted = formatted.replace(']', '')
                     all_grammar.append(formatted)
-
+                    
             elif is_mode_b and grammar_row:
                 orig = grammar_row.get('Original Sentence (from text)', '')
                 rule = grammar_row.get('Grammar Rule', '')
@@ -405,25 +400,25 @@ with tabs[0]:
                     af = af.replace('4️⃣ [', '<br>💡 <b>4️⃣ ')
                     af = af.replace(']', '</b>')
                     all_grammar.append(af)
-
+            
             if all_grammar:
                 grammar_html = "<hr style='margin:10px 0;'>".join(all_grammar)
             else:
                 grammar_html = "等待資料中..."
-
+            
             st.markdown(f"""
                 <div style="background:#f1f4f9; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:400px;">
                     {grammar_html}
                 </div>
                 """, unsafe_allow_html=True)
-
+            
             minutes_left = max(0, (3600 - time_diff) / 60)
             st.caption(f"來源: {selected_ref} | 文法: {grammar_ref} | {minutes_left:.0f}分後更新")
             if is_mode_a:
                 st.caption(f"輪流進度: V1-{v1_idx+1}/{v1_total} | W-{w_start+1}~{w_start+4}/{w_total} | G-{g_idx+1}/{v1_total}")
             elif is_mode_b:
-                st.caption(f"輪流進度: W-{w_start+1}~{<response clipped><NOTE>Result is longer than **10000 characters**, will be **truncated**.</NOTE>
+                st.caption(f"輪流進度: W-{w_start+1}~{w_start+4}/{w_total} | G-{g_idx+1}/{len(g_rows) if g_rows else 0}")
                 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
