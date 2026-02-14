@@ -168,15 +168,15 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（修正版：只抓2筆文法，內容有序編排）
+# 3. TAB1 ─ 書桌（UI 配置與資料取代邏輯修正版）
 # ===================================================================
 with tabs[0]:
     import csv
-    from io import StringIO
     import random
     import re
-    
-    # 初始化輪換時間
+    import datetime as dt
+
+    # 初始化輪換時間與種子
     if 'tab1_last_update' not in st.session_state:
         st.session_state.tab1_last_update = dt.datetime.now()
         st.session_state.tab1_random_seed = random.randint(1, 1000)
@@ -191,225 +191,136 @@ with tabs[0]:
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
-        st.warning("資料庫為空，請先在 TAB4 儲存資料")
+        st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料或儲存資料")
     else:
         random.seed(st.session_state.tab1_random_seed)
         selected_ref = random.choice(list(sentences.keys()))
         selected_data = sentences[selected_ref]
         
-        # 取得資料
-        v1_content = selected_data.get('v1_content', '')
-        w_sheet = selected_data.get('w_sheet', '')
-        grammar_list = selected_data.get('grammar_list', [])
-        
+        # 解析各工作表內容
         v1_rows = []
         w_rows = []
         
-        # 解析 V1 CSV
-        if v1_content:
+        if selected_data.get('v1_content'):
             try:
-                lines = v1_content.strip().split('\n')
-                if lines:
-                    reader = csv.DictReader(lines)
-                    v1_rows = list(reader)
-            except:
-                pass
-        
-        # 解析 W sheet CSV
-        if w_sheet:
+                reader = csv.DictReader(StringIO(selected_data['v1_content'].strip()))
+                v1_rows = list(reader)
+            except: pass
+            
+        if selected_data.get('w_sheet'):
             try:
-                lines = w_sheet.strip().split('\n')
-                if lines:
-                    reader = csv.DictReader(lines)
-                    w_rows = list(reader)
-            except:
-                pass
-        
+                reader = csv.DictReader(StringIO(selected_data['w_sheet'].strip()))
+                w_rows = list(reader)
+            except: pass
+
+        # 隨機挑選一條經文作為主顯示
         selected_verse = random.choice(v1_rows) if v1_rows else {}
         
-        # 版面配置：左側 (2/3) + 右側 (1/3)
+        # ---------------------------------------------------------
+        # 版面配置：左側 (2/3) | 右側 (1/3)
+        # ---------------------------------------------------------
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # ===== 左上：多語言單字（來自 V1 的 Syn/Ant）=====
-            syn_ant = selected_verse.get('Syn/Ant', '')
-            st.markdown("### 🌍")
-            
-            if syn_ant:
-                # 先嘗試用 | 分割
-                if '|' in syn_ant:
-                    entries = [e.strip() for e in syn_ant.split('|') if e.strip()]
-                else:
-                    entries = [e.strip() for e in re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant) if e.strip()]
-                
-                for entry in entries:
-                    entry = entry.lstrip('•').strip()
-                    
-                    if entry.startswith('🇯🇵'):
-                        st.markdown(f"🇯🇵 **{entry[2:].strip()}**")
-                    elif entry.startswith('🇰🇷'):
-                        st.markdown(f"🇰🇷 **{entry[2:].strip()}**")
-                    elif entry.startswith('🇹🇭'):
-                        st.markdown(f"🇹🇭 **{entry[2:].strip()}**")
-                    elif entry.startswith('🇨🇳'):
-                        st.markdown(f"🇨🇳 **{entry[2:].strip()}**")
-                    else:
-                        # 根據內容判斷語言
-                        if any(c in entry for c in ['ふさわ', '言い', '覆い']):
-                            st.markdown(f"🇯🇵 **{entry}**")
-                        elif any(c in entry for c in ['화합', '이간', '어울']):
-                            st.markdown(f"🇰🇷 **{entry}**")
-                        elif any(c in entry for c in ['ให้อภัย', 'บั่นทอน', 'เหมาะ']):
-                            st.markdown(f"🇹🇭 **{entry}**")
-                        else:
-                            st.markdown(f"🇬🇧 **{entry}**")
+            # 1) 左上：取得 V1 的 Syn/Ant 欄位 (多語言對照)
+            st.markdown("#### 🌍 Synonyms & Antonyms (V1)")
+            syn_ant_content = selected_verse.get('Syn/Ant', '')
+            if syn_ant_content:
+                # 根據國旗符號切分不同語言
+                lang_parts = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant_content)
+                for part in lang_parts:
+                    if part.strip():
+                        st.write(part.strip())
             else:
-                st.info("無單字資料")
+                st.info("尚無 Syn/Ant 資料")
             
             st.divider()
-            
-            # ===== 左中：片語（來自 W sheet）=====
-            st.markdown("### 🔤")
-            
-            phrases = []
-            
-            # 從 W sheet 讀取
+
+            # 2) 左中：取得 "片語" 欄位資料 (取 4 個)
+            st.markdown("#### 🔤 Key Phrases (W-Sheet)")
             if w_rows:
+                # 這裡假設 W Sheet 的 key 包含 'word/phrases', 'Synonym', 'Antonym'
                 for row in w_rows[:4]:
-                    wp = row.get('word/phrases', '')
-                    if wp and wp.strip():
-                        phrases.append(wp.strip())
-            
-            # 備援：從 V1 Grammar 提取
-            if not phrases:
-                grammar = selected_verse.get('Grammar', '')
-                if '2️⃣[' in grammar:
-                    matches = re.findall(r'2️⃣\[(.+?)\]', grammar)
-                    for m in matches[:4]:
-                        clean_phrase = re.sub(r'\s*\([^)]*詞[^)]*\)', '', m)
-                        phrases.append(clean_phrase)
-            
-            if phrases:
-                for i, phrase in enumerate(phrases[:4]):
-                    parts = phrase.split('/')
-                    if len(parts) >= 2:
-                        col1, col2 = st.columns([0.6, 0.4])
-                        with col1:
-                            st.markdown(f"**{parts[0].strip()}**")
-                        with c2:
-                            st.caption(f"↔ {'/'.join(parts[1:]).strip()}")
-                    else:
-                        st.markdown(f"**{phrase}**")
-                    if i < 3:
-                        st.markdown("---")
+                    phrase = row.get('word/phrases', row.get('Word/Phrase', ''))
+                    syn = row.get('Synonym', '')
+                    ant = row.get('Antonym', '')
+                    st.markdown(f"**{phrase}**")
+                    st.caption(f"✨ {syn}   |   ❄️ {ant}")
             else:
                 st.info("無片語資料")
-            
+
             st.divider()
+
+            # 3) 左下：經文呈現 (英 -> 日 -> 韓 -> 中)
+            st.markdown("#### 📖🌟")
+            ref_label = selected_verse.get('Ref.', selected_ref)
             
-            # ===== 左下：經文（英日韓中）=====
-            st.markdown("### 📖🌟")
+            # 依序排列
+            langs = [
+                {"icon": "🇬🇧", "key": "English (ESV)"},
+                {"icon": "🇯🇵", "key": "Japanese"},
+                {"icon": "🇰🇷", "key": "Korean"},
+                {"icon": "🇨🇳", "key": "Chinese"}
+            ]
             
-            ref = selected_verse.get('Ref.', '')
-            en = selected_verse.get('English (ESV)', '')
-            cn = selected_verse.get('Chinese', '')
-            jp = selected_verse.get('Japanese', '')
-            kr = selected_verse.get('Korean', '')
-            
-            if en:
-                st.markdown(f"🇬🇧 **{ref}**  \n>{en}")
-            if jp:
-                st.markdown(f"🇯🇵 **{ref}**  \n>{jp}")
-            if kr:
-                st.markdown(f"🇰🇷 **{ref}**  \n>{kr}")
-            if cn:
-                st.markdown(f"🇨🇳 **{ref}**  \n>{cn}")
-        
+            for l in langs:
+                text = selected_verse.get(l['key'], '')
+                if text:
+                    st.markdown(f"{l['icon']} **{ref_label}**")
+                    st.info(text)
+
         with col_right:
-            # ===== 右側：文法解析（只抓2筆，有序編排）=====
-            st.markdown("### 📚")
+            # 4) 右側：縱向跨區塊的文法解析
+            st.markdown("#### 📚 Grammar Analysis")
             
-            # 收集文法資料（最多2筆）
-            grammar_items = []
+            # 彙整資料來源
+            grammar_data = []
             
-            # 來源 1：V1 的 Grammar 欄位（只取2筆）
-            if v1_rows:
-                for row in v1_rows[:2]:
-                    grammar_text = row.get('Grammar', '')
-                    if grammar_text and grammar_text.strip():
-                        grammar_items.append(grammar_text.strip())
+            # 來源 A: V1 的 Grammar 欄位
+            v1_grammar = selected_verse.get('Grammar', '')
+            if v1_grammar:
+                grammar_data.append(v1_grammar)
             
-            # 來源 2：grammar_list（如果 V1 沒有）
-            if not grammar_items and grammar_list:
-                if isinstance(grammar_list, list):
-                    for item in grammar_list[:2]:
-                        if isinstance(item, dict):
-                            item_text = '\n'.join(str(v) for v in item.values() if v)
-                            grammar_items.append(item_text)
-                        else:
-                            grammar_items.append(str(item))
+            # 來源 B: Grammar List 欄位
+            g_list = selected_data.get('grammar_list', [])
+            if isinstance(g_list, list):
+                for item in g_list:
+                    if isinstance(item, dict):
+                        # 如果是從 CSV 轉來的 dict
+                        g_content = item.get('Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
+                        if g_content: grammar_data.append(g_content)
+                    else:
+                        grammar_data.append(str(item))
             
-            # 顯示文法內容（有序編排）
+            # 呈現長方形容器
             with st.container():
-                st.markdown(
-                    "<div style='background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #FF8C00;'>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("""
+                    <style>
+                    .grammar-box {
+                        background-color: #f1f3f6;
+                        padding: 20px;
+                        border-radius: 10px;
+                        border-left: 6px solid #4A90E2;
+                        height: 800px;
+                        overflow-y: auto;
+                        font-size: 0.9rem;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
                 
-                if grammar_items:
-                    for idx, grammar_text in enumerate(grammar_items):
-                        # 1️⃣ 分段解析
-                        if '1️⃣[' in grammar_text:
-                            match = re.search(r'1️⃣\[(.+?)\]', grammar_text, re.DOTALL)
-                            if match:
-                                st.markdown("📌 **分段解析**")
-                                for line in match.group(1).strip().split('\n'):
-                                    if line.strip():
-                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
-                        
-                        # 2️⃣ 詞性辨析
-                        if '2️⃣[' in grammar_text:
-                            match = re.search(r'2️⃣\[(.+?)\]', grammar_text, re.DOTALL)
-                            if match:
-                                st.markdown("🔤 **詞性辨析**")
-                                for line in match.group(1).strip().split('\n'):
-                                    if line.strip():
-                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
-                        
-                        # 3️⃣ 修辭與結構
-                        if '3️⃣[' in grammar_text:
-                            match = re.search(r'3️⃣\[(.+?)\]', grammar_text, re.DOTALL)
-                            if match:
-                                st.markdown("📖 **修辭與結構**")
-                                for line in match.group(1).strip().split('\n'):
-                                    if line.strip():
-                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
-                        
-                        # 4️⃣ 語意解釋
-                        if '4️⃣[' in grammar_text:
-                            match = re.search(r'4️⃣\[(.+?)\]', grammar_text, re.DOTALL)
-                            if match:
-                                st.markdown("💡 **語意解釋**")
-                                for line in match.group(1).strip().split('\n'):
-                                    if line.strip():
-                                        st.markdown(f"&nbsp;&nbsp;{line.strip()}")
-                        
-                        # 如果沒有標記，直接顯示
-                        if not any(x in grammar_text for x in ['1️⃣[', '2️⃣[', '3️⃣[', '4️⃣[']):
-                            st.markdown(grammar_text)
-                        
-                        # 2筆之間加分隔線
-                        if idx < len(grammar_items) - 1:
-                            st.markdown("---")
+                content_html = ""
+                if grammar_data:
+                    for idx, g_text in enumerate(grammar_data):
+                        # 簡單格式化換行
+                        formatted_text = g_text.replace('\n', '<br>')
+                        content_html += f"<b>Analysis {idx+1}:</b><br>{formatted_text}<hr>"
                 else:
-                    st.info("無文法資料")
+                    content_html = "等待資料載入中..."
                 
-                minutes_left = max(0, (3600 - time_diff) / 60)
-                st.markdown(
-                    f"<small>來源: {selected_ref}｜{minutes_left:.0f}分後更新</small>",
-                    unsafe_allow_html=True
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown(f'<div class="grammar-box">{content_html}</div>', unsafe_allow_html=True)
+                
+                # 底部小字
+                st.caption(f"Ref: {selected_ref} | Seed: {st.session_state.tab1_random_seed}")
                 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
