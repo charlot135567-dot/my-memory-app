@@ -168,22 +168,18 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（UI 配置與資料取代邏輯修正版）
+# 3. TAB1 ─ 書桌 (跨表資料精準對接版)
 # ===================================================================
 with tabs[0]:
-    import csv
-    import random
-    import re
-    import datetime as dt
+    import csv, random, re, datetime as dt
+    from io import StringIO
 
-    # 初始化輪換時間與種子
+    # --- 輪換與種子初始化 ---
     if 'tab1_last_update' not in st.session_state:
         st.session_state.tab1_last_update = dt.datetime.now()
         st.session_state.tab1_random_seed = random.randint(1, 1000)
     
-    # 檢查是否需要更新（超過1小時）
-    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
-    if time_diff > 3600:
+    if (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds() > 3600:
         st.session_state.tab1_last_update = dt.datetime.now()
         st.session_state.tab1_random_seed = random.randint(1, 1000)
         st.rerun()
@@ -191,141 +187,106 @@ with tabs[0]:
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
-        st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料或儲存資料")
+        st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
     else:
         random.seed(st.session_state.tab1_random_seed)
         selected_ref = random.choice(list(sentences.keys()))
-        selected_data = sentences[selected_ref]
+        data = sentences[selected_ref]
         
-        # 解析各工作表內容
-        v1_rows = []
-        w_rows = []
-        
-        if selected_data.get('v1_content'):
+        # --- 多表解析中心 ---
+        def parse_csv(content):
+            if not content: return []
             try:
-                reader = csv.DictReader(StringIO(selected_data['v1_content'].strip()))
-                v1_rows = list(reader)
-            except: pass
-            
-        if selected_data.get('w_sheet'):
-            try:
-                reader = csv.DictReader(StringIO(selected_data['w_sheet'].strip()))
-                w_rows = list(reader)
-            except: pass
+                return list(csv.DictReader(StringIO(content.strip())))
+            except: return []
 
-        # 隨機挑選一條經文作為主顯示
-        selected_verse = random.choice(v1_rows) if v1_rows else {}
+        v1_rows = parse_csv(data.get('v1_content', ''))
+        v2_rows = parse_csv(data.get('v2_content', ''))
+        w_rows = parse_csv(data.get('w_sheet', ''))
+        g_rows = parse_csv(data.get('grammar_list', ''))
         
+        # 取得當前顯示的列 (假設取第一行作為主經文)
+        v1_main = v1_rows[0] if v1_rows else {}
+        v2_main = v2_rows[0] if v2_rows else {}
+
         # ---------------------------------------------------------
-        # 版面配置：左側 (2/3) | 右側 (1/3)
+        # 版面配置：左 (2/3) | 右 (1/3)
         # ---------------------------------------------------------
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 1) 左上：取得 V1 的 Syn/Ant 欄位 (多語言對照)
-            st.markdown("#### 🌍 Synonyms & Antonyms (V1)")
-            syn_ant_content = selected_verse.get('Syn/Ant', '')
-            if syn_ant_content:
-                # 根據國旗符號切分不同語言
-                lang_parts = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', syn_ant_content)
-                for part in lang_parts:
-                    if part.strip():
-                        st.write(part.strip())
-            else:
-                st.info("尚無 Syn/Ant 資料")
+            # 1) 左上方：多國語單字對照 (跨 V1, V2)
+            st.markdown("#### 🌍 Vocabulary Insights (V1+V2)")
+            # 取得 V1 的 中英內容
+            v1_syn = v1_main.get('Syn/Ant', '')
+            # 取得 V2 的 日韓內容與泰語
+            v2_syn = v2_main.get('Syn/Ant', '')
+            v2_thai = v2_main.get('THSV11', '')
+            
+            combined_syn = f"{v1_syn}\n{v2_syn}"
+            if combined_syn.strip():
+                for part in re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', combined_syn):
+                    if part.strip(): st.write(part.strip())
+            if v2_thai:
+                st.write(f"🇹🇭 {v2_thai}")
             
             st.divider()
 
-            # ===== 左中：片語（從第 20 個開始取 4 個）=====
+            # 2) 左中間：Key Phrases (從 W Sheet 第 20 個開始取)
             st.markdown("#### 🔤 Key Phrases (W-Sheet)")
-            
-            # 使用 Python 切分列表：[19:23] 代表從第 20 個(index 19) 開始，取到第 23 個(index 22)
             display_phrases = w_rows[19:23] if len(w_rows) >= 20 else w_rows[:4]
-            
             if display_phrases:
                 for row in display_phrases:
-                    # 取得欄位名稱，相容大小寫
-                    phrase = row.get('word/phrases', row.get('Word/Phrase', ''))
-                    syn = row.get('Synonym', '')
-                    ant = row.get('Antonym', '')
-                    
-                    if phrase:
-                        st.markdown(f"**{phrase}**")
-                        # 呈現格式：Synonym / Antonym
-                        st.caption(f"✨ {syn if syn else 'N/A'}   |   ❄️ {ant if ant else 'N/A'}")
+                    p = row.get('word/phrases') or row.get('Word/Phrase')
+                    s = row.get('Synonym', '')
+                    a = row.get('Antonym', '')
+                    if p:
+                        st.markdown(f"**{p}**")
+                        st.caption(f"✨ {s}  |  ❄️ {a}")
             else:
-                st.info("目前無足夠的片語資料（少於 20 筆）")
+                st.info("無足夠片語資料")
 
-            # 3) 左下：經文呈現 (英 -> 日 -> 韓 -> 中)
-            st.markdown("#### 📖🌟")
-            ref_label = selected_verse.get('Ref.', selected_ref)
-            
-            # 依序排列
-            langs = [
-                {"icon": "🇬🇧", "key": "English (ESV)"},
-                {"icon": "🇯🇵", "key": "Japanese"},
-                {"icon": "🇰🇷", "key": "Korean"},
-                {"icon": "🇨🇳", "key": "Chinese"}
+            st.divider()
+
+            # 3) 左下方：金句呈現 (英, 日, 韓, 泰, 中)
+            st.markdown("#### 📖🌟 Scripture Context")
+            # 順序：英(V1), 日(V2), 韓(V2), 泰(V2), 中(V1)
+            bible_flow = [
+                ("🇬🇧", v1_main.get('English (ESV)')),
+                ("🇯🇵", v2_main.get('口語訳')),
+                ("🇰🇷", v2_main.get('KRF')),
+                ("🇹🇭", v2_main.get('THSV11')),
+                ("🇨🇳", v1_main.get('Chinese'))
             ]
-            
-            for l in langs:
-                text = selected_verse.get(l['key'], '')
+            for icon, text in bible_flow:
                 if text:
-                    st.markdown(f"{l['icon']} **{ref_label}**")
+                    st.markdown(f"{icon} **{selected_ref}**")
                     st.info(text)
 
         with col_right:
-            # 4) 右側：縱向跨區塊的文法解析
+            # 4) 右側：文法解析 (長方形跨區)
             st.markdown("#### 📚 Grammar Analysis")
+            all_grammar = []
             
-            # 彙整資料來源
-            grammar_data = []
+            # 從 V1 擷取
+            if v1_main.get('Grammar'):
+                all_grammar.append(v1_main['Grammar'])
             
-            # 來源 A: V1 的 Grammar 欄位
-            v1_grammar = selected_verse.get('Grammar', '')
-            if v1_grammar:
-                grammar_data.append(v1_grammar)
-            
-            # 來源 B: Grammar List 欄位
-            g_list = selected_data.get('grammar_list', [])
-            if isinstance(g_list, list):
-                for item in g_list:
-                    if isinstance(item, dict):
-                        # 如果是從 CSV 轉來的 dict
-                        g_content = item.get('Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
-                        if g_content: grammar_data.append(g_content)
-                    else:
-                        grammar_data.append(str(item))
-            
-            # 呈現長方形容器
-            with st.container():
-                st.markdown("""
-                    <style>
-                    .grammar-box {
-                        background-color: #f1f3f6;
-                        padding: 20px;
-                        border-radius: 10px;
-                        border-left: 6px solid #4A90E2;
-                        height: 800px;
-                        overflow-y: auto;
-                        font-size: 0.9rem;
-                    }
-                    </style>
+            # 從 Grammar List 擷取 (合併 Rule 與 Analysis)
+            for grow in g_rows:
+                rule = grow.get('Grammar Rule', '')
+                analysis = grow.get('Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
+                if rule or analysis:
+                    all_grammar.append(f"📌 **{rule}**<br>{analysis}")
+
+            # 呈現區塊
+            grammar_html = "<hr>".join([g.replace('\n', '<br>') for g in all_grammar])
+            st.markdown(f"""
+                <div style="background-color:#f1f4f9; padding:18px; border-radius:12px; 
+                            border-left:6px solid #FF8C00; height:850px; overflow-y:auto;">
+                    {grammar_html if all_grammar else "等待資料中..."}
+                </div>
                 """, unsafe_allow_html=True)
-                
-                content_html = ""
-                if grammar_data:
-                    for idx, g_text in enumerate(grammar_data):
-                        # 簡單格式化換行
-                        formatted_text = g_text.replace('\n', '<br>')
-                        content_html += f"<b>Analysis {idx+1}:</b><br>{formatted_text}<hr>"
-                else:
-                    content_html = "等待資料載入中..."
-                
-                st.markdown(f'<div class="grammar-box">{content_html}</div>', unsafe_allow_html=True)
-                
-                # 底部小字
-                st.caption(f"Ref: {selected_ref} | Seed: {st.session_state.tab1_random_seed}")
                 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
