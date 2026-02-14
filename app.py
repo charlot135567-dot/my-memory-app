@@ -168,7 +168,7 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (跨表資料精準對接版)
+# 3. TAB1 ─ 書桌 (跨表資料精準對接版 - 已修正)
 # ===================================================================
 with tabs[0]:
     import csv, random, re, datetime as dt
@@ -205,7 +205,7 @@ with tabs[0]:
         w_rows = parse_csv(data.get('w_sheet', ''))
         g_rows = parse_csv(data.get('grammar_list', ''))
         
-        # 取得當前顯示的列 (假設取第一行作為主經文)
+        # 取得當前顯示的列
         v1_main = v1_rows[0] if v1_rows else {}
         v2_main = v2_rows[0] if v2_rows else {}
 
@@ -215,78 +215,155 @@ with tabs[0]:
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 1) 左上方：多國語單字對照 (跨 V1, V2)
-            st.markdown("#### 🌍 Vocabulary Insights (V1+V2)")
-            # 取得 V1 的 中英內容
-            v1_syn = v1_main.get('Syn/Ant', '')
-            # 取得 V2 的 日韓內容與泰語
-            v2_syn = v2_main.get('Syn/Ant', '')
-            v2_thai = v2_main.get('THSV11', '')
+            # 1) 左上方：多國語單字對照 (V1中英 + V2日韓泰)
+            st.markdown("### 🌍")
             
-            combined_syn = f"{v1_syn}\n{v2_syn}"
-            if combined_syn.strip():
-                for part in re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳)', combined_syn):
-                    if part.strip(): st.write(part.strip())
+            # V1 Syn/Ant (中英)
+            v1_syn = v1_main.get('Syn/Ant', '')
+            if v1_syn:
+                entries = re.split(r'(?=🇯🇵|🇰🇷|🇹🇭|🇨🇳|🇬🇧)', v1_syn)
+                for entry in entries:
+                    entry = entry.strip()
+                    if entry:
+                        if entry.startswith('🇨🇳'):
+                            st.markdown(f"🇨🇳 **{entry[2:].strip()}**")
+                        elif entry.startswith('🇬🇧'):
+                            st.markdown(f"🇬🇧 **{entry[2:].strip()}**")
+                        else:
+                            st.markdown(f"🇬🇧 **{entry}**")
+            
+            # V2 Syn/Ant (日韓)
+            v2_syn = v2_main.get('Syn/Ant', '')
+            if v2_syn:
+                entries = re.split(r'(?=🇯🇵|🇰🇷)', v2_syn)
+                for entry in entries:
+                    entry = entry.strip()
+                    if entry:
+                        if entry.startswith('🇯🇵'):
+                            st.markdown(f"🇯🇵 **{entry[2:].strip()}**")
+                        elif entry.startswith('🇰🇷'):
+                            st.markdown(f"🇰🇷 **{entry[2:].strip()}**")
+                        else:
+                            st.markdown(f"🇯🇵 **{entry}**")
+            
+            # V2 THSV11 (泰語)
+            v2_thai = v2_main.get('THSV11', '')
             if v2_thai:
-                st.write(f"🇹🇭 {v2_thai}")
+                st.markdown(f"🇹🇭 **{v2_thai}**")
+            
+            if not any([v1_syn, v2_syn, v2_thai]):
+                st.info("無單字資料")
             
             st.divider()
 
-            # 2) 左中間：Key Phrases (從 W Sheet 第 20 個開始取)
-            st.markdown("#### 🔤 Key Phrases (W-Sheet)")
-            display_phrases = w_rows[19:23] if len(w_rows) >= 20 else w_rows[:4]
+            # 2) 左中間：Key Phrases (從 W Sheet 取4個，含 Bible Example)
+            st.markdown("### 🔤")
+            
+            display_phrases = w_rows[:4] if w_rows else []
+            
             if display_phrases:
-                for row in display_phrases:
-                    p = row.get('word/phrases') or row.get('Word/Phrase')
+                for i, row in enumerate(display_phrases):
+                    p = row.get('word/phrases') or row.get('Word/Phrase', '')
                     s = row.get('Synonym', '')
                     a = row.get('Antonym', '')
+                    bible_ex = row.get('Bible Example', '')
+                    
                     if p:
-                        st.markdown(f"**{p}**")
-                        st.caption(f"✨ {s}  |  ❄️ {a}")
+                        # 第一行：片語 + Synonym/Antonym
+                        syn_ant_text = f"✨ {s}" if s else ""
+                        if a:
+                            syn_ant_text += f" | ❄️ {a}" if syn_ant_text else f"❄️ {a}"
+                        
+                        st.markdown(f"**{p}** {syn_ant_text}")
+                        
+                        # 第二行：Bible Example
+                        if bible_ex:
+                            st.caption(f"📖 {bible_ex}")
+                        
+                        if i < len(display_phrases) - 1:
+                            st.markdown("---")
             else:
-                st.info("無足夠片語資料")
+                st.info("無片語資料")
 
             st.divider()
 
             # 3) 左下方：金句呈現 (英, 日, 韓, 泰, 中)
-            st.markdown("#### 📖🌟 Scripture Context")
-            # 順序：英(V1), 日(V2), 韓(V2), 泰(V2), 中(V1)
-            bible_flow = [
-                ("🇬🇧", v1_main.get('English (ESV)')),
-                ("🇯🇵", v2_main.get('口語訳')),
-                ("🇰🇷", v2_main.get('KRF')),
-                ("🇹🇭", v2_main.get('THSV11')),
-                ("🇨🇳", v1_main.get('Chinese'))
-            ]
-            for icon, text in bible_flow:
-                if text:
-                    st.markdown(f"{icon} **{selected_ref}**")
-                    st.info(text)
+            st.markdown("### 📖🌟")
+            
+            ref = v1_main.get('Ref.', selected_ref)
+            
+            en = v1_main.get('English (ESV)', '')
+            cn = v1_main.get('Chinese', '')
+            jp = v2_main.get('口語訳', '')
+            kr = v2_main.get('KRF', '')
+            th = v2_main.get('THSV11', '')
+            
+            if en:
+                st.markdown(f"🇬🇧 **{ref}**  \n>{en}")
+            if jp:
+                st.markdown(f"🇯🇵 **{ref}**  \n>{jp}")
+            if kr:
+                st.markdown(f"🇰🇷 **{ref}**  \n>{kr}")
+            if th:
+                st.markdown(f"🇹🇭 **{ref}**  \n>{th}")
+            if cn:
+                st.markdown(f"🇨🇳 **{ref}**  \n>{cn}")
 
         with col_right:
-            # 4) 右側：文法解析 (長方形跨區)
-            st.markdown("#### 📚 Grammar Analysis")
+            # 4) 右側：文法解析 (顯示完整內容)
+            st.markdown("### 📚")
+            
             all_grammar = []
             
-            # 從 V1 擷取
+            # 從 V1 Grammar 欄位擷取完整內容
             if v1_main.get('Grammar'):
-                all_grammar.append(v1_main['Grammar'])
+                grammar_text = v1_main['Grammar']
+                # 格式化：將 1️⃣ 2️⃣ 3️⃣ 4️⃣ 轉換為標題
+                formatted = grammar_text
+                formatted = re.sub(r'1️⃣\[', '📌 **分段解析**\n', formatted)
+                formatted = re.sub(r'2️⃣\[', '\n🔤 **詞性辨析**\n', formatted)
+                formatted = re.sub(r'3️⃣\[', '\n📖 **修辭與結構**\n', formatted)
+                formatted = re.sub(r'4️⃣\[', '\n💡 **語意解釋**\n', formatted)
+                formatted = re.sub(r'\]', '', formatted)
+                all_grammar.append(formatted)
             
-            # 從 Grammar List 擷取 (合併 Rule 與 Analysis)
-            for grow in g_rows:
+            # 從 Grammar List 擷取完整內容
+            for grow in g_rows[:2]:
                 rule = grow.get('Grammar Rule', '')
                 analysis = grow.get('Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
                 if rule or analysis:
-                    all_grammar.append(f"📌 **{rule}**<br>{analysis}")
+                    item_text = ""
+                    if rule:
+                        item_text += f"📌 **{rule}**\n"
+                    if analysis:
+                        # 格式化 analysis 中的標記
+                        analysis_formatted = analysis
+                        analysis_formatted = re.sub(r'1️⃣\[', '📌 ', analysis_formatted)
+                        analysis_formatted = re.sub(r'2️⃣\[', '🔤 ', analysis_formatted)
+                        analysis_formatted = re.sub(r'3️⃣\[', '📖 ', analysis_formatted)
+                        analysis_formatted = re.sub(r'4️⃣\[', '💡 ', analysis_formatted)
+                        analysis_formatted = re.sub(r'\]', '', analysis_formatted)
+                        item_text += analysis_formatted
+                    all_grammar.append(item_text)
 
             # 呈現區塊
-            grammar_html = "<hr>".join([g.replace('\n', '<br>') for g in all_grammar])
+            if all_grammar:
+                grammar_html = "<hr style='margin:15px 0;'>".join(
+                    [g.replace('\n', '<br>') for g in all_grammar]
+                )
+            else:
+                grammar_html = "等待資料中..."
+            
             st.markdown(f"""
                 <div style="background-color:#f1f4f9; padding:18px; border-radius:12px; 
-                            border-left:6px solid #FF8C00; height:850px; overflow-y:auto;">
-                    {grammar_html if all_grammar else "等待資料中..."}
+                            border-left:6px solid #FF8C00; min-height:600px; overflow-y:auto;">
+                    {grammar_html}
                 </div>
                 """, unsafe_allow_html=True)
+            
+            # 底部資訊
+            minutes_left = max(0, (3600 - (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()) / 60)
+            st.caption(f"來源: {selected_ref}｜{minutes_left:.0f}分後更新")
                 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
