@@ -418,19 +418,7 @@ with tabs[0]:
                 st.caption(f"輪流進度: V1-{v1_idx+1}/{v1_total} | W-{w_start+1}~{w_start+4}/{w_total} | G-{g_idx+1}/{v1_total}")
             elif is_mode_b:
                 st.caption(f"輪流進度: W-{w_start+1}~{w_start+4}/{w_total} | G-{g_idx+1}/{len(g_rows) if g_rows else 0}")
-    
-    # 檢查是否需要更新（超過1小時）
-    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
-    if time_diff > 3600:
-        st.session_state.tab1_last_update = dt.datetime.now()
-        st.session_state.tab1_random_seed = random.randint(1, 1000)
-        st.session_state.tab1_v1_index += 1
-        st.session_state.tab1_w_index += 4
-        st.session_state.tab1_g_index += 1
-        st.rerun()
-    
-    sentences = st.session_state.get('sentences', {})
-    
+        
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
     else:
