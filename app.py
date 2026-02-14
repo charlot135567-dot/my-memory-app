@@ -236,20 +236,25 @@ with tabs[0]:
             
             st.divider()
 
-            # 2) 左中：取得 "片語" 欄位資料 (取 4 個)
+            # ===== 左中：片語（從第 20 個開始取 4 個）=====
             st.markdown("#### 🔤 Key Phrases (W-Sheet)")
-            if w_rows:
-                # 這裡假設 W Sheet 的 key 包含 'word/phrases', 'Synonym', 'Antonym'
-                for row in w_rows[:4]:
+            
+            # 使用 Python 切分列表：[19:23] 代表從第 20 個(index 19) 開始，取到第 23 個(index 22)
+            display_phrases = w_rows[19:23] if len(w_rows) >= 20 else w_rows[:4]
+            
+            if display_phrases:
+                for row in display_phrases:
+                    # 取得欄位名稱，相容大小寫
                     phrase = row.get('word/phrases', row.get('Word/Phrase', ''))
                     syn = row.get('Synonym', '')
                     ant = row.get('Antonym', '')
-                    st.markdown(f"**{phrase}**")
-                    st.caption(f"✨ {syn}   |   ❄️ {ant}")
+                    
+                    if phrase:
+                        st.markdown(f"**{phrase}**")
+                        # 呈現格式：Synonym / Antonym
+                        st.caption(f"✨ {syn if syn else 'N/A'}   |   ❄️ {ant if ant else 'N/A'}")
             else:
-                st.info("無片語資料")
-
-            st.divider()
+                st.info("目前無足夠的片語資料（少於 20 筆）")
 
             # 3) 左下：經文呈現 (英 -> 日 -> 韓 -> 中)
             st.markdown("#### 📖🌟")
