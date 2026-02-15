@@ -1452,7 +1452,7 @@ its part of speech and meaning in this sentence must be clearly identified.
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
  【W Sheet - 重點要求：取高級/中高級單字15個/片語15個】
-| No | Word/Phrase| Chinese | Synonym | Antonym | Bible Example（Full sentence)＋Chinese Translation |
+| No | Word/Phrase| Chinese | Synonym | Antonym | 全句聖經中英對照例句 |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
 
