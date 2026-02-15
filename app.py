@@ -393,10 +393,10 @@ with tabs[0]:
                 
                 if g_grammar:
                     formatted = str(g_grammar)
-                    formatted = formatted.replace('1️⃣[', '<br><br>📌 <b>1️⃣ 分段解析</b><br>')
-                    formatted = formatted.replace('2️⃣[', '<br><br>🔤 <b>2️⃣ 詞性辨析</b><br>')
-                    formatted = formatted.replace('3️⃣[', '<br><br>📖 <b>3️⃣ 修辭與結構</b><br>')
-                    formatted = formatted.replace('4️⃣[', '<br><br>💡 <b>4️⃣ 語意解釋</b><br>')
+                    formatted = formatted.replace('1️⃣[', '<br><br>📌 分段解析</b><br>')
+                    formatted = formatted.replace('2️⃣[', '<br><br>🔤 詞性辨析</b><br>')
+                    formatted = formatted.replace('3️⃣[', '<br><br>📖 修辭與結構</b><br>')
+                    formatted = formatted.replace('4️⃣[', '<br><br>💡 語意解釋</b><br>')
                     formatted = formatted.replace(']', '')
                     all_grammar.append(formatted)
                     
@@ -412,10 +412,10 @@ with tabs[0]:
                     all_grammar.append(f"📌 <b>{rule}</b>")
                 if analysis:
                     af = str(analysis)
-                    af = af.replace('1️⃣ [', '<br><br>📌 <b>1️⃣ ')
-                    af = af.replace('2️⃣ [', '<br><br>🔤 <b>2️⃣ ')
-                    af = af.replace('3️⃣ [', '<br><br>📖 <b>3️⃣ ')
-                    af = af.replace('4️⃣ [', '<br><br>💡 <b>4️⃣ ')
+                    af = af.replace('1️⃣ [', '<br><br>📌 ')
+                    af = af.replace('2️⃣ [', '<br><br>🔤 ')
+                    af = af.replace('3️⃣ [', '<br><br>📖 ')
+                    af = af.replace('4️⃣ [', '<br><br>💡 ')
                     af = af.replace(']', '</b>')
                     all_grammar.append(af)
             
@@ -476,15 +476,90 @@ with tabs[0]:
 
             # 金句
             if verse_lines:
-                st.markdown("📖🌟 " + verse_lines[0])
+                st.markdown("📖 " + verse_lines[0])
                 for v in verse_lines[1:]:
                     st.markdown(v)
             else:
-                st.caption("📖🌟 無金句資料（請確認有模式A資料）")
+                st.caption("📖 無金句資料（請確認有模式A資料）")
 
         with col_right:
             # 文法
-            st.markdown("📚")
+            st.markdown(f"""
+                <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
+                            border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.6;">
+                    {grammar_html}
+                </div>
+                """, unsafe_allow_html=True)
+            
+            minutes_left = max(0, (3600 - time_diff) / 60)
+            st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
+            st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
+            
+            # 顯示統計
+            st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
+        
+        # ============================================================
+        # 渲染畫面
+        # ============================================================
+        col_left, col_right = st.columns([0.67, 0.33])
+        
+        with col_left:
+            # 單字
+            if vocab_display:
+                st.markdown("🌍 " + " ; ".join([v for v in vocab_display if not v.startswith('🇹🇭')]))
+                thai_items = [v for v in vocab_display if v.startswith('🇹🇭')]
+                for th in thai_items:
+                    st.markdown(th)
+            else:
+                st.caption("無單字資料（請確認有模式A資料）")
+            
+            st.divider()
+
+            # 片語
+            if w_phrases:
+                for i, row in enumerate(w_phrases):
+                    p = (row.get('Word/Phrase') or row.get('word/phrases') or 
+                         row.get('Word/phrase') or row.get('Word', ''))
+                    c = row.get('Chinese', '')
+                    s = row.get('Synonym', '')
+                    a = row.get('Antonym', '')
+                    bible_ex = (row.get('Bible Example (Full sentence)') or 
+                               row.get('Bible Example', '') or row.get('Example', ''))
+                    
+                    if p:
+                        parts = [f"🔤 **{p}**"]
+                        if c: 
+                            parts.append(c)
+                        if s or a:
+                            sa_parts = []
+                            if s: 
+                                sa_parts.append(f"✨{s}")
+                            if a: 
+                                sa_parts.append(f"❄️{a}")
+                            parts.append("_" + " | ".join(sa_parts) + "_")
+                        
+                        st.markdown(" ".join(parts))
+                        
+                        if bible_ex:
+                            st.caption(f"📖 {bible_ex}")
+                        
+                        if i < len(w_phrases) - 1:
+                            st.markdown("---")
+            else:
+                st.caption("無片語資料（請確認有模式B資料）")
+
+            st.divider()
+
+            # 金句
+            if verse_lines:
+                st.markdown("📖 " + verse_lines[0])
+                for v in verse_lines[1:]:
+                    st.markdown(v)
+            else:
+                st.caption("📖 無金句資料（請確認有模式A資料）")
+
+        with col_right:
+            # 文法
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.6;">
