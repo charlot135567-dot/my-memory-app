@@ -499,10 +499,10 @@ with tabs[0]:
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新 | A:{len(all_mode_a)} B:{len(all_mode_b)} G:{len(all_grammar_sources)}")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（整月版）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（點選日期版）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt, re, os, json, calendar
+    import datetime as dt, re, os, json
     from streamlit_calendar import calendar as st_calendar
     from io import StringIO
     import csv
@@ -595,61 +595,45 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 整月待辦清單 ----------
-    st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 本月待辦事項</p>', unsafe_allow_html=True)
-
+    # ---------- 3. 選中日期的待辦清單 ----------
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.date.today()
 
-    # 取得該月所有日期
-    year, month = base_date.year, base_date.month
-    _, last_day = calendar.monthrange(year, month)
+    d_str = str(base_date)
     
-    has_todo = False
-    current_day = None
-    
-    for day in range(1, last_day + 1):
-        d_obj = dt.date(year, month, day)
-        d_str = str(d_obj)
-        
-        if d_str in st.session_state.todo and st.session_state.todo[d_str]:
-            has_todo = True
-            
-            # 顯示日期標題（只顯示一次）
-            if current_day != day:
-                st.markdown(f'<p style="margin:4px 0 2px 0;padding:0;font-size:12px;color:#666;font-weight:bold;">{month}/{day}</p>', unsafe_allow_html=True)
-                current_day = day
-            
-            for idx, item in enumerate(st.session_state.todo[d_str]):
-                item_id = f"{d_str}_{idx}"
-                title = item.get("title", "") if isinstance(item, dict) else str(item)
-                time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
+    st.markdown(f'<p style="margin:4px 0;padding:0;font-size:14px;font-weight:bold;">📋 {base_date.month}/{base_date.day} 待辦事項</p>', unsafe_allow_html=True)
 
-                c1, c2, c3 = st.columns([0.3, 8, 1.2])
-                
-                with c1:
-                    if st.button("💟", key=f"h_{item_id}"):
-                        st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
+    if d_str in st.session_state.todo and st.session_state.todo[d_str]:
+        for idx, item in enumerate(st.session_state.todo[d_str]):
+            item_id = f"{d_str}_{idx}"
+            title = item.get("title", "") if isinstance(item, dict) else str(item)
+            time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
+
+            c1, c2, c3 = st.columns([0.3, 8, 1.2])
+            
+            with c1:
+                if st.button("💟", key=f"h_{item_id}"):
+                    st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
+                    st.rerun()
+
+            with c2:
+                st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{time_str} {title}</p>', unsafe_allow_html=True)
+
+            with c3:
+                if st.session_state.active_del_id == item_id:
+                    if st.button("🗑️", key=f"d_{item_id}"):
+                        st.session_state.todo[d_str].pop(idx)
+                        if not st.session_state.todo[d_str]:
+                            del st.session_state.todo[d_str]
+                        save_todos()
+                        st.session_state.cal_key += 1
+                        st.session_state.active_del_id = None
                         st.rerun()
-
-                with c2:
-                    st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{time_str} {title}</p>', unsafe_allow_html=True)
-
-                with c3:
-                    if st.session_state.active_del_id == item_id:
-                        if st.button("🗑️", key=f"d_{item_id}"):
-                            st.session_state.todo[d_str].pop(idx)
-                            if not st.session_state.todo[d_str]:
-                                del st.session_state.todo[d_str]
-                            save_todos()
-                            st.session_state.cal_key += 1
-                            st.session_state.active_del_id = None
-                            st.rerun()
-    
-    if not has_todo:
-        st.caption("本月尚無待辦事項")
+            st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
+    else:
+        st.caption("該日尚無待辦事項")
 
     # ---------- 4. 新增待辦 ----------
     with st.expander("➕ 新增待辦", expanded=False):
@@ -1468,7 +1452,7 @@ its part of speech and meaning in this sentence must be clearly identified.
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
  【W Sheet - 重點要求：取高級/中高級單字15個/片語15個】
-| No | Word/Phrase| Chinese | Synonym | Antonym | Bible Example（Full sentence) |
+| No | Word/Phrase| Chinese | Synonym | Antonym | Bible Example（Full sentence)＋Chinese Translation |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
 
