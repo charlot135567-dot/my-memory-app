@@ -167,38 +167,6 @@ with st.sidebar:
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
-# ===================================================================
-# 3. TAB1 ─ 書桌（根據實際欄位名稱修正版）
-# ===================================================================
-with tabs[0]:
-    import csv, re, datetime as dt
-    from io import StringIO
-
-    # --- 使用現有Session State ---
-    time_diff = 0
-    if "tab1_last_update" in st.session_state:
-        time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
-        if time_diff > 3600:
-            st.session_state.tab1_last_update = dt.datetime.now()
-            for key in ['tab1_vocab_index', 'tab1_phrase_index', 'tab1_grammar_index', 'tab1_verse_index']:
-                if key in st.session_state:
-                    st.session_state[key] += (1 if 'phrase' not in key else 4)
-            st.rerun()
-    
-    sentences = st.session_state.get('sentences', {})
-    
-    if not sentences:
-        st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
-    else:
-        def parse_csv(content):
-            if not content: 
-                return []
-            try:
-                reader = csv.DictReader(StringIO(content.strip()))
-                return list(reader)
-            except:
-                return []
-
         # ============================================================
         # 收集資料（根據實際欄位名稱）
         # ============================================================
@@ -206,7 +174,7 @@ with tabs[0]:
         vocab_sources = []      # 單字：V1 Syn/Ant + V2多語言
         verse_sources = []      # 金句：V1 English/Chinese + V2多語言  
         phrase_sources = []     # 片語：W Sheet（第16個開始）
-        grammar_sources = []    # 文法：Grammar Sheet（不是V1的Grammar）
+        grammar_sources = []    # 文法：V1 Grammar + Grammar List
         
         for ref, data in sentences.items():
             v1_rows = parse_csv(data.get('v1_content', ''))
@@ -215,7 +183,7 @@ with tabs[0]:
             g_rows = parse_csv(data.get('grammar_list', ''))
             
             # ========================================
-            # 模式A：V1 + V2
+            # 模式A：V1 + V2（單字和金句）
             # ========================================
             if v1_rows:
                 v2_padded = v2_rows + [{}] * (len(v1_rows) - len(v2_rows)) if v2_rows else [{}] * len(v1_rows)
@@ -223,17 +191,16 @@ with tabs[0]:
                 for i, (v1, v2) in enumerate(zip(v1_rows, v2_padded)):
                     v2_dict = v2 if isinstance(v2, dict) else {}
                     
-                    # 單字來源：V1 Syn/Ant + V2多語言（根據實際欄位名稱）
+                    # 單字來源
                     vocab_sources.append({
                         'ref': v1.get('Ref.', ref),
                         'v1_syn_ant': v1.get('Syn/Ant', ''),
-                        # V2多語言：口語訳（日）+ Syn/Ant (韓) + THSV11（泰）
-                        'v2_jp': v2_dict.get('口語訳', ''),  # 日語
-                        'v2_kr': v2_dict.get('Syn/Ant (韓)', ''),  # 韓語
-                        'v2_th': v2_dict.get('THSV11', '')  # 泰語
+                        'v2_jp': v2_dict.get('口語訳', ''),
+                        'v2_kr': v2_dict.get('Syn/Ant (韓)', ''),
+                        'v2_th': v2_dict.get('THSV11', '')
                     })
                     
-                    # 金句來源：V1 English/Chinese + V2多語言
+                    # 金句來源
                     verse_sources.append({
                         'ref': v1.get('Ref.', ref),
                         'en': v1.get('English (ESV)', ''),
@@ -242,27 +209,14 @@ with tabs[0]:
                         'kr': v2_dict.get('KRF', ''),
                         'th': v2_dict.get('THSV11', '')
                     })
-            
-            # ========================================
-            # 模式B：W Sheet（片語，第16個開始=索引15）
-            # ========================================
-            if w_rows and len(w_rows) >= 16:
-                phrase_sources.append({
-                    'ref': ref,
-                    'rows': w_rows,
-                    'start': 15  # 第16個（0-based）
-                })
-            
-            # ========================================
-            # 文法：Grammar Sheet（獨立Sheet）
-            # ========================================
-            if g_rows:
-                for i, row in enumerate(g_rows):
-                    grammar_sources.append({
-                        'ref': ref,
-                        'row': row,
-                        'index': i
-                    })
+                    
+                    # 文法來源A：V1的Grammar欄位
+                    if v1.get('Grammar'):
+                        grammar_sources.append({
+                            'type': 'A',
+                            'ref': v1.get('Ref.', ref),
+                            'row': v1
+                        })
         
         # ============================================================
         # 1) 單字：Syn/Ant + 日韓泰語
@@ -271,11 +225,9 @@ with tabs[0]:
         v = vocab_sources[vocab_idx] if vocab_sources else {'ref': 'N/A', 'v1_syn_ant': '', 'v2_jp': '', 'v2_kr': '', 'v2_th': ''}
         
         vocab_display = []
-        # V1 Syn/Ant（主單字）
         if v['v1_syn_ant']:
             entries = [e.strip() for e in re.split(r'[;；]', v['v1_syn_ant']) if e.strip()]
             vocab_display.extend(entries)
-        # V2多語言
         if v['v2_jp']: vocab_display.append(f"🇯🇵 {v['v2_jp']}")
         if v['v2_kr']: vocab_display.append(f"🇰🇷 {v['v2_kr']}")
         if v['v2_th']: vocab_display.append(f"🇹🇭 {v['v2_th']}")
@@ -295,7 +247,7 @@ with tabs[0]:
             phrase_ref = f"{ps['ref']} ({start+1}-{min(start+4, len(ps['rows']))})"
         
         # ============================================================
-        # 3) 金句：English/Chinese + 日韓泰語
+        # 3) 金句：English/Chinese + 日韓泰語（獨立索引）
         # ============================================================
         verse_idx = st.session_state.get('tab1_verse_index', 0) % max(1, len(verse_sources))
         vs = verse_sources[verse_idx] if verse_sources else {'ref': 'N/A', 'en': '', 'cn': '', 'jp': '', 'kr': '', 'th': ''}
@@ -311,22 +263,25 @@ with tabs[0]:
         # 4) 文法：V1 Grammar 欄位 或 Grammar List
         # ============================================================
         grammar_html = "等待資料中..."
-        g_idx = st.session_state.get('tab1_grammar_index', 0) % max(1, len(grammar_sources))
+        current_grammar_ref = "N/A"
         
         if grammar_sources:
+            g_idx = st.session_state.get('tab1_grammar_index', 0) % len(grammar_sources)
             g = grammar_sources[g_idx]
             gr = g['row']
+            current_grammar_ref = g.get('ref', 'N/A')
             parts = []
             
-            if g['type'] == 'A':
-                # V1 Grammar：包含 Ref + English + Chinese + Syn/Ant + Grammar
+            g_type = g.get('type', 'B')
+            
+            if g_type == 'A':
+                # V1 Grammar：Ref + English + Chinese + Syn/Ant + Grammar
                 hdr = f"<b>{gr.get('Ref.', '')}</b>"
                 if gr.get('English (ESV)'): hdr += f"<br>🇬🇧 {gr['English (ESV)']}"
                 if gr.get('Chinese'): hdr += f"<br>🇨🇳 {gr['Chinese']}"
                 if gr.get('Syn/Ant'): hdr += f"<br>🌍 {gr['Syn/Ant']}"
                 parts.append(hdr)
                 
-                # Grammar 欄位內容（分段解析、詞性、結構、語意）
                 if gr.get('Grammar'):
                     fmt = str(gr['Grammar'])
                     fmt = fmt.replace('1️⃣[', '<br><br>📌 分段解析<br>')
@@ -340,8 +295,12 @@ with tabs[0]:
                 # Grammar List：Original Sentence + Grammar Rule + Analysis & Example
                 if gr.get('Original Sentence (from text)'): 
                     parts.append(f"📝 <b>{gr['Original Sentence (from text)']}</b>")
+                elif gr.get('Original Sentence'):
+                    parts.append(f"📝 <b>{gr['Original Sentence']}</b>")
+                    
                 if gr.get('Grammar Rule'): 
                     parts.append(f"📌 <b>{gr['Grammar Rule']}</b>")
+                    
                 if gr.get('Analysis & Example'):
                     af = str(gr['Analysis & Example'])
                     af = af.replace('1️⃣ [', '<br><br>📌 ')
