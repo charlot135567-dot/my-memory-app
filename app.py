@@ -168,18 +168,20 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版 - 資料分離修正版 + UI優化)
+# 3. TAB1 ─ 書桌（資料來源嚴格分離版）
 # ===================================================================
 with tabs[0]:
     import csv, random, re, datetime as dt
     from io import StringIO
 
-    # --- Session State ---
-    st.session_state.setdefault("tab1_vocab_index", 0)
-    st.session_state.setdefault("tab1_phrase_index", 15)
-    st.session_state.setdefault("tab1_grammar_index", 0)
-    st.session_state.setdefault("tab1_verse_index", 0)
-    st.session_state.setdefault("tab1_last_update", dt.datetime.now())
+    # --- Session State 初始化 ---
+    if "tab1_initialized" not in st.session_state:
+        st.session_state.tab1_vocab_index = 0
+        st.session_state.tab1_phrase_index = 15
+        st.session_state.tab1_grammar_index = 0
+        st.session_state.tab1_verse_index = 0
+        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_initialized = True
 
     # 檢查是否需要更新（超過1小時）
     time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
@@ -206,10 +208,18 @@ with tabs[0]:
             except:
                 return []
 
-        # 收集所有模式A和模式B資料
-        all_mode_a = []
-        all_mode_b = []
-        all_grammar_sources = []
+        # ============================================================
+        # 嚴格分離：收集各資料來源
+        # ============================================================
+        
+        # 1. 模式A資料：單字、金句來源（V1 + V2）
+        all_vocab_sources = []  # 單字來源
+        all_verse_sources = []  # 金句來源
+        all_grammar_a = []      # 文法來源A
+        
+        # 2. 模式B資料：片語來源（W Sheet）
+        all_phrase_sources = []  # 片語來源
+        all_grammar_b = []       # 文法來源B
         
         for ref, data in sentences.items():
             v1_rows = parse_csv(data.get('v1_content', ''))
@@ -217,169 +227,147 @@ with tabs[0]:
             w_rows = parse_csv(data.get('w_sheet', ''))
             g_rows = parse_csv(data.get('grammar_list', ''))
             
+            # ========================================
+            # 模式A：有V1資料
+            # ========================================
             if v1_rows:
-                all_mode_a.append({
-                    'ref': ref,
-                    'v1': v1_rows,
-                    'v2': v2_rows,
-                    'v1_count': len(v1_rows)
-                })
-                for i, row in enumerate(v1_rows):
-                    all_grammar_sources.append({
-                        'type': 'A',
-                        'ref': ref,
-                        'row': row,
-                        'index': i
+                # 為每一列建立單字/金句來源
+                for i, (v1_row, v2_row) in enumerate(zip(v1_rows, v2_rows + [{}] * (len(v1_rows) - len(v2_rows)))):
+                    # 單字來源：Syn/Ant + V2多語言
+                    all_vocab_sources.append({
+                        'ref': v1_row.get('Ref.', ref),
+                        'v1_syn': v1_row.get('Syn/Ant', ''),
+                        'v2_syn': v2_row.get('Syn/Ant (韓/日/中)', '') if isinstance(v2_row, dict) else '',
+                        'v2_thai': v2_row.get('THSV11 (Key Phrases)', '') if isinstance(v2_row, dict) else ''
                     })
+                    
+                    # 金句來源：English/Chinese + V2多語言
+                    all_verse_sources.append({
+                        'ref': v1_row.get('Ref.', ref),
+                        'en': v1_row.get('English (ESV)', ''),
+                        'cn': v1_row.get('Chinese', ''),
+                        'jp': v2_row.get('口語訳 (1955)', '') if isinstance(v2_row, dict) else '',
+                        'kr': v2_row.get('KRF', '') if isinstance(v2_row, dict) else '',
+                        'th': v2_row.get('THSV11 (Key Phrases)', '') if isinstance(v2_row, dict) else ''
+                    })
+                    
+                    # 文法來源A（來自V1的Grammar欄位）
+                    if v1_row.get('Grammar'):
+                        all_grammar_a.append({
+                            'type': 'A',
+                            'ref': v1_row.get('Ref.', ref),
+                            'row': v1_row
+                        })
             
+            # ========================================
+            # 模式B：有W Sheet（片語專用）
+            # ========================================
             if w_rows:
-                all_mode_b.append({
+                all_phrase_sources.append({
                     'ref': ref,
-                    'w': w_rows,
+                    'w_rows': w_rows,
                     'w_count': len(w_rows)
                 })
             
+            # 文法來源B（來自Grammar List）
             if g_rows:
                 for i, row in enumerate(g_rows):
-                    all_grammar_sources.append({
+                    all_grammar_b.append({
                         'type': 'B',
                         'ref': ref,
                         'row': row,
                         'index': i
                     })
         
-        # 1) 單字
-        vocab_html = ""
+        # ============================================================
+        # 1) 單字：嚴格從模式A的 Syn/Ant + V2多語言
+        # ============================================================
+        vocab_display = []
         current_vocab_ref = "N/A"
         
-        if all_mode_a:
-            file_idx = st.session_state.tab1_vocab_index // max(1, all_mode_a[0]['v1_count']) % len(all_mode_a)
-            vocab_file = all_mode_a[file_idx]
-            row_idx = st.session_state.tab1_vocab_index % vocab_file['v1_count']
-            v1_row = vocab_file['v1'][row_idx]
-            v2_row = vocab_file['v2'][row_idx % len(vocab_file['v2'])] if vocab_file['v2'] else {}
+        if all_vocab_sources:
+            vocab_idx = st.session_state.tab1_vocab_index % len(all_vocab_sources)
+            v_source = all_vocab_sources[vocab_idx]
+            current_vocab_ref = v_source['ref']
             
-            current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
+            # 解析 Syn/Ant（分號分隔）
+            if v_source['v1_syn']:
+                entries = [e.strip() for e in re.split(r'[;；]', v_source['v1_syn']) if e.strip()]
+                vocab_display.extend(entries)
             
-            syn_parts = []
-            v1_syn = v1_row.get('Syn/Ant', '')
-            if v1_syn:
-                syn_parts = [e.strip() for e in re.split(r'[;；]', v1_syn) if e.strip()]
+            # V2 多語言
+            if v_source['v2_syn']:
+                vocab_display.append(v_source['v2_syn'])
             
-            v2_syn = v2_row.get('Syn/Ant (韓/日/中)', '') if v2_row else ''
-            if v2_syn:
-                syn_parts.append(v2_syn)
-            
-            v2_thai = v2_row.get('THSV11 (Key Phrases)', '') if v2_row else ''
-            
-            if syn_parts:
-                vocab_html = "🌍 " + " ; ".join(syn_parts)
-                if v2_thai:
-                    vocab_html += f"<br>🇹🇭 {v2_thai}"
-            else:
-                vocab_html = "無單字資料"
-        else:
-            vocab_html = "無單字資料（請確認有模式A資料）"
+            # 泰文
+            if v_source['v2_thai']:
+                vocab_display.append(f"🇹🇭 {v_source['v2_thai']}")
         
-        # 2) 片語
-        phrases_html = ""
+        # ============================================================
+        # 2) 片語：嚴格從模式B的 W Sheet（第16個開始）
+        # ============================================================
+        w_phrases = []
         current_phrase_ref = "N/A"
-        w_start_display = 0
         
-        if all_mode_b:
-            file_idx = st.session_state.tab1_phrase_index // max(1, all_mode_b[0]['w_count']) % len(all_mode_b)
-            phrase_file = all_mode_b[file_idx]
-            w_rows = phrase_file['w']
-            w_total = len(w_rows)
-            current_phrase_ref = phrase_file['ref']
+        if all_phrase_sources:
+            # 計算可用的片語總數（每個檔案從第16個開始）
+            total_available = sum(max(0, s['w_count'] - 15) for s in all_phrase_sources)
             
-            w_start = 15 + (st.session_state.tab1_phrase_index % max(1, w_total - 15))
-            w_start = w_start % w_total
-            w_phrases = []
-            for i in range(4):
-                idx = (w_start + i) % w_total
-                w_phrases.append(w_rows[idx])
-            w_start_display = w_start + 1
-            
-            phrase_parts = []
-            for i, row in enumerate(w_phrases):
-                p = (row.get('Word/Phrase') or row.get('word/phrases') or 
-                     row.get('Word/phrase') or row.get('Word', ''))
-                c = row.get('Chinese', '')
-                s = row.get('Synonym', '')
-                a = row.get('Antonym', '')
-                bible_ex = (row.get('Bible Example (Full sentence)') or 
-                           row.get('Bible Example', '') or row.get('Example', ''))
+            if total_available > 0:
+                phrase_idx = st.session_state.tab1_phrase_index % total_available
                 
-                if p:
-                    line = f"🔤 <b>{p}</b>"
-                    if c:
-                        line += f" {c}"
-                    if s or a:
-                        sa = []
-                        if s:
-                            sa.append(f"✨{s}")
-                        if a:
-                            sa.append(f"❄️{a}")
-                        line += f" <i>{' | '.join(sa)}</i>"
-                    phrase_parts.append(line)
-                    if bible_ex:
-                        phrase_parts.append(f"<span style='font-size:12px;color:#666;'>📖 {bible_ex}</span>")
-                    if i < len(w_phrases) - 1:
-                        phrase_parts.append("<hr style='margin:4px 0;border:none;border-top:1px solid #ddd;'>")
-            
-            phrases_html = "<br>".join(phrase_parts)
-        else:
-            phrases_html = "無片語資料（請確認有模式B資料）"
+                # 找到對應的檔案和起始位置
+                current_count = 0
+                for source in all_phrase_sources:
+                    available_here = max(0, source['w_count'] - 15)
+                    if phrase_idx < current_count + available_here:
+                        # 找到對應檔案
+                        start_in_file = 15 + (phrase_idx - current_count)
+                        w_rows = source['w_rows']
+                        
+                        # 取4個片語
+                        for i in range(4):
+                            idx = (start_in_file + i) % len(w_rows)
+                            w_phrases.append(w_rows[idx])
+                        
+                        current_phrase_ref = f"{source['ref']} ({start_in_file+1}-{start_in_file+4})"
+                        break
+                    current_count += available_here
         
-        # 3) 金句
-        verse_html = ""
+        # ============================================================
+        # 3) 金句：嚴格從模式A的 V1 English/Chinese + V2多語言
+        # ============================================================
+        verse_lines = []
         current_verse_ref = "N/A"
         
-        if all_mode_a:
-            file_idx = st.session_state.tab1_verse_index // max(1, all_mode_a[0]['v1_count']) % len(all_mode_a)
-            verse_file = all_mode_a[file_idx]
-            row_idx = st.session_state.tab1_verse_index % verse_file['v1_count']
-            v1_verse = verse_file['v1'][row_idx]
-            v2_verse = verse_file['v2'][row_idx % len(verse_file['v2'])] if verse_file['v2'] else {}
+        if all_verse_sources:
+            verse_idx = st.session_state.tab1_verse_index % len(all_verse_sources)
+            vs = all_verse_sources[verse_idx]
+            current_verse_ref = vs['ref']
             
-            current_verse_ref = v1_verse.get('Ref.', verse_file['ref'])
-            
-            verses = []
-            en = v1_verse.get('English (ESV)', '')
-            cn = v1_verse.get('Chinese', '')
-            jp = v2_verse.get('口語訳 (1955)', '') if v2_verse else ''
-            kr = v2_verse.get('KRF', '') if v2_verse else ''
-            th = v2_verse.get('THSV11 (Key Phrases)', '') if v2_verse else ''
-            
-            if en:
-                verses.append(f"🇬🇧 <b>{current_verse_ref}</b> {en}")
-            if jp:
-                verses.append(f"🇯🇵 {jp}")
-            if kr:
-                verses.append(f"🇰🇷 {kr}")
-            if th:
-                verses.append(f"🇹🇭 {th}")
-            if cn:
-                verses.append(f"🇨🇳 {cn}")
-            
-            verse_html = "<br>".join(verses)
-        else:
-            verse_html = "無金句資料（請確認有模式A資料）"
+            if vs['en']: verse_lines.append(f"🇬🇧 **{vs['ref']}** {vs['en']}")
+            if vs['jp']: verse_lines.append(f"🇯🇵 {vs['jp']}")
+            if vs['kr']: verse_lines.append(f"🇰🇷 {vs['kr']}")
+            if vs['th']: verse_lines.append(f"🇹🇭 {vs['th']}")
+            if vs['cn']: verse_lines.append(f"🇨🇳 {vs['cn']}")
         
-        # 4) 文法
+        # ============================================================
+        # 4) 文法：從 A + B 輪流
+        # ============================================================
+        all_grammar = all_grammar_a + all_grammar_b
         grammar_html = "等待資料中..."
         current_grammar_ref = "N/A"
         
-        if all_grammar_sources:
-            g_idx = st.session_state.tab1_grammar_index % len(all_grammar_sources)
-            g_source = all_grammar_sources[g_idx]
+        if all_grammar:
+            g_idx = st.session_state.tab1_grammar_index % len(all_grammar)
+            g_source = all_grammar[g_idx]
             g_row = g_source['row']
-            current_grammar_ref = f"{g_source['ref']}-{g_source['index']+1}"
+            current_grammar_ref = f"{g_source['ref']}"
             
             all_g = []
             
             if g_source['type'] == 'A':
+                # 模式A文法
                 g_ref = g_row.get('Ref.', '')
                 g_en = g_row.get('English (ESV)', '')
                 g_cn = g_row.get('Chinese', '')
@@ -387,12 +375,9 @@ with tabs[0]:
                 g_grammar = g_row.get('Grammar', '')
                 
                 header = f"<b>{g_ref}</b>"
-                if g_en:
-                    header += f"<br>🇬🇧 {g_en}"
-                if g_cn:
-                    header += f"<br>🇨🇳 {g_cn}"
-                if g_syn:
-                    header += f"<br>🌍 {g_syn}"
+                if g_en: header += f"<br>🇬🇧 {g_en}"
+                if g_cn: header += f"<br>🇨🇳 {g_cn}"
+                if g_syn: header += f"<br>🌍 {g_syn}"
                 all_g.append(header)
                 
                 if g_grammar:
@@ -404,14 +389,13 @@ with tabs[0]:
                     fmt = fmt.replace(']', '')
                     all_g.append(fmt)
             else:
+                # 模式B文法
                 orig = g_row.get('Original Sentence (from text)', '')
                 rule = g_row.get('Grammar Rule', '')
                 analysis = g_row.get('Analysis & Example', '')
                 
-                if orig:
-                    all_g.append(f"📝 <b>{orig}</b>")
-                if rule:
-                    all_g.append(f"📌 <b>{rule}</b>")
+                if orig: all_g.append(f"📝 <b>{orig}</b>")
+                if rule: all_g.append(f"📌 <b>{rule}</b>")
                 if analysis:
                     af = str(analysis)
                     af = af.replace('1️⃣ [', '<br><br>📌 ')
@@ -421,83 +405,76 @@ with tabs[0]:
                     af = af.replace(']', '')
                     all_g.append(af)
             
-            grammar_html = "<hr style='margin:8px 0;border-color:#444;'>".join(all_g)
+            grammar_html = "<hr style='margin:8px 0;'>".join(all_g)
         
         # ============================================================
-        # 渲染畫面 - 優化UI間距
+        # 渲染畫面
         # ============================================================
-        
-        # 全局CSS：壓縮所有間距
-        st.markdown("""
-            <style>
-            /* 壓縮段落間距 */
-            .compact-text p {
-                margin: 0 !important;
-                padding: 0 !important;
-                line-height: 1.3 !important;
-            }
-            /* 壓縮分隔線 */
-            .compact-hr {
-                margin: 4px 0 !important;
-                padding: 0 !important;
-            }
-            /* 隱藏Streamlit預設間距 */
-            div[data-testid="stVerticalBlock"] > div {
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            /* 壓縮caption */
-            .stCaption {
-                font-size: 11px !important;
-                padding: 2px 0 !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 單字區塊（無上下padding）
-            st.markdown(f"""
-                <div class="compact-text" style="margin:0;padding:0;">
-                    {vocab_html}
-                </div>
-            """, unsafe_allow_html=True)
+            # 單字
+            if vocab_display:
+                for v in vocab_display:
+                    st.markdown(v)
+            else:
+                st.caption("無單字資料（請確認有模式A資料）")
             
-            # 緊密分隔線
-            st.markdown("<hr class='compact-hr' style='margin:4px 0;border:none;border-top:1px solid #ccc;'>", unsafe_allow_html=True)
+            st.divider()
 
-            # 片語區塊
-            st.markdown(f"""
-                <div class="compact-text" style="margin:0;padding:0;font-size:14px;">
-                    {phrases_html}
-                </div>
-            """, unsafe_allow_html=True)
+            # 片語
+            if w_phrases:
+                for i, row in enumerate(w_phrases):
+                    p = (row.get('Word/Phrase') or row.get('word/phrases') or 
+                         row.get('Word/phrase') or row.get('Word', ''))
+                    c = row.get('Chinese', '')
+                    s = row.get('Synonym', '')
+                    a = row.get('Antonym', '')
+                    bible_ex = (row.get('Bible Example (Full sentence)') or 
+                               row.get('Bible Example', '') or row.get('Example', ''))
+                    
+                    if p:
+                        parts = [f"🔤 **{p}**"]
+                        if c: parts.append(c)
+                        if s or a:
+                            sa_parts = []
+                            if s: sa_parts.append(f"✨{s}")
+                            if a: sa_parts.append(f"❄️{a}")
+                            parts.append("_" + " | ".join(sa_parts) + "_")
+                        
+                        st.markdown(" ".join(parts))
+                        if bible_ex:
+                            st.caption(f"📖 {bible_ex}")
+                        if i < len(w_phrases) - 1:
+                            st.markdown("---")
+            else:
+                st.caption("無片語資料（請確認有模式B資料）")
 
-            # 緊密分隔線
-            st.markdown("<hr class='compact-hr' style='margin:4px 0;border:none;border-top:1px solid #ccc;'>", unsafe_allow_html=True)
+            st.divider()
 
-            # 金句區塊
-            st.markdown(f"""
-                <div class="compact-text" style="margin:0;padding:0;">
-                    📖 {verse_html}
-                </div>
-            """, unsafe_allow_html=True)
+            # 金句
+            if verse_lines:
+                for v in verse_lines:
+                    st.markdown(v)
+            else:
+                st.caption("無金句資料（請確認有模式A資料）")
 
         with col_right:
-            # 文法區塊 - 使用flex布局確保與左側對齊
+            # 文法
+            st.markdown("📚")
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:10px; border-radius:6px; 
-                            border-left:3px solid #FF8C00; font-size:13px; line-height:1.4;
-                            min-height:100%; box-sizing:border-box;">
+                            border-left:3px solid #FF8C00; min-height:400px; font-size:13px; line-height:1.4;">
                     {grammar_html}
                 </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             
-            # 狀態資訊（極緊湊）
             minutes_left = max(0, (3600 - time_diff) / 60)
-            st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
-            st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新 | A:{len(all_mode_a)} B:{len(all_mode_b)} G:{len(all_grammar_sources)}")
+            st.caption(f"單字:{current_vocab_ref}")
+            st.caption(f"片語:{current_phrase_ref}")
+            st.caption(f"金句:{current_verse_ref}")
+            st.caption(f"文法:{current_grammar_ref}")
+            st.caption(f"{minutes_left:.0f}分後更新")
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（穩定版）
 # ===================================================================
