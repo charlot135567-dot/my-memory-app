@@ -499,7 +499,7 @@ with tabs[0]:
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新 | A:{len(all_mode_a)} B:{len(all_mode_b)} G:{len(all_grammar_sources)}")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（最終修正版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -580,7 +580,7 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 三日清單（修正版）----------
+    # ---------- 3. 三日清單（完全依照您的舊版邏輯）----------
     st.markdown("##### 📋 待辦事項")
 
     try:
@@ -592,14 +592,14 @@ with tabs[1]:
         d_obj = base_date + dt.timedelta(days=offset)
         d_str = str(d_obj)
         
-        # 關鍵修正：使用舊版相同的條件判斷
+        # 完全依照您的舊版：只檢查是否存在
         if d_str in st.session_state.todo:
             for idx, item in enumerate(st.session_state.todo[d_str]):
                 item_id = f"{d_str}_{idx}"
                 
-                # 直接顯示完整標題（不使用 get_clean_title）
-                title = item.get("title", "")
-                time_str = item.get('time', '')[:5] if item.get('time') else ""
+                # 直接取得標題（不使用 get_clean_title）
+                title = item.get("title", "") if isinstance(item, dict) else str(item)
+                time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
 
                 c1, c2, c3 = st.columns([0.25, 7.75, 2], vertical_alignment="top")
 
@@ -611,22 +611,21 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
-                    st.write(
-                        f"{d_obj.month}/{d_obj.day} "
-                        f"{time_str} "
-                        f"{title}".strip()
-                    )
+                    st.write(f"{d_obj.month}/{d_obj.day} {time_str} {title}".strip())
 
                 with c3:
                     if st.session_state.active_del_id == item_id:
                         if st.button("🗑️", key=f"d_{item_id}"):
                             st.session_state.todo[d_str].pop(idx)
+                            # 修正：如果刪除後列表為空，刪除該日期key
+                            if not st.session_state.todo[d_str]:
+                                del st.session_state.todo[d_str]
                             save_todos()
                             st.session_state.cal_key += 1
                             st.session_state.active_del_id = None
                             st.rerun()
 
-    # ---------- 4. 新增待辦 ----------
+    # ---------- 4. 新增待辦（完全依照您的舊版）----------
     st.divider()
     with st.expander("➕ 新增待辦", expanded=True):
         with st.form("todo_form", clear_on_submit=True):
@@ -711,7 +710,8 @@ with tabs[1]:
         for i in range(6):
             idx = (start_idx + i) % total_verses
             st.markdown(f"**{i+1}.** {all_verses[idx]}", unsafe_allow_html=True)
-            st.markdown("---")
+            if i < 5:  # 最後一項不加分隔線
+                st.markdown("---")
     else:
         st.info("請在TAB4載入模式A資料以顯示金句")
 
