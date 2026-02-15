@@ -499,13 +499,33 @@ with tabs[0]:
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新 | A:{len(all_mode_a)} B:{len(all_mode_b)} G:{len(all_grammar_sources)}")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（最終修正版）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
     from streamlit_calendar import calendar
     from io import StringIO
     import csv
+
+    # 全局CSS：壓縮所有間距
+    st.markdown("""
+        <style>
+        /* 壓縮所有元素間距 */
+        div[data-testid="stVerticalBlock"] > div {padding: 0px !important; margin: 0px !important;}
+        div[data-testid="stVerticalBlock"] > div > div {padding: 0px !important; margin: 0px !important;}
+        p {margin: 0px !important; padding: 0px !important; line-height: 1.2 !important;}
+        .stMarkdown {margin: 0px !important; padding: 0px !important;}
+        /* 壓縮按鈕 */
+        .stButton button {padding: 0px 4px !important; min-height: 24px !important; font-size: 12px !important; margin: 0px !important;}
+        /* 壓縮分隔線 */
+        hr {margin: 2px 0 !important; padding: 0 !important;}
+        /* 壓縮expander */
+        div[data-testid="stExpander"] {margin: 2px 0 !important;}
+        div[data-testid="stExpander"] > div {padding: 0px 8px !important;}
+        /* 壓縮columns間距 */
+        div[data-testid="column"] {padding: 0px 2px !important;}
+        </style>
+    """, unsafe_allow_html=True)
 
     # ---------- 0. 檔案設定 ----------
     DATA_DIR = "data"
@@ -580,79 +600,81 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 三日清單（完全依照您的舊版邏輯）----------
-    st.markdown("##### 📋 待辦事項")
+    # ---------- 3. 三日清單（修正：顯示選中日期的前後一天）----------
+    st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.date.today()
 
-    for offset in range(3):
-        d_obj = base_date + dt.timedelta(days=offset)
+    # 顯示選中日期及其前後各一天（共3天）
+    dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
+    
+    has_todo = False
+    for d_obj in dates_to_show:
         d_str = str(d_obj)
         
-        # 完全依照您的舊版：只檢查是否存在
-        if d_str in st.session_state.todo:
+        if d_str in st.session_state.todo and st.session_state.todo[d_str]:
+            has_todo = True
+            
             for idx, item in enumerate(st.session_state.todo[d_str]):
                 item_id = f"{d_str}_{idx}"
-                
-                # 直接取得標題（不使用 get_clean_title）
                 title = item.get("title", "") if isinstance(item, dict) else str(item)
                 time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
 
-                c1, c2, c3 = st.columns([0.25, 7.75, 2], vertical_alignment="top")
-
+                # 極緊湊布局
+                c1, c2, c3 = st.columns([0.3, 8, 1.2])
+                
                 with c1:
                     if st.button("💟", key=f"h_{item_id}"):
-                        st.session_state.active_del_id = (
-                            None if st.session_state.active_del_id == item_id else item_id
-                        )
+                        st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
                         st.rerun()
 
                 with c2:
-                    st.write(f"{d_obj.month}/{d_obj.day} {time_str} {title}".strip())
+                    # 使用html壓縮行距
+                    st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
 
                 with c3:
                     if st.session_state.active_del_id == item_id:
                         if st.button("🗑️", key=f"d_{item_id}"):
                             st.session_state.todo[d_str].pop(idx)
-                            # 修正：如果刪除後列表為空，刪除該日期key
                             if not st.session_state.todo[d_str]:
                                 del st.session_state.todo[d_str]
                             save_todos()
                             st.session_state.cal_key += 1
                             st.session_state.active_del_id = None
                             st.rerun()
+                # 每個項目後極小間距
+                st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
+    
+    if not has_todo:
+        st.caption("尚無待辦事項")
 
-    # ---------- 4. 新增待辦（完全依照您的舊版）----------
-    st.divider()
-    with st.expander("➕ 新增待辦", expanded=True):
+    # ---------- 4. 新增待辦 ----------
+    with st.expander("➕ 新增待辦", expanded=False):
         with st.form("todo_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
+            c1, c2 = st.columns(2)
+            with c1:
                 in_date = st.date_input("日期", base_date)
-            with col2:
+            with c2:
                 in_time = st.time_input("時間", dt.time(9, 0))
-
             in_title = st.text_input("待辦事項（可含 Emoji）")
-
+            
             if st.form_submit_button("💾 儲存"):
                 if in_title:
                     k = str(in_date)
                     if k not in st.session_state.todo:
                         st.session_state.todo[k] = []
-                    st.session_state.todo[k].append({
-                        "title": in_title,
-                        "time": str(in_time)
-                    })
+                    st.session_state.todo[k].append({"title": in_title, "time": str(in_time)})
                     save_todos()
                     st.session_state.cal_key += 1
                     st.rerun()
 
+    st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
+    
     # ---------- 5. 時段金句 ----------
-    st.divider()
-    st.markdown("##### 📖 今日時段金句")
+    st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
     
     sentences = st.session_state.get('sentences', {})
     all_verses = []
@@ -691,46 +713,46 @@ with tabs[1]:
     hour = dt.datetime.now().hour
     
     if 7 <= hour < 11:
-        period_name, period_idx = "早晨 (7:00-11:00)", 0
+        period_name, period_idx = "早晨 7-11", 0
     elif 11 <= hour < 15:
-        period_name, period_idx = "午間 (11:00-15:00)", 1
+        period_name, period_idx = "午間 11-15", 1
     elif 15 <= hour < 19:
-        period_name, period_idx = "下午 (15:00-19:00)", 2
+        period_name, period_idx = "下午 15-19", 2
     elif 19 <= hour < 23:
-        period_name, period_idx = "晚間 (19:00-23:00)", 3
+        period_name, period_idx = "晚間 19-23", 3
     else:
-        period_name, period_idx = "深夜/凌晨", -1
+        period_name, period_idx = "深夜", -1
 
-    st.caption(f"⏰ {period_name}")
+    st.markdown(f'<p style="margin:0;padding:0;font-size:11px;color:#FF8C00;">⏰ {period_name}</p>', unsafe_allow_html=True)
 
     if all_verses and period_idx >= 0:
-        total_verses = len(all_verses)
-        start_idx = (period_idx * 6) % total_verses
+        total = len(all_verses)
+        start = (period_idx * 6) % total
         
         for i in range(6):
-            idx = (start_idx + i) % total_verses
-            st.markdown(f"**{i+1}.** {all_verses[idx]}", unsafe_allow_html=True)
-            if i < 5:  # 最後一項不加分隔線
-                st.markdown("---")
+            idx = (start + i) % total
+            st.markdown(f'<p style="margin:2px 0;padding:0;font-size:12px;line-height:1.3;"><b>{i+1}.</b> {all_verses[idx]}</p>', unsafe_allow_html=True)
+            if i < 5:
+                st.markdown('<hr style="margin:2px 0;border:none;border-top:1px solid #eee;">', unsafe_allow_html=True)
     else:
-        st.info("請在TAB4載入模式A資料以顯示金句")
+        st.caption("尚無金句資料")
+
+    st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
 
     # ---------- 6. 收藏金句 ----------
-    st.markdown("##### 🔽 收藏金句（難記住的經文）")
+    st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">🔽 收藏金句</p>', unsafe_allow_html=True)
 
     for idx, fav in enumerate(st.session_state.favorite_sentences[:8]):
         fav_id = f"fav_{idx}"
-        c1, c2, c3 = st.columns([0.25, 7.75, 2], vertical_alignment="top")
+        c1, c2, c3 = st.columns([0.3, 8.5, 1.2])
         
         with c1:
             if st.button("💝", key=f"favh_{fav_id}"):
-                st.session_state.active_fav_del = (
-                    None if st.session_state.active_fav_del == fav_id else fav_id
-                )
+                st.session_state.active_fav_del = None if st.session_state.active_fav_del == fav_id else fav_id
                 st.rerun()
         
         with c2:
-            st.write(fav)
+            st.markdown(f'<p style="margin:0;padding:0;font-size:12px;line-height:1.2;">{fav}</p>', unsafe_allow_html=True)
         
         with c3:
             if st.session_state.active_fav_del == fav_id:
@@ -739,11 +761,12 @@ with tabs[1]:
                     save_favorites()
                     st.session_state.active_fav_del = None
                     st.rerun()
+        st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
 
     if len(st.session_state.favorite_sentences) < 8:
-        with st.form("add_favorite", clear_on_submit=True):
-            new_fav = st.text_area("新增收藏金句", height=60)
-            if st.form_submit_button("➕ 加入收藏"):
+        with st.form("add_fav", clear_on_submit=True):
+            new_fav = st.text_area("新增收藏", height=50)
+            if st.form_submit_button("➕ 加入"):
                 if new_fav:
                     st.session_state.favorite_sentences.append(new_fav)
                     save_favorites()
