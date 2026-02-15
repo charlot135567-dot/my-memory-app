@@ -614,7 +614,7 @@ with tabs[1]:
             c1, c2, c3 = st.columns([0.3, 8, 1.2])
             
             with c1:
-                if st.button("💟", key=f"h_{item_id}"):
+                if st.button("🍄", key=f"h_{item_id}"):
                     st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
                     st.rerun()
 
