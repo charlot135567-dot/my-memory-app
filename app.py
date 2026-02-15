@@ -507,6 +507,19 @@ with tabs[1]:
     from io import StringIO
     import csv
 
+    # 全局CSS：壓縮間距
+    st.markdown("""
+        <style>
+        div[data-testid="stVerticalBlock"] > div {padding: 0 !important; margin: 0 !important;}
+        .compact-block {margin: 0 !important; padding: 2px 0 !important;}
+        .compact-hr {margin: 2px 0 !important; border: none; border-top: 1px solid #ddd;}
+        .stButton button {padding: 0px 8px !important; min-height: 28px !important; font-size: 12px !important;}
+        .stTextInput input, .stTextArea textarea {padding: 4px 8px !important;}
+        .stCaption {font-size: 10px !important; padding: 1px 0 !important; color: #666;}
+        div[data-testid="stExpander"] {margin: 2px 0 !important;}
+        </style>
+    """, unsafe_allow_html=True)
+
     # ---------- 0. 檔案設定 ----------
     DATA_DIR = "data"
     os.makedirs(DATA_DIR, exist_ok=True)
