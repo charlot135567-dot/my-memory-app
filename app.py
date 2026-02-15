@@ -507,40 +507,66 @@ with tabs[1]:
     from io import StringIO
     import csv
 
-    # ---------- 0. 檔案設定 ----------
+    # 全局CSS：壓縮間距
+    st.markdown("""
+        <style>
+        div[data-testid="stVerticalBlock"] > div {padding: 0 !important; margin: 0 !important;}
+        .compact-hr {margin: 2px 0 !important; border: none; border-top: 1px solid #ddd;}
+        .stButton button {padding: 0px 8px !important; min-height: 28px !important; font-size: 12px !important;}
+        .stCaption {font-size: 10px !important; padding: 1px 0 !important; color: #666;}
+        div[data-testid="stExpander"] {margin: 2px 0 !important;}
+        </style>
+    """, unsafe_allow_html=True)
+
     DATA_DIR = "data"
     os.makedirs(DATA_DIR, exist_ok=True)
     TODO_FILE = os.path.join(DATA_DIR, "todos.json")
-    FAVORITE_FILE = os.path.join(DATA_DIR, "favorites.json")
+    FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
 
-    def load_json(path, default):
-        if os.path.exists(path):
+    def load_todos():
+        if os.path.exists(TODO_FILE):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(TODO_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
             except:
                 pass
-        return default
+        return {}
 
-    def save_json(path, data):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    def save_todos():
+        with open(TODO_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
-    # ---------- 1. Session State ----------
+    def load_favorites():
+        if os.path.exists(FAVORITE_FILE):
+            try:
+                with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return []
+
+    def save_favorites():
+        with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
+
+    # Session State 初始化（使用 favorite_sentences 保持一致）
     if "todo" not in st.session_state:
-        st.session_state.todo = load_json(TODO_FILE, {})
-    if "favorites" not in st.session_state:
-        st.session_state.favorites = load_json(FAVORITE_FILE, [])
+        st.session_state.todo = load_todos()
+    if "favorite_sentences" not in st.session_state:
+        st.session_state.favorite_sentences = load_favorites()
     if "sel_date" not in st.session_state:
         st.session_state.sel_date = str(dt.date.today())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
-    if "del_id" not in st.session_state:
-        st.session_state.del_id = None
-    if "fav_del_idx" not in st.session_state:
-        st.session_state.fav_del_idx = None
+    if "active_del_id" not in st.session_state:
+        st.session_state.active_del_id = None
+    if "active_fav_del" not in st.session_state:
+        st.session_state.active_fav_del = None
 
-    # ---------- 2. 月曆 ----------
+    # ==========================================
+    # 上半部：月曆待辦
+    # ==========================================
+    
     def build_events():
         ev = []
         for d, items in st.session_state.todo.items():
@@ -567,8 +593,8 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 待辦清單 ----------
-    st.markdown("**📋 待辦事項**")
+    # 三日清單（所有日期都可刪除）
+    st.markdown('<p style="margin:4px 0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
     
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
@@ -585,36 +611,36 @@ with tabs[1]:
                 title = item.get("title", "")
                 time_str = item['time'][:5] if item.get('time') else ""
                 
-                c1, c2, c3 = st.columns([0.5, 8, 1.5])
+                c1, c2, c3 = st.columns([0.8, 7.2, 1.5])
                 
                 with c1:
-                    if st.button("💟", key=f"heart_{item_id}"):
-                        st.session_state.del_id = None if st.session_state.del_id == item_id else item_id
+                    if st.button("💟", key=f"h_{item_id}"):
+                        st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
                         st.rerun()
 
                 with c2:
-                    st.write(f"{d_obj.month}/{d_obj.day} {time_str} {title}")
+                    st.markdown(f"<p style='margin:2px 0;font-size:13px;'>{d_obj.month}/{d_obj.day} {time_str} {title}</p>", unsafe_allow_html=True)
 
                 with c3:
-                    if st.session_state.del_id == item_id:
-                        if st.button("🗑️", key=f"del_{item_id}"):
+                    if st.session_state.active_del_id == item_id:
+                        if st.button("🗑️", key=f"d_{item_id}"):
                             st.session_state.todo[d_str].pop(idx)
                             if not st.session_state.todo[d_str]:
                                 del st.session_state.todo[d_str]
-                            save_json(TODO_FILE, st.session_state.todo)
+                            save_todos()
                             st.session_state.cal_key += 1
-                            st.session_state.del_id = None
+                            st.session_state.active_del_id = None
                             st.rerun()
 
-    # ---------- 4. 新增待辦 ----------
-    with st.expander("➕ 新增待辦"):
+    # 新增待辦
+    with st.expander("➕ 新增待辦", expanded=False):
         with st.form("todo_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
                 in_date = st.date_input("日期", base_date)
             with c2:
                 in_time = st.time_input("時間", dt.time(9, 0))
-            in_title = st.text_input("待辦事項（可含多個Emoji 🎉📚✨）")
+            in_title = st.text_input("待辦事項（可含多個Emoji）")
             
             if st.form_submit_button("💾 儲存"):
                 if in_title:
@@ -622,104 +648,88 @@ with tabs[1]:
                     if k not in st.session_state.todo:
                         st.session_state.todo[k] = []
                     st.session_state.todo[k].append({"title": in_title, "time": str(in_time)})
-                    save_json(TODO_FILE, st.session_state.todo)
+                    save_todos()
                     st.session_state.cal_key += 1
                     st.rerun()
 
-    st.divider()
-
-    # ---------- 5. 時段金句 ----------
-    st.markdown("**📖 今日時段金句**")
+    st.markdown('<hr class="compact-hr">', unsafe_allow_html=True)
     
+    # ==========================================
+    # 下半部：時段金句 + 收藏金句
+    # ==========================================
+    
+    st.markdown('<p style="margin:4px 0;font-size:16px;font-weight:bold;">📖 今日金句</p>', unsafe_allow_html=True)
+
+    # 收集所有模式A的金句
     sentences = st.session_state.get('sentences', {})
     all_verses = []
     
     for ref, data in sentences.items():
-        v1_csv = data.get('v1_content', '')
-        v2_csv = data.get('v2_content', '')
-        if v1_csv:
+        v1_content = data.get('v1_content', '')
+        v2_content = data.get('v2_content', '')
+        if v1_content:
             try:
-                v1_rows = list(csv.DictReader(StringIO(v1_csv.strip())))
-                v2_rows = list(csv.DictReader(StringIO(v2_csv.strip()))) if v2_csv else []
+                reader1 = csv.DictReader(StringIO(v1_content.strip()))
+                reader2 = csv.DictReader(StringIO(v2_content.strip())) if v2_content else []
+                v2_rows = list(reader2) if reader2 else []
                 
-                for i, row in enumerate(v1_rows):
+                for i, row in enumerate(reader1):
                     v2_row = v2_rows[i] if i < len(v2_rows) else {}
                     verse_ref = row.get('Ref.', ref)
+                    en = row.get('English (ESV)', '')
+                    cn = row.get('Chinese', '')
+                    jp = v2_row.get('口語訳 (1955)', '') if isinstance(v2_row, dict) else ''
+                    kr = v2_row.get('KRF', '') if isinstance(v2_row, dict) else ''
+                    th = v2_row.get('THSV11 (Key Phrases)', '') if isinstance(v2_row, dict) else ''
                     
-                    lines = [f"🇬🇧 **{verse_ref}** {row.get('English (ESV)', '')}"]
-                    if v2_row.get('口語訳 (1955)'):
-                        lines.append(f"🇯🇵 {v2_row['口語訳 (1955)']}")
-                    if v2_row.get('KRF'):
-                        lines.append(f"🇰🇷 {v2_row['KRF']}")
-                    if v2_row.get('THSV11 (Key Phrases)'):
-                        lines.append(f"🇹🇭 {v2_row['THSV11 (Key Phrases)']}")
-                    if row.get('Chinese'):
-                        lines.append(f"🇨🇳 {row['Chinese']}")
+                    verse_text = f"🇬🇧 {verse_ref} {en}"
+                    if jp:
+                        verse_text += f"<br>🇯🇵 {jp}"
+                    if kr:
+                        verse_text += f"<br>🇰🇷 {kr}"
+                    if th:
+                        verse_text += f"<br>🇹🇭 {th}"
+                    if cn:
+                        verse_text += f"<br>🇨🇳 {cn}"
                     
-                    all_verses.append("<br>".join(lines))
+                    all_verses.append(verse_text)
             except:
                 pass
 
+    # 時段判斷
     hour = dt.datetime.now().hour
-    periods = [(7, 11, "早晨 7:00-11:00"), (11, 15, "午間 11:00-15:00"), 
-               (15, 19, "下午 15:00-19:00"), (19, 23, "晚間 19:00-23:00")]
     
-    current_period = "深夜時段"
-    period_idx = 0
-    for start, end, name in periods:
-        if start <= hour < end:
-            current_period = name
-            break
-        period_idx += 1
-    
-    st.caption(f"⏰ {current_period}")
+    if 7 <= hour < 11:
+        period_name, period_idx = "早晨 (7:00-11:00)", 0
+    elif 11 <= hour < 15:
+        period_name, period_idx = "午間 (11:00-15:00)", 1
+    elif 15 <= hour < 19:
+        period_name, period_idx = "下午 (15:00-19:00)", 2
+    elif 19 <= hour < 23:
+        period_name, period_idx = "晚間 (19:00-23:00)", 3
+    else:
+        period_name, period_idx = "深夜/凌晨", -1
 
-    if all_verses:
-        total = len(all_verses)
-        start = (period_idx * 6) % total
+    st.markdown(f'<p style="margin:2px 0;font-size:12px;color:#FF8C00;">⏰ {period_name}</p>', unsafe_allow_html=True)
+    
+    if all_verses and period_idx >= 0:
+        total_verses = len(all_verses)
+        start_idx = (period_idx * 6) % total_verses
         
         for i in range(6):
-            idx = (start + i) % total
-            st.markdown(f"**{i+1}.** {all_verses[idx]}", unsafe_allow_html=True)
-            st.markdown("---")
+            idx = (start_idx + i) % total_verses
+            with st.container():
+                c1, c2 = st.columns([0.5, 9.5])
+                with c1:
+                    st.markdown("📖")
+                with c2:
+                    st.markdown(f'<p style="margin:1px 0;font-size:13px;line-height:1.3;">{all_verses[idx]}</p>', unsafe_allow_html=True)
+                st.markdown('<hr class="compact-hr">', unsafe_allow_html=True)
     else:
-        st.info("請在TAB4載入模式A資料以顯示金句")
-
-    # ---------- 6. 收藏金句 ----------
-    st.markdown("**🔽 收藏金句（難記住的經文）**")
-
-    for idx, fav in enumerate(st.session_state.favorites):
-        c1, c2, c3 = st.columns([0.5, 8, 1.5])
-        
-        with c1:
-            if st.button("💝", key=f"fav_{idx}"):
-                st.session_state.fav_del_idx = None if st.session_state.fav_del_idx == idx else idx
-                st.rerun()
-        
-        with c2:
-            st.write(fav)
-        
-        with c3:
-            if st.session_state.fav_del_idx == idx:
-                if st.button("🗑️", key=f"del_fav_{idx}"):
-                    st.session_state.favorites.pop(idx)
-                    save_json(FAVORITE_FILE, st.session_state.favorites)
-                    st.session_state.fav_del_idx = None
-                    st.rerun()
-
-    if len(st.session_state.favorites) < 8:
-        with st.form("add_fav", clear_on_submit=True):
-            new_fav = st.text_area("新增收藏", height=80)
-            if st.form_submit_button("➕ 加入收藏"):
-                if new_fav:
-                    st.session_state.favorites.append(new_fav)
-                    save_json(FAVORITE_FILE, st.session_state.favorites)
-                    st.rerun()
-
-    st.caption(f"收藏: {len(st.session_state.favorites)}/8")
+        st.caption("尚無金句資料，請在TAB4載入模式A資料")
 
     # ==========================================
-    # 收藏金句（8句手動輸入）
+    # 收藏金句（8句）
     # ==========================================
     st.markdown('<p style="margin:8px 0 4px 0;font-size:14px;font-weight:bold;">🔽 收藏金句（難記住的經文）</p>', unsafe_allow_html=True)
 
