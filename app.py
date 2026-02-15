@@ -499,7 +499,7 @@ with tabs[0]:
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新 | A:{len(all_mode_a)} B:{len(all_mode_b)} G:{len(all_grammar_sources)}")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（優化版）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（除錯修正版）
 # ===================================================================
 with tabs[1]:
     import datetime as dt, re, os, json
@@ -527,20 +527,33 @@ with tabs[1]:
         if os.path.exists(TODO_FILE):
             try:
                 with open(TODO_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
+                    data = json.load(f)
+                    # 確保是字典格式
+                    if isinstance(data, dict):
+                        return data
+                    else:
+                        st.error(f"待辦資料格式錯誤: {type(data)}")
+                        return {}
+            except Exception as e:
+                st.error(f"載入待辦失敗: {e}")
+                return {}
         return {}
 
     def save_todos():
-        with open(TODO_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+        try:
+            with open(TODO_FILE, "w", encoding="utf-8") as f:
+                json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            st.error(f"儲存待辦失敗: {e}")
 
     def load_favorites():
         if os.path.exists(FAVORITE_FILE):
             try:
                 with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return data
+                    return []
             except:
                 pass
         return []
@@ -549,7 +562,7 @@ with tabs[1]:
         with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
             json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
 
-    # Session State 初始化（使用 favorite_sentences 保持一致）
+    # Session State 初始化
     if "todo" not in st.session_state:
         st.session_state.todo = load_todos()
     if "favorite_sentences" not in st.session_state:
@@ -566,6 +579,9 @@ with tabs[1]:
     # ==========================================
     # 上半部：月曆待辦
     # ==========================================
+    
+    # 除錯：顯示待辦資料狀態
+    # st.caption(f"除錯: 待辦資料筆數={len(st.session_state.todo)}, 選中日期={st.session_state.sel_date}")
     
     def build_events():
         ev = []
@@ -593,7 +609,7 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # 三日清單（所有日期都可刪除）
+    # 三日清單
     st.markdown('<p style="margin:4px 0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
     
     try:
@@ -601,15 +617,28 @@ with tabs[1]:
     except:
         base_date = dt.date.today()
 
+    has_any_todo = False
+    
     for offset in range(3):
         d_obj = base_date + dt.timedelta(days=offset)
         d_str = str(d_obj)
         
-        if d_str in st.session_state.todo and st.session_state.todo[d_str]:
+        # 檢查該日期是否有待辦
+        if d_str in st.session_state.todo and isinstance(st.session_state.todo[d_str], list) and len(st.session_state.todo[d_str]) > 0:
+            has_any_todo = True
+            
             for idx, item in enumerate(st.session_state.todo[d_str]):
+                # 確保 item 是字典且有 title
+                if not isinstance(item, dict):
+                    continue
+                    
                 item_id = f"{d_str}_{idx}"
                 title = item.get("title", "")
-                time_str = item['time'][:5] if item.get('time') else ""
+                time_str = item.get('time', '')[:5] if item.get('time') else ""
+                
+                # 如果沒有標題，顯示提示
+                if not title:
+                    title = "(無標題)"
                 
                 c1, c2, c3 = st.columns([0.8, 7.2, 1.5])
                 
@@ -625,32 +654,40 @@ with tabs[1]:
                     if st.session_state.active_del_id == item_id:
                         if st.button("🗑️", key=f"d_{item_id}"):
                             st.session_state.todo[d_str].pop(idx)
-                            if not st.session_state.todo[d_str]:
+                            if len(st.session_state.todo[d_str]) == 0:
                                 del st.session_state.todo[d_str]
                             save_todos()
                             st.session_state.cal_key += 1
                             st.session_state.active_del_id = None
                             st.rerun()
+    
+    # 如果沒有任何待辦，顯示提示
+    if not has_any_todo:
+        st.info("尚無待辦事項，請點擊下方「➕ 新增待辦」加入")
 
     # 新增待辦
-    with st.expander("➕ 新增待辦", expanded=False):
+    with st.expander("➕ 新增待辦", expanded=True):
         with st.form("todo_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
                 in_date = st.date_input("日期", base_date)
             with c2:
                 in_time = st.time_input("時間", dt.time(9, 0))
-            in_title = st.text_input("待辦事項（可含多個Emoji）")
+            in_title = st.text_input("待辦事項（可含多個Emoji）", placeholder="例如: 📖 讀聖經 🙏 禱告")
             
-            if st.form_submit_button("💾 儲存"):
-                if in_title:
+            submitted = st.form_submit_button("💾 儲存")
+            if submitted:
+                if in_title and in_title.strip():
                     k = str(in_date)
                     if k not in st.session_state.todo:
                         st.session_state.todo[k] = []
-                    st.session_state.todo[k].append({"title": in_title, "time": str(in_time)})
+                    st.session_state.todo[k].append({"title": in_title.strip(), "time": str(in_time)})
                     save_todos()
                     st.session_state.cal_key += 1
+                    st.success(f"已新增到 {in_date}")
                     st.rerun()
+                else:
+                    st.error("請輸入待辦事項")
 
     st.markdown('<hr class="compact-hr">', unsafe_allow_html=True)
     
@@ -693,7 +730,8 @@ with tabs[1]:
                         verse_text += f"<br>🇨🇳 {cn}"
                     
                     all_verses.append(verse_text)
-            except:
+            except Exception as e:
+                # st.caption(f"解析金句錯誤: {e}")
                 pass
 
     # 時段判斷
