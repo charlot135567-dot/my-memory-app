@@ -168,13 +168,13 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（欄位嚴格對應最終版）
+# 3. TAB1 ─ 書桌（根據實際欄位名稱修正版）
 # ===================================================================
 with tabs[0]:
     import csv, re, datetime as dt
     from io import StringIO
 
-    # --- 使用現有Session State，不重新初始化 ---
+    # --- 使用現有Session State ---
     time_diff = 0
     if "tab1_last_update" in st.session_state:
         time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
@@ -200,13 +200,13 @@ with tabs[0]:
                 return []
 
         # ============================================================
-        # 嚴格收集資料
+        # 收集資料（根據實際欄位名稱）
         # ============================================================
         
         vocab_sources = []      # 單字：V1 Syn/Ant + V2多語言
         verse_sources = []      # 金句：V1 English/Chinese + V2多語言  
         phrase_sources = []     # 片語：W Sheet（第16個開始）
-        grammar_sources = []    # 文法：V1 Grammar + Grammar List
+        grammar_sources = []    # 文法：Grammar Sheet（不是V1的Grammar）
         
         for ref, data in sentences.items():
             v1_rows = parse_csv(data.get('v1_content', ''))
@@ -215,41 +215,36 @@ with tabs[0]:
             g_rows = parse_csv(data.get('grammar_list', ''))
             
             # ========================================
-            # 模式A：V1 + V2（單字和金句）
+            # 模式A：V1 + V2
             # ========================================
             if v1_rows:
-                # 確保V2有足夠列數，不夠就補空字典
                 v2_padded = v2_rows + [{}] * (len(v1_rows) - len(v2_rows)) if v2_rows else [{}] * len(v1_rows)
                 
                 for i, (v1, v2) in enumerate(zip(v1_rows, v2_padded)):
                     v2_dict = v2 if isinstance(v2, dict) else {}
                     
-                    # 單字來源：嚴格取 Syn/Ant 欄位
+                    # 單字來源：V1 Syn/Ant + V2多語言（根據實際欄位名稱）
                     vocab_sources.append({
                         'ref': v1.get('Ref.', ref),
-                        'syn_ant': v1.get('Syn/Ant', ''),
-                        'v2_multi': v2_dict.get('Syn/Ant (韓/日/中)', ''),
-                        'v2_thai': v2_dict.get('THSV11 (Key Phrases)', '')
+                        'v1_syn_ant': v1.get('Syn/Ant', ''),
+                        # V2多語言：口語訳（日）+ Syn/Ant (韓) + THSV11（泰）
+                        'v2_jp': v2_dict.get('口語訳', ''),  # 日語
+                        'v2_kr': v2_dict.get('Syn/Ant (韓)', ''),  # 韓語
+                        'v2_th': v2_dict.get('THSV11', '')  # 泰語
                     })
                     
-                    # 金句來源：嚴格取 English/Chinese
+                    # 金句來源：V1 English/Chinese + V2多語言
                     verse_sources.append({
                         'ref': v1.get('Ref.', ref),
                         'en': v1.get('English (ESV)', ''),
                         'cn': v1.get('Chinese', ''),
-                        'jp': v2_dict.get('口語訳 (1955)', ''),
+                        'jp': v2_dict.get('口語訳', ''),
                         'kr': v2_dict.get('KRF', ''),
-                        'th': v2_dict.get('THSV11 (Key Phrases)', '')
+                        'th': v2_dict.get('THSV11', '')
                     })
-                    
-                    # 文法A
-                    if v1.get('Grammar'):
-                        grammar_sources.append({
-                            'type': 'A', 'ref': v1.get('Ref.', ref), 'row': v1
-                        })
             
             # ========================================
-            # 模式B：W Sheet（片語，第16個開始）
+            # 模式B：W Sheet（片語，第16個開始=索引15）
             # ========================================
             if w_rows and len(w_rows) >= 16:
                 phrase_sources.append({
@@ -258,28 +253,32 @@ with tabs[0]:
                     'start': 15  # 第16個（0-based）
                 })
             
-            # 文法B
+            # ========================================
+            # 文法：Grammar Sheet（獨立Sheet）
+            # ========================================
             if g_rows:
                 for i, row in enumerate(g_rows):
                     grammar_sources.append({
-                        'type': 'B', 'ref': ref, 'row': row, 'index': i
+                        'ref': ref,
+                        'row': row,
+                        'index': i
                     })
         
         # ============================================================
-        # 1) 單字：Syn/Ant + V2多語言
+        # 1) 單字：Syn/Ant + 日韓泰語
         # ============================================================
         vocab_idx = st.session_state.get('tab1_vocab_index', 0) % max(1, len(vocab_sources))
-        v = vocab_sources[vocab_idx] if vocab_sources else {'ref': 'N/A', 'syn_ant': '', 'v2_multi': '', 'v2_thai': ''}
+        v = vocab_sources[vocab_idx] if vocab_sources else {'ref': 'N/A', 'v1_syn_ant': '', 'v2_jp': '', 'v2_kr': '', 'v2_th': ''}
         
         vocab_display = []
-        if v['syn_ant']:
-            # 解析分號分隔的Syn/Ant
-            entries = [e.strip() for e in re.split(r'[;；]', v['syn_ant']) if e.strip()]
+        # V1 Syn/Ant（主單字）
+        if v['v1_syn_ant']:
+            entries = [e.strip() for e in re.split(r'[;；]', v['v1_syn_ant']) if e.strip()]
             vocab_display.extend(entries)
-        if v['v2_multi']:
-            vocab_display.append(v['v2_multi'])
-        if v['v2_thai']:
-            vocab_display.append(f"🇹🇭 {v['v2_thai']}")
+        # V2多語言
+        if v['v2_jp']: vocab_display.append(f"🇯🇵 {v['v2_jp']}")
+        if v['v2_kr']: vocab_display.append(f"🇰🇷 {v['v2_kr']}")
+        if v['v2_th']: vocab_display.append(f"🇹🇭 {v['v2_th']}")
         
         # ============================================================
         # 2) 片語：W Sheet第16個開始，取4個
@@ -288,15 +287,15 @@ with tabs[0]:
         phrase_ref = "N/A"
         
         if phrase_sources:
-            ps = phrase_sources[0]  # 取第一個有W Sheet的
+            ps = phrase_sources[0]
             start = ps['start']
             for i in range(4):
                 if start + i < len(ps['rows']):
                     w_phrases.append(ps['rows'][start + i])
-            phrase_ref = f"{ps['ref']} ({start+1}-{start+4})"
+            phrase_ref = f"{ps['ref']} ({start+1}-{min(start+4, len(ps['rows']))})"
         
         # ============================================================
-        # 3) 金句：English/Chinese + V2多語言（獨立索引）
+        # 3) 金句：English/Chinese + 日韓泰語
         # ============================================================
         verse_idx = st.session_state.get('tab1_verse_index', 0) % max(1, len(verse_sources))
         vs = verse_sources[verse_idx] if verse_sources else {'ref': 'N/A', 'en': '', 'cn': '', 'jp': '', 'kr': '', 'th': ''}
@@ -309,7 +308,7 @@ with tabs[0]:
         if vs['cn']: verse_lines.append(f"🇨🇳 {vs['cn']}")
         
         # ============================================================
-        # 4) 文法
+        # 4) 文法：V1 Grammar 欄位 或 Grammar List
         # ============================================================
         grammar_html = "等待資料中..."
         g_idx = st.session_state.get('tab1_grammar_index', 0) % max(1, len(grammar_sources))
@@ -320,31 +319,39 @@ with tabs[0]:
             parts = []
             
             if g['type'] == 'A':
-                hdr = f"<b>{gr.get('Ref', '')}</b>"
+                # V1 Grammar：包含 Ref + English + Chinese + Syn/Ant + Grammar
+                hdr = f"<b>{gr.get('Ref.', '')}</b>"
                 if gr.get('English (ESV)'): hdr += f"<br>🇬🇧 {gr['English (ESV)']}"
                 if gr.get('Chinese'): hdr += f"<br>🇨🇳 {gr['Chinese']}"
                 if gr.get('Syn/Ant'): hdr += f"<br>🌍 {gr['Syn/Ant']}"
                 parts.append(hdr)
                 
+                # Grammar 欄位內容（分段解析、詞性、結構、語意）
                 if gr.get('Grammar'):
                     fmt = str(gr['Grammar'])
-                    for old, new in [('1️⃣[', '<br><br>📌 '), ('2️⃣[', '<br><br>🔤 '), 
-                                     ('3️⃣[', '<br><br>📖 '), ('4️⃣[', '<br><br>💡 '), (']', '')]:
-                        fmt = fmt.replace(old, new)
+                    fmt = fmt.replace('1️⃣[', '<br><br>📌 分段解析<br>')
+                    fmt = fmt.replace('2️⃣[', '<br><br>🔤 詞性辨析<br>')
+                    fmt = fmt.replace('3️⃣[', '<br><br>📖 修辭與結構<br>')
+                    fmt = fmt.replace('4️⃣[', '<br><br>💡 語意解釋<br>')
+                    fmt = fmt.replace(']', '')
                     parts.append(fmt)
+                    
             else:
+                # Grammar List：Original Sentence + Grammar Rule + Analysis & Example
                 if gr.get('Original Sentence (from text)'): 
                     parts.append(f"📝 <b>{gr['Original Sentence (from text)']}</b>")
                 if gr.get('Grammar Rule'): 
                     parts.append(f"📌 <b>{gr['Grammar Rule']}</b>")
                 if gr.get('Analysis & Example'):
                     af = str(gr['Analysis & Example'])
-                    for old, new in [('1️⃣ [', '<br><br>📌 '), ('2️⃣ [', '<br><br>🔤 '),
-                                     ('3️⃣ [', '<br><br>📖 '), ('4️⃣ [', '<br><br>💡 '), (']', '</b>')]:
-                        af = af.replace(old, new)
+                    af = af.replace('1️⃣ [', '<br><br>📌 ')
+                    af = af.replace('2️⃣ [', '<br><br>🔤 ')
+                    af = af.replace('3️⃣ [', '<br><br>📖 ')
+                    af = af.replace('4️⃣ [', '<br><br>💡 ')
+                    af = af.replace(']', '</b>')
                     parts.append(af)
             
-            grammar_html = "<hr style='margin:8px 0;'>".join(parts)
+            grammar_html = "<hr style='margin:8px 0;'>".join(parts) if parts else "無文法內容"
         
         # ============================================================
         # 渲染
@@ -362,17 +369,16 @@ with tabs[0]:
             
             st.divider()
 
-            # 片語（嚴格取「全句聖經中英對照例句」欄位）
+            # 片語（取「全句聖經中英對照例句」欄位）
             st.markdown(f"**片語: {phrase_ref}**")
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    p = (row.get('Word/Phrase') or row.get('word/phrases') or 
-                         row.get('Word/phrase') or row.get('Word', ''))
+                    p = row.get('Word/Phrase', '')
                     c = row.get('Chinese', '')
                     s = row.get('Synonym', '')
                     a = row.get('Antonym', '')
                     # 嚴格取這個欄位
-                    ex = row.get('全句聖經中英對照例句', row.get('Bible Example (Full sentence)', ''))
+                    ex = row.get('全句聖經中英對照例句', '')
                     
                     if p:
                         line = f"🔤 **{p}**"
