@@ -176,7 +176,7 @@ with tabs[0]:
 
     # --- Session State 保證存在（抗 rerun）---
     st.session_state.setdefault("tab1_v1_index", 0)
-    st.session_state.setdefault("tab1_w_index", 0)  # 修正：從0開始，不是15
+    st.session_state.setdefault("tab1_w_index", 0)
     st.session_state.setdefault("tab1_g_index", 0)
     st.session_state.setdefault("tab1_last_update", dt.datetime.now())
     st.session_state.setdefault("tab1_random_seed", random.randint(1, 1000))
@@ -204,14 +204,11 @@ with tabs[0]:
             if not content: 
                 return []
             try:
-                # 處理可能的編碼問題和空行
                 lines = content.strip().split('\n')
                 if not lines:
                     return []
-                # 使用 csv.DictReader 正確解析
                 reader = csv.DictReader(StringIO(content.strip()))
                 rows = list(reader)
-                # 過濾掉所有值都為空的行
                 return [row for row in rows if any(v.strip() for v in row.values())]
             except Exception as e:
                 st.error(f"CSV解析錯誤: {str(e)}")
@@ -221,9 +218,6 @@ with tabs[0]:
         v2_rows = parse_csv(data.get('v2_content', ''))
         w_rows = parse_csv(data.get('w_sheet', ''))
         g_rows = parse_csv(data.get('grammar_list', ''))
-        
-        # 除錯資訊（開發時使用，穩定後可註解掉）
-        # st.caption(f"Debug: w_rows={len(w_rows)}, g_rows={len(g_rows)}, v1={len(v1_rows)}")
         
         is_mode_a = bool(v1_rows)
         is_mode_b = bool(w_rows and not v1_rows)
@@ -239,6 +233,7 @@ with tabs[0]:
             v2_idx = v1_idx % v2_total if v2_total > 0 else 0
             v2_main = v2_rows[v2_idx] if v2_rows else {}
         else:
+            v1_idx = 0
             v1_main = {}
             v2_main = v2_rows[0] if v2_rows else {}
         
@@ -247,11 +242,10 @@ with tabs[0]:
         # 2) W Sheet 片語輪流（每次4個，循環顯示）
         w_total = len(w_rows) if w_rows else 0
         w_phrases = []
+        w_start = 0  # 初始值，避免未定義錯誤
         
         if w_total > 0:
-            # 修正：簡化索引計算，確保不會超出範圍
-            w_start = (st.session_state.tab1_w_index % max(1, w_total))
-            # 取得4個項目，如果不足則循環回到開頭補足
+            w_start = (st.session_state.tab1_w_index % w_total)
             for i in range(4):
                 idx = (w_start + i) % w_total
                 w_phrases.append(w_rows[idx])
@@ -262,7 +256,6 @@ with tabs[0]:
         g_idx = 0
         
         if is_mode_a and v1_total > 0:
-            # Mode A: 從V1選擇（跳過當前主項目）
             available_indices = [i for i in range(v1_total) if i != v1_idx]
             if available_indices:
                 g_idx = available_indices[st.session_state.tab1_g_index % len(available_indices)]
@@ -298,10 +291,8 @@ with tabs[0]:
                 else:
                     st.caption("無單字資料")
             else:
-                # Mode B: 從 w_rows 取前3個作為單字
                 vocab_items = []
                 for r in w_rows[:3]:
-                    # 修正：嘗試多種可能的欄位名稱
                     w = (r.get('Word/Phrase') or r.get('word/phrases') or 
                          r.get('Word/phrase') or r.get('Word', ''))
                     c = r.get('Chinese', '')
@@ -317,7 +308,6 @@ with tabs[0]:
             # 2) 片語 (W Sheet輪流4個)
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    # 修正：嘗試多種可能的欄位名稱（與您提供的參考程式碼一致）
                     p = (row.get('Word/Phrase') or row.get('word/phrases') or 
                          row.get('Word/phrase') or row.get('Word', ''))
                     c = row.get('Chinese', '')
@@ -343,7 +333,6 @@ with tabs[0]:
                         if bible_ex:
                             st.caption(f"📖 {bible_ex}")
                         
-                        # 修正：使用更細的分隔線
                         if i < len(w_phrases) - 1:
                             st.markdown("---")
             else:
@@ -401,7 +390,6 @@ with tabs[0]:
                 
                 if g_grammar:
                     formatted = str(g_grammar)
-                    # 修正：更精確的替換規則
                     formatted = formatted.replace('1️⃣[', '<br><br>📌 <b>1️⃣ 分段解析</b><br>')
                     formatted = formatted.replace('2️⃣[', '<br><br>🔤 <b>2️⃣ 詞性辨析</b><br>')
                     formatted = formatted.replace('3️⃣[', '<br><br>📖 <b>3️⃣ 修辭與結構</b><br>')
@@ -431,7 +419,6 @@ with tabs[0]:
             else:
                 grammar_html = "等待資料中..."
             
-            # 修正：文法區塊樣式 - 使用深色背景避免反白問題
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.6;">
@@ -440,11 +427,24 @@ with tabs[0]:
                 """, unsafe_allow_html=True)
             
             minutes_left = max(0, (3600 - time_diff) / 60)
-            st.caption(f"來源: {selected_ref} | 文法: {grammar_ref} | {minutes_left:.0f}分後更新")
+            
+            # 修正：安全地計算顯示範圍，避免除以零
+            if w_total > 0:
+                w_end = ((w_start + 4 - 1) % w_total) + 1
+                if w_start + 4 <= w_total:
+                    w_range = f"{w_start+1}~{w_start+4}"
+                else:
+                    w_range = f"{w_start+1}~{w_total},1~{w_end}"
+            else:
+                w_range = "0"
+            
             if is_mode_a:
-                st.caption(f"輪流進度: V1-{v1_idx+1}/{v1_total} | W-{w_start+1}~{(w_start+4) % w_total or w_total}/{w_total} | G-{g_idx+1}/{v1_total}")
+                st.caption(f"來源: {selected_ref} | 文法: {grammar_ref} | {minutes_left:.0f}分後更新")
+                st.caption(f"輪流進度: V1-{v1_idx+1}/{v1_total} | W-{w_range}/{w_total} | G-{g_idx+1}/{v1_total}")
             elif is_mode_b:
-                st.caption(f"輪流進度: W-{w_start+1}~{(w_start+4) % w_total or w_total}/{w_total} | G-{g_idx+1}/{len(g_rows) if g_rows else 0}")
+                g_total = len(g_rows) if g_rows else 0
+                st.caption(f"來源: {selected_ref} | 文法: {grammar_ref} | {minutes_left:.0f}分後更新")
+                st.caption(f"輪流進度: W-{w_range}/{w_total} | G-{g_idx+1}/{g_total}")
                 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14天滑動金句（合併版）
