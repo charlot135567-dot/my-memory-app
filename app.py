@@ -168,7 +168,7 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版 - 完全修正版)
+# 3. TAB1 ─ 書桌 (輪流顯示版 - 金句修正版)
 # ===================================================================
 with tabs[0]:
     import csv, random, re, datetime as dt
@@ -221,6 +221,9 @@ with tabs[0]:
         w_rows = parse_csv(data.get('w_sheet', ''))
         g_rows = parse_csv(data.get('grammar_list', ''))
         
+        # 除錯：顯示資料狀態
+        # st.caption(f"Debug: V1={len(v1_rows)}, V2={len(v2_rows)}, Mode A={bool(v1_rows)}")
+        
         is_mode_a = bool(v1_rows)
         is_mode_b = bool(w_rows and not v1_rows)
         
@@ -237,19 +240,16 @@ with tabs[0]:
             v_row = v1_rows[v_idx]
             v2_row = v2_rows[v_idx % v2_total] if v2_total > 0 else {}
             
-            # 收集所有語言的單字資料
             syn_ant_parts = []
             v1_syn = v_row.get('Syn/Ant', '')
             if v1_syn:
                 entries = [e.strip() for e in re.split(r'[;；]', v1_syn) if e.strip()]
                 syn_ant_parts.extend(entries)
             
-            # V2 的其他語言
             v2_syn = v2_row.get('Syn/Ant (韓/日/中)', '')
             if v2_syn:
                 syn_ant_parts.append(v2_syn)
             
-            # 泰文
             v2_thai = v2_row.get('THSV11 (Key Phrases)', '')
             
             if syn_ant_parts:
@@ -257,7 +257,6 @@ with tabs[0]:
                 if v2_thai:
                     vocab_display.append(f"🇹🇭 {v2_thai}")
         else:
-            # Mode B：從 W Sheet 取前3個作為備用
             for r in w_rows[:3]:
                 w = (r.get('Word/Phrase') or r.get('word/phrases') or 
                      r.get('Word/phrase') or r.get('Word', ''))
@@ -269,13 +268,11 @@ with tabs[0]:
         w_phrases = []
         w_start_display = 0
         if w_total > 0:
-            # 從第16個開始（索引15），每次前進4個
             w_start = 15 + (st.session_state.tab1_phrase_index % max(1, w_total))
-            # 確保不超過範圍，循環顯示
             for i in range(4):
                 idx = (w_start + i) % w_total
                 w_phrases.append(w_rows[idx])
-            w_start_display = (w_start % w_total) + 1  # 轉為1-based顯示
+            w_start_display = (w_start % w_total) + 1
         
         # --- 3) 文法：A模式從V1，B模式從Grammar List，按順序輪流 ---
         grammar_row = {}
@@ -283,18 +280,17 @@ with tabs[0]:
         g_idx = 0
         
         if is_mode_a and v1_total > 0:
-            # A模式：從 V1 按順序輪流（跳過當前金句用的那一筆，避免重複）
             g_idx = st.session_state.tab1_grammar_index % v1_total
             grammar_row = v1_rows[g_idx]
             grammar_ref = grammar_row.get('Ref.', 'N/A')
         elif is_mode_b and g_total > 0:
-            # B模式：從 Grammar List 按順序輪流
             g_idx = st.session_state.tab1_grammar_index % g_total
             grammar_row = g_rows[g_idx]
             grammar_ref = "Grammar-" + str(g_idx + 1)
         
         # --- 4) 金句：V1 + V2 按順序輪流 ---
-        verse_data = {}
+        # 修正：直接準備金句顯示內容，不使用字典
+        verse_lines = []
         verse_ref = selected_ref
         
         if is_mode_a and v1_total > 0:
@@ -303,13 +299,24 @@ with tabs[0]:
             v2_verse = v2_rows[v_idx % v2_total] if v2_total > 0 else {}
             
             verse_ref = v1_verse.get('Ref.', selected_ref)
-            verse_data = {
-                'en': v1_verse.get('English (ESV)', ''),
-                'cn': v1_verse.get('Chinese', ''),
-                'jp': v2_verse.get('口語訳 (1955)', ''),
-                'kr': v2_verse.get('KRF', ''),
-                'th': v2_verse.get('THSV11 (Key Phrases)', '')
-            }
+            
+            # 直接建立顯示列表
+            en_text = v1_verse.get('English (ESV)', '')
+            cn_text = v1_verse.get('Chinese', '')
+            jp_text = v2_verse.get('口語訳 (1955)', '') if v2_verse else ''
+            kr_text = v2_verse.get('KRF', '') if v2_verse else ''
+            th_text = v2_verse.get('THSV11 (Key Phrases)', '') if v2_verse else ''
+            
+            if en_text:
+                verse_lines.append(f"🇬🇧 **{verse_ref}** {en_text}")
+            if jp_text:
+                verse_lines.append(f"🇯🇵 {jp_text}")
+            if kr_text:
+                verse_lines.append(f"🇰🇷 {kr_text}")
+            if th_text:
+                verse_lines.append(f"🇹🇭 {th_text}")
+            if cn_text:
+                verse_lines.append(f"🇨🇳 {cn_text}")
         
         # --- 開始渲染畫面 ---
         col_left, col_right = st.columns([0.67, 0.33])
@@ -318,7 +325,6 @@ with tabs[0]:
             # 1) 單字顯示
             if vocab_display:
                 st.markdown("🌍 " + " ; ".join([v for v in vocab_display if not v.startswith('🇹🇭')]))
-                # 單獨顯示泰文
                 thai_items = [v for v in vocab_display if v.startswith('🇹🇭')]
                 for th in thai_items:
                     st.markdown(th)
@@ -327,7 +333,7 @@ with tabs[0]:
             
             st.divider()
 
-            # 2) 片語顯示 (W Sheet 第16起輪流4個)
+            # 2) 片語顯示
             if w_phrases:
                 for i, row in enumerate(w_phrases):
                     p = (row.get('Word/Phrase') or row.get('word/phrases') or 
@@ -362,26 +368,17 @@ with tabs[0]:
 
             st.divider()
 
-            # 3) 金句顯示 (V1+V2輪流)
-            if is_mode_a and verse_data:
-                verses = []
-                if verse_data.get('en'):
-                    verses.append(f"🇬🇧 **{verse_ref}** {verse_data['en']}")
-                if verse_data.get('jp'):
-                    verses.append(f"🇯🇵 {verse_data['jp']}")
-                if verse_data.get('kr'):
-                    verses.append(f"🇰🇷 {verse_data['kr']}")
-                if verse_data.get('th'):
-                    verses.append(f"🇹🇭 {verse_data['th']}")
-                if verse_data.get('cn'):
-                    verses.append(f"🇨🇳 {verse_data['cn']}")
-                
-                if verses:
-                    st.markdown("📖🌟 " + verses[0])
-                    for v in verses[1:]:
-                        st.markdown(v)
-                else:
-                    st.caption("無經文資料")
+            # 3) 金句顯示 - 修正：直接檢查 verse_lines 列表
+            if verse_lines:
+                st.markdown("📖🌟 " + verse_lines[0])
+                for v in verse_lines[1:]:
+                    st.markdown(v)
+            elif is_mode_a:
+                # 有V1資料但沒有抓到金句，顯示除錯資訊
+                st.caption(f"⚠️ 無金句資料 (Index: {st.session_state.tab1_verse_index % v1_total}, Ref: {verse_ref})")
+                # 顯示第一筆V1資料的欄位名稱幫助除錯
+                if v1_rows:
+                    st.caption(f"可用欄位: {list(v1_rows[0].keys())[:5]}...")
             else:
                 st.caption("📖🌟 文稿分析模式")
 
@@ -444,11 +441,9 @@ with tabs[0]:
                 </div>
                 """, unsafe_allow_html=True)
             
-            # 狀態顯示
             minutes_left = max(0, (3600 - time_diff) / 60)
             st.caption(f"來源: {selected_ref} | 文法: {grammar_ref} | {minutes_left:.0f}分後更新")
             
-            # 輪流進度顯示
             if is_mode_a:
                 vocab_idx = st.session_state.tab1_vocab_index % max(1, v1_total)
                 verse_idx = st.session_state.tab1_verse_index % max(1, v1_total)
