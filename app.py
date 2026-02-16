@@ -1410,7 +1410,7 @@ its part of speech and meaning in this sentence must be clearly identified.
     * In this sentence: adjective
     * Meaning here: appropriate, fitting, proper
 
-3️⃣修辭與結構Rhetoric and Structure： 識別並解釋特定的文法現象Identify and explain specific grammatical phenomena, such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
+3️⃣修辭與結構Rhetoric and Structure：Identify and explain specific grammatical phenomena, such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
 4️⃣語意解釋：This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
   
@@ -1468,9 +1468,8 @@ its part of speech and meaning in this sentence must be clearly identified.
 * 形容詞Adjective/Complement補語 (Complement): becoming(Adjective meaning「fitting相稱的」or「appropriate得體的」。
 * 介系詞短語(Prepositional Phrase): to a fool。(Specifies the inappropriate recipient).
    說明此不合宜的對象是「愚頑人」。
-2️⃣詞性辨析Part-of-Speech Distinction： 若單字有歧義（例如 becoming 是動詞還是形容詞），
+2️⃣詞性辨析Part-of-Speech Distinction：
 If a word has potential ambiguity (for example, becoming can be a verb or an adjective), 
-請特別說明其在句中的詞性與意義。
 its part of speech and meaning in this sentence must be clearly identified.
 * becoming
     * Possible forms:
@@ -1479,7 +1478,7 @@ its part of speech and meaning in this sentence must be clearly identified.
     * In this sentence: adjective
     * Meaning here: appropriate, fitting, proper
 
-3️⃣修辭與結構Rhetoric and Structure： 識別並解釋特定的文法現象Identify and explain specific grammatical phenomena, 
+3️⃣修辭與結構Rhetoric and Structure： Identify and explain specific grammatical phenomena, 
    such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
 4️⃣語意解釋： This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
