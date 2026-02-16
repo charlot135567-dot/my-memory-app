@@ -425,7 +425,7 @@ with tabs[0]:
                 g_syn = g_row.get('Syn/Ant', '')
                 g_grammar = g_row.get('Grammar', '')
                 
-                # 第一行：Ref + English
+                # 第一行：Ref + English（無空格緊貼）
                 if g_ref and g_en:
                     all_grammar.append(f"<b>{g_ref}</b>{g_en}")
                 elif g_en:
@@ -435,22 +435,47 @@ with tabs[0]:
                 if g_cn:
                     all_grammar.append(g_cn)
                 
-                # 第三行：Syn/Ant（緊湊顯示）
+                # 第三行：Syn/Ant（緊湊顯示，分行）
                 if g_syn:
-                    syn_ant_line = g_syn.replace('Syn:', '<span style="color:#2E8B57;">✨Syn:</span>')\
-                                       .replace('Ant:', '<span style="color:#CD5C5C;">❄️Ant:</span>')
-                    all_grammar.append(syn_ant_line)
+                    # 解析 Syn/Ant 格式
+                    syn_part = ""
+                    ant_part = ""
+                    
+                    if 'Syn:' in g_syn or 'Ant:' in g_syn:
+                        syn_match = re.search(r'Syn:\s*([^/;]+?)(?=\s*Ant:|$)', g_syn)
+                        ant_match = re.search(r'Ant:\s*([^/;]+)', g_syn)
+                        if syn_match:
+                            syn_part = syn_match.group(1).strip()
+                        if ant_match:
+                            ant_part = ant_match.group(1).strip()
+                    else:
+                        parts = g_syn.split('/')
+                        if len(parts) >= 2:
+                            syn_part = parts[0].strip()
+                            ant_part = parts[1].strip()
+                        else:
+                            syn_part = g_syn.strip()
+                    
+                    if syn_part:
+                        all_grammar.append(f'<span style="color:#2E8B57;">✨Syn:</span>{syn_part}')
+                    if ant_part:
+                        all_grammar.append(f'<span style="color:#CD5C5C;">❄️Ant:</span>{ant_part}')
                 
-                # Grammar解析（緊湊格式）
+                # Grammar解析（緊湊格式，縮排對齊）
                 if g_grammar:
                     formatted = str(g_grammar)
-                    # 移除多餘空格和換行，壓縮間距
-                    formatted = formatted.replace('1️⃣[', '<br>1️⃣[')
-                    formatted = formatted.replace('2️⃣[', '<br>2️⃣[')
-                    formatted = formatted.replace('3️⃣[', '<br>3️⃣[')
-                    formatted = formatted.replace('4️⃣[', '<br>4️⃣[')
-                    # 移除段落間的多餘空行
-                    formatted = re.sub(r'\n\s*\n', '\n', formatted)
+                    # 統一替換標記
+                    formatted = formatted.replace('1️⃣[', '1️⃣[')
+                    formatted = formatted.replace('2️⃣[', '2️⃣[')
+                    formatted = formatted.replace('3️⃣[', '3️⃣[')
+                    formatted = formatted.replace('4️⃣[', '4️⃣[')
+                    # 移除標題後的換行，保持同行
+                    formatted = formatted.replace('[分段解析]', '[分段解析] ')
+                    formatted = formatted.replace('[詞性]', '[詞性] ')
+                    formatted = formatted.replace('[修辭]', '[修辭] ')
+                    formatted = formatted.replace('[語意]', '[語意] ')
+                    # 統一換行符號
+                    formatted = formatted.replace('\n\n', '\n')
                     formatted = formatted.replace('\n', '<br>')
                     all_grammar.append(formatted)
                 
@@ -464,9 +489,9 @@ with tabs[0]:
                     if v2_jp:
                         v2_parts.append(f"🇯🇵 {v2_jp}")
                     if v2_grammar:
-                        v2_parts.append(f"<span style='color:#4682B4;'>文法：</span>{v2_grammar}")
+                        v2_parts.append(f'<span style="color:#4682B4;">文法：</span>{v2_grammar}')
                     if v2_note:
-                        v2_parts.append(f"<span style='color:#D2691E;'>備註：</span>{v2_note}")
+                        v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{v2_note}')
                     all_grammar.append("<br>".join(v2_parts))
                     
             else:
@@ -486,6 +511,7 @@ with tabs[0]:
                     af = af.replace('3️⃣', '<br>3️⃣')
                     af = af.replace('4️⃣', '<br>4️⃣')
                     af = af.replace('\n\n', '<br>')
+                    af = af.replace('\n', '<br>')
                     all_grammar.append(af)
             
             if all_grammar:
