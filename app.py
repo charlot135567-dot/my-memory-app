@@ -239,6 +239,7 @@ with tabs[0]:
                         'type': 'A',
                         'ref': ref,
                         'row': row,
+                        'v2_row': v2_rows[i] if i < len(v2_rows) else {},
                         'index': i,
                         'total_in_file': len(v1_rows)
                     })
@@ -258,6 +259,7 @@ with tabs[0]:
                         'type': 'B',
                         'ref': ref,
                         'row': row,
+                        'v2_row': {},
                         'index': i,
                         'total_in_file': len(g_rows)
                     })
@@ -399,7 +401,7 @@ with tabs[0]:
                 verse_lines.append(f"🇹🇭 {th_text}")
         
         # ============================================================
-        # 4) 文法：從兩處來
+        # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
         #    A) 模式A的V1 Sheet Grammar欄位（含例句格式）
         #    B) 模式B的Grammar Sheet
         # ============================================================
@@ -410,43 +412,65 @@ with tabs[0]:
             g_idx = st.session_state.tab1_grammar_index % len(all_grammar_sources)
             g_source = all_grammar_sources[g_idx]
             g_row = g_source['row']
+            v2_row = g_source.get('v2_row', {})
             current_grammar_ref = f"{g_source['ref']}-{g_source['index']+1}"
             
             all_grammar = []
             
             if g_source['type'] == 'A':
-                # 模式A文法（來自V1 Grammar欄位）- 包含完整例句格式
+                # 模式A文法（來自V1 Grammar欄位）- 緊湊格式
                 g_ref = g_row.get('Ref.', '')
                 g_en = g_row.get('English (ESV)', '')
                 g_cn = g_row.get('Chinese', '')
                 g_syn = g_row.get('Syn/Ant', '')
                 g_grammar = g_row.get('Grammar', '')
                 
-                # 例句格式：Ref, English, Chinese, Syn/Ant, Grammar解析
-                header_parts = []
-                if g_ref:
-                    header_parts.append(f"<b>{g_ref}</b>")
-                if g_en:
-                    header_parts.append(f"{g_en}")
+                # 第一行：Ref + English
+                if g_ref and g_en:
+                    all_grammar.append(f"<b>{g_ref}</b>{g_en}")
+                elif g_en:
+                    all_grammar.append(g_en)
+                
+                # 第二行：Chinese
                 if g_cn:
-                    header_parts.append(f"{g_cn}")
+                    all_grammar.append(g_cn)
+                
+                # 第三行：Syn/Ant（緊湊顯示）
                 if g_syn:
-                    header_parts.append(f"<i>{g_syn}</i>")
+                    syn_ant_line = g_syn.replace('Syn:', '<span style="color:#2E8B57;">✨Syn:</span>')\
+                                       .replace('Ant:', '<span style="color:#CD5C5C;">❄️Ant:</span>')
+                    all_grammar.append(syn_ant_line)
                 
-                if header_parts:
-                    all_grammar.append("<br>".join(header_parts))
-                
+                # Grammar解析（緊湊格式）
                 if g_grammar:
                     formatted = str(g_grammar)
-                    formatted = formatted.replace('1️⃣[', '<br><br>1️⃣ <b>[')
-                    formatted = formatted.replace('2️⃣[', '<br>2️⃣ <b>[')
-                    formatted = formatted.replace('3️⃣[', '<br>3️⃣ <b>[')
-                    formatted = formatted.replace('4️⃣[', '<br>4️⃣ <b>[')
-                    formatted = formatted.replace(']', ']</b>')
+                    # 移除多餘空格和換行，壓縮間距
+                    formatted = formatted.replace('1️⃣[', '<br>1️⃣[')
+                    formatted = formatted.replace('2️⃣[', '<br>2️⃣[')
+                    formatted = formatted.replace('3️⃣[', '<br>3️⃣[')
+                    formatted = formatted.replace('4️⃣[', '<br>4️⃣[')
+                    # 移除段落間的多餘空行
+                    formatted = re.sub(r'\n\s*\n', '\n', formatted)
+                    formatted = formatted.replace('\n', '<br>')
                     all_grammar.append(formatted)
+                
+                # 加入V2資料：口語訳 + Grammar + Note
+                v2_jp = v2_row.get('口語訳', '') if v2_row else ''
+                v2_grammar = v2_row.get('Grammar', '') if v2_row else ''
+                v2_note = v2_row.get('Note', '') if v2_row else ''
+                
+                if v2_jp or v2_grammar or v2_note:
+                    v2_parts = ["<br>"]
+                    if v2_jp:
+                        v2_parts.append(f"🇯🇵 {v2_jp}")
+                    if v2_grammar:
+                        v2_parts.append(f"<span style='color:#4682B4;'>文法：</span>{v2_grammar}")
+                    if v2_note:
+                        v2_parts.append(f"<span style='color:#D2691E;'>備註：</span>{v2_note}")
+                    all_grammar.append("<br>".join(v2_parts))
                     
             else:
-                # 模式B文法（來自Grammar List）
+                # 模式B文法（來自Grammar List）- 緊湊格式
                 orig = g_row.get('Original Sentence', '')
                 rule = g_row.get('Grammar Rule', '')
                 analysis = g_row.get('Analysis & Example', '')
@@ -454,17 +478,18 @@ with tabs[0]:
                 if orig:
                     all_grammar.append(f"📝 <b>{orig}</b>")
                 if rule:
-                    all_grammar.append(f"📌 <b>{rule}</b>")
+                    all_grammar.append(f"📌 {rule}")
                 if analysis:
                     af = str(analysis)
-                    af = af.replace('1️⃣', '<br><br>1️⃣')
+                    af = af.replace('1️⃣', '<br>1️⃣')
                     af = af.replace('2️⃣', '<br>2️⃣')
                     af = af.replace('3️⃣', '<br>3️⃣')
                     af = af.replace('4️⃣', '<br>4️⃣')
+                    af = af.replace('\n\n', '<br>')
                     all_grammar.append(af)
             
             if all_grammar:
-                grammar_html = "<hr style='margin:8px 0; border-color:#444;'>".join(all_grammar)
+                grammar_html = "<br>".join(all_grammar)
         
         # ============================================================
         # 渲染畫面 - 最小化間距，左右欄位底部齊平
@@ -558,10 +583,10 @@ with tabs[0]:
                 st.caption("📖 無金句資料（請確認有模式A資料）")
 
         with col_right:
-            # 文法區塊 - 使用flex布局確保高度填滿
+            # 文法區塊 - 使用flex布局確保高度填滿，行高壓縮
             st.markdown(f"""
-                <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
-                            border-left:4px solid #FF8C00; font-size:14px; line-height:1.5; 
+                <div style="background-color:#1E1E1E; color:#FFFFFF; padding:10px; border-radius:8px; 
+                            border-left:4px solid #FF8C00; font-size:13px; line-height:1.4; 
                             min-height:100%; display:flex; flex-direction:column;">
                     {grammar_html}
                 </div>
