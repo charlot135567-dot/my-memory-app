@@ -482,7 +482,7 @@ with tabs[0]:
                     s = row.get('Synonym', '')
                     a = row.get('Antonym', '')
                     bible_ex = row.get('全句聖經中英對照例句', '') or row.get('Bible Example', '') or row.get('Example', '')
-                    
+                
                     if p:
                         parts = [f"🔤 **{p}**"]
                         if c: 
