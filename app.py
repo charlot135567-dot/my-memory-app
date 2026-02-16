@@ -178,7 +178,7 @@ with tabs[0]:
     st.session_state.setdefault("tab1_vocab_index", 0)      # 單字輪流索引
     st.session_state.setdefault("tab1_phrase_index", 15)    # 片語輪流索引（從16開始）
     st.session_state.setdefault("tab1_grammar_index", 0)    # 文法輪流索引
-    st.session_state.setdefault("tab1_verse_index", 0)    # 金句輪流索引
+    st.session_state.setdefault("tab1_verse_index", 0)      # 金句輪流索引
     st.session_state.setdefault("tab1_last_update", dt.datetime.now())
 
     # 檢查是否需要更新（超過1小時）
@@ -263,7 +263,7 @@ with tabs[0]:
                     })
         
         # ============================================================
-        # 1) 單字：從模式A的V1 Sheet的Syn/Ant欄位 + V2 Sheet多語言欄位(口語訳+KRF+THSV11)
+        # 1) 單字：V1 Syn/Ant + V2 口語訳、KRF、Syn/Ant、THSV11
         # ============================================================
         vocab_display = []
         current_vocab_ref = "N/A"
@@ -280,28 +280,51 @@ with tabs[0]:
             
             current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
             
-            # 收集多語言單字：V1 Syn/Ant + V2 口語訳+KRF+THSV11
-            syn_ant_parts = []
+            # V1 Syn/Ant - 解析同義詞和反義詞
+            v1_syn_ant = v1_row.get('Syn/Ant', '')
+            v1_syn_list = []
+            v1_ant_list = []
             
-            # V1 Syn/Ant
-            v1_syn = v1_row.get('Syn/Ant', '')
-            if v1_syn:
-                entries = [e.strip() for e in re.split(r'[;；]', v1_syn) if e.strip()]
-                syn_ant_parts.extend(entries)
+            if v1_syn_ant:
+                # 解析格式：通常用 / 或 | 分隔 Syn 和 Ant
+                parts = re.split(r'[/|]', v1_syn_ant)
+                if len(parts) >= 2:
+                    v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
+                    v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
+                else:
+                    # 如果沒有分隔符，視為同義詞
+                    v1_syn_list = [p.strip() for p in v1_syn_ant.split(',') if p.strip()]
             
-            # V2 多語言欄位：口語訳(日語)、KRF(韓文)、THSV11(泰語)
+            # V2 多語言欄位：口語訳(日)、KRF(韓)、Syn/Ant(韓)、THSV11(泰)
             v2_jp = v2_row.get('口語訳', '') if v2_row else ''
             v2_kr = v2_row.get('KRF', '') if v2_row else ''
+            v2_syn_ant_kr = v2_row.get('Syn/Ant (韓)', '') if v2_row else ''
             v2_th = v2_row.get('THSV11', '') if v2_row else ''
             
-            if v2_jp:
-                syn_ant_parts.append(f"🇯🇵 {v2_jp}")
-            if v2_kr:
-                syn_ant_parts.append(f"🇰🇷 {v2_kr}")
-            if v2_th:
-                syn_ant_parts.append(f"🇹🇭 {v2_th}")
+            # 組合顯示內容
+            vocab_items = []
             
-            vocab_display = syn_ant_parts
+            # V1 Syn（綠色）
+            if v1_syn_list:
+                vocab_items.append(f"<span style='color:#2E8B57;'>✨{', '.join(v1_syn_list)}</span>")
+            
+            # V1 Ant（紅色）
+            if v1_ant_list:
+                vocab_items.append(f"<span style='color:#CD5C5C;'>❄️{', '.join(v1_ant_list)}</span>")
+            
+            # V2 韓文 Syn/Ant
+            if v2_syn_ant_kr:
+                vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_syn_ant_kr}</span>")
+            
+            # V2 其他語言
+            if v2_jp:
+                vocab_items.append(f"<span style='color:#D2691E;'>🇯🇵 {v2_jp}</span>")
+            if v2_kr:
+                vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_kr}</span>")
+            if v2_th:
+                vocab_items.append(f"<span style='color:#9932CC;'>🇹🇭 {v2_th}</span>")
+            
+            vocab_display = vocab_items
         
         # ============================================================
         # 2) 片語：只從模式B的W Sheet的words/phrases欄位輪流（第16個開始）
@@ -438,24 +461,20 @@ with tabs[0]:
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 單字區塊
+            # 單字區塊 - Syn/Ant 用顏色區分
             if vocab_display:
                 st.markdown(
-                    "<div style='margin-bottom:4px;'>" + 
-                    " ; ".join([v for v in vocab_display if not v.startswith(('🇯🇵', '🇰🇷', '🇹🇭'))]) + 
+                    "<div style='margin-bottom:4px; line-height:1.6;'>" + 
+                    " ; ".join(vocab_display) + 
                     "</div>", 
                     unsafe_allow_html=True
                 )
-                # 多語言單字分行顯示
-                for v in vocab_display:
-                    if v.startswith(('🇯🇵', '🇰🇷', '🇹🇭')):
-                        st.markdown(f"<div style='margin-bottom:2px;'>{v}</div>", unsafe_allow_html=True)
             else:
                 st.caption("無單字資料（請確認有模式A資料）")
             
             st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
-            # 片語區塊
+            # 片語區塊 - 聖經例句英文字體放大
             if w_phrases:
                 for i, row in enumerate(w_phrases):
                     p = row.get('Word/Phrase', '') or row.get('words/phrases', '') or row.get('Word/phrase', '') or row.get('Word', '')
@@ -482,8 +501,20 @@ with tabs[0]:
                         )
                         
                         if bible_ex:
+                            # 放大英文字體，分離中英部分
+                            # 假設格式為 "Ref English (Chinese)" 或 "Ref English"
+                            bible_html = bible_ex
+                            # 嘗試匹配英文和中文部分
+                            match = re.match(r'([^(]+)(\([^)]+\))?$', bible_ex)
+                            if match:
+                                eng_part = match.group(1).strip()
+                                cn_part = match.group(2) if match.group(2) else ""
+                                bible_html = f"<span style='font-size:1.1em; font-weight:500;'>{eng_part}</span> <span style='font-size:0.9em; color:#666;'>{cn_part}</span>"
+                            else:
+                                bible_html = f"<span style='font-size:1.1em;'>{bible_ex}</span>"
+                            
                             st.markdown(
-                                f"<div style='font-size:0.85em; color:#888; margin-bottom:4px; margin-left:20px;'>📖 {bible_ex}</div>", 
+                                f"<div style='margin-bottom:4px; margin-left:20px; color:#555;'>📖 {bible_html}</div>", 
                                 unsafe_allow_html=True
                             )
                         
