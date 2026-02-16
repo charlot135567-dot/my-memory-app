@@ -263,7 +263,7 @@ with tabs[0]:
                     })
         
         # ============================================================
-        # 1) 單字：V1 Syn/Ant + V2 口語訳、KRF、Syn/Ant、THSV11
+        # 1) 單字：V1 Syn/Ant + V2 Syn/Ant + THSV11
         # ============================================================
         vocab_display = []
         current_vocab_ref = "N/A"
@@ -286,19 +286,24 @@ with tabs[0]:
             v1_ant_list = []
             
             if v1_syn_ant:
-                # 解析格式：通常用 / 或 | 分隔 Syn 和 Ant
-                parts = re.split(r'[/|]', v1_syn_ant)
-                if len(parts) >= 2:
-                    v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
-                    v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
+                # 解析格式：Syn: xxx / Ant: xxx 或 xxx / xxx
+                if 'Syn:' in v1_syn_ant or 'Ant:' in v1_syn_ant:
+                    syn_match = re.search(r'Syn:\s*([^/;]+)', v1_syn_ant)
+                    ant_match = re.search(r'Ant:\s*([^/;]+)', v1_syn_ant)
+                    if syn_match:
+                        v1_syn_list = [s.strip() for s in syn_match.group(1).split(',') if s.strip()]
+                    if ant_match:
+                        v1_ant_list = [a.strip() for a in ant_match.group(1).split(',') if a.strip()]
                 else:
-                    # 如果沒有分隔符，視為同義詞
-                    v1_syn_list = [p.strip() for p in v1_syn_ant.split(',') if p.strip()]
+                    parts = re.split(r'[/|]', v1_syn_ant)
+                    if len(parts) >= 2:
+                        v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
+                        v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
+                    else:
+                        v1_syn_list = [p.strip() for p in v1_syn_ant.split(',') if p.strip()]
             
-            # V2 多語言欄位：口語訳(日)、KRF(韓)、Syn/Ant(韓)、THSV11(泰)
-            v2_jp = v2_row.get('口語訳', '') if v2_row else ''
-            v2_kr = v2_row.get('KRF', '') if v2_row else ''
-            v2_syn_ant_kr = v2_row.get('Syn/Ant (韓)', '') if v2_row else ''
+            # V2 Syn/Ant (韓文) + THSV11 (泰文)
+            v2_syn_ant = v2_row.get('Syn/Ant', '') if v2_row else ''
             v2_th = v2_row.get('THSV11', '') if v2_row else ''
             
             # 組合顯示內容
@@ -312,22 +317,28 @@ with tabs[0]:
             if v1_ant_list:
                 vocab_items.append(f"<span style='color:#CD5C5C;'>❄️{', '.join(v1_ant_list)}</span>")
             
-            # V2 韓文 Syn/Ant
-            if v2_syn_ant_kr:
-                vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_syn_ant_kr}</span>")
+            # V2 Syn/Ant (韓文)
+            if v2_syn_ant:
+                # 嘗試解析韓文的Syn/Ant格式
+                if 'Syn:' in v2_syn_ant or 'Ant:' in v2_syn_ant:
+                    syn_match = re.search(r'Syn:\s*([^/;]+)', v2_syn_ant)
+                    ant_match = re.search(r'Ant:\s*([^/;]+)', v2_syn_ant)
+                    if syn_match:
+                        vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 ✨{syn_match.group(1).strip()}</span>")
+                    if ant_match:
+                        vocab_items.append(f"<span style='color:#D2691E;'>🇰🇷 ❄️{ant_match.group(1).strip()}</span>")
+                else:
+                    vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_syn_ant}</span>")
             
-            # V2 其他語言
-            if v2_jp:
-                vocab_items.append(f"<span style='color:#D2691E;'>🇯🇵 {v2_jp}</span>")
-            if v2_kr:
-                vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_kr}</span>")
+            # V2 THSV11 (泰文)
             if v2_th:
                 vocab_items.append(f"<span style='color:#9932CC;'>🇹🇭 {v2_th}</span>")
             
             vocab_display = vocab_items
         
         # ============================================================
-        # 2) 片語：只從模式B的W Sheet的words/phrases欄位輪流（第16個開始）
+        # 2) 片語：只從模式B的W Sheet輪流（第16個開始）
+        #    欄位：Word/Phrase, Chinese, Synonym+中文對照, Antonym+中文對照, 全句聖經中英對照例句
         # ============================================================
         w_phrases = []
         current_phrase_ref = "N/A"
@@ -474,19 +485,34 @@ with tabs[0]:
             
             st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
-            # 片語區塊 - 聖經例句英文字體放大
+            # 片語區塊 - 修正欄位名稱，聖經例句英文字體放大
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    p = row.get('Word/Phrase', '') or row.get('words/phrases', '') or row.get('Word/phrase', '') or row.get('Word', '')
+                    # 嘗試多種可能的欄位名稱
+                    p = (row.get('Word/Phrase', '') or 
+                         row.get('Word/phrase', '') or 
+                         row.get('words/phrases', '') or 
+                         row.get('Word', ''))
                     c = row.get('Chinese', '')
-                    s = row.get('Synonym', '')
-                    a = row.get('Antonym', '')
-                    bible_ex = row.get('全句聖經中英對照例句', '') or row.get('Bible Example', '') or row.get('Example', '')
-                
+                    
+                    # 修正：W Sheet實際欄位名稱是 "Synonym+中文對照" 和 "Antonym+中文對照"
+                    s = (row.get('Synonym+中文對照', '') or 
+                         row.get('Synonym', '') or 
+                         row.get('Syn', ''))
+                    a = (row.get('Antonym+中文對照', '') or 
+                         row.get('Antonym', '') or 
+                         row.get('Ant', ''))
+                    
+                    bible_ex = (row.get('全句聖經中英對照例句', '') or 
+                               row.get('Bible Example', '') or 
+                               row.get('Example', ''))
+                    
                     if p:
                         parts = [f"🔤 **{p}**"]
                         if c: 
                             parts.append(f"<span style='color:#666;'>{c}</span>")
+                        
+                        # Syn/Ant 顯示（支援多種格式）
                         if s or a:
                             sa_parts = []
                             if s: 
@@ -502,19 +528,17 @@ with tabs[0]:
                         
                         if bible_ex:
                             # 放大英文字體，分離中英部分
-                            # 假設格式為 "Ref English (Chinese)" 或 "Ref English"
-                            bible_html = bible_ex
-                            # 嘗試匹配英文和中文部分
+                            # 嘗試匹配 "Ref English (Chinese)" 格式
                             match = re.match(r'([^(]+)(\([^)]+\))?$', bible_ex)
                             if match:
                                 eng_part = match.group(1).strip()
                                 cn_part = match.group(2) if match.group(2) else ""
-                                bible_html = f"<span style='font-size:1.1em; font-weight:500;'>{eng_part}</span> <span style='font-size:0.9em; color:#666;'>{cn_part}</span>"
+                                bible_html = f"<span style='font-size:1.15em; font-weight:500;'>{eng_part}</span> <span style='font-size:0.9em; color:#666;'>{cn_part}</span>"
                             else:
-                                bible_html = f"<span style='font-size:1.1em;'>{bible_ex}</span>"
+                                bible_html = f"<span style='font-size:1.15em;'>{bible_ex}</span>"
                             
                             st.markdown(
-                                f"<div style='margin-bottom:4px; margin-left:20px; color:#555;'>📖 {bible_html}</div>", 
+                                f"<div style='margin-bottom:4px; margin-left:20px;'>📖 {bible_html}</div>", 
                                 unsafe_allow_html=True
                             )
                         
