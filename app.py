@@ -1453,21 +1453,20 @@ its part of speech and meaning in this sentence must be clearly identified...等
 | No | Original Sentence (from text) | Grammar Rule | Analysis & Example (1️⃣2️⃣3️⃣...5️⃣) |
 |----|------------------------------|--------------|-----------------------------------|
 | 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
-🔹 Grammar List 詳細規範：
-1. **選句標準**：從文稿中精選 6 個**最具教學價值**的句子
-2. **解析深度**：每句必須提供完整詳細的解析內容
+🔹 Grammar List：從文稿中精選 6 個**最具教學價值**的句子
+   嚴格遵守符號化格式＋嚴格提供詳細規範如下：
    例箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
 1️⃣[分段解析+語法標籤]： 1st clause：”Fine speech" is not becoming to a fool
                     2nd clause：still less is "false speech" to a prince
    語法標籤必須標註出Grammar labels (must be identified):
-   主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語...等等
+   主語 (Subject)、動詞 (Verb)、補語 (Complement) 或 修飾語。
 * 主語 (Subject): Fine speech（Elegant words優美的言辭/Refined talk高雅的談吐）...等等
-* 動詞 (Verb): is (Linking verb/Copula 系動詞)...等等
+* 動詞 (Verb): is (Linking verb/Copula 系動詞)。
 * 形容詞Adjective/Complement補語 (Complement): becoming(Adjective meaning「fitting相稱的」or「appropriate得體的」..等等
-* 介系詞短語(Prepositional Phrase): to a fool。(Specifies the inappropriate recipient)...等等
-2️⃣詞性辨析Part-of-Speech Distinction：
+* 介系詞短語(Prepositional Phrase): to a fool。(Specifies the inappropriate recipient).
+2️⃣詞性辨析Part-of-Speech Distinction： 若單字有歧義（例如 becoming 是動詞還是形容詞）...等等
 If a word has potential ambiguity (for example, becoming can be a verb or an adjective), 
-its part of speech and meaning in this sentence must be clearly identified....etc.
+its part of speech and meaning in this sentence must be clearly identified...等等
 * becoming
     * Possible forms:
         * Verb (to become)
@@ -1475,9 +1474,8 @@ its part of speech and meaning in this sentence must be clearly identified....et
     * In this sentence: adjective
     * Meaning here: appropriate, fitting, proper
 
-3️⃣修辭與結構Rhetoric and Structure： Identify and explain specific grammatical phenomena, 
-   such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
-4️⃣語意解釋： This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
+3️⃣修辭與結構Rhetoric and Structure：Identify and explain specific grammatical phenomena, such as:如 倒裝 (Inversion)、省略 (Ellipsis)  或遞進邏輯 (Still less / A fortiori)。
+4️⃣語意解釋：This grammatical structure strengthens the verse’s logic by contrasting inner character with outer speech.
   請以 **Markdown 表格格式**輸出（非 JSON）.
 
 待分析文稿：{raw_text}"""
