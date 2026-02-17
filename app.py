@@ -1607,7 +1607,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
 | No | Word/Phrase| Chinese | Synonym+中文對照 | Antonym＋中文對照 | 全句聖經中英對照例句 |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
-⭐️No：請從文稿前5行找到經卷＋經節資料填入欄位
+⭐️No：請從文稿前5行找到經卷＋經節填入欄位
 
 【P Sheet - 文稿段落】
 | Paragraph | English Refinement | 中英夾雜講章 |
