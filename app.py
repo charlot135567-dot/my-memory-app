@@ -185,8 +185,6 @@ with tabs[0]:
         st.session_state.tab1_verse_index = 0
     if "tab1_last_update" not in st.session_state:
         st.session_state.tab1_last_update = dt.datetime.now()
-    if "tab1_initialized" not in st.session_state:
-        st.session_state.tab1_initialized = True
 
     # 檢查是否需要更新（超過1小時）
     current_time = dt.datetime.now()
@@ -253,8 +251,8 @@ with tabs[0]:
                         'total_in_file': len(v1_rows)
                     })
             
-            # 模式B：有W Sheet → 用於片語
-            if w_rows:
+            # 模式B：有W Sheet → 用於片語（修正：只要有W Sheet就加入）
+            if w_rows and len(w_rows) > 0:
                 all_mode_b.append({
                     'ref': ref,
                     'w': w_rows,
@@ -319,8 +317,6 @@ with tabs[0]:
                             if len(parts) >= 2:
                                 v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
                                 v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
-                            else:
-                                v1_syn_list = [p.strip() for p in v1_syn_ant.split(',') if p.strip()]
                     
                     # V2 Syn/Ant (韓文) + THSV11 (泰文)
                     v2_syn_ant = v2_row.get('Syn/Ant', '') if v2_row else ''
@@ -344,33 +340,41 @@ with tabs[0]:
         w_phrases = []
         current_phrase_ref = "N/A"
         
-        if all_mode_b:
-            total_phrase_items = sum(f['w_count'] for f in all_mode_b)
-            if total_phrase_items > 0:
-                phrase_counter = st.session_state.tab1_phrase_index % max(1, total_phrase_items - 15)
-                # 找到對應的檔案和行（從第16個開始）
-                start_counter = 15 + phrase_counter
+        # 修正：確保有模式B資料才處理
+        if all_mode_b and len(all_mode_b) > 0:
+            # 計算總片語數量（從第16個開始算）
+            total_phrase_available = sum(max(0, f['w_count'] - 15) for f in all_mode_b)
+            
+            if total_phrase_available > 0:
+                # 輪流索引
+                phrase_counter = st.session_state.tab1_phrase_index % total_phrase_available
+                
+                # 找到對應的檔案和起始位置
                 cumulative = 0
                 phrase_file = None
-                w_start = 0
+                w_start = 15  # 從第16個開始（索引15）
                 
                 for f in all_mode_b:
-                    if cumulative + f['w_count'] > start_counter:
+                    available_in_file = max(0, f['w_count'] - 15)
+                    if available_in_file > 0 and cumulative + available_in_file > phrase_counter:
                         phrase_file = f
-                        w_start = start_counter - cumulative
+                        w_start = 15 + (phrase_counter - cumulative)
                         break
-                    cumulative += f['w_count']
+                    cumulative += available_in_file
                 
                 if phrase_file:
                     w_rows = phrase_file['w']
                     w_total = len(w_rows)
                     current_phrase_ref = phrase_file['ref']
                     
+                    # 確保索引在範圍內
                     w_start = w_start % w_total
                     
+                    # 取4個片語
                     for i in range(4):
                         idx = (w_start + i) % w_total
-                        w_phrases.append(w_rows[idx])
+                        if idx < w_total:
+                            w_phrases.append(w_rows[idx])
         
         # ============================================================
         # 3) 金句：從模式A的V1 Sheet輪流
@@ -449,13 +453,14 @@ with tabs[0]:
                 if g_cn:
                     all_grammar.append(g_cn)
                 
-                # Syn/Ant 同一行顯示
+                # Syn/Ant 同一行顯示（修正：確保Syn和Ant都顯示）
                 if g_syn:
                     syn_ant_html = ""
                     # 解析 Syn 和 Ant
                     syn_text = ""
                     ant_text = ""
                     
+                    # 嘗試多種格式解析
                     if 'Syn:' in g_syn or 'Ant:' in g_syn:
                         syn_match = re.search(r'Syn:\s*([^/;]+?)(?=\s*Ant:|$)', g_syn)
                         ant_match = re.search(r'Ant:\s*([^/;]+)', g_syn)
@@ -464,17 +469,21 @@ with tabs[0]:
                         if ant_match:
                             ant_text = ant_match.group(1).strip()
                     else:
-                        parts = g_syn.split('/')
+                        # 嘗試用 / 或 | 分隔
+                        parts = re.split(r'[/|]', g_syn)
                         if len(parts) >= 2:
                             syn_text = parts[0].strip()
                             ant_text = parts[1].strip()
+                        else:
+                            syn_text = g_syn.strip()
                     
+                    # 組合顯示
                     if syn_text:
-                        syn_ant_html += f'<span style="color:#2E8B57;">✨Syn:</span>{syn_text}'
+                        syn_ant_html += f'<span style="color:#2E8B57;">✨Syn:{syn_text}</span>'
                     if ant_text:
                         if syn_text:
                             syn_ant_html += ' '
-                        syn_ant_html += f'<span style="color:#CD5C5C;">❄️Ant:</span>{ant_text}'
+                        syn_ant_html += f'<span style="color:#CD5C5C;">❄️Ant:{ant_text}</span>'
                     
                     if syn_ant_html:
                         all_grammar.append(syn_ant_html)
@@ -482,74 +491,28 @@ with tabs[0]:
                 # Grammar解析（縮排對齊）
                 if g_grammar:
                     lines = []
-                    # 分割各個標記點
                     text = str(g_grammar)
-                    # 使用正則找出所有標記點
-                    pattern = r'(1️⃣\[.*?(?=2️⃣\[|3️⃣\[|4️⃣\[|$))(2️⃣\[.*?(?=3️⃣\[|4️⃣\[|$))?(3️⃣\[.*?(?=4️⃣\[|$))?(4️⃣\[.*?$)?'
-                    match = re.search(pattern, text, re.DOTALL)
-                    
-                    if match:
-                        for i, group in enumerate(match.groups(), 1):
-                            if group:
-                                # 清理標記
-                                clean = group.strip()
-                                clean = re.sub(r'^(\d️⃣)\[', r'\1', clean)  # 移除 [ 
-                                clean = re.sub(r'\]$', '', clean)  # 移除 ]
-                                
-                                # 處理內部換行縮排
-                                parts = clean.split('\n')
-                                if len(parts) > 1:
-                                    first = parts[0]
-                                    rest = '<br>'.join('       ' + p.strip() if p.strip() else '' for p in parts[1:])
-                                    clean = first + '<br>' + rest
-                                
-                                lines.append(clean)
-                    else:
-                        # 備用處理
-                        text = text.replace('1️⃣[', '1️⃣')
-                        text = text.replace('2️⃣[', '<br>2️⃣')
-                        text = text.replace('3️⃣[', '<br>3️⃣')
-                        text = text.replace('4️⃣[', '<br>4️⃣')
-                        text = text.replace(']', '')
-                        lines = [text]
-                    
-                    all_grammar.append('<br>'.join(lines))
+                    # 處理 1️⃣2️⃣3️⃣4️⃣ 標記
+                    text = text.replace('1️⃣[', '1️⃣[')
+                    text = text.replace('2️⃣[', '<br>2️⃣[')
+                    text = text.replace('3️⃣[', '<br>3️⃣[')
+                    text = text.replace('4️⃣[', '<br>4️⃣[')
+                    text = text.replace(']', ']')
+                    all_grammar.append(text)
                 
-                # V2資料：口語訳 + Grammar + Note（獨立區塊，使用1️⃣2️⃣格式）
+                # V2資料：口語訳 + Grammar + Note
                 v2_jp = v2_row.get('口語訳', '') if v2_row else ''
                 v2_grammar = v2_row.get('Grammar', '') if v2_row else ''
                 v2_note = v2_row.get('Note', '') if v2_row else ''
                 
                 if v2_jp:
                     v2_parts = ["<br>"]
-                    # V2經文標題
                     v2_ref = v2_row.get('Ref.', g_ref) if v2_row else g_ref
                     v2_parts.append(f"<b>{v2_ref}</b>{v2_jp}")
                     
-                    # V2 Grammar解析（轉換為1️⃣2️⃣格式）
                     if v2_grammar:
-                        # 嘗試解析主語/動詞等結構
-                        v2_grammar_lines = []
-                        
-                        # 簡單解析邏輯：尋找常見標記
-                        if '主語' in v2_grammar or '主詞' in v2_grammar:
-                            v2_grammar_lines.append(f'1️⃣[分段]：{v2_grammar}')
-                        elif '動詞' in v2_grammar or '語法' in v2_grammar:
-                            v2_grammar_lines.append(f'2️⃣[語法]：{v2_grammar}')
-                        else:
-                            v2_grammar_lines.append(f'1️⃣[文法]：{v2_grammar}')
-                        
-                        # Note加入作為補充
-                        if v2_note:
-                            v2_grammar_lines.append(f'3️⃣[對應]：{v2_note}')
-                        
-                        # 格式化顯示
-                        formatted_v2 = '<br>'.join(v2_grammar_lines)
-                        formatted_v2 = formatted_v2.replace('1️⃣[', '1️⃣[')
-                        formatted_v2 = formatted_v2.replace('2️⃣[', '<br>2️⃣[')
-                        formatted_v2 = formatted_v2.replace('3️⃣[', '<br>3️⃣[')
-                        v2_parts.append(formatted_v2)
-                    elif v2_note:
+                        v2_parts.append(f'<span style="color:#4682B4;">文法：</span>{v2_grammar}')
+                    if v2_note:
                         v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{v2_note}')
                     
                     all_grammar.append("<br>".join(v2_parts))
@@ -594,9 +557,10 @@ with tabs[0]:
             
             st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
-            # 片語區塊
+            # 片語區塊（修正：顯示調試資訊）
             if w_phrases:
                 for i, row in enumerate(w_phrases):
+                    # 嘗試多種可能的欄位名稱
                     p = (row.get('Word/Phrase', '') or 
                          row.get('Word/phrase', '') or 
                          row.get('words/phrases', '') or 
@@ -646,7 +610,11 @@ with tabs[0]:
                         if i < len(w_phrases) - 1:
                             st.markdown("<div style='margin:4px 0;'></div>", unsafe_allow_html=True)
             else:
-                st.caption("無片語資料（請確認有模式B資料）")
+                # 顯示調試資訊
+                st.caption(f"無片語資料（模式B={len(all_mode_b)}個）")
+                if all_mode_b:
+                    for mb in all_mode_b:
+                        st.caption(f"  - {mb['ref']}: {mb['w_count']}筆")
 
             st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
@@ -671,7 +639,7 @@ with tabs[0]:
             minutes_left = max(0, (3600 - time_diff) / 60)
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
-            st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
+            st.caption(f"資料統計: A={len(all_mode_a)}個, B={len(all_mode_b)}個, 文法={len(all_grammar_sources)}個")
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
