@@ -340,41 +340,36 @@ with tabs[0]:
         w_phrases = []
         current_phrase_ref = "N/A"
         
-        # 修正：確保有模式B資料才處理
-        if all_mode_b and len(all_mode_b) > 0:
-            # 計算總片語數量（從第16個開始算）
-            total_phrase_available = sum(max(0, f['w_count'] - 15) for f in all_mode_b)
+        # 收集所有可用的片語（從第16個開始，索引15）
+        all_available_phrases = []
+        
+        for mb in all_mode_b:
+            w_rows = mb.get('w', [])
+            w_count = len(w_rows)
             
-            if total_phrase_available > 0:
-                # 輪流索引
-                phrase_counter = st.session_state.tab1_phrase_index % total_phrase_available
-                
-                # 找到對應的檔案和起始位置
-                cumulative = 0
-                phrase_file = None
-                w_start = 15  # 從第16個開始（索引15）
-                
-                for f in all_mode_b:
-                    available_in_file = max(0, f['w_count'] - 15)
-                    if available_in_file > 0 and cumulative + available_in_file > phrase_counter:
-                        phrase_file = f
-                        w_start = 15 + (phrase_counter - cumulative)
-                        break
-                    cumulative += available_in_file
-                
-                if phrase_file:
-                    w_rows = phrase_file['w']
-                    w_total = len(w_rows)
-                    current_phrase_ref = phrase_file['ref']
-                    
-                    # 確保索引在範圍內
-                    w_start = w_start % w_total
-                    
-                    # 取4個片語
-                    for i in range(4):
-                        idx = (w_start + i) % w_total
-                        if idx < w_total:
-                            w_phrases.append(w_rows[idx])
+            # 只有超過15筆的檔案才加入
+            if w_count > 15:
+                for idx in range(15, w_count):
+                    all_available_phrases.append({
+                        'data': w_rows[idx],
+                        'ref': mb['ref'],
+                        'original_idx': idx + 1  # 1-based for display
+                    })
+        
+        # 輪流顯示4個片語
+        if len(all_available_phrases) > 0:
+            total_available = len(all_available_phrases)
+            # 確保索引在範圍內
+            start_idx = st.session_state.tab1_phrase_index % total_available
+            
+            # 取4個片語（循環）
+            for i in range(4):
+                idx = (start_idx + i) % total_available
+                item = all_available_phrases[idx]
+                w_phrases.append(item['data'])
+                # 記錄第一個的ref作為顯示用
+                if i == 0:
+                    current_phrase_ref = f"{item['ref']} #{item['original_idx']}"
         
         # ============================================================
         # 3) 金句：從模式A的V1 Sheet輪流
