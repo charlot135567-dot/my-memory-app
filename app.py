@@ -1087,36 +1087,6 @@ with tabs[3]:
     # 常數定義（避免魔法字串）
     NOTION_API_VERSION = "2022-06-28"
     NOTION_BASE_URL = "https://api.notion.com/v1"
-    # ---------- Session State 初始化 ----------
-    if 'sentences' not in st.session_state:
-        st.session_state.sentences = load_sentences()
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = []
-    if 'is_prompt_generated' not in st.session_state:
-        st.session_state.is_prompt_generated = False
-    if 'main_input_value' not in st.session_state:
-        st.session_state.main_input_value = ""
-    if 'original_text' not in st.session_state:
-        st.session_state.original_text = ""
-    if 'content_mode' not in st.session_state:
-        st.session_state.content_mode = ""
-    if 'raw_input_value' not in st.session_state:
-        st.session_state.raw_input_value = ""
-    if 'ref_number' not in st.session_state:
-        st.session_state.ref_number = ""
-    if 'current_entry' not in st.session_state:
-        st.session_state.current_entry = {
-            'v1': '', 'v2': '', 'w_sheet': '', 
-            'p_sheet': '', 'grammar_list': '', 'other': ''
-        }
-    if 'saved_entries' not in st.session_state:
-        st.session_state.saved_entries = []
-    # 🆕 新增：編輯模式相關
-    if 'edit_mode' not in st.session_state:
-        st.session_state.edit_mode = False
-    if 'edit_ref' not in st.session_state:
-        st.session_state.edit_ref = None
-        
     # ═══════════════════════════════════════════════════════════════
     # ---------- 背景圖片套用 ----------
     try:
@@ -1314,8 +1284,12 @@ with tabs[3]:
     def save_sentences(data):
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-
+    def save_sentences(data):
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    # ═══════════════════════════════════════════════════════════════
     # ---------- Session State 初始化 ----------
+    # ═══════════════════════════════════════════════════════════════
     if 'sentences' not in st.session_state:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
@@ -1339,7 +1313,12 @@ with tabs[3]:
         }
     if 'saved_entries' not in st.session_state:
         st.session_state.saved_entries = []
-
+    # 🆕 新增：編輯模式相關
+    if 'edit_mode' not in st.session_state:
+        st.session_state.edit_mode = False
+    if 'edit_ref' not in st.session_state:
+        st.session_state.edit_ref = None
+    # ═══════════════════════════════════════════════════════════════
     # 顯示連線狀態（Sidebar）
     with st.sidebar:
         st.divider()
@@ -1513,31 +1492,6 @@ with tabs[3]:
     def save_sentences(data):
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-
-    # ---------- 初始化所有 session_state ----------
-    if 'sentences' not in st.session_state:
-        st.session_state.sentences = load_sentences()
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = []
-    if 'is_prompt_generated' not in st.session_state:
-        st.session_state.is_prompt_generated = False
-    if 'main_input_value' not in st.session_state:
-        st.session_state.main_input_value = ""
-    if 'original_text' not in st.session_state:
-        st.session_state.original_text = ""
-    if 'content_mode' not in st.session_state:
-        st.session_state.content_mode = ""
-    if 'raw_input_value' not in st.session_state:
-        st.session_state.raw_input_value = ""
-    if 'ref_number' not in st.session_state:
-        st.session_state.ref_number = ""
-    if 'current_entry' not in st.session_state:
-        st.session_state.current_entry = {
-            'v1': '', 'v2': '', 'w_sheet': '', 
-            'p_sheet': '', 'grammar_list': '', 'other': ''
-        }
-    if 'saved_entries' not in st.session_state:
-        st.session_state.saved_entries = []
 
     # 1. 智能偵測內容類型
     def detect_content_mode(text):
