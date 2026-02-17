@@ -1589,10 +1589,10 @@ its part of speech and meaning in this sentence must be clearly identified...等
             full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授.
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
-一定要取足"高級/中高級單字15個/片語15個"！！！！！！！！！
+一定要取足"高級/中高級單字15個＋片語15個"！！！！！！！！！
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
- 【W Sheet - 重點要求：取高級/中高級單字15個/片語15個】
+ 【W Sheet - 重點要求：取高級/中高級單字15個＋片語15個】
 | No | Word/Phrase| Chinese | Synonym+中文對照 | Antonym＋中文對照 | 全句聖經中英對照例句 |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
