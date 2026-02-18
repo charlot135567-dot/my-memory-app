@@ -1056,7 +1056,8 @@ with tabs[2]:
     import csv
     from io import StringIO
     import random
-    
+    import re  # 確保 re 模組已匯入以處理單字提取
+
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
@@ -1082,6 +1083,25 @@ with tabs[2]:
         
         random.seed(st.session_state.tab3_quiz_seed)
         
+        # --- 內部解析函數：相容 Markdown 與 CSV ---
+        def parse_v1_content(content):
+            content = content.strip()
+            if not content: return []
+            if content.startswith('|'):
+                lines = [l.strip() for l in content.split('\n') if l.strip()]
+                if len(lines) < 3: return []
+                headers = [h.strip() for h in lines[0].split('|') if h.strip()]
+                data_rows = []
+                for l in lines[2:]:
+                    cols = [c.strip() for c in l.split('|') if c.strip()]
+                    if len(cols) == len(headers):
+                        data_rows.append(dict(zip(headers, cols)))
+                return data_rows
+            else:
+                f = StringIO(content)
+                reader = csv.DictReader(f)
+                return list(reader)
+
         # 收集所有經文資料
         all_verses = []
         for ref in weighted_pool[:10]:  # 取前10筆資料
@@ -1089,15 +1109,14 @@ with tabs[2]:
             v1_content = data.get('v1_content', '')
             if v1_content:
                 try:
-                    lines = v1_content.strip().split('\n')
-                    if lines:
-                        reader = csv.DictReader(lines)
-                        for row in reader:
-                            all_verses.append({
-                                'ref': row.get('Ref.', ''),
-                                'english': row.get('English (ESV)', ''),
-                                'chinese': row.get('Chinese', '')
-                            })
+                    rows = parse_v1_content(v1_content)
+                    for row in rows:
+                        all_verses.append({
+                            'ref': row.get('Ref.', ''),
+                            'english': row.get('English (ESV)', ''),
+                            'chinese': row.get('Chinese', ''),
+                            'syn_ant': row.get('Syn/Ant', '')
+                        })
                 except:
                     pass
         
@@ -1113,50 +1132,40 @@ with tabs[2]:
         
         # ===== 題目 1-3：中翻英 =====
         for i, q in enumerate(zh_to_en, 1):
-            st.markdown(f"**{i}.** {q['chinese'][:60]}")
+            st.markdown(f'<p style="margin-bottom:0px; font-weight:bold;">{i}. {q["chinese"][:60]}</p>', unsafe_allow_html=True)
             st.text_input("", key=f"quiz_zh_en_{i}", placeholder="請翻譯成英文...", label_visibility="collapsed")
-            st.write("")
+            st.markdown('<div style="margin-top:-15px;"></div>', unsafe_allow_html=True) # 強制縮小間距
         
         # ===== 題目 4-6：英翻中 =====
         for i, q in enumerate(en_to_zh, 4):
-            st.markdown(f"**{i}.** {q['english'][:100]}")
+            st.markdown(f'<p style="margin-bottom:0px; font-weight:bold;">{i}. {q["english"][:100]}</p>', unsafe_allow_html=True)
             st.text_input("", key=f"quiz_en_zh_{i}", placeholder="請翻譯成中文...", label_visibility="collapsed")
-            st.write("")
+            st.markdown('<div style="margin-top:-15px;"></div>', unsafe_allow_html=True)
         
         # ===== 單字題（3題）=====
-        # 從 Syn/Ant 提取單字
         word_pool = []
-        for ref in weighted_pool[:5]:
-            data = sentences[ref]
-            v1_content = data.get('v1_content', '')
-            if v1_content:
-                try:
-                    lines = v1_content.strip().split('\n')
-                    if lines:
-                        reader = csv.DictReader(lines)
-                        for row in reader:
-                            syn_ant = row.get('Syn/Ant', '')
-                            if '/' in syn_ant:
-                                parts = syn_ant.split('/')
-                                for p in parts:
-                                    match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
-                                    if match:
-                                        word_pool.append({
-                                            'en': match.group(1).strip(),
-                                            'cn': match.group(2).strip()
-                                        })
-                except:
-                    pass
+        for v in all_verses: # 使用已解析的 all_verses 提取單字
+            syn_ant = v.get('syn_ant', '')
+            if '/' in syn_ant:
+                parts = syn_ant.split('/')
+                for p in parts:
+                    match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
+                    if match:
+                        word_pool.append({
+                            'en': match.group(1).strip(),
+                            'cn': match.group(2).strip()
+                        })
         
         random.shuffle(word_pool)
         selected_words = word_pool[:3] if len(word_pool) >= 3 else word_pool
         
         for i, w in enumerate(selected_words, 7):
-            st.markdown(f"**{i}.** {w['cn']}（請寫出英文）")
+            st.markdown(f'<p style="margin-bottom:0px; font-weight:bold;">{i}. {w["cn"]}（請寫出英文）</p>', unsafe_allow_html=True)
             st.text_input("", key=f"quiz_word_{i}", placeholder="English word...", label_visibility="collapsed")
-            st.write("")
+            st.markdown('<div style="margin-top:-15px;"></div>', unsafe_allow_html=True)
         
-        # ===== 翻看答案按 =====
+        # ===== 翻看答案按鈕 =====
+        st.write("") # 留一點與按鈕的距離
         col_btn, col_answer = st.columns([1, 3])
         with col_btn:
             if st.button("👁️ 翻看正確答案", use_container_width=True, type="primary"):
@@ -1185,7 +1194,6 @@ with tabs[2]:
                     st.session_state.tab3_quiz_seed = random.randint(1, 1000)
                     st.session_state.tab3_show_answers = False
                     st.rerun()
-            
 # ===================================================================
 # 6. TAB4 ─ AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
