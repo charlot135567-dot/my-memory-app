@@ -429,7 +429,7 @@ with tabs[0]:
                     current_phrase_ref = f"{item['ref']} #{item['original_idx']}"
         
         # ============================================================
-        # 3) 金句：從模式A的V1 Sheet輪流
+        # 3) 金句：從模式A的V1 Sheet輪流（與單字錯開6句）
         # ============================================================
         verse_lines = []
         current_verse_ref = "N/A"
@@ -437,7 +437,8 @@ with tabs[0]:
         if all_mode_a:
             total_verse_items = sum(f['v1_count'] for f in all_mode_a)
             if total_verse_items > 0:
-                verse_counter = st.session_state.tab1_verse_index % total_verse_items
+                # 關鍵修改：金句索引 = 當前索引 + 6，與單字錯開
+                verse_counter = (st.session_state.tab1_verse_index + 6) % total_verse_items
                 cumulative = 0
                 verse_file = None
                 row_idx = 0
@@ -460,17 +461,6 @@ with tabs[0]:
                     jp_text = v2_verse.get('口語訳', '') if v2_verse else ''
                     kr_text = v2_verse.get('KRF', '') if v2_verse else ''
                     th_text = v2_verse.get('THSV11', '') if v2_verse else ''
-                    
-                    if en_text:
-                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
-                    if cn_text:
-                        verse_lines.append(f"🇨🇳 {cn_text}")
-                    if jp_text:
-                        verse_lines.append(f"🇯🇵 {jp_text}")
-                    if kr_text:
-                        verse_lines.append(f"🇰🇷 {kr_text}")
-                    if th_text:
-                        verse_lines.append(f"🇹🇭 {th_text}")
         
         # ============================================================
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
