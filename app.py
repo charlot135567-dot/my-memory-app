@@ -1058,14 +1058,20 @@ with tabs[2]:
     import random
     import re  # 確保 re 模組已匯入以處理單字提取
 
-    # 隱藏 Streamlit 元件預設的過大間距 (注入 CSS)
+# 隱藏 Streamlit 元件預設的過大間距 (修正版：直接針對容器與元素)
     st.markdown("""
         <style>
-            [data-testid="stVerticalBlock"] > div {
-                gap: 0rem;
+            /* 1. 移除垂直區塊之間的預設間隙 */
+            [data-testid="stVerticalBlock"] {
+                gap: 0px !important;
             }
-            .stTextInput {
+            /* 2. 強制縮小 text_input 容器的上下邊距 */
+            div[data-testid="stTextInput"] {
                 margin-top: -15px !important;
+                margin-bottom: -10px !important;
+            }
+            /* 3. 移除 Markdown 段落預設的下邊距 */
+            .stMarkdown p {
                 margin-bottom: 0px !important;
             }
         </style>
