@@ -1058,6 +1058,19 @@ with tabs[2]:
     import random
     import re  # 確保 re 模組已匯入以處理單字提取
 
+    # 隱藏 Streamlit 元件預設的過大間距 (注入 CSS)
+    st.markdown("""
+        <style>
+            [data-testid="stVerticalBlock"] > div {
+                gap: 0rem;
+            }
+            .stTextInput {
+                margin-top: -15px !important;
+                margin-bottom: 0px !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
