@@ -456,12 +456,21 @@ with tabs[0]:
                     
                     current_verse_ref = v1_verse.get('Ref.', verse_file['ref'])
                     
+                # 建議改寫抓取方式，增加相容性
                     en_text = v1_verse.get('English (ESV)', '')
                     cn_text = v1_verse.get('Chinese', '')
-                    jp_text = v2_verse.get('口語訳', '') if v2_verse else ''
+                    # 嘗試抓取不同可能的標籤名稱
+                    jp_text = v2_verse.get('口語訳 (1955)', v2_verse.get('口語訳', '')) if v2_verse else ''
                     kr_text = v2_verse.get('KRF', '') if v2_verse else ''
-                    th_text = v2_verse.get('THSV11', '') if v2_verse else ''
-        
+                    th_text = v2_verse.get('THSV11 (Key Phrases)', v2_verse.get('THSV11', '')) if v2_verse else ''
+
+                    # 您的填充邏輯 (正確)
+                    verse_lines = []
+                    if en_text: verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+                    if jp_text: verse_lines.append(f"🇯🇵 {jp_text}")
+                    if kr_text: verse_lines.append(f"🇰🇷 {kr_text}")
+                    if th_text: verse_lines.append(f"🇹🇭 {th_text}")
+                    if cn_text: verse_lines.append(f"🇨🇳 {cn_text}")       
         # ============================================================
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
         # ============================================================
