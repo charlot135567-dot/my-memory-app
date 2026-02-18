@@ -634,8 +634,8 @@ with tabs[0]:
                 
                 all_grammar = html_parts
                 
-             if all_grammar:
-                 grammar_html = "<br>".join(all_grammar)        
+            if all_grammar:
+                grammar_html = "<br>".join(all_grammar)        
         # ============================================================
         # 渲染畫面
         # ============================================================
