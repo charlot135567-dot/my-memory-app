@@ -1048,17 +1048,6 @@ with tabs[1]:
                     st.rerun()
 
     st.caption(f"收藏: {len(st.session_state.favorite_sentences)}/8")
-    
-# ===================================================================
-# 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
-# ===================================================================
-with tabs[2]:
-    import csv
-    from io import StringIO
-    import random
-    import re  # 確保 re 模組已匯入以處理單字提取
-
-with tabs[2]:
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
@@ -1069,50 +1058,33 @@ with tabs[2]:
     import random
     import re  # 確保 re 模組已匯入以處理單字提取
 
-    # 隱藏 Streamlit 元件預設的過大間距 (修正縮排版)
+    # 強力壓縮版 CSS 注入
     st.markdown(
         """
         <style>
-            /* 1. 移除垂直區塊間隙 */
-            [data-testid="stVerticalBlock"] > div {
+            [data-testid="stVerticalBlock"] {
                 gap: 0px !important;
+                padding-top: 0rem !important;
             }
 
-            /* 2. 微調輸入框位置：使用 -8px 避免重疊 */
             div[data-testid="stTextInput"] {
-                margin-top: -8px !important;
-                margin-bottom: 2px !important;
+                margin-top: -10px !important;
+                margin-bottom: -5px !important;
             }
 
-            /* 3. 移除題目文字下方的空白 */
             .stMarkdown p {
-                margin-bottom: 0px !important;
+                margin: 0px !important;
+                padding: 0px !important;
                 line-height: 1.2 !important;
             }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
-    st.markdown(
-        """
-        <style>
-            /* 3. 確保題目文字下方沒有額外空白 */
-            .stMarkdown p {
+            .stExpander {
+                margin-top: -10px !important;
                 margin-bottom: 0px !important;
-                line-height: 1.2 !important;
             }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
-    st.markdown(
-        """
-        <style>
-            /* 3. 移除 Markdown 段落預設的下邊距 */
-            .stMarkdown p {
-                margin-bottom: 0px !important;
+            div.stButton {
+                margin-top: 2px !important;
             }
         </style>
         """,
