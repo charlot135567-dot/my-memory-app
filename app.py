@@ -571,27 +571,38 @@ with tabs[0]:
                     
             else:
                 # 模式B文法（來自Grammar List）
-                # 嘗試多種可能的欄位名稱（Markdown表格的欄位名稱可能包含特殊符號）
                 orig = (g_row.get('Original Sentence (from text)', '') or 
                         g_row.get('Original Sentence', ''))
                 rule = g_row.get('Grammar Rule', '')
-                
-                # Analysis欄位名稱可能包含 1️⃣2️⃣3️⃣4️⃣ 表情符號
                 analysis = (g_row.get('Analysis & Example (1️⃣2️⃣3️⃣4️⃣)', '') or
                            g_row.get('Analysis & Example', '') or
                            g_row.get('Analysis', ''))
                 
+                parts = []
+                
+                # 經文直接顯示，不加圖示
                 if orig:
-                    all_grammar.append(f"📝 <b>{orig}</b>")
-                if rule:
-                    all_grammar.append(f"📌 {rule}")
+                    parts.append(f"<b>{orig}</b>")
+                
+                # 規則和解析緊密排列
                 if analysis:
-                    af = str(analysis)
-                    af = af.replace('1️⃣', '<br>1️⃣')
-                    af = af.replace('2️⃣', '<br>2️⃣')
-                    af = af.replace('3️⃣', '<br>3️⃣')
-                    af = af.replace('4️⃣', '<br>4️⃣')
-                    all_grammar.append(af)
+                    af = str(analysis).strip()
+                    
+                    # 在1️⃣前插入規則，用 <br> 分隔
+                    if rule:
+                        af = f"📌 {rule}<br>" + af
+                    
+                    # 壓縮 1️⃣2️⃣3️⃣4️⃣ 之間的距離
+                    af = af.replace('1️⃣', '1️⃣')
+                    af = af.replace('2️⃣', '<div style="margin-top:2px;">2️⃣')
+                    af = af.replace('3️⃣', '<div style="margin-top:2px;">3️⃣')
+                    af = af.replace('4️⃣', '<div style="margin-top:2px;">4️⃣')
+                    # 結尾補上</div>
+                    af = af + '</div>' * af.count('<div style="margin-top:2px;">')
+                    
+                    parts.append(af)
+                
+                all_grammar = parts
             
             if all_grammar:
                 grammar_html = "<br>".join(all_grammar)
