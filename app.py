@@ -632,7 +632,7 @@ with tabs[0]:
                     
                     html_parts.append(af)
                 
-                all_grammar = html_parts)
+                all_grammar = html_parts
                 
              if all_grammar:
                  grammar_html = "<br>".join(all_grammar)        
