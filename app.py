@@ -1058,49 +1058,60 @@ with tabs[2]:
     import random
     import re  # 確保 re 模組已匯入以處理單字提取
 
-# 隱藏 Streamlit 元件預設的過大間距 (修正縮排版)
-st.markdown(
-    """
-    <style>
-        /* 1. 移除垂直區塊間隙 */
-        [data-testid="stVerticalBlock"] > div {
-            gap: 0px !important;
-        }
+    # 隱藏 Streamlit 元件預設的過大間距 (修正縮排版)
+    st.markdown(
+        """
+        <style>
+            /* 1. 移除垂直區塊間隙 */
+            [data-testid="stVerticalBlock"] > div {
+                gap: 0px !important;
+            }
 
-        /* 2. 微調輸入框位置：使用 -8px 避免重疊 */
-        div[data-testid="stTextInput"] {
-            margin-top: -8px !important;
-            margin-bottom: 2px !important;
-        }
+            /* 2. 微調輸入框位置：使用 -8px 避免重疊 */
+            div[data-testid="stTextInput"] {
+                margin-top: -8px !important;
+                margin-bottom: 2px !important;
+            }
 
-        /* 3. 移除題目文字下方的空白 */
-        .stMarkdown p {
-            margin-bottom: 0px !important;
-            line-height: 1.2 !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-    
+            /* 3. 移除題目文字下方的空白 */
+            .stMarkdown p {
+                margin-bottom: 0px !important;
+                line-height: 1.2 !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <style>
             /* 3. 確保題目文字下方沒有額外空白 */
             .stMarkdown p {
                 margin-bottom: 0px !important;
                 line-height: 1.2 !important;
             }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <style>
             /* 3. 移除 Markdown 段落預設的下邊距 */
             .stMarkdown p {
                 margin-bottom: 0px !important;
             }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
-    
+
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
