@@ -1058,67 +1058,75 @@ with tabs[2]:
     import random
     import re  # 確保 re 模組已匯入以處理單字提取
 
-# 強力壓縮版 CSS 注入
-st.markdown(
-    """
-    <style>
-        /* 1. 移除 Tab 頂部與垂直塊的所有間隙 */
-        [data-testid="stVerticalBlock"] {
-            gap: 0px !important;
-            padding-top: 0rem !important;
-        }
+with tabs[2]:
 
-        /* 2. 微調輸入框位置與高度，減少與下一題的距離 */
-        div[data-testid="stTextInput"] {
-            margin-top: -10px !important;
-            margin-bottom: -5px !important;
-        }
+    # 強力壓縮版 CSS 注入
+    st.markdown(
+        """
+        <style>
+            /* 1. 移除 Tab 頂部與垂直塊的所有間隙 */
+            [data-testid="stVerticalBlock"] {
+                gap: 0px !important;
+                padding-top: 0rem !important;
+            }
 
-        /* 3. 移除題目文字的上下邊距 */
-        .stMarkdown p {
-            margin: 0px !important;
-            padding: 0px !important;
-            line-height: 1.2 !important;
-        }
+            /* 2. 微調輸入框位置與高度，減少與下一題的距離 */
+            div[data-testid="stTextInput"] {
+                margin-top: -10px !important;
+                margin-bottom: -5px !important;
+            }
 
-        /* 4. 針對「答案」區塊與展開元件進行空間壓縮 */
-        .stExpander {
-            margin-top: -10px !important;
-            margin-bottom: 0px !important;
-        }
+            /* 3. 移除題目文字的上下邊距 */
+            .stMarkdown p {
+                margin: 0px !important;
+                padding: 0px !important;
+                line-height: 1.2 !important;
+            }
 
-        /* 5. 調整按鈕與答案區之間的距離 */
-        div.stButton {
-            margin-top: 2px !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+            /* 4. 針對「答案」區塊與展開元件進行空間壓縮 */
+            .stExpander {
+                margin-top: -10px !important;
+                margin-bottom: 0px !important;
+            }
+
+            /* 5. 調整按鈕與答案區之間的距離 */
+            div.stButton {
+                margin-top: 2px !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
 
     sentences = st.session_state.get('sentences', {})
-    
+
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 儲存資料")
     else:
         # 排序資料
-        sorted_refs = sorted(sentences.keys(), 
-                           key=lambda x: sentences[x].get('date_added', ''), 
-                           reverse=True)
+        sorted_refs = sorted(
+            sentences.keys(),
+            key=lambda x: sentences[x].get('date_added', ''),
+            reverse=True
+        )
+
         total = len(sorted_refs)
-        
-        new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
-        mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
-        old_refs = sorted_refs[int(total*0.9):] if total >= 10 else []
-        
+
+        new_refs = sorted_refs[:int(total * 0.6)] if total >= 5 else sorted_refs
+        mid_refs = (
+            sorted_refs[int(total * 0.6):int(total * 0.9)]
+            if total >= 10 else []
+        )
+        old_refs = sorted_refs[int(total * 0.9):] if total >= 10 else []
+
         weighted_pool = (new_refs * 6) + (mid_refs * 3) + (old_refs * 1)
         if not weighted_pool:
             weighted_pool = sorted_refs
-        
+
         random.seed(st.session_state.tab3_quiz_seed)
         
         # --- 內部解析函數：相容 Markdown 與 CSV ---
