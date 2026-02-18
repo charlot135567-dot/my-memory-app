@@ -1060,16 +1060,23 @@ with tabs[2]:
 
 # 隱藏 Streamlit 元件預設的過大間距 (修正縮排版)
     st.markdown("""
-<style>
-    /* 1. 移除垂直區塊間隙 */
-    [data-testid="stVerticalBlock"] > div {
-        gap: 0px !important;
-    }
-    /* 2. 微調輸入框位置：使用 -8px 避免重疊 */
-    div[data-testid="stTextInput"] {
-        margin-top: -8px !important;
-        margin-bottom: 2px !important;
-    }
+        <style>
+            /* 1. 移除垂直區塊間隙 */
+            [data-testid="stVerticalBlock"] > div {
+              gap: 0px !important;
+            }
+            /* 2. 微調輸入框位置：使用 -8px 避免重疊 */
+            div[data-testid="stTextInput"] {
+              margin-top: -8px !important;
+              margin-bottom: 2px !important;
+            }
+            /* 3. 移除題目文字下方的空白 */
+            .stMarkdown p {
+              margin-bottom: 0px !important;
+              line-height: 1.2 !important;
+            }
+</style>
+""", unsafe_allow_html=True)
     /* 3. 移除題目文字下方的空白 */
     .stMarkdown p {
         margin-bottom: 0px !important;
