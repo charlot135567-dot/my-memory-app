@@ -568,31 +568,48 @@ with tabs[0]:
                            g_row.get('Analysis & Example', '') or
                            g_row.get('Analysis', ''))
                 
-                parts = []
+                html_parts = []
                 
-                # 經文直接顯示，不加圖示
+                # 1) 經文：藍色字體，加大
                 if orig:
-                    parts.append(f"<b>{orig}</b>")
+                    html_parts.append(
+                        f'<div style="margin-bottom:2px; color:#4A90E2; font-size:15px; font-weight:bold;">'
+                        f'{orig}</div>'
+                    )
                 
-                # 規則和解析緊密排列
+                # 2) 規則+解析
                 if analysis:
                     af = str(analysis).strip()
                     
-                    # 在1️⃣前插入規則，用 <br> 分隔
                     if rule:
-                        af = f"📌 {rule}<br>" + af
+                        af = af.replace('1️⃣', f'📌 {rule}<br>1️⃣', 1)
                     
-                    # 壓縮 1️⃣2️⃣3️⃣4️⃣ 之間的距離
-                    af = af.replace('1️⃣', '1️⃣')
-                    af = af.replace('2️⃣', '<div style="margin-top:2px;">2️⃣')
-                    af = af.replace('3️⃣', '<div style="margin-top:2px;">3️⃣')
-                    af = af.replace('4️⃣', '<div style="margin-top:2px;">4️⃣')
-                    # 結尾補上</div>
-                    af = af + '</div>' * af.count('<div style="margin-top:2px;">')
+                    # 3) 1-4標題呈綠色：替換標題部分
+                    af = af.replace(
+                        '1️⃣**[分段解析+語法標籤]**：',
+                        '<div style="margin-top:2px; line-height:1.2;">'
+                        '<span style="color:#2E8B57; font-weight:bold;">1️⃣[分段解析+語法標籤]：</span>'
+                    )
+                    af = af.replace(
+                        '2️⃣**[詞性辨析]**：',
+                        '</div><div style="margin-top:2px; line-height:1.2;">'
+                        '<span style="color:#2E8B57; font-weight:bold;">2️⃣[詞性辨析]：</span>'
+                    )
+                    af = af.replace(
+                        '3️⃣**[修辭與結構]**：',
+                        '</div><div style="margin-top:2px; line-height:1.2;">'
+                        '<span style="color:#2E8B57; font-weight:bold;">3️⃣[修辭與結構]：</span>'
+                    )
+                    af = af.replace(
+                        '4️⃣**[語意解釋]**：',
+                        '</div><div style="margin-top:2px; line-height:1.2;">'
+                        '<span style="color:#2E8B57; font-weight:bold;">4️⃣[語意解釋]：</span>'
+                    )
+                    af = af + '</div>'
                     
-                    parts.append(af)
+                    html_parts.append(af)
                 
-                all_grammar = parts
+                all_grammar = html_parts
             
             if all_grammar:
                 grammar_html = "<br>".join(all_grammar)
