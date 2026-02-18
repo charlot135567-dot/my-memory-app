@@ -289,9 +289,6 @@ with tabs[0]:
             w_rows = parse_csv(w_content) or parse_markdown_table(w_content)
             g_rows = parse_csv(g_content) or parse_markdown_table(g_content)
             
-            # DEBUG輸出
-            st.write(f"DEBUG {ref}: V1={len(v1_rows)}行, V2={len(v2_rows)}行, W={len(w_rows)}行, G={len(g_rows)}行")
-            
             # 模式A：有V1資料 → 用於單字、金句
             if v1_rows:
                 all_mode_a.append({
