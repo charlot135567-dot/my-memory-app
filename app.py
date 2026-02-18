@@ -571,9 +571,15 @@ with tabs[0]:
                     
             else:
                 # 模式B文法（來自Grammar List）
-                orig = g_row.get('Original Sentence', '')
+                # 嘗試多種可能的欄位名稱（Markdown表格的欄位名稱可能包含特殊符號）
+                orig = (g_row.get('Original Sentence (from text)', '') or 
+                        g_row.get('Original Sentence', ''))
                 rule = g_row.get('Grammar Rule', '')
-                analysis = g_row.get('Analysis & Example', '')
+                
+                # Analysis欄位名稱可能包含 1️⃣2️⃣3️⃣4️⃣ 表情符號
+                analysis = (g_row.get('Analysis & Example (1️⃣2️⃣3️⃣4️⃣)', '') or
+                           g_row.get('Analysis & Example', '') or
+                           g_row.get('Analysis', ''))
                 
                 if orig:
                     all_grammar.append(f"📝 <b>{orig}</b>")
