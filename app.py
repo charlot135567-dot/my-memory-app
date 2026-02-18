@@ -1075,14 +1075,14 @@ with tabs[2]:
               margin-bottom: 0px !important;
               line-height: 1.2 !important;
             }
-</style>
+   </style>
 """, unsafe_allow_html=True)
     /* 3. 移除題目文字下方的空白 */
     .stMarkdown p {
         margin-bottom: 0px !important;
         line-height: 1.2 !important;
     }
-</style>
+   </style>
 """, unsafe_allow_html=True)
     
             /* 3. 確保題目文字下方沒有額外空白 */
