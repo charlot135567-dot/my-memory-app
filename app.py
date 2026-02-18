@@ -1056,73 +1056,47 @@ with tabs[2]:
     import csv
     from io import StringIO
     import random
-    import re  # 確保 re 模組已匯入以處理單字提取
+    import re
 
-    # 強力壓縮版 CSS 注入
-    st.markdown(
-        """
+    # 隱藏 Streamlit 元件預設的過大間距 (注入 CSS)
+    st.markdown("""
         <style>
-            [data-testid="stVerticalBlock"] {
-                gap: 0px !important;
-                padding-top: 0rem !important;
+            [data-testid="stVerticalBlock"] > div {
+                gap: 0rem;
             }
-
-            div[data-testid="stTextInput"] {
-                margin-top: -10px !important;
-                margin-bottom: -5px !important;
-            }
-
-            .stMarkdown p {
-                margin: 0px !important;
-                padding: 0px !important;
-                line-height: 1.2 !important;
-            }
-
-            .stExpander {
-                margin-top: -10px !important;
+            .stTextInput {
+                margin-top: -15px !important;
                 margin-bottom: 0px !important;
             }
-
-            div.stButton {
-                margin-top: 2px !important;
-            }
         </style>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
-
+    
     sentences = st.session_state.get('sentences', {})
-
+    
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 儲存資料")
     else:
         # 排序資料
-        sorted_refs = sorted(
-            sentences.keys(),
-            key=lambda x: sentences[x].get('date_added', ''),
-            reverse=True
-        )
-
+        sorted_refs = sorted(sentences.keys(), 
+                           key=lambda x: sentences[x].get('date_added', ''), 
+                           reverse=True)
         total = len(sorted_refs)
-
-        new_refs = sorted_refs[:int(total * 0.6)] if total >= 5 else sorted_refs
-        mid_refs = (
-            sorted_refs[int(total * 0.6):int(total * 0.9)]
-            if total >= 10 else []
-        )
-        old_refs = sorted_refs[int(total * 0.9):] if total >= 10 else []
-
+        
+        new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
+        mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
+        old_refs = sorted_refs[int(total*0.9):] if total >= 10 else []
+        
         weighted_pool = (new_refs * 6) + (mid_refs * 3) + (old_refs * 1)
         if not weighted_pool:
             weighted_pool = sorted_refs
-
+        
         random.seed(st.session_state.tab3_quiz_seed)
         
-        # --- 內部解析函數：相容 Markdown 與 CSV ---
+        # --- 雙相容解析函數 ---
         def parse_v1_content(content):
             content = content.strip()
             if not content: return []
@@ -1137,13 +1111,11 @@ with tabs[2]:
                         data_rows.append(dict(zip(headers, cols)))
                 return data_rows
             else:
-                f = StringIO(content)
-                reader = csv.DictReader(f)
-                return list(reader)
+                return list(csv.DictReader(StringIO(content)))
 
-        # 收集所有經文資料
+        # 收集經文
         all_verses = []
-        for ref in weighted_pool[:10]:  # 取前10筆資料
+        for ref in weighted_pool[:10]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
@@ -1156,55 +1128,47 @@ with tabs[2]:
                             'chinese': row.get('Chinese', ''),
                             'syn_ant': row.get('Syn/Ant', '')
                         })
-                except:
-                    pass
+                except: pass
         
-        # 隨機選6題（3題中翻英，3題英翻中）
         random.shuffle(all_verses)
         selected = all_verses[:6] if len(all_verses) >= 6 else all_verses
-        
-        # 分配題目
-        zh_to_en = selected[:3]  # 中翻英
-        en_to_zh = selected[3:6] if len(selected) > 3 else []  # 英翻中
+        zh_to_en = selected[:3]
+        en_to_zh = selected[3:6] if len(selected) > 3 else []
         
         st.subheader("📝 翻譯挑戰")
         
         # ===== 題目 1-3：中翻英 =====
         for i, q in enumerate(zh_to_en, 1):
-            st.markdown(f'<p style="margin-bottom:0px; font-weight:bold;">{i}. {q["chinese"][:60]}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="margin: 0px; font-size: 14px; font-weight: bold;">{i}. {q["chinese"][:60]}</p>', unsafe_allow_html=True)
             st.text_input("", key=f"quiz_zh_en_{i}", placeholder="請翻譯成英文...", label_visibility="collapsed")
-            st.markdown('<div style="margin-top:-15px;"></div>', unsafe_allow_html=True) # 強制縮小間距
+            st.markdown('<div style="margin-bottom: 2px;"></div>', unsafe_allow_html=True) # 調整此處控制題間距
         
         # ===== 題目 4-6：英翻中 =====
         for i, q in enumerate(en_to_zh, 4):
-            st.markdown(f'<p style="margin-bottom:0px; font-weight:bold;">{i}. {q["english"][:100]}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="margin: 0px; font-size: 14px; font-weight: bold;">{i}. {q["english"][:100]}</p>', unsafe_allow_html=True)
             st.text_input("", key=f"quiz_en_zh_{i}", placeholder="請翻譯成中文...", label_visibility="collapsed")
-            st.markdown('<div style="margin-top:-15px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-bottom: 2px;"></div>', unsafe_allow_html=True)
         
-        # ===== 單字題（3題）=====
+        # ===== 單字題 =====
         word_pool = []
-        for v in all_verses: # 使用已解析的 all_verses 提取單字
+        for v in all_verses:
             syn_ant = v.get('syn_ant', '')
             if '/' in syn_ant:
-                parts = syn_ant.split('/')
-                for p in parts:
+                for p in syn_ant.split('/'):
                     match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
                     if match:
-                        word_pool.append({
-                            'en': match.group(1).strip(),
-                            'cn': match.group(2).strip()
-                        })
+                        word_pool.append({'en': match.group(1).strip(), 'cn': match.group(2).strip()})
         
         random.shuffle(word_pool)
         selected_words = word_pool[:3] if len(word_pool) >= 3 else word_pool
         
         for i, w in enumerate(selected_words, 7):
-            st.markdown(f'<p style="margin-bottom:0px; font-weight:bold;">{i}. {w["cn"]}（請寫出英文）</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="margin: 0px; font-size: 14px; font-weight: bold;">{i}. {w["cn"]}（請寫出英文）</p>', unsafe_allow_html=True)
             st.text_input("", key=f"quiz_word_{i}", placeholder="English word...", label_visibility="collapsed")
-            st.markdown('<div style="margin-top:-15px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-bottom: 2px;"></div>', unsafe_allow_html=True)
         
-        # ===== 翻看答案按鈕 =====
-        st.write("") # 留一點與按鈕的距離
+        # ===== 翻看答案 =====
+        st.markdown('<div style="margin-top: 10px;"></div>', unsafe_allow_html=True)
         col_btn, col_answer = st.columns([1, 3])
         with col_btn:
             if st.button("👁️ 翻看正確答案", use_container_width=True, type="primary"):
@@ -1214,17 +1178,12 @@ with tabs[2]:
         with col_answer:
             if st.session_state.tab3_show_answers:
                 with st.expander("📖 正確答案", expanded=True):
-                    # 顯示中翻英答案
                     st.markdown("**中翻英：**")
                     for i, q in enumerate(zh_to_en, 1):
-                        st.caption(f"{i}. {q['english'][:100]}")
-                    
-                    # 顯示英翻中答案
+                        st.caption(f"{i}. {q['english']}")
                     st.markdown("**英翻中：**")
                     for i, q in enumerate(en_to_zh, 4):
-                        st.caption(f"{i}. {q['chinese'][:60]}")
-                    
-                    # 顯示單字答案
+                        st.caption(f"{i}. {q['chinese']}")
                     st.markdown("**單字：**")
                     for i, w in enumerate(selected_words, 7):
                         st.caption(f"{i}. {w['en']}")
