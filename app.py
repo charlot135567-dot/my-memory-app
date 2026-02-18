@@ -174,10 +174,6 @@ with tabs[0]:
     import csv, random, re, datetime as dt
     from io import StringIO
 
-    sentences = st.session_state.get('sentences', {})
-    st.write("DEBUG:", sentences.keys())  # 看有沒有資料
-    st.write("DEBUG 第一筆:", list(sentences.values())[0] if sentences else "無資料")
-
     # --- Session State 初始化（確保每次都有值）---
     if "tab1_vocab_index" not in st.session_state:
         st.session_state.tab1_vocab_index = 0
