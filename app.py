@@ -168,7 +168,7 @@ with st.sidebar:
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版 - 資料分離修正版)
+# 3. TAB1 ─ 書桌 (輪流顯示版 - 支援CSV和Markdown雙格式)
 # ===================================================================
 with tabs[0]:
     import csv, random, re, datetime as dt
@@ -182,7 +182,7 @@ with tabs[0]:
     if "tab1_vocab_index" not in st.session_state:
         st.session_state.tab1_vocab_index = 0
     if "tab1_phrase_index" not in st.session_state:
-        st.session_state.tab1_phrase_index = 15
+        st.session_state.tab1_phrase_index = 15  # 片語從第16個開始(索引15)
     if "tab1_grammar_index" not in st.session_state:
         st.session_state.tab1_grammar_index = 0
     if "tab1_verse_index" not in st.session_state:
@@ -208,17 +208,72 @@ with tabs[0]:
         st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
     else:
         def parse_csv(content):
-            if not content: 
+            """解析CSV格式"""
+            if not content or not content.strip(): 
                 return []
             try:
+                # 檢查是否為Markdown表格
+                if '|' in content and '\n' in content and content.strip().startswith('|'):
+                    return []  # 交給parse_markdown處理
                 reader = csv.DictReader(StringIO(content.strip()))
                 rows = list(reader)
                 return [row for row in rows if any(v.strip() for v in row.values())]
-            except:
+            except Exception as e:
+                st.write(f"CSV解析錯誤: {e}")
                 return []
 
+        def parse_markdown_table(content):
+            """解析Markdown表格格式"""
+            if not content or not content.strip():
+                return []
+            
+            lines = content.strip().split('\n')
+            rows = []
+            
+            # 找到表格開始行（以|開頭）
+            table_lines = []
+            for line in lines:
+                line = line.strip()
+                if line.startswith('|'):
+                    table_lines.append(line)
+            
+            if len(table_lines) < 2:  # 需要標題行和分隔行
+                return []
+            
+            # 解析標題行
+            header_line = table_lines[0]
+            headers = [h.strip() for h in header_line.split('|')[1:-1]]  # 去掉首尾空字串
+            
+            # 跳過分隔行（第2行，通常是 |---|---| 這種）
+            data_lines = table_lines[2:]
+            
+            for line in data_lines:
+                if not line.strip() or line.strip().replace('|', '').strip() == '':
+                    continue
+                    
+                # 解析資料行
+                cells = [c.strip() for c in line.split('|')[1:-1]]
+                
+                # 確保欄位數量一致
+                while len(cells) < len(headers):
+                    cells.append('')
+                
+                row_dict = {}
+                for i, header in enumerate(headers):
+                    # 清理Markdown標記（**粗體**）
+                    cell_value = cells[i] if i < len(cells) else ''
+                    # 移除 ** 標記但保留內容
+                    cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
+                    row_dict[header] = cell_value
+                
+                # 只加入有資料的行
+                if any(v.strip() for v in row_dict.values()):
+                    rows.append(row_dict)
+            
+            return rows
+
         # ============================================================
-        # 關鍵修正：分離模式A和模式B的資料
+        # 關鍵修正：分離模式A和模式B的資料，支援雙格式
         # ============================================================
         
         # 收集所有模式A資料（有V1的）和模式B資料（有W Sheet但無V1的）
@@ -228,13 +283,18 @@ with tabs[0]:
         
         for ref, data in sentences.items():
             v1_content = data.get('v1_content', '')
+            v2_content = data.get('v2_content', '')
             w_content = data.get('w_sheet', '')
             g_content = data.get('grammar_list', '')
             
-            v1_rows = parse_csv(v1_content)
-            v2_rows = parse_csv(data.get('v2_content', ''))
-            w_rows = parse_csv(w_content)
-            g_rows = parse_csv(g_content)
+            # 嘗試CSV格式，失敗則嘗試Markdown格式
+            v1_rows = parse_csv(v1_content) or parse_markdown_table(v1_content)
+            v2_rows = parse_csv(v2_content) or parse_markdown_table(v2_content)
+            w_rows = parse_csv(w_content) or parse_markdown_table(w_content)
+            g_rows = parse_csv(g_content) or parse_markdown_table(g_content)
+            
+            # DEBUG輸出
+            st.write(f"DEBUG {ref}: V1={len(v1_rows)}行, V2={len(v2_rows)}行, W={len(w_rows)}行, G={len(g_rows)}行")
             
             # 模式A：有V1資料 → 用於單字、金句
             if v1_rows:
@@ -339,7 +399,7 @@ with tabs[0]:
                     vocab_display = vocab_items
         
         # ============================================================
-        # 2) 片語：只從模式B的W Sheet輪流（第16個開始）
+        # 2) 片語：只從模式B的W Sheet輪流（第16個開始，索引15）
         # ============================================================
         w_phrases = []
         current_phrase_ref = "N/A"
@@ -351,7 +411,7 @@ with tabs[0]:
             w_rows = mb.get('w', [])
             w_count = len(w_rows)
             
-            # 只有超過15筆的檔案才加入
+            # 只有超過15筆的檔案才加入（從第16個開始）
             if w_count > 15:
                 for idx in range(15, w_count):
                     all_available_phrases.append({
@@ -559,23 +619,34 @@ with tabs[0]:
             # 片語區塊（修正：顯示調試資訊）
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    # 嘗試多種可能的欄位名稱
+                    # 嘗試多種可能的欄位名稱（支援Markdown和CSV的欄位名稱差異）
                     p = (row.get('Word/Phrase', '') or 
                          row.get('Word/phrase', '') or 
                          row.get('words/phrases', '') or 
-                         row.get('Word', ''))
-                    c = row.get('Chinese', '')
+                         row.get('Word', '') or
+                         row.get('No', ''))  # 有時No欄位也有內容
+                    
+                    c = (row.get('Chinese', '') or 
+                         row.get('Chinese Meaning', '') or
+                         row.get('Meaning', ''))
+                    
                     s = (row.get('Synonym+中文對照', '') or 
                          row.get('Synonym', '') or 
                          row.get('Syn', ''))
+                    
                     a = (row.get('Antonym+中文對照', '') or 
                          row.get('Antonym', '') or 
                          row.get('Ant', ''))
+                    
                     bible_ex = (row.get('全句聖經中英對照例句', '') or 
                                row.get('Bible Example', '') or 
-                               row.get('Example', ''))
+                               row.get('Example', '') or
+                               row.get('全句聖經中英對照例句 ', ''))  # 注意可能有空格
                     
-                    if p:
+                    # DEBUG: 顯示原始row內容
+                    # st.write(f"DEBUG row keys: {row.keys()}")
+                    
+                    if p and p != str(i+16):  # 確保不是只顯示編號
                         parts = [f"🔤 **{p}**"]
                         if c: 
                             parts.append(f"<span style='color:#666;'>{c}</span>")
