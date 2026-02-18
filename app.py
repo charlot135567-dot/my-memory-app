@@ -429,7 +429,7 @@ with tabs[0]:
                     current_phrase_ref = f"{item['ref']} #{item['original_idx']}"
         
         # ============================================================
-        # 3) 金句：從模式A的V1 Sheet輪流（與單字錯開7句）
+        # 3) 金句：從模式A的V1 Sheet輪流（與單字錯開6句）
         # ============================================================
         verse_lines = []
         current_verse_ref = "N/A"
@@ -437,8 +437,8 @@ with tabs[0]:
         if all_mode_a:
             total_verse_items = sum(f['v1_count'] for f in all_mode_a)
             if total_verse_items > 0:
-                # 關鍵修改：金句索引 = 當前索引 + 7，與單字錯開
-                verse_counter = (st.session_state.tab1_verse_index + 7) % total_verse_items
+                # 關鍵修改：金句索引 = 當前索引 + 6，與單字錯開
+                verse_counter = (st.session_state.tab1_verse_index + 6) % total_verse_items
                 cumulative = 0
                 verse_file = None
                 row_idx = 0
