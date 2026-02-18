@@ -429,7 +429,7 @@ with tabs[0]:
                     current_phrase_ref = f"{item['ref']} #{item['original_idx']}"
         
         # ============================================================
-        # 3) 金句：從模式A的V1 Sheet輪流（與單字錯開6句）
+        # 3) 金句：從模式A的V1 Sheet輪流（與單字錯開7句）
         # ============================================================
         verse_lines = []
         current_verse_ref = "N/A"
@@ -437,8 +437,8 @@ with tabs[0]:
         if all_mode_a:
             total_verse_items = sum(f['v1_count'] for f in all_mode_a)
             if total_verse_items > 0:
-                # 關鍵修改：金句索引 = 當前索引 + 6，與單字錯開
-                verse_counter = (st.session_state.tab1_verse_index + 6) % total_verse_items
+                # 關鍵修改：金句索引 = 當前索引 + 7，與單字錯開
+                verse_counter = (st.session_state.tab1_verse_index + 7) % total_verse_items
                 cumulative = 0
                 verse_file = None
                 row_idx = 0
@@ -925,7 +925,7 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
     
-    # ---------- 5. 時段金句 ----------
+# ---------- 5. 時段金句 ----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
     
     sentences = st.session_state.get('sentences', {})
@@ -936,17 +936,39 @@ with tabs[1]:
         v2_content = data.get('v2_content', '')
         if v1_content:
             try:
-                v1_rows = list(csv.DictReader(StringIO(v1_content.strip())))
-                v2_rows = list(csv.DictReader(StringIO(v2_content.strip()))) if v2_content else []
+                # --- 修改部分：相容 Markdown 與 CSV 的解析邏輯 ---
+                def parse_to_list(content):
+                    content = content.strip()
+                    if not content: return []
+                    # 判斷是否為 Markdown 表格格式
+                    if content.startswith('|'):
+                        lines = [l.strip() for l in content.split('\n') if l.strip()]
+                        if len(lines) < 3: return []
+                        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
+                        data_rows = []
+                        for l in lines[2:]: # 跳過 header 和 separator
+                            cols = [c.strip() for c in l.split('|') if c.strip()]
+                            if len(cols) == len(headers):
+                                data_rows.append(dict(zip(headers, cols)))
+                        return data_rows
+                    else:
+                        # 原有的 CSV 解析
+                        return list(csv.DictReader(StringIO(content)))
+
+                v1_rows = parse_to_list(v1_content)
+                v2_rows = parse_to_list(v2_content) if v2_content else []
                 
                 for i, row in enumerate(v1_rows):
                     v2_row = v2_rows[i] if i < len(v2_rows) else {}
+                    # 欄位名稱採模糊匹配或多名稱支援
                     verse_ref = row.get('Ref.', ref)
                     en = row.get('English (ESV)', '')
                     cn = row.get('Chinese', '')
-                    jp = v2_row.get('口語訳 (1955)', '') if isinstance(v2_row, dict) else ''
-                    kr = v2_row.get('KRF', '') if isinstance(v2_row, dict) else ''
-                    th = v2_row.get('THSV11 (Key Phrases)', '') if isinstance(v2_row, dict) else ''
+                    
+                    # 修正 V2 欄位名稱匹配 (同時支援含括號與不含括號的版本)
+                    jp = v2_row.get('口語訳 (1955)', v2_row.get('口語訳', ''))
+                    kr = v2_row.get('KRF', '')
+                    th = v2_row.get('THSV11 (Key Phrases)', v2_row.get('THSV11', ''))
                     
                     verse_text = f"🇬🇧 {verse_ref} {en}"
                     if jp:
@@ -959,6 +981,7 @@ with tabs[1]:
                         verse_text += f"<br>🇨🇳 {cn}"
                     
                     all_verses.append(verse_text)
+                # --- 修改結束 ---
             except:
                 pass
 
