@@ -570,10 +570,10 @@ with tabs[0]:
                 
                 html_parts = []
                 
-                # 1) 經文：藍色字體，加大
+                # 1) 經文：黃色字體，加大（改這裡：#FFD700 是金色/黃色）
                 if orig:
                     html_parts.append(
-                        f'<div style="margin-bottom:2px; color:#4A90E2; font-size:15px; font-weight:bold;">'
+                        f'<div style="margin-bottom:2px; color:#FFD700; font-size:15px; font-weight:bold;">'
                         f'{orig}</div>'
                     )
                 
@@ -584,26 +584,33 @@ with tabs[0]:
                     if rule:
                         af = af.replace('1️⃣', f'📌 {rule}<br>1️⃣', 1)
                     
-                    # 3) 1-4標題呈綠色：替換標題部分
-                    af = af.replace(
-                        '1️⃣**[分段解析+語法標籤]**：',
-                        '<div style="margin-top:2px; line-height:1.2;">'
-                        '<span style="color:#2E8B57; font-weight:bold;">1️⃣[分段解析+語法標籤]：</span>'
+                    # 3) 1-4標題呈綠色：用正則表達式匹配各種可能的格式
+                    import re
+                    
+                    # 匹配 1️⃣ 開頭到冒號的各種格式（包含 ** 或空格）
+                    af = re.sub(
+                        r'(1️⃣)\s*\*?\*?\[?(分段解析\+語法標籤)\]?\*?\*?\s*：',
+                        r'<div style="margin-top:2px; line-height:1.2;">'
+                        r'<span style="color:#2E8B57; font-weight:bold;">\1[\2]：</span>',
+                        af
                     )
-                    af = af.replace(
-                        '2️⃣**[詞性辨析]**：',
-                        '</div><div style="margin-top:2px; line-height:1.2;">'
-                        '<span style="color:#2E8B57; font-weight:bold;">2️⃣[詞性辨析]：</span>'
+                    af = re.sub(
+                        r'(2️⃣)\s*\*?\*?\[?(詞性辨析)\]?\*?\*?\s*：',
+                        r'</div><div style="margin-top:2px; line-height:1.2;">'
+                        r'<span style="color:#2E8B57; font-weight:bold;">\1[\2]：</span>',
+                        af
                     )
-                    af = af.replace(
-                        '3️⃣**[修辭與結構]**：',
-                        '</div><div style="margin-top:2px; line-height:1.2;">'
-                        '<span style="color:#2E8B57; font-weight:bold;">3️⃣[修辭與結構]：</span>'
+                    af = re.sub(
+                        r'(3️⃣)\s*\*?\*?\[?(修辭與結構)\]?\*?\*?\s*：',
+                        r'</div><div style="margin-top:2px; line-height:1.2;">'
+                        r'<span style="color:#2E8B57; font-weight:bold;">\1[\2]：</span>',
+                        af
                     )
-                    af = af.replace(
-                        '4️⃣**[語意解釋]**：',
-                        '</div><div style="margin-top:2px; line-height:1.2;">'
-                        '<span style="color:#2E8B57; font-weight:bold;">4️⃣[語意解釋]：</span>'
+                    af = re.sub(
+                        r'(4️⃣)\s*\*?\*?\[?(語意解釋)\]?\*?\*?\s*：',
+                        r'</div><div style="margin-top:2px; line-height:1.2;">'
+                        r'<span style="color:#2E8B57; font-weight:bold;">\1[\2]：</span>',
+                        af
                     )
                     af = af + '</div>'
                     
