@@ -2,10 +2,19 @@
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
 import streamlit as st  
+
+# ✅ 修正：set_page_config 必須是第一個 Streamlit 指令
+st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
+
 import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 import requests
+import base64  # ✅ 修正：補上缺失的 import
+import csv
+import random
+import urllib.parse
+from io import StringIO
 
 # 在文件最開始初始化所有 session state 變量
 def init_session_state():
@@ -49,6 +58,96 @@ def to_excel(result: dict) -> bytes:
         stats.to_excel(writer, sheet_name="統計", index=False)
     buffer.seek(0)
     return buffer.getvalue()
+
+# ✅ 修正：資料庫持久化函式移到全域（所有 TAB 外面）
+SENTENCES_FILE = "sentences.json"
+DATA_DIR = "data"
+TODO_FILE = os.path.join(DATA_DIR, "todos.json")
+FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
+
+# 確保資料目錄存在
+os.makedirs(DATA_DIR, exist_ok=True)
+
+def load_sentences():
+    """安全載入資料庫，處理損毀檔案"""
+    if os.path.exists(SENTENCES_FILE):
+        try:
+            with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:  # 檔案是空的
+                    return {}
+                return json.loads(content)
+        except json.JSONDecodeError as e:
+            # 檔案損毀，嘗試備份
+            backup_name = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            try:
+                os.rename(SENTENCES_FILE, backup_name)
+                st.warning(f"⚠️ 資料庫檔案損毀，已備份為 {backup_name}")
+            except:
+                pass
+            return {}
+        except Exception as e:
+            st.error(f"載入資料庫失敗：{e}")
+            return {}
+    return {}
+
+def save_sentences(data):
+    """安全儲存資料庫，使用原子寫入避免損毀"""
+    try:
+        # 先寫入臨時檔案
+        temp_file = f"{SENTENCES_FILE}.tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        # 再原子移動（確保不會寫到一半中斷）
+        if os.path.exists(SENTENCES_FILE):
+            os.replace(temp_file, SENTENCES_FILE)
+        else:
+            os.rename(temp_file, SENTENCES_FILE)
+    except Exception as e:
+        st.error(f"儲存資料庫失敗：{e}")
+
+def load_todos():
+    if os.path.exists(TODO_FILE):
+        try:
+            with open(TODO_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_todos():
+    with open(TODO_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+
+def load_favorites():
+    if os.path.exists(FAVORITE_FILE):
+        try:
+            with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return []
+
+def save_favorites():
+    with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
+
+# ✅ 修正：初始化 Session State（確保所有 TAB 都能用到）
+if 'sentences' not in st.session_state:
+    st.session_state.sentences = load_sentences()
+if 'todo' not in st.session_state:
+    st.session_state.todo = load_todos()
+if 'favorite_sentences' not in st.session_state:
+    st.session_state.favorite_sentences = load_favorites()
+if 'sel_date' not in st.session_state:
+    st.session_state.sel_date = str(dt.date.today())
+if 'cal_key' not in st.session_state:
+    st.session_state.cal_key = 0
+if 'active_del_id' not in st.session_state:
+    st.session_state.active_del_id = None
+if 'active_fav_del' not in st.session_state:
+    st.session_state.active_fav_del = None
 
 # ===================================================================
 # 1. 側邊欄（一次 4 連結，無重複）
@@ -130,7 +229,6 @@ except:
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
-st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
 if 'analysis_history' not in st.session_state: st.session_state.analysis_history = []
@@ -138,7 +236,7 @@ if 'analysis_history' not in st.session_state: st.session_state.analysis_history
 # ---------- CSS ----------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap ');
+@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
 .cute-korean { font-family: 'Gamja Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
 .small-font { font-size: 13px; color: #555555; margin-top: 5px !important; }
 .grammar-box-container {
@@ -152,13 +250,13 @@ st.markdown("""
 
 # ---------- 圖片 & 現成 TAB ----------
 IMG_URLS = {
-    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg ",
-    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg ",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg ",
-    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg ",
-    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg ",
-    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg ",
-    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg "
+    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
+    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
+    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
+    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
+    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
+    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
@@ -173,6 +271,12 @@ tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"]
 with tabs[0]:
     import csv, random, re, datetime as dt
     from io import StringIO
+
+    # ✅ 修正：確保資料已載入
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    
+    sentences = st.session_state.sentences
 
     # --- Session State 初始化（確保每次都有值）---
     if "tab1_vocab_index" not in st.session_state:
@@ -197,8 +301,6 @@ with tabs[0]:
         st.session_state.tab1_grammar_index += 1
         st.session_state.tab1_verse_index += 1
         st.rerun()
-    
-    sentences = st.session_state.get('sentences', {})
     
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
@@ -768,6 +870,22 @@ with tabs[1]:
     from io import StringIO
     import csv
 
+    # ✅ 修正：確保資料已載入
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    if 'todo' not in st.session_state:
+        st.session_state.todo = load_todos()
+    if 'favorite_sentences' not in st.session_state:
+        st.session_state.favorite_sentences = load_favorites()
+    if 'sel_date' not in st.session_state:
+        st.session_state.sel_date = str(dt.date.today())
+    if 'cal_key' not in st.session_state:
+        st.session_state.cal_key = 0
+    if 'active_del_id' not in st.session_state:
+        st.session_state.active_del_id = None
+    if 'active_fav_del' not in st.session_state:
+        st.session_state.active_fav_del = None
+
     # 全局CSS：壓縮所有間距
     st.markdown("""
         <style>
@@ -787,52 +905,6 @@ with tabs[1]:
         div[data-testid="column"] {padding: 0px 2px !important;}
         </style>
     """, unsafe_allow_html=True)
-
-    # ---------- 0. 檔案設定 ----------
-    DATA_DIR = "data"
-    os.makedirs(DATA_DIR, exist_ok=True)
-    TODO_FILE = os.path.join(DATA_DIR, "todos.json")
-    FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
-
-    def load_todos():
-        if os.path.exists(TODO_FILE):
-            try:
-                with open(TODO_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_todos():
-        with open(TODO_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
-
-    def load_favorites():
-        if os.path.exists(FAVORITE_FILE):
-            try:
-                with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return []
-
-    def save_favorites():
-        with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
-
-    # ---------- 1. Session State ----------
-    if "todo" not in st.session_state:
-        st.session_state.todo = load_todos()
-    if "favorite_sentences" not in st.session_state:
-        st.session_state.favorite_sentences = load_favorites()
-    if "sel_date" not in st.session_state:
-        st.session_state.sel_date = str(dt.date.today())
-    if "cal_key" not in st.session_state:
-        st.session_state.cal_key = 0
-    if "active_del_id" not in st.session_state:
-        st.session_state.active_del_id = None
-    if "active_fav_del" not in st.session_state:
-        st.session_state.active_fav_del = None
 
     # ---------- 2. 月曆 ----------
     def build_events():
@@ -861,55 +933,76 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 三日清單（修正：顯示選中日期的前後一天）----------
+    # ---------- 3. 待辦清單（修正：顯示整個月所有待辦事項）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
+    # ✅ 修正：顯示整個月的所有待辦事項，不只是選中日期前後
+    # 取得當前月份的所有日期
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.date.today()
 
-    # 顯示選中日期及其前後各一天（共3天）
-    dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
-    
-    has_todo = False
-    for d_obj in dates_to_show:
-        d_str = str(d_obj)
-        
+    # 計算當月的第一天和最後一天
+    first_day = base_date.replace(day=1)
+    if base_date.month == 12:
+        last_day = base_date.replace(year=base_date.year + 1, month=1, day=1) - dt.timedelta(days=1)
+    else:
+        last_day = base_date.replace(month=base_date.month + 1, day=1) - dt.timedelta(days=1)
+
+    # 收集整個月的所有待辦事項
+    month_todos = []
+    current_date = first_day
+    while current_date <= last_day:
+        d_str = str(current_date)
         if d_str in st.session_state.todo and st.session_state.todo[d_str]:
-            has_todo = True
-            
             for idx, item in enumerate(st.session_state.todo[d_str]):
-                item_id = f"{d_str}_{idx}"
-                title = item.get("title", "") if isinstance(item, dict) else str(item)
-                time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
-
-                # 極緊湊布局
-                c1, c2, c3 = st.columns([0.3, 8, 1.2])
-                
-                with c1:
-                    if st.button("💟", key=f"h_{item_id}"):
-                        st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
-                        st.rerun()
-
-                with c2:
-                    # 使用html壓縮行距
-                    st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
-
-                with c3:
-                    if st.session_state.active_del_id == item_id:
-                        if st.button("🗑️", key=f"d_{item_id}"):
-                            st.session_state.todo[d_str].pop(idx)
-                            if not st.session_state.todo[d_str]:
-                                del st.session_state.todo[d_str]
-                            save_todos()
-                            st.session_state.cal_key += 1
-                            st.session_state.active_del_id = None
-                            st.rerun()
-                # 每個項目後極小間距
-                st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
+                month_todos.append({
+                    'date': current_date,
+                    'date_str': d_str,
+                    'idx': idx,
+                    'item': item
+                })
+        current_date += dt.timedelta(days=1)
     
-    if not has_todo:
+    has_todo = len(month_todos) > 0
+    
+    if has_todo:
+        for todo_item in month_todos:
+            d_obj = todo_item['date']
+            d_str = todo_item['date_str']
+            idx = todo_item['idx']
+            item = todo_item['item']
+            
+            item_id = f"{d_str}_{idx}"
+            title = item.get("title", "") if isinstance(item, dict) else str(item)
+            time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
+
+            # 極緊湊布局
+            c1, c2, c3 = st.columns([0.3, 8, 1.2])
+            
+            with c1:
+                if st.button("💟", key=f"h_{item_id}"):
+                    st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
+                    st.rerun()
+
+            with c2:
+                # 使用html壓縮行距
+                st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
+
+            with c3:
+                if st.session_state.active_del_id == item_id:
+                    if st.button("🗑️", key=f"d_{item_id}"):
+                        st.session_state.todo[d_str].pop(idx)
+                        if not st.session_state.todo[d_str]:
+                            del st.session_state.todo[d_str]
+                        save_todos()
+                        st.session_state.cal_key += 1
+                        st.session_state.active_del_id = None
+                        st.rerun()
+            # 每個項目後極小間距
+            st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
+    else:
         st.caption("尚無待辦事項")
 
     # ---------- 4. 新增待辦 ----------
@@ -934,10 +1027,10 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
     
-# ---------- 5. 時段金句 ----------
+    # ---------- 5. 時段金句 ----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
     
-    sentences = st.session_state.get('sentences', {})
+    sentences = st.session_state.sentences
     all_verses = []
     
     for ref, data in sentences.items():
@@ -1062,10 +1155,11 @@ with tabs[1]:
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
-    import csv
-    from io import StringIO
-    import random
-    import re
+    # ✅ 修正：確保資料已載入
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    
+    sentences = st.session_state.sentences
 
     # 隱藏 Streamlit 元件預設的過大間距 (注入 CSS)
     st.markdown("""
@@ -1083,8 +1177,6 @@ with tabs[2]:
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
-    
-    sentences = st.session_state.get('sentences', {})
     
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 儲存資料")
@@ -1201,14 +1293,19 @@ with tabs[2]:
                     st.session_state.tab3_quiz_seed = random.randint(1, 1000)
                     st.session_state.tab3_show_answers = False
                     st.rerun()
+
 # ===================================================================
 # 6. TAB4 ─ AI 控制台 + Notion Database 整合（支援多工作表）
 # ===================================================================
 with tabs[3]:
-    import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
-    from io import StringIO
-    import streamlit.components.v1 as components
-
+    # ✅ 修正：確保資料已載入
+    if 'sentences' not in st.session_state:
+        st.session_state.sentences = load_sentences()
+    
+    # 其餘 TAB4 程式碼保持不變...
+    # [這裡保留你原本所有的 TAB4 程式碼，包括 AI 模式 A/B 的完整邏輯]
+    # 為了避免過長，我保留關鍵修正點，其餘照你原程式碼
+    
     # ═══════════════════════════════════════════════════════════════
     # 🔒 NOTION 設定集中管理區（更新時請勿修改此區塊結構）
     # ═══════════════════════════════════════════════════════════════
@@ -1238,8 +1335,9 @@ with tabs[3]:
     
     # 常數定義（避免魔法字串）
     NOTION_API_VERSION = "2022-06-28"
-    NOTION_BASE_URL = "https://api.notion.com/v1"
+    NOTION_BASE_URL = "https://api.notion.com/v1"  # ✅ 修正：移除結尾空格
     # ═══════════════════════════════════════════════════════════════
+    
     # ---------- 背景圖片套用 ----------
     try:
         selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
@@ -1422,23 +1520,9 @@ with tabs[3]:
             return False, str(e), None
 
     # ---------- 本地資料庫 ----------
-    SENTENCES_FILE = "sentences.json"
+    # ✅ 修正：移除重複的 SENTENCES_FILE 和 load_sentences/save_sentences 定義
+    # 因為已經在全域定義了
 
-    def load_sentences():
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
     # ═══════════════════════════════════════════════════════════════
     # ---------- Session State 初始化 ----------
     # ═══════════════════════════════════════════════════════════════
@@ -1590,7 +1674,7 @@ with tabs[3]:
         if not NOTION_TOKEN:
             return False, "未設定 Notion Token", None
 
-        url = "https://api.notion.com/v1/pages"
+        url = f"{NOTION_BASE_URL}/pages"
         headers = {
             "Authorization": f"Bearer {NOTION_TOKEN}",
             "Content-Type": "application/json",
@@ -1630,20 +1714,7 @@ with tabs[3]:
             return False, str(e), None
 
     # ---------- 資料庫持久化 ----------
-    SENTENCES_FILE = "sentences.json"
-
-    def load_sentences():
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    # ✅ 修正：移除重複的 SENTENCES_FILE 和 load_sentences/save_sentences 定義
 
     # 1. 智能偵測內容類型
     def detect_content_mode(text):
