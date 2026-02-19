@@ -2448,7 +2448,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             else:
                                 st.error(f"❌ 同步失敗：{msg}")
                 else:
-                    st.button("🚀 Notion", disabled=True, use_container_width=True)
+                    st.button("🚀 Notion", disabled=True, use_container_width=True, key="notion_disabled_a")
             
             with btn_cols[2]:
                 # 存到 Google Sheet（使用外面定義的 sheet_connected）
@@ -2515,7 +2515,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             except Exception as e:
                                 st.error(f"❌ Google Sheet 失敗：{str(e)}")
                 else:
-                    st.button("📊 Google", disabled=True, use_container_width=True)
+                    st.button("🚀 Notion", disabled=True, use_container_width=True, key="notion_disabled_b")
             
             with btn_cols[3]:
                 # 一鍵存全部（本地+Notion+Google）
