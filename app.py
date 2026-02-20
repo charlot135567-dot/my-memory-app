@@ -941,47 +941,23 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 待辦清單（修正：顯示整個月所有待辦事項）----------
+    # ---------- 3. 待辦清單（修正：只顯示選中日期的待辦事項）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
-    # ✅ 修正：顯示整個月的所有待辦事項，不只是選中日期前後
-    # 取得當前月份的所有日期
+    # 取得選中日期
     try:
-        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+        selected_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
-        base_date = dt.date.today()
+        selected_date = dt.date.today()
 
-    # 計算當月的第一天和最後一天
-    first_day = base_date.replace(day=1)
-    if base_date.month == 12:
-        last_day = base_date.replace(year=base_date.year + 1, month=1, day=1) - dt.timedelta(days=1)
-    else:
-        last_day = base_date.replace(month=base_date.month + 1, day=1) - dt.timedelta(days=1)
-
-    # 收集整個月的所有待辦事項
-    month_todos = []
-    current_date = first_day
-    while current_date <= last_day:
-        d_str = str(current_date)
-        if d_str in st.session_state.todo and st.session_state.todo[d_str]:
-            for idx, item in enumerate(st.session_state.todo[d_str]):
-                month_todos.append({
-                    'date': current_date,
-                    'date_str': d_str,
-                    'idx': idx,
-                    'item': item
-                })
-        current_date += dt.timedelta(days=1)
+    # 只顯示選中日期的待辦事項
+    d_str = str(selected_date)
+    has_todo = False
     
-    has_todo = len(month_todos) > 0
-    
-    if has_todo:
-        for todo_item in month_todos:
-            d_obj = todo_item['date']
-            d_str = todo_item['date_str']
-            idx = todo_item['idx']
-            item = todo_item['item']
-            
+    if d_str in st.session_state.todo and st.session_state.todo[d_str]:
+        has_todo = True
+        
+        for idx, item in enumerate(st.session_state.todo[d_str]):
             item_id = f"{d_str}_{idx}"
             title = item.get("title", "") if isinstance(item, dict) else str(item)
             time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
@@ -996,7 +972,7 @@ with tabs[1]:
 
             with c2:
                 # 使用html壓縮行距
-                st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{time_str} {title}</p>', unsafe_allow_html=True)
 
             with c3:
                 if st.session_state.active_del_id == item_id:
@@ -1010,8 +986,9 @@ with tabs[1]:
                         st.rerun()
             # 每個項目後極小間距
             st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
-    else:
-        st.caption("尚無待辦事項")
+    
+    if not has_todo:
+        st.caption(f"{selected_date.month}/{selected_date.day} 尚無待辦事項")
 
     # ---------- 4. 新增待辦 ----------
     with st.expander("➕ 新增待辦", expanded=False):
