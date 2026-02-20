@@ -995,7 +995,7 @@ with tabs[1]:
         with st.form("todo_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
-                in_date = st.date_input("日期", base_date)
+                in_date = st.date_input("日期", selected_date)  # ← 改成 selected_date
             with c2:
                 in_time = st.time_input("時間", dt.time(9, 0))
             in_title = st.text_input("待辦事項（可含 Emoji）")
@@ -1009,8 +1009,6 @@ with tabs[1]:
                     save_todos()
                     st.session_state.cal_key += 1
                     st.rerun()
-
-    st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
     
     # ---------- 5. 時段金句 ----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
