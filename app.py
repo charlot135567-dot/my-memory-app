@@ -1010,7 +1010,7 @@ with tabs[1]:
                     st.session_state.cal_key += 1
                     st.rerun()
     
-    # ---------- 5. 時段金句 ----------
+    # ---------- 5. 時段金句（修正：中英分兩排，中文淺灰，間距最短）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
     
     sentences = st.session_state.sentences
@@ -1021,23 +1021,20 @@ with tabs[1]:
         v2_content = data.get('v2_content', '')
         if v1_content:
             try:
-                # --- 修改部分：相容 Markdown 與 CSV 的解析邏輯 ---
                 def parse_to_list(content):
                     content = content.strip()
                     if not content: return []
-                    # 判斷是否為 Markdown 表格格式
                     if content.startswith('|'):
                         lines = [l.strip() for l in content.split('\n') if l.strip()]
                         if len(lines) < 3: return []
                         headers = [h.strip() for h in lines[0].split('|') if h.strip()]
                         data_rows = []
-                        for l in lines[2:]: # 跳過 header 和 separator
+                        for l in lines[2:]:
                             cols = [c.strip() for c in l.split('|') if c.strip()]
                             if len(cols) == len(headers):
                                 data_rows.append(dict(zip(headers, cols)))
                         return data_rows
                     else:
-                        # 原有的 CSV 解析
                         return list(csv.DictReader(StringIO(content)))
 
                 v1_rows = parse_to_list(v1_content)
@@ -1045,28 +1042,23 @@ with tabs[1]:
                 
                 for i, row in enumerate(v1_rows):
                     v2_row = v2_rows[i] if i < len(v2_rows) else {}
-                    # 欄位名稱採模糊匹配或多名稱支援
                     verse_ref = row.get('Ref.', ref)
                     en = row.get('English (ESV)', '')
                     cn = row.get('Chinese', '')
-                    
-                    # 修正 V2 欄位名稱匹配 (同時支援含括號與不含括號的版本)
                     jp = v2_row.get('口語訳 (1955)', v2_row.get('口語訳', ''))
                     kr = v2_row.get('KRF', '')
                     th = v2_row.get('THSV11 (Key Phrases)', v2_row.get('THSV11', ''))
                     
-                    verse_text = f"🇬🇧 {verse_ref} {en}"
-                    if jp:
-                        verse_text += f"<br>🇯🇵 {jp}"
-                    if kr:
-                        verse_text += f"<br>🇰🇷 {kr}"
-                    if th:
-                        verse_text += f"<br>🇹🇭 {th}"
-                    if cn:
-                        verse_text += f"<br>🇨🇳 {cn}"
-                    
-                    all_verses.append(verse_text)
-                # --- 修改結束 ---
+                    # 儲存各語言版本
+                    verse_parts = {
+                        'ref': verse_ref,
+                        'en': en,
+                        'jp': jp,
+                        'kr': kr,
+                        'th': th,
+                        'cn': cn
+                    }
+                    all_verses.append(verse_parts)
             except:
                 pass
 
@@ -1091,13 +1083,33 @@ with tabs[1]:
         
         for i in range(6):
             idx = (start + i) % total
-            st.markdown(f'<p style="margin:2px 0;padding:0;font-size:12px;line-height:1.3;"><b>{i+1}.</b> {all_verses[idx]}</p>', unsafe_allow_html=True)
+            v = all_verses[idx]
+            
+            # 第一排：英文 + 其他外語
+            line1_parts = []
+            if v['en']: 
+                line1_parts.append(f"🇬🇧 <b>{v['ref']}</b> {v['en']}")
+            if v['jp']: 
+                line1_parts.append(f"🇯🇵 {v['jp']}")
+            if v['kr']: 
+                line1_parts.append(f"🇰🇷 {v['kr']}")
+            if v['th']: 
+                line1_parts.append(f"🇹🇭 {v['th']}")
+            
+            # 第二排：中文（淺灰色）
+            line2 = f"🇨🇳 <span style='color:#999;'>{v['cn']}</span>" if v['cn'] else ""
+            
+            # 顯示（間距最短）
+            if line1_parts:
+                st.markdown(f'<p style="margin:0;padding:0;font-size:12px;line-height:1.1;"><b>{i+1}.</b> {" ".join(line1_parts)}</p>', unsafe_allow_html=True)
+            if line2:
+                st.markdown(f'<p style="margin:0;padding:0;font-size:12px;line-height:1.1;margin-left:14px;">{line2}</p>', unsafe_allow_html=True)
+            
+            # 分隔線（最短間距）
             if i < 5:
-                st.markdown('<hr style="margin:2px 0;border:none;border-top:1px solid #eee;">', unsafe_allow_html=True)
+                st.markdown('<hr style="margin:1px 0;border:none;border-top:1px solid #eee;">', unsafe_allow_html=True)
     else:
         st.caption("尚無金句資料")
-
-    st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
 
     # ---------- 6. 收藏金句 ----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">🔽 收藏金句</p>', unsafe_allow_html=True)
