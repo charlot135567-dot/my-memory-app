@@ -643,15 +643,23 @@ with tabs[0]:
                 
                 # Grammar解析（縮排對齊）
                 if g_grammar:
-                    lines = []
-                    text = str(g_grammar)
-                    # 處理 1️⃣2️⃣3️⃣4️⃣ 標記
-                    text = text.replace('1️⃣[', '1️⃣[')
-                    text = text.replace('2️⃣[', '<br>2️⃣[')
-                    text = text.replace('3️⃣[', '<br>3️⃣[')
-                    text = text.replace('4️⃣[', '<br>4️⃣[')
-                    text = text.replace(']', ']')
-                    all_grammar.append(text)
+                   text = str(g_grammar)
+    
+                # 先處理星號列表（將 \* 或 * 開頭的行轉為 HTML 列表）
+                import re
+                # 將 \* 或 * 開頭的行轉換為 • 符號
+                text = re.sub(r'\\?\*\s+', '• ', text)
+    
+                # 處理 1️⃣2️⃣3️⃣4️⃣ 標記
+                text = text.replace('1️⃣[', '1️⃣[')
+                text = text.replace('2️⃣[', '<br>2️⃣[')
+                text = text.replace('3️⃣[', '<br>3️⃣[')
+                text = text.replace('4️⃣[', '<br>4️⃣[')
+    
+                # 將換行符轉為 <br>
+                text = text.replace('\n', '<br>')
+    
+                all_grammar.append(text)
                 
                 # V2資料：口語訳 + Grammar + Note
                 v2_jp = v2_row.get('口語訳', '') if v2_row else ''
