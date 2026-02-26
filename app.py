@@ -526,7 +526,13 @@ with tabs[0]:
         st.session_state.sentences = load_sentences()
     
     sentences = st.session_state.sentences
-
+    
+    # DEBUG: 確認資料載入
+    st.write("DEBUG - TAB2 資料統計:", {
+        "總筆數": len(sentences),
+        "第一筆資料的keys": list(sentences[list(sentences.keys())[0]].keys()) if sentences else "無資料"
+    })
+    
     # --- Session State 初始化（確保每次都有值）---
     if "tab1_vocab_index" not in st.session_state:
         st.session_state.tab1_vocab_index = 0
