@@ -1148,9 +1148,6 @@ with tabs[1]:
                 # ✅ 修正：使用全域的 parse_content_to_dict 函數
                 v1_rows = parse_content_to_dict(v1_content)
                 v2_rows = parse_content_to_dict(v2_content) if v2_content else []
-
-                v1_rows = parse_to_list(v1_content)
-                v2_rows = parse_to_list(v2_content) if v2_content else []
                 
                 for i, row in enumerate(v1_rows):
                     v2_row = v2_rows[i] if i < len(v2_rows) else {}
