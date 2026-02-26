@@ -140,7 +140,6 @@ def parse_content_to_dict(content):
         return [row for row in rows if any(v.strip() for v in row.values())]
     except Exception as e:
         return []
-        
 # ===================================================================
 # ✅ 修正：資料庫設定 - 統一使用 data 目錄，並加入 Google Sheets 備援
 # ===================================================================
