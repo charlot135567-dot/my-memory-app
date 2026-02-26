@@ -728,19 +728,13 @@ with tabs[0]:
                     v1_verse = verse_file['v1'][row_idx]
                     v2_verse = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
                     
-                    current_verse_ref = v1_verse.get('Ref.', v1_verse.get('Ref', verse_file['ref']))
-                    
-                    # 建議改寫抓取方式，增加相容性
-                    en_text = v1_verse.get('English (ESV)', v1_verse.get('English', v1_verse.get('ESV', '')))
-                    cn_text = v1_verse.get('Chinese', v1_verse.get('Chinese (CUV)', v1_verse.get('CUV', '')))
-                    # 嘗試抓取不同可能的標籤名稱
-                    jp_text = ''
-                    if v2_verse:
-                        jp_text = v2_verse.get('口語訳 (1955)', v2_verse.get('口語訳', v2_verse.get('Japanese', '')))
-                    kr_text = v2_verse.get('KRF', v2_verse.get('Korean', '')) if v2_verse else ''
-                    th_text = ''
-                    if v2_verse:
-                        th_text = v2_verse.get('THSV11 (Key Phrases)', v2_verse.get('THSV11', v2_verse.get('Thai', '')))
+                    # 使用 get_field 增加容錯性
+                    current_verse_ref = get_field(v1_verse, ['Ref.', 'Ref', 'Reference', 'ref', '經節'], verse_file['ref'])
+                    en_text = get_field(v1_verse, ['English (ESV)', 'English', 'ESV', 'EN', 'en'], '')
+                    cn_text = get_field(v1_verse, ['Chinese', 'Chinese (CUV)', 'CUV', 'CN', 'cn', '中文'], '')
+                    jp_text = get_field(v2_verse, ['口語訳 (1955)', '口語訳', 'Japanese', 'JP', 'jp', '日文'], '')
+                    kr_text = get_field(v2_verse, ['KRF', 'Korean', 'KR', 'kr', '韓文'], '')
+                    th_text = get_field(v2_verse, ['THSV11 (Key Phrases)', 'THSV11', 'Thai', 'TH', 'th', '泰文'], '')
 
                     # 填充邏輯
                     verse_lines = []
