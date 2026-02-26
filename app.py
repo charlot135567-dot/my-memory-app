@@ -743,8 +743,23 @@ with tabs[0]:
                     cn_text = get_field(v1_verse, ['Chinese', 'Chinese (CUV)', 'CUV', 'CN', 'cn', '中文'], '')
                     
                     st.write("DEBUG - get_field結果:", {"en": en_text[:50], "cn": cn_text[:50]})
+                    # ✅ 確保所有變數都有預設值
+                    jp_text = get_field(v2_verse, ['口語訳 (1955)', '口語訳', 'Japanese', 'JP', 'jp', '日文'], '')
+                    kr_text = get_field(v2_verse, ['KRF', 'Korean', 'KR', 'kr', '韓文'], '')
+                    th_text = get_field(v2_verse, ['THSV11 (Key Phrases)', 'THSV11', 'Thai', 'TH', 'th', '泰文'], '')
 
                     # 填充邏輯
+                    verse_lines = []
+                    if en_text and str(en_text).strip(): 
+                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+                    if jp_text and str(jp_text).strip(): 
+                        verse_lines.append(f"🇯🇵 {jp_text}")
+                    if kr_text and str(kr_text).strip(): 
+                        verse_lines.append(f"🇰🇷 {kr_text}")
+                    if th_text and str(th_text).strip(): 
+                        verse_lines.append(f"🇹🇭 {th_text}")
+                    if cn_text and str(cn_text).strip(): 
+                        verse_lines.append(f"🇨🇳 {cn_text}")                    # 填充邏輯
                     verse_lines = []
                     if en_text and str(en_text).strip(): 
                         verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
