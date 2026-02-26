@@ -91,6 +91,56 @@ def get_field(row, keywords, default=''):
                 return row[key]
     
     return default
+
+# ---------- 萬用資料解析函數（支援 CSV 和 Markdown 表格）----------
+def parse_content_to_dict(content):
+    """
+    自動偵測並解析 CSV 或 Markdown 表格格式
+    回傳：list of dict
+    """
+    if not content or not content.strip():
+        return []
+    
+    content = content.strip()
+    
+    # 偵測 Markdown 表格（以 | 開頭）
+    if content.startswith('|'):
+        lines = [l.strip() for l in content.split('\n') if l.strip()]
+        if len(lines) < 3:  # 需要標題、分隔線、至少一筆資料
+            return []
+        
+        # 解析標題
+        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
+        data_rows = []
+        
+        # 從第3行開始（跳過標題和分隔線）
+        for line in lines[2:]:
+            if not line.strip() or line.strip().replace('|', '').strip() == '':
+                continue
+            cells = [c.strip() for c in line.split('|')[1:-1]]  # 移除頭尾空字串
+            if len(cells) != len(headers):
+                continue
+            
+            row_dict = {}
+            for i, header in enumerate(headers):
+                cell_value = cells[i]
+                # 移除粗體標記
+                cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
+                row_dict[header] = cell_value
+            
+            if any(v.strip() for v in row_dict.values()):
+                data_rows.append(row_dict)
+        
+        return data_rows
+    
+    # 否則視為 CSV
+    try:
+        reader = csv.DictReader(StringIO(content))
+        rows = list(reader)
+        return [row for row in rows if any(v.strip() for v in row.values())]
+    except Exception as e:
+        return []
+        
 # ===================================================================
 # ✅ 修正：資料庫設定 - 統一使用 data 目錄，並加入 Google Sheets 備援
 # ===================================================================
@@ -728,7 +778,7 @@ with tabs[0]:
                     v1_verse = verse_file['v1'][row_idx]
                     v2_verse = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
                     
-                    # 使用 get_field 增加容錯性
+                    # ✅ 修正：統一使用 get_field 增加容錯性
                     current_verse_ref = get_field(v1_verse, ['Ref.', 'Ref', 'Reference', 'ref', '經節'], verse_file['ref'])
                     en_text = get_field(v1_verse, ['English (ESV)', 'English', 'ESV', 'EN', 'en'], '')
                     cn_text = get_field(v1_verse, ['Chinese', 'Chinese (CUV)', 'CUV', 'CN', 'cn', '中文'], '')
