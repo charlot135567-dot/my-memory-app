@@ -525,13 +525,7 @@ with tabs[0]:
         st.session_state.sentences = load_sentences()
     
     sentences = st.session_state.sentences
-    
-    # DEBUG: 確認資料載入
-    st.write("DEBUG - TAB2 資料統計:", {
-        "總筆數": len(sentences),
-        "第一筆資料的keys": list(sentences[list(sentences.keys())[0]].keys()) if sentences else "無資料"
-    })
-    
+
     # --- Session State 初始化（確保每次都有值）---
     if "tab1_vocab_index" not in st.session_state:
         st.session_state.tab1_vocab_index = 0
@@ -556,11 +550,10 @@ with tabs[0]:
         st.session_state.tab1_verse_index += 1
         st.rerun()
     
+    if not sentences:
+        st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
-        # ✅ 修正：使用全域的 parse_content_to_dict 函數
-        # 移除本地的 parse_csv 和 parse_markdown_table 函數定義
-        
-        # 收集所有模式A資料和模式B資料  ← 這些初始化要放在迴圈「之前」
+        # 收集所有模式A資料和模式B資料
         all_mode_a = []
         all_mode_b = []
         all_grammar_sources = []
@@ -576,33 +569,6 @@ with tabs[0]:
             v2_rows = parse_content_to_dict(v2_content)
             w_rows = parse_content_to_dict(w_content)
             g_rows = parse_content_to_dict(g_content)
-            
-            # 這裡用 all_mode_a.append() 才對
-            if v1_rows:
-                all_mode_a.append({...})
-
-    # DEBUG: 顯示資料統計
-    st.write("DEBUG - 資料庫統計:", {
-        "總筆數": len(sentences),
-        "第一筆資料的keys": list(sentences[list(sentences.keys())[0]].keys()) if sentences else "無資料"
-    })
-    
-    # 在收集完 all_mode_a 後
-    # ...（現有程式碼）...
-    
-    # DEBUG: 顯示 Mode A 資料結構
-    if all_mode_a:
-        st.write("DEBUG - Mode A 第一筆:", {
-            "ref": all_mode_a[0]['ref'],
-            "v1_count": all_mode_a[0]['v1_count'],
-            "v1第一筆資料的keys": list(all_mode_a[0]['v1'][0].keys()) if all_mode_a[0]['v1'] else "無V1資料",
-            "v2第一筆資料的keys": list(all_mode_a[0]['v2'][0].keys()) if all_mode_a[0]['v2'] else "無V2資料"
-        })
-            
-            v1_rows = parse_csv(v1_content) or parse_markdown_table(v1_content)
-            v2_rows = parse_csv(v2_content) or parse_markdown_table(v2_content)
-            w_rows = parse_csv(w_content) or parse_markdown_table(w_content)
-            g_rows = parse_csv(g_content) or parse_markdown_table(g_content)
             
             if v1_rows:
                 all_mode_a.append({
