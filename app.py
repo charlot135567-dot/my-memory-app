@@ -598,41 +598,52 @@ with tabs[0]:
                         break
                     cumulative += f['v1_count']
                 
-                if vocab_file:
+                if vocab_file and row_idx < len(vocab_file['v1']):
                     v1_row = vocab_file['v1'][row_idx]
-                    v2_row = vocab_file['v2'][row_idx % len(vocab_file['v2'])] if vocab_file['v2'] else {}
+                    v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
                     
                     current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
+                    if not current_vocab_ref or current_vocab_ref == vocab_file['ref']:
+                        # 嘗試從其他欄位取得
+                        current_vocab_ref = v1_row.get('Ref', v1_row.get('ref', vocab_file['ref']))
                     
-                    v1_syn_ant = v1_row.get('Syn/Ant', '')
+                    # V1 Syn/Ant - 解析同義詞和反義詞
+                    v1_syn_ant = v1_row.get('Syn/Ant', v1_row.get('Syn/Ant.', ''))
                     v1_syn_list = []
                     v1_ant_list = []
                     
-                    if v1_syn_ant:
-                        if 'Syn:' in v1_syn_ant or 'Ant:' in v1_syn_ant:
-                            syn_match = re.search(r'Syn:\s*([^/;]+)', v1_syn_ant)
-                            ant_match = re.search(r'Ant:\s*([^/;]+)', v1_syn_ant)
+                    if v1_syn_ant and v1_syn_ant.strip():
+                        v1_syn_ant_str = str(v1_syn_ant)
+                        # 嘗試多種格式解析
+                        if 'Syn:' in v1_syn_ant_str or 'Ant:' in v1_syn_ant_str:
+                            syn_match = re.search(r'Syn:\s*([^/;]+)', v1_syn_ant_str, re.IGNORECASE)
+                            ant_match = re.search(r'Ant:\s*([^/;]+)', v1_syn_ant_str, re.IGNORECASE)
                             if syn_match:
                                 v1_syn_list = [s.strip() for s in syn_match.group(1).split(',') if s.strip()]
                             if ant_match:
                                 v1_ant_list = [a.strip() for a in ant_match.group(1).split(',') if a.strip()]
                         else:
-                            parts = re.split(r'[/|]', v1_syn_ant)
+                            # 嘗試用 / 或 | 分隔
+                            parts = re.split(r'[/|]', v1_syn_ant_str)
                             if len(parts) >= 2:
                                 v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
                                 v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
+                            else:
+                                # 如果只有一個部分，可能是同義詞
+                                v1_syn_list = [v1_syn_ant_str.strip()]
                     
-                    v2_syn_ant = v2_row.get('Syn/Ant', '') if v2_row else ''
-                    v2_th = v2_row.get('THSV11', '') if v2_row else ''
+                    # V2 Syn/Ant (韓文) + THSV11 (泰文)
+                    v2_syn_ant = v2_row.get('Syn/Ant', v2_row.get('Syn/Ant.', '')) if v2_row else ''
+                    v2_th = v2_row.get('THSV11', v2_row.get('THSV11 (Key Phrases)', '')) if v2_row else ''
                     
                     vocab_items = []
                     if v1_syn_list:
                         vocab_items.append(f"<span style='color:#2E8B57;'>✨{', '.join(v1_syn_list)}</span>")
                     if v1_ant_list:
                         vocab_items.append(f"<span style='color:#CD5C5C;'>❄️{', '.join(v1_ant_list)}</span>")
-                    if v2_syn_ant:
+                    if v2_syn_ant and str(v2_syn_ant).strip():
                         vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_syn_ant}</span>")
-                    if v2_th:
+                    if v2_th and str(v2_th).strip():
                         vocab_items.append(f"<span style='color:#9932CC;'>🇹🇭 {v2_th}</span>")
                     
                     vocab_display = vocab_items
@@ -673,6 +684,7 @@ with tabs[0]:
         if all_mode_a:
             total_verse_items = sum(f['v1_count'] for f in all_mode_a)
             if total_verse_items > 0:
+                # 金句索引 = 當前索引 + 6，與單字錯開
                 verse_counter = (st.session_state.tab1_verse_index + 6) % total_verse_items
                 cumulative = 0
                 verse_file = None
@@ -685,24 +697,36 @@ with tabs[0]:
                         break
                     cumulative += f['v1_count']
                 
-                if verse_file:
+                if verse_file and row_idx < len(verse_file['v1']):
                     v1_verse = verse_file['v1'][row_idx]
-                    v2_verse = verse_file['v2'][row_idx % len(verse_file['v2'])] if verse_file['v2'] else {}
+                    v2_verse = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
                     
-                    current_verse_ref = v1_verse.get('Ref.', verse_file['ref'])
+                    current_verse_ref = v1_verse.get('Ref.', v1_verse.get('Ref', verse_file['ref']))
                     
-                    en_text = v1_verse.get('English (ESV)', '')
-                    cn_text = v1_verse.get('Chinese', '')
-                    jp_text = v2_verse.get('口語訳 (1955)', v2_verse.get('口語訳', '')) if v2_verse else ''
-                    kr_text = v2_verse.get('KRF', '') if v2_verse else ''
-                    th_text = v2_verse.get('THSV11 (Key Phrases)', v2_verse.get('THSV11', '')) if v2_verse else ''
+                    # 建議改寫抓取方式，增加相容性
+                    en_text = v1_verse.get('English (ESV)', v1_verse.get('English', v1_verse.get('ESV', '')))
+                    cn_text = v1_verse.get('Chinese', v1_verse.get('Chinese (CUV)', v1_verse.get('CUV', '')))
+                    # 嘗試抓取不同可能的標籤名稱
+                    jp_text = ''
+                    if v2_verse:
+                        jp_text = v2_verse.get('口語訳 (1955)', v2_verse.get('口語訳', v2_verse.get('Japanese', '')))
+                    kr_text = v2_verse.get('KRF', v2_verse.get('Korean', '')) if v2_verse else ''
+                    th_text = ''
+                    if v2_verse:
+                        th_text = v2_verse.get('THSV11 (Key Phrases)', v2_verse.get('THSV11', v2_verse.get('Thai', '')))
 
+                    # 填充邏輯
                     verse_lines = []
-                    if en_text: verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
-                    if jp_text: verse_lines.append(f"🇯🇵 {jp_text}")
-                    if kr_text: verse_lines.append(f"🇰🇷 {kr_text}")
-                    if th_text: verse_lines.append(f"🇹🇭 {th_text}")
-                    if cn_text: verse_lines.append(f"🇨🇳 {cn_text}")       
+                    if en_text and str(en_text).strip(): 
+                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+                    if jp_text and str(jp_text).strip(): 
+                        verse_lines.append(f"🇯🇵 {jp_text}")
+                    if kr_text and str(kr_text).strip(): 
+                        verse_lines.append(f"🇰🇷 {kr_text}")
+                    if th_text and str(th_text).strip(): 
+                        verse_lines.append(f"🇹🇭 {th_text}")
+                    if cn_text and str(cn_text).strip(): 
+                        verse_lines.append(f"🇨🇳 {cn_text}")              
                     
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
         grammar_html = "等待資料中..."
@@ -1291,25 +1315,43 @@ with tabs[2]:
 
         # 收集經文
         all_verses = []
-        for ref in weighted_pool[:10]:
+        for ref in weighted_pool[:20]:  # 增加取樣數量
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
-            if v1_content:
+            if v1_content and v1_content.strip():
                 try:
                     rows = parse_v1_content(v1_content)
                     for row in rows:
-                        all_verses.append({
-                            'ref': row.get('Ref.', ''),
-                            'english': row.get('English (ESV)', ''),
-                            'chinese': row.get('Chinese', ''),
-                            'syn_ant': row.get('Syn/Ant', '')
-                        })
-                except: pass
+                        # 確保有內容才加入
+                        chinese = row.get('Chinese', row.get('Chinese (CUV)', row.get('CUV', '')))
+                        english = row.get('English (ESV)', row.get('English', row.get('ESV', '')))
+                        
+                        if (chinese and str(chinese).strip()) or (english and str(english).strip()):
+                            all_verses.append({
+                                'ref': row.get('Ref.', row.get('Ref', ref)),
+                                'english': english if english else '',
+                                'chinese': chinese if chinese else '',
+                                'syn_ant': row.get('Syn/Ant', row.get('Syn/Ant.', ''))
+                            })
+                except Exception as e:
+                    pass
+        
+        # 確保有足夠的題目
+        if len(all_verses) < 6:
+            st.warning(f"資料庫中只有 {len(all_verses)} 筆可用資料，需要至少 6 筆才能生成挑戰題")
+            st.stop()
         
         random.shuffle(all_verses)
-        selected = all_verses[:6] if len(all_verses) >= 6 else all_verses
-        zh_to_en = selected[:3]
-        en_to_zh = selected[3:6] if len(selected) > 3 else []
+        # 確保至少有3個中翻英和3個英翻中
+        zh_to_en_candidates = [v for v in all_verses if v['chinese'] and str(v['chinese']).strip()]
+        en_to_zh_candidates = [v for v in all_verses if v['english'] and str(v['english']).strip()]
+        
+        if len(zh_to_en_candidates) < 3 or len(en_to_zh_candidates) < 3:
+            st.warning("可用資料不足，請確保資料包含中英文內容")
+            st.stop()
+        
+        zh_to_en = zh_to_en_candidates[:3]
+        en_to_zh = en_to_zh_candidates[:3]
         
         st.subheader("📝 翻譯挑戰")
         
