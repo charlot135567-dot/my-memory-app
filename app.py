@@ -553,63 +553,20 @@ with tabs[0]:
     
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入資料")
-    else:
-        def parse_csv(content):
-            """解析CSV格式"""
-            if not content or not content.strip(): 
-                return []
-            try:
-                if '|' in content and '\n' in content and content.strip().startswith('|'):
-                    return []
-                reader = csv.DictReader(StringIO(content.strip()))
-                rows = list(reader)
-                return [row for row in rows if any(v.strip() for v in row.values())]
-            except Exception as e:
-                st.write(f"CSV解析錯誤: {e}")
-                return []
-
-        def parse_markdown_table(content):
-            """解析Markdown表格格式"""
-            if not content or not content.strip():
-                return []
+        # ✅ 修正：使用全域的 parse_content_to_dict 函數
+        # 移除本地的 parse_csv 和 parse_markdown_table 函數定義
+        for ref, data in sentences.items():
+            v1_content = data.get('v1_content', '')
+            v2_content = data.get('v2_content', '')
+            w_content = data.get('w_sheet', '')
+            g_content = data.get('grammar_list', '')
             
-            lines = content.strip().split('\n')
-            rows = []
-            
-            table_lines = []
-            for line in lines:
-                line = line.strip()
-                if line.startswith('|'):
-                    table_lines.append(line)
-            
-            if len(table_lines) < 2:
-                return []
-            
-            header_line = table_lines[0]
-            headers = [h.strip() for h in header_line.split('|')[1:-1]]
-            
-            data_lines = table_lines[2:]
-            
-            for line in data_lines:
-                if not line.strip() or line.strip().replace('|', '').strip() == '':
-                    continue
-                    
-                cells = [c.strip() for c in line.split('|')[1:-1]]
+            # ✅ 修正：使用統一的解析函數
+            v1_rows = parse_content_to_dict(v1_content)
+            v2_rows = parse_content_to_dict(v2_content)
+            w_rows = parse_content_to_dict(w_content)
+            g_rows = parse_content_to_dict(g_content)
                 
-                while len(cells) < len(headers):
-                    cells.append('')
-                
-                row_dict = {}
-                for i, header in enumerate(headers):
-                    cell_value = cells[i] if i < len(cells) else ''
-                    cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
-                    row_dict[header] = cell_value
-                
-                if any(v.strip() for v in row_dict.values()):
-                    rows.append(row_dict)
-            
-            return rows
-
         # 收集所有模式A資料和模式B資料
         all_mode_a = []
         all_mode_b = []
