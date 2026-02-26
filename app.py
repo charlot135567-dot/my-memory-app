@@ -59,7 +59,38 @@ def to_excel(result: dict) -> bytes:
         stats.to_excel(writer, sheet_name="統計", index=False)
     buffer.seek(0)
     return buffer.getvalue()
-
+# ---------- 萬用欄位取值函數（增強容錯性）----------
+def get_field(row, keywords, default=''):
+    """
+    從字典中嘗試多個可能的欄位名稱取值
+    row: 字典
+    keywords: 欄位名稱列表（依優先順序）
+    default: 預設值
+    """
+    if not row or not isinstance(row, dict):
+        return default
+    
+    # 先嘗試完全匹配
+    for k in keywords:
+        if k in row and row[k] and str(row[k]).strip():
+            return row[k]
+    
+    # 再嘗試大小寫不敏感匹配
+    row_lower = {key.lower(): key for key in row.keys()}
+    for k in keywords:
+        if k.lower() in row_lower:
+            actual_key = row_lower[k.lower()]
+            if row[actual_key] and str(row[actual_key]).strip():
+                return row[actual_key]
+    
+    # 最後嘗試部分匹配（包含關鍵字）
+    for key in row.keys():
+        key_lower = key.lower()
+        for k in keywords:
+            if k.lower() in key_lower and row[key] and str(row[key]).strip():
+                return row[key]
+    
+    return default
 # ===================================================================
 # ✅ 修正：資料庫設定 - 統一使用 data 目錄，並加入 Google Sheets 備援
 # ===================================================================
