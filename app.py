@@ -633,22 +633,19 @@ with tabs[0]:
                     v1_row = vocab_file['v1'][row_idx]
                     v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
                     
-                    current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
-                    if not current_vocab_ref or current_vocab_ref == vocab_file['ref']:
-                        # 嘗試從其他欄位取得
-                        current_vocab_ref = v1_row.get('Ref', v1_row.get('ref', vocab_file['ref']))
+                    current_vocab_ref = get_field(v1_row, ['Ref.', 'Ref', 'Reference', 'ref', '經節'], vocab_file['ref'])
                     
-                    # V1 Syn/Ant - 解析同義詞和反義詞
-                    v1_syn_ant = v1_row.get('Syn/Ant', v1_row.get('Syn/Ant.', ''))
+                    # 解析 Syn/Ant - 嘗試多種欄位名稱
+                    v1_syn_ant = get_field(v1_row, ['Syn/Ant', 'Syn/Ant.', 'Synonym/Antonym', '同反義', 'Syn Ant'])
                     v1_syn_list = []
                     v1_ant_list = []
                     
-                    if v1_syn_ant and v1_syn_ant.strip():
+                    if v1_syn_ant and str(v1_syn_ant).strip():
                         v1_syn_ant_str = str(v1_syn_ant)
                         # 嘗試多種格式解析
-                        if 'Syn:' in v1_syn_ant_str or 'Ant:' in v1_syn_ant_str:
-                            syn_match = re.search(r'Syn:\s*([^/;]+)', v1_syn_ant_str, re.IGNORECASE)
-                            ant_match = re.search(r'Ant:\s*([^/;]+)', v1_syn_ant_str, re.IGNORECASE)
+                        if 'Syn:' in v1_syn_ant_str or 'Ant:' in v1_syn_ant_str or 'syn:' in v1_syn_ant_str or 'ant:' in v1_syn_ant_str:
+                            syn_match = re.search(r'[Ss]yn:\s*([^/;]+)', v1_syn_ant_str)
+                            ant_match = re.search(r'[Aa]nt:\s*([^/;]+)', v1_syn_ant_str)
                             if syn_match:
                                 v1_syn_list = [s.strip() for s in syn_match.group(1).split(',') if s.strip()]
                             if ant_match:
@@ -660,21 +657,20 @@ with tabs[0]:
                                 v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
                                 v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
                             else:
-                                # 如果只有一個部分，可能是同義詞
                                 v1_syn_list = [v1_syn_ant_str.strip()]
                     
-                    # V2 Syn/Ant (韓文) + THSV11 (泰文)
-                    v2_syn_ant = v2_row.get('Syn/Ant', v2_row.get('Syn/Ant.', '')) if v2_row else ''
-                    v2_th = v2_row.get('THSV11', v2_row.get('THSV11 (Key Phrases)', '')) if v2_row else ''
+                    # V2 資料
+                    v2_syn_ant = get_field(v2_row, ['Syn/Ant', 'Syn/Ant.', 'Synonym/Antonym', '同反義', 'Korean Syn/Ant'])
+                    v2_th = get_field(v2_row, ['THSV11', 'THSV11 (Key Phrases)', 'Thai', '泰文'])
                     
                     vocab_items = []
                     if v1_syn_list:
                         vocab_items.append(f"<span style='color:#2E8B57;'>✨{', '.join(v1_syn_list)}</span>")
                     if v1_ant_list:
                         vocab_items.append(f"<span style='color:#CD5C5C;'>❄️{', '.join(v1_ant_list)}</span>")
-                    if v2_syn_ant and str(v2_syn_ant).strip():
+                    if v2_syn_ant:
                         vocab_items.append(f"<span style='color:#4682B4;'>🇰🇷 {v2_syn_ant}</span>")
-                    if v2_th and str(v2_th).strip():
+                    if v2_th:
                         vocab_items.append(f"<span style='color:#9932CC;'>🇹🇭 {v2_th}</span>")
                     
                     vocab_display = vocab_items
