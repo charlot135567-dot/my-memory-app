@@ -636,22 +636,31 @@ with tabs[0]:
                     
                     if v1_syn_ant and str(v1_syn_ant).strip():
                         v1_syn_ant_str = str(v1_syn_ant)
-                        # 嘗試多種格式解析
-                        if 'Syn:' in v1_syn_ant_str or 'Ant:' in v1_syn_ant_str or 'syn:' in v1_syn_ant_str or 'ant:' in v1_syn_ant_str:
-                            syn_match = re.search(r'[Ss]yn:\s*([^/;]+)', v1_syn_ant_str)
-                            ant_match = re.search(r'[Aa]nt:\s*([^/;]+)', v1_syn_ant_str)
-                            if syn_match:
-                                v1_syn_list = [s.strip() for s in syn_match.group(1).split(',') if s.strip()]
-                            if ant_match:
-                                v1_ant_list = [a.strip() for a in ant_match.group(1).split(',') if a.strip()]
-                        else:
-                            # 嘗試用 / 或 | 分隔
-                            parts = re.split(r'[/|]', v1_syn_ant_str)
-                            if len(parts) >= 2:
-                                v1_syn_list = [p.strip() for p in parts[0].split(',') if p.strip()]
-                                v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
+                        
+                        # ✅ 修正：先按分號分割成多組
+                        groups = re.split(r';\s*', v1_syn_ant_str)
+                        
+                        for group in groups:
+                            group = group.strip()
+                            if not group:
+                                continue
+                            
+                            # 嘗試多種格式解析
+                            if 'Syn:' in group or 'Ant:' in group or 'syn:' in group or 'ant:' in group:
+                                syn_match = re.search(r'[Ss]yn:\s*([^/;]+)', group)
+                                ant_match = re.search(r'[Aa]nt:\s*([^/;]+)', group)
+                                if syn_match:
+                                    v1_syn_list.extend([s.strip() for s in syn_match.group(1).split(',') if s.strip()])
+                                if ant_match:
+                                    v1_ant_list.extend([a.strip() for a in ant_match.group(1).split(',') if a.strip()])
                             else:
-                                v1_syn_list = [v1_syn_ant_str.strip()]
+                                # 嘗試用 / 或 | 分隔
+                                parts = re.split(r'[/|]', group)
+                                if len(parts) >= 2:
+                                    v1_syn_list.extend([p.strip() for p in parts[0].split(',') if p.strip()])
+                                    v1_ant_list.extend([p.strip() for p in parts[1].split(',') if p.strip()])
+                                else:
+                                    v1_syn_list.append(group.strip())
                     
                     # V2 資料
                     v2_syn_ant = get_field(v2_row, ['Syn/Ant', 'Syn/Ant.', 'Synonym/Antonym', '同反義', 'Korean Syn/Ant'])
