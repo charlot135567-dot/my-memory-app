@@ -566,7 +566,26 @@ with tabs[0]:
             v2_rows = parse_content_to_dict(v2_content)
             w_rows = parse_content_to_dict(w_content)
             g_rows = parse_content_to_dict(g_content)
-                
+
+    else:
+        # DEBUG: 顯示資料統計
+        st.write("DEBUG - 資料庫統計:", {
+            "總筆數": len(sentences),
+            "第一筆資料的keys": list(sentences[list(sentences.keys())[0]].keys()) if sentences else "無資料"
+        })
+        
+        # 在收集完 all_mode_a 後
+        # ...（現有程式碼）...
+        
+        # DEBUG: 顯示 Mode A 資料結構
+        if all_mode_a:
+            st.write("DEBUG - Mode A 第一筆:", {
+                "ref": all_mode_a[0]['ref'],
+                "v1_count": all_mode_a[0]['v1_count'],
+                "v1第一筆資料的keys": list(all_mode_a[0]['v1'][0].keys()) if all_mode_a[0]['v1'] else "無V1資料",
+                "v2第一筆資料的keys": list(all_mode_a[0]['v2'][0].keys()) if all_mode_a[0]['v2'] else "無V2資料"
+            })
+            
         # 收集所有模式A資料和模式B資料
         all_mode_a = []
         all_mode_b = []
