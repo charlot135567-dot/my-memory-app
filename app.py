@@ -1158,22 +1158,9 @@ with tabs[1]:
         v2_content = data.get('v2_content', '')
         if v1_content and v1_content.strip():
             try:
-                def parse_to_list(content):
-                    content = content.strip()
-                    if not content: return []
-                    if content.startswith('|'):
-                        lines = [l.strip() for l in content.split('\n') if l.strip()]
-                        if len(lines) < 3: return []
-                        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
-                        data_rows = []
-                        for l in lines[2:]:
-                            cols = [c.strip() for c in l.split('|') if c.strip()]
-                            if len(cols) == len(headers):
-                                data_rows.append(dict(zip(headers, cols)))
-                        return data_rows
-                    else:
-                        reader = csv.DictReader(StringIO(content))
-                        return list(reader)
+                # ✅ 修正：使用全域的 parse_content_to_dict 函數
+                v1_rows = parse_content_to_dict(v1_content)
+                v2_rows = parse_content_to_dict(v2_content) if v2_content else []
 
                 v1_rows = parse_to_list(v1_content)
                 v2_rows = parse_to_list(v2_content) if v2_content else []
