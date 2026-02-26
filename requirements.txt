@@ -1,8 +1,7 @@
-streamlit-calendar>=0.5,<0.6
-openpyxl
-pandas>=1.5.0
-tomli>=2.0.0
-tomli_w>=1.0.0
-streamlit>=1.28.0
+streamlit
 pandas
-xlsxwriter  # Excel 匯出必需
+requests
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
