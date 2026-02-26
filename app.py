@@ -1128,7 +1128,7 @@ with tabs[1]:
     for ref, data in sentences.items():
         v1_content = data.get('v1_content', '')
         v2_content = data.get('v2_content', '')
-        if v1_content:
+        if v1_content and v1_content.strip():
             try:
                 def parse_to_list(content):
                     content = content.strip()
@@ -1144,30 +1144,32 @@ with tabs[1]:
                                 data_rows.append(dict(zip(headers, cols)))
                         return data_rows
                     else:
-                        return list(csv.DictReader(StringIO(content)))
+                        reader = csv.DictReader(StringIO(content))
+                        return list(reader)
 
                 v1_rows = parse_to_list(v1_content)
                 v2_rows = parse_to_list(v2_content) if v2_content else []
                 
                 for i, row in enumerate(v1_rows):
                     v2_row = v2_rows[i] if i < len(v2_rows) else {}
-                    verse_ref = row.get('Ref.', ref)
-                    en = row.get('English (ESV)', '')
-                    cn = row.get('Chinese', '')
-                    jp = v2_row.get('口語訳 (1955)', v2_row.get('口語訳', ''))
-                    kr = v2_row.get('KRF', '')
-                    th = v2_row.get('THSV11 (Key Phrases)', v2_row.get('THSV11', ''))
+                    verse_ref = row.get('Ref.', row.get('Ref', ref))
+                    en = row.get('English (ESV)', row.get('English', row.get('ESV', '')))
+                    cn = row.get('Chinese', row.get('Chinese (CUV)', row.get('CUV', '')))
+                    jp = v2_row.get('口語訳 (1955)', v2_row.get('口語訳', '')) if v2_row else ''
+                    kr = v2_row.get('KRF', '') if v2_row else ''
+                    th = v2_row.get('THSV11 (Key Phrases)', v2_row.get('THSV11', '')) if v2_row else ''
                     
-                    verse_parts = {
-                        'ref': verse_ref,
-                        'en': en,
-                        'jp': jp,
-                        'kr': kr,
-                        'th': th,
-                        'cn': cn
-                    }
-                    all_verses.append(verse_parts)
-            except:
+                    # 只加入有內容的經文
+                    if (en and str(en).strip()) or (cn and str(cn).strip()):
+                        all_verses.append({
+                            'ref': verse_ref,
+                            'en': en if en else '',
+                            'jp': jp if jp else '',
+                            'kr': kr if kr else '',
+                            'th': th if th else '',
+                            'cn': cn if cn else ''
+                        })
+            except Exception as e:
                 pass
 
     hour = dt.datetime.now().hour
