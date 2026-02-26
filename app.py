@@ -759,17 +759,6 @@ with tabs[0]:
                     if th_text and str(th_text).strip(): 
                         verse_lines.append(f"🇹🇭 {th_text}")
                     if cn_text and str(cn_text).strip(): 
-                        verse_lines.append(f"🇨🇳 {cn_text}")                    # 填充邏輯
-                    verse_lines = []
-                    if en_text and str(en_text).strip(): 
-                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
-                    if jp_text and str(jp_text).strip(): 
-                        verse_lines.append(f"🇯🇵 {jp_text}")
-                    if kr_text and str(kr_text).strip(): 
-                        verse_lines.append(f"🇰🇷 {kr_text}")
-                    if th_text and str(th_text).strip(): 
-                        verse_lines.append(f"🇹🇭 {th_text}")
-                    if cn_text and str(cn_text).strip(): 
                         verse_lines.append(f"🇨🇳 {cn_text}")              
                     
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
