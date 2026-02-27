@@ -762,22 +762,24 @@ with tabs[0]:
                     v1_verse = verse_file['v1'][row_idx]
                     v2_verse = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
                     
-                    # DEBUG: 確認取值
-                    st.write("DEBUG - 金句區塊:")
-                    st.write("  V1欄位:", list(v1_verse.keys()))
-                    st.write("  English (ESV)直接取值:", v1_verse.get('English (ESV)', '無')[:50])
-                    st.write("  Chinese直接取值:", v1_verse.get('Chinese', '無')[:50])
+                    # 1. 取得引用經節 (Reference)
+                    current_verse_ref = get_field(v1_verse, ['Ref.', 'Ref', 'Reference', 'ref', '經節'], verse_file.get('ref', 'N/A'))
                     
-                    # ✅ 修正：統一使用 get_field 增加容錯性
-                    current_verse_ref = get_field(v1_verse, ['Ref.', 'Ref', 'Reference', 'ref', '經節'], verse_file['ref'])
+                    # 2. 取得各語言文字
                     en_text = get_field(v1_verse, ['English (ESV)', 'English', 'ESV', 'EN', 'en'], '')
                     cn_text = get_field(v1_verse, ['Chinese', 'Chinese (CUV)', 'CUV', 'CN', 'cn', '中文'], '')
-                    
-                    st.write("DEBUG - get_field結果:", {"en": en_text[:50], "cn": cn_text[:50]})
-                    # ✅ 確保所有變數都有預設值
                     jp_text = get_field(v2_verse, ['口語訳 (1955)', '口語訳', 'Japanese', 'JP', 'jp', '日文'], '')
                     kr_text = get_field(v2_verse, ['KRF', 'Korean', 'KR', 'kr', '韓文'], '')
                     th_text = get_field(v2_verse, ['THSV11 (Key Phrases)', 'THSV11', 'Thai', 'TH', 'th', '泰文'], '')
+
+                    # 3. 填充顯示列表 (確保有英文才顯示)
+                    verse_lines = []
+                    if en_text and str(en_text).strip():
+                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+                        if jp_text: verse_lines.append(f"🇯🇵 {jp_text}")
+                        if kr_text: verse_lines.append(f"🇰🇷 {kr_text}")
+                        if th_text: verse_lines.append(f"🇹🇭 {th_text}")
+                        if cn_text: verse_lines.append(f"🇨🇳 {cn_text}")
 
                     # 填充邏輯
                     verse_lines = []
