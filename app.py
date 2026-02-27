@@ -6,6 +6,9 @@ import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 import requests
+import base64
+import gspread
+from google.oauth2.service_account import Credentials
 
 # 在文件最開始初始化所有 session state 變量
 def init_session_state():
@@ -18,6 +21,159 @@ def init_session_state():
             st.session_state[key] = value
 
 init_session_state()
+
+# ===================================================================
+# ✅ 修正：資料庫設定 - 統一使用 data 目錄，並加入 Google Sheets 備援
+# ===================================================================
+DATA_DIR = "data"
+SENTENCES_FILE = os.path.join(DATA_DIR, "sentences.json")
+TODO_FILE = os.path.join(DATA_DIR, "todos.json")
+FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
+
+# 確保資料目錄存在
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# ---------- Google Sheets 設定 ----------
+def init_google_sheets():
+    """初始化 Google Sheets 連線"""
+    try:
+        if "gcp_service_account" not in st.secrets:
+            return None, None
+        if "sheets" not in st.secrets or "spreadsheet_id" not in st.secrets["sheets"]:
+            return None, None
+            
+        gcp_sa = st.secrets["gcp_service_account"]
+        sheet_id = st.secrets["sheets"]["spreadsheet_id"]
+        
+        creds = Credentials.from_service_account_info(
+            gcp_sa,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+        gc = gspread.authorize(creds)
+        return gc, sheet_id
+    except Exception as e:
+        st.sidebar.error(f"Google Sheets 初始化失敗: {e}")
+        return None, None
+
+# 全域初始化
+GC, SHEET_ID = init_google_sheets()
+
+def get_or_create_worksheet(sheet_name, rows=1000, cols=20):
+    """取得或建立工作表"""
+    if not GC or not SHEET_ID:
+        return None
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        try:
+            return sh.worksheet(sheet_name)
+        except gspread.WorksheetNotFound:
+            return sh.add_worksheet(title=sheet_name, rows=rows, cols=cols)
+    except Exception as e:
+        st.error(f"工作表操作失敗: {e}")
+        return None
+
+def save_to_google_sheets(data_dict):
+    """儲存資料到 Google Sheets（主要儲存）"""
+    if not GC or not SHEET_ID:
+        return False, "Google Sheets 未連線"
+    
+    try:
+        mode = data_dict.get('mode', 'A')
+        sheet_name = f"Mode_{mode}_Data"
+        worksheet = get_or_create_worksheet(sheet_name)
+        
+        if not worksheet:
+            return False, "無法取得工作表"
+        
+        # 準備資料列
+        ref = data_dict.get('ref', 'N/A')
+        row_data = [
+            ref,
+            data_dict.get('type', 'Unknown'),
+            data_dict.get('original', '')[:200],
+            data_dict.get('v1_content', '')[:2000] if data_dict.get('v1_content') else "",
+            data_dict.get('v2_content', '')[:2000] if data_dict.get('v2_content') else "",
+            data_dict.get('w_sheet', '')[:2000] if data_dict.get('w_sheet') else "",
+            data_dict.get('p_sheet', '')[:2000] if data_dict.get('p_sheet') else "",
+            data_dict.get('grammar_list', '')[:2000] if data_dict.get('grammar_list') else "",
+            dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            json.dumps(data_dict.get('saved_sheets', []))
+        ]
+        
+        # 檢查是否已存在（更新 vs 新增）
+        try:
+            cell = worksheet.find(ref)
+            if cell:
+                worksheet.update(f"A{cell.row}:J{cell.row}", [row_data])
+                return True, "updated"
+        except:
+            pass
+        
+        # 新增行
+        worksheet.append_row(row_data)
+        return True, "created"
+        
+    except Exception as e:
+        return False, str(e)
+
+def load_from_google_sheets():
+    """從 Google Sheets 載入所有資料"""
+    if not GC or not SHEET_ID:
+        return {}
+    
+    all_data = {}
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        
+        for mode in ['A', 'B']:
+            sheet_name = f"Mode_{mode}_Data"
+            try:
+                worksheet = sh.worksheet(sheet_name)
+                rows = worksheet.get_all_values()
+                
+                if len(rows) > 1:
+                    headers = rows[0]
+                    for row in rows[1:]:
+                        if len(row) >= 10:
+                            ref = row[0]
+                            all_data[ref] = {
+                                "ref": ref,
+                                "type": row[1],
+                                "original": row[2],
+                                "v1_content": row[3] if len(row) > 3 else "",
+                                "v2_content": row[4] if len(row) > 4 else "",
+                                "w_sheet": row[5] if len(row) > 5 else "",
+                                "p_sheet": row[6] if len(row) > 6 else "",
+                                "grammar_list": row[7] if len(row) > 7 else "",
+                                "date_added": row[8] if len(row) > 8 else "",
+                                "saved_sheets": json.loads(row[9]) if len(row) > 9 and row[9] else [],
+                                "mode": mode,
+                                "source": "google_sheets"
+                            }
+            except gspread.WorksheetNotFound:
+                continue
+                
+        return all_data
+    except Exception as e:
+        st.sidebar.error(f"載入 Google Sheets 失敗: {e}")
+        return {}
+
+def sync_local_to_sheets():
+    """同步本地資料到 Google Sheets"""
+    if not GC or not SHEET_ID:
+        return False
+    
+    try:
+        local_data = load_sentences()
+        success_count = 0
+        for ref, data in local_data.items():
+            success, _ = save_to_google_sheets(data)
+            if success:
+                success_count += 1
+        return success_count
+    except Exception as e:
+        st.error(f"同步失敗: {e}")
+        return 0
 
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
@@ -50,19 +206,152 @@ def to_excel(result: dict) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
+# ---------- 本地 JSON 檔案操作（作為快取/備援）----------
+def load_sentences():
+    """安全載入本地資料庫"""
+    if os.path.exists(SENTENCES_FILE):
+        try:
+            with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:
+                    return {}
+                return json.loads(content)
+        except json.JSONDecodeError as e:
+            backup_name = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            try:
+                os.rename(SENTENCES_FILE, backup_name)
+                st.warning(f"⚠️ 本地資料庫損毀，已備份為 {backup_name}")
+            except:
+                pass
+            return {}
+        except Exception as e:
+            st.error(f"載入本地資料庫失敗：{e}")
+            return {}
+    return {}
+
+def save_sentences(data):
+    """安全儲存本地資料庫（原子寫入）"""
+    try:
+        temp_file = f"{SENTENCES_FILE}.tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        if os.path.exists(SENTENCES_FILE):
+            os.replace(temp_file, SENTENCES_FILE)
+        else:
+            os.rename(temp_file, SENTENCES_FILE)
+            
+        # 自動同步到 Google Sheets
+        if GC and SHEET_ID:
+            try:
+                save_to_google_sheets(data)
+            except:
+                pass
+                
+    except Exception as e:
+        st.error(f"儲存本地資料庫失敗：{e}")
+
+def load_todos():
+    if os.path.exists(TODO_FILE):
+        try:
+            with open(TODO_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_todos():
+    with open(TODO_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
+
+def load_favorites():
+    if os.path.exists(FAVORITE_FILE):
+        try:
+            with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return []
+
+def save_favorites():
+    with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
+
+# ✅ 修正：初始化 Session State（優先從 Google Sheets 載入）
+if 'sentences' not in st.session_state:
+    sheets_data = load_from_google_sheets()
+    if sheets_data:
+        st.session_state.sentences = sheets_data
+        save_sentences(sheets_data)
+    else:
+        st.session_state.sentences = load_sentences()
+
+if 'todo' not in st.session_state:
+    st.session_state.todo = load_todos()
+if 'favorite_sentences' not in st.session_state:
+    st.session_state.favorite_sentences = load_favorites()
+if 'sel_date' not in st.session_state:
+    st.session_state.sel_date = str(dt.date.today())
+if 'cal_key' not in st.session_state:
+    st.session_state.cal_key = 0
+if 'active_del_id' not in st.session_state:
+    st.session_state.active_del_id = None
+if 'active_fav_del' not in st.session_state:
+    st.session_state.active_fav_del = None
+
+
 # ===================================================================
-# 1. 側邊欄（一次 4 連結，無重複）
+# 1. 側邊欄
 # ===================================================================
 with st.sidebar:
     st.divider()
+with st.sidebar:
+    if st.checkbox("🔍 開啟資料欄位檢查"):
+        st.markdown("---")
+        if 'sentences' in st.session_state and st.session_state.sentences:
+            first_ref = list(st.session_state.sentences.keys())[0]
+            data = st.session_state.sentences[first_ref]
+            
+            st.write(f"經節範例: {first_ref}")
+            
+            # 檢查 V1 內容
+            v1_test = parse_content_to_dict(data.get('v1_content', ''))
+            if v1_test:
+                st.info(f"V1 欄位偵測: {list(v1_test[0].keys())}")
+            else:
+                st.error("V1 內容解析失敗，請檢查 Markdown 或 CSV 格式")
+                
+            # 檢查 V2 內容
+            v2_test = parse_content_to_dict(data.get('v2_content', ''))
+            if v2_test:
+                st.success(f"V2 欄位偵測: {list(v2_test[0].keys())}")
+            else:
+                st.warning("V2 內容為空或解析失敗")
+        else:
+            st.write("資料庫目前無資料")
+            
     c1, c2 = st.columns(2)
-    c1.link_button("✨ Google AI", "https://gemini.google.com/")
-    c2.link_button("🤖 Kimi K2",   "https://kimi.moonshot.cn/")
+    c1.link_button("✨ Google AI", "https://gemini.google.com")
+    c2.link_button("🤖 Kimi K2", "https://kimi.moonshot.cn")
     c3, c4 = st.columns(2)
     c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
-    c4.link_button("THSV11",    "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    c4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
     
-    # ✅ 加在這裡（仍在 with st.sidebar: 內部）
+    st.divider()
+    st.markdown("### 💾 資料庫狀態")
+    
+    if GC and SHEET_ID:
+        st.success("✅ Google Sheets 已連線")
+        if st.button("🔄 強制同步到雲端", use_container_width=True):
+            count = sync_local_to_sheets()
+            st.success(f"已同步 {count} 筆資料到 Google Sheets")
+    else:
+        st.error("❌ Google Sheets 未連線")
+        st.caption("請在 secrets.toml 設定 gcp_service_account")
+    
+    local_count = len(st.session_state.get('sentences', {}))
+    st.caption(f"本地快取：{local_count} 筆")
+    
     st.divider()
     st.markdown("### 🖼️ 底部背景設定")
     
@@ -138,7 +427,7 @@ if 'analysis_history' not in st.session_state: st.session_state.analysis_history
 # ---------- CSS ----------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap ');
+@import url('https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap');
 .cute-korean { font-family: 'Gamja Flower', cursive; font-size: 20px; color: #FF8C00; text-align: center; }
 .small-font { font-size: 13px; color: #555555; margin-top: 5px !important; }
 .grammar-box-container {
@@ -152,13 +441,13 @@ st.markdown("""
 
 # ---------- 圖片 & 現成 TAB ----------
 IMG_URLS = {
-    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg ",
-    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg ",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg ",
-    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg ",
-    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg ",
-    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg ",
-    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg "
+    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
+    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
+    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
+    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
+    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
+    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
 with st.sidebar:
     st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
@@ -201,7 +490,7 @@ with tabs[0]:
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
-        st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
+        st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
         def parse_csv(content):
             """解析CSV格式"""
@@ -1164,43 +1453,13 @@ with tabs[2]:
                     st.rerun()
             
 # ===================================================================
-# 6. TAB4 ─ AI 控制台 + Notion Database 整合（支援多工作表）
+# 6. TAB4 ─ AI 控制台 + 資料庫管理（移除 Notion，使用 Google Sheets 備援）
 # ===================================================================
 with tabs[3]:
     import os, json, datetime as dt, pandas as pd, urllib.parse, base64, re, csv, requests
     from io import StringIO
     import streamlit.components.v1 as components
 
-    # ═══════════════════════════════════════════════════════════════
-    # 🔒 NOTION 設定集中管理區（更新時請勿修改此區塊結構）
-    # ═══════════════════════════════════════════════════════════════
-    # 讀取 secrets.toml 的 [notion] 區段
-    NOTION_TOKEN = ""
-    DATABASE_ID = ""
-    
-    try:
-        if "notion" in st.secrets:
-            notion_cfg = st.secrets["notion"]
-            NOTION_TOKEN = notion_cfg.get("token", "")
-            # 優先從 secrets 讀取 database_id，沒有則使用預設值
-            DATABASE_ID = notion_cfg.get("database_id", "2f910510e7fb80c4a67ff8735ea90cdf")
-            
-            # 驗證
-            if NOTION_TOKEN and DATABASE_ID:
-                st.sidebar.success(f"✅ Notion 設定載入成功")
-            else:
-                st.sidebar.warning(f"⚠️ Notion 設定不完整: Token={'有' if NOTION_TOKEN else '無'}, ID={'有' if DATABASE_ID else '無'}")
-        else:
-            st.sidebar.error("❌ secrets.toml 缺少 [notion] 區段")
-            # 使用預設值讓程式能繼續執行（雖然會失敗）
-            DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
-    except Exception as e:
-        st.sidebar.error(f"❌ 讀取 Notion 設定失敗: {e}")
-        DATABASE_ID = "2f910510e7fb80c4a67ff8735ea90cdf"
-    
-    # 常數定義（避免魔法字串）
-    NOTION_API_VERSION = "2022-06-28"
-    NOTION_BASE_URL = "https://api.notion.com/v1"
     # ---------- 背景圖片套用 ----------
     try:
         selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
@@ -1230,178 +1489,7 @@ with tabs[3]:
     except:
         pass
 
-    # ---------- Google Sheet 連線檢查 ----------
-    sheet_connected = False
-    GCP_SA = None
-    SHEET_ID = None
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        GCP_SA = st.secrets.get("gcp_service_account", {})
-        SHEET_ID = st.secrets.get("sheets", {}).get("spreadsheet_id", "")
-        if GCP_SA and SHEET_ID:
-            sheet_connected = True
-    except:
-        pass
-
-    # ---------- 輔助函式 ----------
-    def get_notion_text(prop_dict):
-        """安全取得 Notion rich_text 內容"""
-        rt = prop_dict.get("rich_text", [])
-        if rt and len(rt) > 0:
-            return rt[0].get("text", {}).get("content", "")
-        return ""
-
-    # ---------- Notion 核心函式 ----------
-    def load_from_notion():
-        """從 Notion 資料庫載入所有資料"""
-        # 使用頂層定義的 NOTION_TOKEN 和 DATABASE_ID
-        if not NOTION_TOKEN:
-            st.sidebar.error("❌ NOTION_TOKEN 未設定，無法載入")
-            return {}
-        
-        if not DATABASE_ID:
-            st.sidebar.error("❌ DATABASE_ID 未設定")
-            return {}
-        
-        # ✅ 修正：確保 URL 沒有空格
-        url = f"{NOTION_BASE_URL}/databases/{DATABASE_ID}/query"
-        
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Notion-Version": NOTION_API_VERSION,
-            "Content-Type": "application/json"
-        }
-
-        all_data = {}
-        has_more = True
-        start_cursor = None
-
-        try:
-            with st.spinner("☁️ 正在從 Notion 載入資料..."):
-                while has_more:
-                    payload = {"page_size": 100}
-                    if start_cursor:
-                        payload["start_cursor"] = start_cursor
-
-                    response = requests.post(url, headers=headers, json=payload)
-                    
-                    if response.status_code != 200:
-                        st.sidebar.error(f"🚫 Notion API 錯誤 ({response.status_code})")
-                        try:
-                            st.sidebar.json(response.json())
-                        except:
-                            st.sidebar.code(response.text[:300])
-                        return {}
-
-                    data = response.json()
-
-                    for page in data.get("results", []):
-                        props = page.get("properties", {})
-                        ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
-                        translation = get_notion_text(props.get("Translation", {}))
-
-                        v1_content = ""
-                        v2_content = ""
-                        if translation and "【V1 Sheet】" in translation:
-                            parts = translation.split("【V2 Sheet】")
-                            v1_content = parts[0].split("【V1 Sheet】")[-1].strip() if len(parts) > 0 else ""
-                            v2_content = parts[1].split("【其他工作表】")[0].strip() if len(parts) > 1 else ""
-
-                        title_list = props.get("Content", {}).get("title", [])
-                        original = title_list[0].get("text", {}).get("content", "") if title_list else ""
-
-                        all_data[ref] = {
-                            "ref": ref,
-                            "original": original,
-                            "v1_content": v1_content,
-                            "v2_content": v2_content,
-                            "ai_result": translation,
-                            "type": props.get("Type", {}).get("select", {}).get("name", "Scripture"),
-                            "mode": props.get("Source_Mode", {}).get("select", {}).get("name", "Mode A"),
-                            "date_added": props.get("Date_Added", {}).get("date", {}).get("start", "") if props.get("Date_Added", {}).get("date") else "",
-                            "notion_page_id": page.get("id"),
-                            "notion_synced": True,
-                            "saved_sheets": ["V1", "V2"] if v1_content or v2_content else ["載入成功"]
-                        }
-
-                    has_more = data.get("has_more", False)
-                    start_cursor = data.get("next_cursor")
-
-            if all_data:
-                st.sidebar.success(f"✅ 已從 Notion 載入 {len(all_data)} 筆資料")
-            return all_data
-
-        except Exception as e:
-            st.sidebar.error(f"❌ 載入失敗：{e}")
-            return {}
-
-    def save_to_notion(data_dict):
-        """儲存資料到 Notion"""
-        if not NOTION_TOKEN:
-            return False, "NOTION_TOKEN 未設定", None
-
-        # ✅ 修正：確保 URL 沒有空格
-        url = f"{NOTION_BASE_URL}/pages"
-        
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Content-Type": "application/json",
-            "Notion-Version": NOTION_API_VERSION
-        }
-
-        full_content = f"""【V1 Sheet】
-{data_dict.get('v1_content', '無')}
-
-【V2 Sheet】
-{data_dict.get('v2_content', '無')}
-
-【其他補充】
-{data_dict.get('other_sheets', '無')}
-"""
-        properties = {
-            "Content": {"title": [{"text": {"content": data_dict.get('original', '')[:100]}}]},
-            "Translation": {"rich_text": [{"text": {"content": full_content[:2000]}}]},
-            "Ref_No": {"rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]},
-            "Source_Mode": {"select": {"name": data_dict.get("mode", "Mode A")}},
-            "Type": {"select": {"name": data_dict.get("type", "Scripture")}},
-            "Date_Added": {"date": {"start": dt.datetime.now().isoformat()}}
-        }
-
-        try:
-            response = requests.post(url, headers=headers, json={
-                "parent": {"database_id": DATABASE_ID},
-                "properties": properties
-            })
-            if response.status_code == 200:
-                page_id = response.json().get("id")
-                return True, "成功", page_id
-            else:
-                return False, f"API Error: {response.text}", None
-        except Exception as e:
-            return False, str(e), None
-
-    # ---------- 本地資料庫 ----------
-    SENTENCES_FILE = "sentences.json"
-
-    def load_sentences():
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    # ═══════════════════════════════════════════════════════════════
     # ---------- Session State 初始化 ----------
-    # ═══════════════════════════════════════════════════════════════
     if 'sentences' not in st.session_state:
         st.session_state.sentences = load_sentences()
     if 'search_results' not in st.session_state:
@@ -1425,185 +1513,11 @@ with tabs[3]:
         }
     if 'saved_entries' not in st.session_state:
         st.session_state.saved_entries = []
-    # 🆕 新增：編輯模式相關
+    # 新增：編輯模式相關
     if 'edit_mode' not in st.session_state:
         st.session_state.edit_mode = False
     if 'edit_ref' not in st.session_state:
         st.session_state.edit_ref = None
-    # ═══════════════════════════════════════════════════════════════
-    # 顯示連線狀態（Sidebar）
-    with st.sidebar:
-        st.divider()
-        st.subheader("☁️ 連線狀態")
-        if NOTION_TOKEN:
-            st.success("✅ Notion Token 已設定")
-        else:
-            st.error("❌ Notion Token 未設定")
-        
-        if sheet_connected:
-            st.success("✅ Google Sheet 已連線")
-        else:
-            st.error("❌ Google Sheet 未連線")
-
-    # ... 其餘程式碼（generate_full_prompt, UI 等）保持不變 ...
-
-    def load_from_notion():
-        # --- 強制診斷區 ---
-        st.sidebar.divider()
-        st.sidebar.subheader("🔧 Notion 連線診斷")
-        
-        if "notion" not in st.secrets:
-            st.sidebar.warning("⚠️ 偵測不到 [notion] 區塊")
-            st.sidebar.write(f"可用的 secrets keys: {list(st.secrets.keys())}")
-            return {}
-        
-        token = st.secrets["notion"].get("token")
-        db_id = st.secrets["notion"].get("database_id")
-        
-        st.sidebar.write(f"Token 存在: {bool(token)}")
-        st.sidebar.write(f"Database ID 存在: {bool(db_id)}")
-        
-        if not token or not db_id:
-            st.sidebar.error(f"🚫 憑證缺失: Token={'有' if token else '無'}, ID={'有' if db_id else '無'}")
-            return {}
-        
-        st.sidebar.success("✅ 憑證檢查通過")
-        # ----------------
-
-        # ✅ 修正：移除 URL 中的空格（這是關鍵！）
-        url = f"https://api.notion.com/v1/databases/{db_id}/query"
-        st.sidebar.write(f"URL: {url[:50]}...")
-        
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json"
-        }
-
-        all_data = {}
-        has_more = True
-        start_cursor = None
-        
-        try:
-            with st.spinner("☁️ 正在連線 Notion..."):
-                while has_more:
-                    payload = {"page_size": 100}
-                    if start_cursor:
-                        payload["start_cursor"] = start_cursor
-                        
-                    response = requests.post(url, headers=headers, json=payload)
-                    
-                    if response.status_code != 200:
-                        st.sidebar.error(f"❌ Notion 拒絕連線 ({response.status_code})")
-                        try:
-                            error_detail = response.json()
-                            st.sidebar.json(error_detail)
-                        except:
-                            st.sidebar.code(response.text[:300])
-                        return {}
-
-                    data = response.json()
-                    
-                    for page in data.get("results", []):
-                        props = page.get("properties", {})
-                        ref = get_notion_text(props.get("Ref_No", {})) or "unknown"
-                        translation = get_notion_text(props.get("Translation", {}))
-
-                        v1_content = ""
-                        v2_content = ""
-                        if translation and "【V1 Sheet】" in translation:
-                            parts = translation.split("【V2 Sheet】")
-                            v1_content = parts[0].split("【V1 Sheet】")[-1].strip() if len(parts) > 0 else ""
-                            v2_content = parts[1].split("【其他工作表】")[0].strip() if len(parts) > 1 else ""
-
-                        title_list = props.get("Content", {}).get("title", [])
-                        original = title_list[0].get("text", {}).get("content", "") if title_list else ""
-
-                        all_data[ref] = {
-                            "ref": ref,
-                            "original": original,
-                            "v1_content": v1_content,
-                            "v2_content": v2_content,
-                            "ai_result": translation,
-                            "type": props.get("Type", {}).get("select", {}).get("name", "Scripture"),
-                            "mode": props.get("Source_Mode", {}).get("select", {}).get("name", "Mode A"),
-                            "date_added": props.get("Date_Added", {}).get("date", {}).get("start", "") if props.get("Date_Added", {}).get("date") else "",
-                            "notion_page_id": page.get("id"),
-                            "notion_synced": True,
-                            "saved_sheets": ["V1", "V2"] if v1_content or v2_content else ["載入成功"]
-                        }
-
-                    has_more = data.get("has_more", False)
-                    start_cursor = data.get("next_cursor")
-
-            st.sidebar.success(f"✅ 已連線：載入 {len(all_data)} 筆")
-            return all_data
-            
-        except Exception as e:
-            st.sidebar.error(f"❌ 執行異常: {e}")
-            import traceback
-            st.sidebar.code(traceback.format_exc())
-            return {}
-
-    def save_to_notion(data_dict):
-        """儲存到 Notion，成功後回傳 page_id"""
-        if not NOTION_TOKEN:
-            return False, "未設定 Notion Token", None
-
-        url = "https://api.notion.com/v1/pages"
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28"
-        }
-
-        full_content = f"""【V1 Sheet】
-{data_dict.get('v1_content', '無')}
-
-【V2 Sheet】
-{data_dict.get('v2_content', '無')}
-
-【其他補充】
-{data_dict.get('other_sheets', '無')}
-"""
-
-        properties = {
-            "Content": {"title": [{"text": {"content": data_dict.get('original', '')[:100]}}]},
-            "Translation": {"rich_text": [{"text": {"content": full_content[:2000]}}]},
-            "Ref_No": {"rich_text": [{"text": {"content": data_dict.get("ref", "N/A")}}]},
-            "Source_Mode": {"select": {"name": data_dict.get("mode", "Mode A")}},
-            "Type": {"select": {"name": data_dict.get("type", "Scripture")}},
-            "Date_Added": {"date": {"start": dt.datetime.now().isoformat()}}
-        }
-
-        try:
-            response = requests.post(url, headers=headers, json={
-                "parent": {"database_id": DATABASE_ID},
-                "properties": properties
-            })
-            if response.status_code == 200:
-                page_id = response.json().get("id")
-                return True, "成功", page_id
-            else:
-                return False, f"Notion API Error: {response.text}", None
-        except Exception as e:
-            return False, str(e), None
-
-    # ---------- 資料庫持久化 ----------
-    SENTENCES_FILE = "sentences.json"
-
-    def load_sentences():
-        if os.path.exists(SENTENCES_FILE):
-            try:
-                with open(SENTENCES_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_sentences(data):
-        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
 
     # 1. 智能偵測內容類型
     def detect_content_mode(text):
@@ -1751,6 +1665,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
             'p_sheet': '', 'grammar_list': '', 'other': ''
         }
         st.session_state.saved_entries = []
+
     # ═══════════════════════════════════════════════════════════════
     # 🆕 快速功能區（空白資料建立器 + 編輯現有資料）
     # ═══════════════════════════════════════════════════════════════
@@ -1906,7 +1821,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
             
             with edit_tabs[3]:
                 st.write("確認修改後儲存：")
-                save_cols = st.columns(4)
+                save_cols = st.columns(2)
                 
                 with save_cols[0]:
                     if st.button("💾 存到本地", use_container_width=True, key="save_local_a"):
@@ -1917,41 +1832,11 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences)
+                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
                         st.success("✅ 已更新本地資料！")
                 
                 with save_cols[1]:
-                    if NOTION_TOKEN:
-                        if st.button("🚀 同步 Notion", use_container_width=True, type="primary", key="save_notion_a"):
-                            data = {
-                                "original": item.get('original', ''),
-                                "v1_content": st.session_state.current_entry['v1'],
-                                "v2_content": st.session_state.current_entry['v2'],
-                                "w_sheet": "",
-                                "p_sheet": "",
-                                "grammar_list": "",
-                                "other": st.session_state.current_entry['other'],
-                                "ref": st.session_state.edit_ref,
-                                "mode": f"Mode {current_mode}",
-                                "type": item.get('type', 'Scripture')
-                            }
-                            success, msg, page_id = save_to_notion(data)
-                            if success:
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_synced'] = True
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_page_id'] = page_id
-                                save_sentences(st.session_state.sentences)
-                                st.success("✅ 已同步 Notion！")
-                            else:
-                                st.error(f"❌ 同步失敗：{msg}")
-                    else:
-                        st.button("🚀 Notion", disabled=True, use_container_width=True)
-                
-                with save_cols[2]:
-                    st.button("📊 Google", disabled=True, use_container_width=True)
-                
-                with save_cols[3]:
-                    if st.button("💾🚀 本地+Notion", use_container_width=True, key="save_both_a"):
-                        # 本地
+                    if st.button("💾 存到本地+雲端", use_container_width=True, key="save_both_a"):
                         st.session_state.sentences[st.session_state.edit_ref].update({
                             'v1_content': st.session_state.current_entry['v1'],
                             'v2_content': st.session_state.current_entry['v2'],
@@ -1959,29 +1844,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences)
-                        
-                        # Notion
-                        if NOTION_TOKEN:
-                            data = {
-                                "original": item.get('original', ''),
-                                "v1_content": st.session_state.current_entry['v1'],
-                                "v2_content": st.session_state.current_entry['v2'],
-                                "w_sheet": "",
-                                "p_sheet": "",
-                                "grammar_list": "",
-                                "other": st.session_state.current_entry['other'],
-                                "ref": st.session_state.edit_ref,
-                                "mode": f"Mode {current_mode}",
-                                "type": item.get('type', 'Scripture')
-                            }
-                            success, msg, page_id = save_to_notion(data)
-                            if success:
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_synced'] = True
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_page_id'] = page_id
-                                save_sentences(st.session_state.sentences)
-                        
-                        st.success("✅ 已同步本地與 Notion！")
+                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
+                        st.success("✅ 已更新本地與 Google Sheets！")
         
         else:  # Mode B
             edit_tabs = st.tabs(["W Sheet", "P Sheet", "Grammar List", "其他補充", "儲存"])
@@ -2024,7 +1888,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
             
             with edit_tabs[4]:
                 st.write("確認修改後儲存：")
-                save_cols = st.columns(4)
+                save_cols = st.columns(2)
                 
                 with save_cols[0]:
                     if st.button("💾 存到本地", use_container_width=True, key="save_local_b"):
@@ -2036,40 +1900,11 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences)
+                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
                         st.success("✅ 已更新本地資料！")
                 
                 with save_cols[1]:
-                    if NOTION_TOKEN:
-                        if st.button("🚀 同步 Notion", use_container_width=True, type="primary", key="save_notion_b"):
-                            data = {
-                                "original": item.get('original', ''),
-                                "v1_content": "",
-                                "v2_content": "",
-                                "w_sheet": st.session_state.current_entry['w_sheet'],
-                                "p_sheet": st.session_state.current_entry['p_sheet'],
-                                "grammar_list": st.session_state.current_entry['grammar_list'],
-                                "other": st.session_state.current_entry['other'],
-                                "ref": st.session_state.edit_ref,
-                                "mode": f"Mode {current_mode}",
-                                "type": item.get('type', 'Document')
-                            }
-                            success, msg, page_id = save_to_notion(data)
-                            if success:
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_synced'] = True
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_page_id'] = page_id
-                                save_sentences(st.session_state.sentences)
-                                st.success("✅ 已同步 Notion！")
-                            else:
-                                st.error(f"❌ 同步失敗：{msg}")
-                    else:
-                        st.button("🚀 Notion", disabled=True, use_container_width=True)
-                
-                with save_cols[2]:
-                    st.button("📊 Google", disabled=True, use_container_width=True)
-                
-                with save_cols[3]:
-                    if st.button("💾🚀 本地+Notion", use_container_width=True, key="save_both_b"):
+                    if st.button("💾 存到本地+雲端", use_container_width=True, key="save_both_b"):
                         st.session_state.sentences[st.session_state.edit_ref].update({
                             'w_sheet': st.session_state.current_entry['w_sheet'],
                             'p_sheet': st.session_state.current_entry['p_sheet'],
@@ -2078,28 +1913,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences)
-                        
-                        if NOTION_TOKEN:
-                            data = {
-                                "original": item.get('original', ''),
-                                "v1_content": "",
-                                "v2_content": "",
-                                "w_sheet": st.session_state.current_entry['w_sheet'],
-                                "p_sheet": st.session_state.current_entry['p_sheet'],
-                                "grammar_list": st.session_state.current_entry['grammar_list'],
-                                "other": st.session_state.current_entry['other'],
-                                "ref": st.session_state.edit_ref,
-                                "mode": f"Mode {current_mode}",
-                                "type": item.get('type', 'Document')
-                            }
-                            success, msg, page_id = save_to_notion(data)
-                            if success:
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_synced'] = True
-                                st.session_state.sentences[st.session_state.edit_ref]['notion_page_id'] = page_id
-                                save_sentences(st.session_state.sentences)
-                        
-                        st.success("✅ 已同步本地與 Notion！")
+                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
+                        st.success("✅ 已更新本地與 Google Sheets！")
         
         st.divider()
     
@@ -2148,13 +1963,10 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 height=280
             )
             
-            cols = st.columns(3)
+            cols = st.columns(2)
             with cols[0]:
-                encoded = urllib.parse.quote(st.session_state.get('main_input_value', ''))
-                st.link_button("💬 開啟 GPT", f"https://chat.openai.com/?q={encoded}", use_container_width=True)
+                st.link_button("🌙 開啟 Kimi", "https://kimi.moonshot.cn", use_container_width=True)
             with cols[1]:
-                st.link_button("🌙 開啟 Kimi", "https://kimi.com", use_container_width=True)
-            with cols[2]:
                 st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
 
         # === STEP 3: 多工作表收集區 ===
@@ -2216,33 +2028,28 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             st.code(content[:200] + "..." if len(content) > 200 else content)
 
 
-        # === STEP 4: 統一儲存區（修正縮排：在 if 區塊內）===
+        # === STEP 4: 統一儲存區 ===
         with st.expander("步驟 4：儲存到資料庫", expanded=True):
             st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
             
-            # ═══════════════════════════════════════════════════════════
-            # 🆕 修正：從 V1 或 W Sheet 提取 Ref 作為預設檔名
-            # ═══════════════════════════════════════════════════════════
+            # 從 V1 或 W Sheet 提取 Ref 作為預設檔名
             def get_default_ref():
-                # Mode A: 從 V1 的 Ref 欄位提取
                 v1_content = st.session_state.current_entry.get('v1', '')
                 if v1_content:
                     lines = v1_content.strip().split('\n')
-                    for line in lines[1:]:  # 跳過標題列
+                    for line in lines[1:]:
                         cols = line.split('\t')
                         if len(cols) > 0 and cols[0].strip():
                             return cols[0].strip()
                 
-                # Mode B: 從 W Sheet 的 No 欄位提取
                 w_content = st.session_state.current_entry.get('w_sheet', '')
                 if w_content:
                     lines = w_content.strip().split('\n')
-                    for line in lines[1:]:  # 跳過標題列
+                    for line in lines[1:]:
                         cols = line.split('\t')
                         if len(cols) > 0 and cols[0].strip():
                             return cols[0].strip()
                 
-                # 預設
                 return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
             
             # 檔名編輯區（可手動修改）
@@ -2261,8 +2068,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 key="type_select"
             )
             
-            # 儲存按鈕列（4個並列：本地、Notion、Google Sheet、全部）
-            btn_cols = st.columns(4)
+            # 儲存按鈕列（本地、Google Sheet）
+            btn_cols = st.columns(2)
             
             with btn_cols[0]:
                 # 存到本地
@@ -2271,7 +2078,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         st.error("請先至少暫存一個工作表！")
                     else:
                         try:
-                            ref = ref_input  # 使用手動編輯的檔名
+                            ref = ref_input
                             full_data = {
                                 "ref": ref,
                                 "original": st.session_state.original_text,
@@ -2288,101 +2095,23 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                 "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                             }
                             st.session_state.sentences[ref] = full_data
-                            save_sentences(st.session_state.sentences)
+                            save_sentences(full_data)
                             st.success(f"✅ 已存本地：{ref}")
                             st.balloons()
                         except Exception as e:
                             st.error(f"❌ 儲存失敗：{str(e)}")
             
             with btn_cols[1]:
-                # 存到 Notion
-                if NOTION_TOKEN:
-                    if st.button("🚀 Notion", use_container_width=True, type="primary"):
-                        if not st.session_state.saved_entries:
-                            st.error("請先至少暫存一個工作表！")
-                        else:
-                            data_to_save = {
-                                "original": st.session_state.original_text,
-                                "prompt": st.session_state.main_input_value,
-                                "v1_content": st.session_state.current_entry['v1'],
-                                "v2_content": st.session_state.current_entry['v2'],
-                                "other_sheets": str(st.session_state.current_entry),
-                                "ref": ref_input,  # 使用手動編輯的檔名
-                                "mode": f"Mode {st.session_state.content_mode}",
-                                "type": type_select
-                            }
-                            success, msg, page_id = save_to_notion(data_to_save)
-                            if success:
-                                full_data = {
-                                    "ref": ref_input,
-                                    "original": st.session_state.original_text,
-                                    "prompt": st.session_state.main_input_value,
-                                    "v1_content": st.session_state.current_entry['v1'],
-                                    "v2_content": st.session_state.current_entry['v2'],
-                                    "w_sheet": st.session_state.current_entry['w_sheet'],
-                                    "p_sheet": st.session_state.current_entry['p_sheet'],
-                                    "grammar_list": st.session_state.current_entry['grammar_list'],
-                                    "other": st.session_state.current_entry['other'],
-                                    "saved_sheets": st.session_state.saved_entries,
-                                    "type": type_select,
-                                    "mode": st.session_state.content_mode,
-                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                    "notion_synced": True,
-                                    "notion_page_id": page_id
-                                }
-                                st.session_state.sentences[ref_input] = full_data
-                                save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已同步 Notion！")
-                                st.balloons()
-                            else:
-                                st.error(f"❌ 同步失敗：{msg}")
-                else:
-                    st.button("🚀 Notion", disabled=True, use_container_width=True)
-            
-            with btn_cols[2]:
-                # 存到 Google Sheet（使用外面定義的 sheet_connected）
-                if sheet_connected:
+                # 存到 Google Sheet
+                if GC and SHEET_ID:
                     if st.button("📊 Google", use_container_width=True, type="primary"):
                         if not st.session_state.saved_entries:
                             st.error("請先至少暫存一個工作表！")
                         else:
                             try:
-                                # 認證
-                                creds = Credentials.from_service_account_info(
-                                    GCP_SA,
-                                    scopes=["https://www.googleapis.com/auth/spreadsheets"]
-                                )
-                                gc = gspread.authorize(creds)
-                                sh = gc.open_by_key(SHEET_ID)
-                                
-                                # 取得或建立工作表
-                                sheet_name = st.session_state.content_mode
-                                try:
-                                    worksheet = sh.worksheet(sheet_name)
-                                except:
-                                    worksheet = sh.add_worksheet(title=sheet_name, rows=1000, cols=20)
-                                
-                                # 準備資料
-                                ref = ref_input  # 使用手動編輯的檔名
-                                row_data = [
-                                    ref,
-                                    type_select,
-                                    st.session_state.original_text[:100],
-                                    st.session_state.current_entry['v1'][:500] if st.session_state.current_entry['v1'] else "",
-                                    st.session_state.current_entry['v2'][:500] if st.session_state.current_entry['v2'] else "",
-                                    st.session_state.current_entry['w_sheet'][:500] if st.session_state.current_entry['w_sheet'] else "",
-                                    st.session_state.current_entry['p_sheet'][:500] if st.session_state.current_entry['p_sheet'] else "",
-                                    dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                    ", ".join(st.session_state.saved_entries)
-                                ]
-                                # 寫入
-                                worksheet.append_row(row_data)
-                                
-                                # 標記已同步
                                 full_data = {
-                                    "ref": ref,
+                                    "ref": ref_input,
                                     "original": st.session_state.original_text,
-                                    "prompt": st.session_state.main_input_value,
                                     "v1_content": st.session_state.current_entry['v1'],
                                     "v2_content": st.session_state.current_entry['v2'],
                                     "w_sheet": st.session_state.current_entry['w_sheet'],
@@ -2392,104 +2121,20 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                     "saved_sheets": st.session_state.saved_entries,
                                     "type": type_select,
                                     "mode": st.session_state.content_mode,
-                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                    "google_sheet_synced": True
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                                 }
-                                st.session_state.sentences[ref] = full_data
-                                save_sentences(st.session_state.sentences)
-                                
-                                st.success(f"✅ 已存 Google Sheet：{sheet_name}")
-                                st.balloons()
-                                
+                                success, msg = save_to_google_sheets(full_data)
+                                if success:
+                                    st.session_state.sentences[ref_input] = full_data
+                                    save_sentences(full_data)
+                                    st.success(f"✅ 已存 Google Sheets：{ref_input}")
+                                    st.balloons()
+                                else:
+                                    st.error(f"❌ Google Sheets 失敗：{msg}")
                             except Exception as e:
-                                st.error(f"❌ Google Sheet 失敗：{str(e)}")
+                                st.error(f"❌ Google Sheets 失敗：{str(e)}")
                 else:
                     st.button("📊 Google", disabled=True, use_container_width=True)
-            
-            with btn_cols[3]:
-                # 一鍵存全部（本地+Notion+Google）
-                if st.button("💾🚀📊 全部", use_container_width=True):
-                    if not st.session_state.saved_entries:
-                        st.error("請先至少暫存一個工作表！")
-                    else:
-                        ref = ref_input  # 使用手動編輯的檔名
-                        success_list = []
-                        
-                        # 1. 存本地
-                        full_data = {
-                            "ref": ref,
-                            "original": st.session_state.original_text,
-                            "prompt": st.session_state.main_input_value,
-                            "v1_content": st.session_state.current_entry['v1'],
-                            "v2_content": st.session_state.current_entry['v2'],
-                            "w_sheet": st.session_state.current_entry['w_sheet'],
-                            "p_sheet": st.session_state.current_entry['p_sheet'],
-                            "grammar_list": st.session_state.current_entry['grammar_list'],
-                            "other": st.session_state.current_entry['other'],
-                            "saved_sheets": st.session_state.saved_entries,
-                            "type": type_select,
-                            "mode": st.session_state.content_mode,
-                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                        }
-                        st.session_state.sentences[ref] = full_data
-                        save_sentences(st.session_state.sentences)
-                        success_list.append("本地")
-                        
-                        # 2. 存 Notion
-                        if NOTION_TOKEN:
-                            notion_data = {
-                                "original": st.session_state.original_text,
-                                "prompt": st.session_state.main_input_value,
-                                "v1_content": st.session_state.current_entry['v1'],
-                                "v2_content": st.session_state.current_entry['v2'],
-                                "other_sheets": str(st.session_state.current_entry),
-                                "ref": ref,
-                                "mode": f"Mode {st.session_state.content_mode}",
-                                "type": type_select
-                            }
-                            success_notion, msg, page_id = save_to_notion(notion_data)
-                            if success_notion:
-                                full_data['notion_synced'] = True
-                                full_data['notion_page_id'] = page_id
-                                success_list.append("Notion")
-                        
-                        # 3. 存 Google Sheet
-                        if sheet_connected:
-                            try:
-                                creds = Credentials.from_service_account_info(
-                                    GCP_SA,
-                                    scopes=["https://www.googleapis.com/auth/spreadsheets"]
-                                )
-                                gc = gspread.authorize(creds)
-                                sh = gc.open_by_key(SHEET_ID)
-                                sheet_name = st.session_state.content_mode
-                                try:
-                                    worksheet = sh.worksheet(sheet_name)
-                                except:
-                                    worksheet = sh.add_worksheet(title=sheet_name, rows=1000, cols=20)
-                                
-                                row_data = [
-                                    ref, type_select,
-                                    st.session_state.original_text[:100],
-                                    st.session_state.current_entry['v1'][:500],
-                                    st.session_state.current_entry['v2'][:500],
-                                    st.session_state.current_entry['w_sheet'][:500],
-                                    st.session_state.current_entry['p_sheet'][:500],
-                                    dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                    ", ".join(st.session_state.saved_entries)
-                                ]
-                                worksheet.append_row(row_data)
-                                full_data['google_sheet_synced'] = True
-                                success_list.append("Google Sheet")
-                            except:
-                                pass
-                        
-                        # 更新本地資料
-                        st.session_state.sentences[ref] = full_data
-                        save_sentences(st.session_state.sentences)
-                        
-                        st.success(f"✅ 已同步：{' + '.join(success_list)}")
-                        st.balloons()
 
             # 清除按鈕
             st.divider()
@@ -2504,9 +2149,9 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         del st.session_state[key]
                 st.rerun()
 
-    # ---------- 📊 儲存狀態顯示區（字體縮小版，在 if 區塊外面）----------
+    # ---------- 📊 儲存狀態顯示區 ----------
     st.divider()
-    status_cols = st.columns([1, 1, 1, 2])
+    status_cols = st.columns([1, 1, 2])
     
     with status_cols[0]:
         total_local = len(st.session_state.get('sentences', {}))
@@ -2514,22 +2159,14 @@ its part of speech and meaning in this sentence must be clearly identified...等
         st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0;'>{total_local} 筆</p>", unsafe_allow_html=True)
     
     with status_cols[1]:
-        if NOTION_TOKEN:
-            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>☁️ Notion</p>", unsafe_allow_html=True)
+        if GC and SHEET_ID:
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>☁️ Google Sheets</p>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #28a745;'>✅ 已連線</p>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>☁️ Notion</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>☁️ Google Sheets</p>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #dc3545;'>❌ 未設定</p>", unsafe_allow_html=True)
     
     with status_cols[2]:
-        if sheet_connected:
-            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>📊 Google</p>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #28a745;'>✅ 已連線</p>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<p style='font-size: 12px; margin: 0; color: #666;'>📊 Google</p>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 16px; font-weight: bold; margin: 0; color: #dc3545;'>❌ 未設定</p>", unsafe_allow_html=True)
-    
-    with status_cols[3]:
         # 顯示最近儲存的資料
         if st.session_state.get('sentences'):
             recent = list(st.session_state.sentences.values())[-3:]
@@ -2586,7 +2223,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 
                 # 操作按鈕
                 st.divider()
-                btn_cols = st.columns([1, 1, 1, 2])
+                btn_cols = st.columns([1, 1, 2])
                 
                 with btn_cols[0]:
                     if st.button("✏️ 載入編輯", key=f"edit_{selected_ref}"):
@@ -2607,29 +2244,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 with btn_cols[1]:
                     if st.button("🗑️ 刪除", key=f"del_{selected_ref}"):
                         del st.session_state.sentences[selected_ref]
-                        save_sentences(st.session_state.sentences)
+                        save_sentences({})  # 觸發儲存
                         st.rerun()
-                
-                with btn_cols[2]:
-                    notion_synced = item.get('notion_synced', False)
-                    if NOTION_TOKEN and not notion_synced:
-                        if st.button("🚀 同步Notion", key=f"sync_{selected_ref}"):
-                            data = {
-                                "original": item['original'], "prompt": item['prompt'],
-                                "v1_content": item.get('v1_content', ''),
-                                "v2_content": item.get('v2_content', ''),
-                                "ref": selected_ref, "mode": f"Mode {item.get('mode', 'A')}",
-                                "type": item.get('type', 'Scripture')
-                            }
-                            success, msg, page_id = save_to_notion(data)
-                            if success:
-                                st.session_state.sentences[selected_ref]['notion_synced'] = True
-                                st.session_state.sentences[selected_ref]['notion_page_id'] = page_id
-                                save_sentences(st.session_state.sentences)
-                                st.success(f"✅ 已同步!")
-                                st.rerun()
-                    elif notion_synced:
-                        st.caption("✅ 已同步")
 
     # ---------- 🔍 簡易搜尋 ----------
     with st.expander("🔍 搜尋資料", expanded=False):
@@ -2647,7 +2263,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
             else:
                 st.info("無符合資料")
 
-    # ---------- 底部統計（移除重複的備份下載）----------
+    # ---------- 底部統計 ----------
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
