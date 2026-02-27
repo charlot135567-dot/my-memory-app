@@ -749,7 +749,7 @@ with tabs[0]:
                     cn_text = v1_verse.get('Chinese', '')
                     jp_text = v2_verse.get('口語訳', '') if v2_verse else ''
                     kr_text = v2_verse.get('KRF', '') if v2_verse else ''
-                    th_text = v2_verse.get('THSV11', '') if v2_verse else ''
+                    th_text = v2_verse.get('THSV11(Key Phrases)', '') if v2_verse else ''
         
         # ============================================================
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
