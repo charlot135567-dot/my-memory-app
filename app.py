@@ -1544,7 +1544,7 @@ with tabs[3]:
 
 🔹 V2 Sheet 欄位要求：
 1. Ref.：同 V1.
-2. 口語訳：檢索對應的日本語.
+2. 口語訳：檢索對應的日本口語訳.
 3. Grammar格式同 V1
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
