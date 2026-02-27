@@ -103,6 +103,11 @@ def parse_content_to_dict(content):
     
     content = content.strip()
     
+    # ✅ 修正：移除可能的標題行（V1, V2, W, P 等）
+    lines = content.split('\n')
+    if lines and lines[0].strip() in ['V1', 'V2', 'W', 'P', 'Grammar', 'V1 Sheet', 'V2 Sheet', 'W Sheet', 'P Sheet']:
+        content = '\n'.join(lines[1:]).strip()
+    
     # 偵測 Markdown 表格（以 | 開頭）
     if content.startswith('|'):
         lines = [l.strip() for l in content.split('\n') if l.strip()]
