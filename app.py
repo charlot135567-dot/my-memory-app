@@ -1421,7 +1421,7 @@ with tabs[2]:
         # 單字題
         word_pool = []
         for v in all_verses:
-            syn_ant = v.get('syn_ant', '')
+            syn_ant = get_field(v, ['Syn/Ant', 'Syn/Ant.', 'Synonym/Antonym', '同反義', 'Syn Ant'], '')
             if '/' in syn_ant:
                 for p in syn_ant.split('/'):
                     match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
