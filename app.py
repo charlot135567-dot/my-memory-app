@@ -6,7 +6,7 @@ import streamlit as st
 # ✅ 修正：set_page_config 必須是第一個 Streamlit 指令
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
+import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 import requests
