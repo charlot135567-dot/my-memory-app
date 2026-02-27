@@ -396,6 +396,31 @@ if 'active_fav_del' not in st.session_state:
 # ===================================================================
 with st.sidebar:
     st.divider()
+with st.sidebar:
+    if st.checkbox("🔍 開啟資料欄位檢查"):
+        st.markdown("---")
+        if 'sentences' in st.session_state and st.session_state.sentences:
+            first_ref = list(st.session_state.sentences.keys())[0]
+            data = st.session_state.sentences[first_ref]
+            
+            st.write(f"經節範例: {first_ref}")
+            
+            # 檢查 V1 內容
+            v1_test = parse_content_to_dict(data.get('v1_content', ''))
+            if v1_test:
+                st.info(f"V1 欄位偵測: {list(v1_test[0].keys())}")
+            else:
+                st.error("V1 內容解析失敗，請檢查 Markdown 或 CSV 格式")
+                
+            # 檢查 V2 內容
+            v2_test = parse_content_to_dict(data.get('v2_content', ''))
+            if v2_test:
+                st.success(f"V2 欄位偵測: {list(v2_test[0].keys())}")
+            else:
+                st.warning("V2 內容為空或解析失敗")
+        else:
+            st.write("資料庫目前無資料")
+            
     c1, c2 = st.columns(2)
     c1.link_button("✨ Google AI", "https://gemini.google.com")
     c2.link_button("🤖 Kimi K2", "https://kimi.moonshot.cn")
