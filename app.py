@@ -58,16 +58,30 @@ def init_google_sheets():
 # 全域初始化
 GC, SHEET_ID = init_google_sheets()
 
-def get_or_create_worksheet(sheet_name, rows=1000, cols=20):
-    """取得或建立工作表"""
+def get_or_create_worksheet(sheet_name, rows=1000, cols=10):
+    """取得或建立工作表（自動加入標題列）"""
     if not GC or not SHEET_ID:
         return None
     try:
         sh = GC.open_by_key(SHEET_ID)
         try:
-            return sh.worksheet(sheet_name)
+            worksheet = sh.worksheet(sheet_name)
+            # 檢查是否有標題列，如果沒有就加上
+            first_row = worksheet.row_values(1)
+            expected_headers = ["ref", "type", "original", "v1_content", "v2_content", 
+                              "w_sheet", "p_sheet", "grammar_list", "date_added", "saved_sheets"]
+            if not first_row or first_row != expected_headers:
+                # 插入標題列
+                worksheet.insert_row(expected_headers, 1)
+            return worksheet
         except gspread.WorksheetNotFound:
-            return sh.add_worksheet(title=sheet_name, rows=rows, cols=cols)
+            # 建立新工作表
+            worksheet = sh.add_worksheet(title=sheet_name, rows=rows, cols=cols)
+            # 加入標題列
+            headers = ["ref", "type", "original", "v1_content", "v2_content", 
+                      "w_sheet", "p_sheet", "grammar_list", "date_added", "saved_sheets"]
+            worksheet.append_row(headers)
+            return worksheet
     except Exception as e:
         st.error(f"工作表操作失敗: {e}")
         return None
@@ -75,57 +89,71 @@ def get_or_create_worksheet(sheet_name, rows=1000, cols=20):
 def save_to_google_sheets(data_dict):
     """儲存資料到 Google Sheets（主要儲存）"""
     if not GC or not SHEET_ID:
+        st.sidebar.error("❌ Google Sheets 未連線：GC或SHEET_ID為空")
         return False, "Google Sheets 未連線"
     
     try:
         mode = data_dict.get('mode', 'A')
         sheet_name = f"Mode_{mode}_Data"
+        
+        # 🔔 除錯訊息
+        st.sidebar.info(f"📝 嘗試寫入工作表：{sheet_name}")
+        st.sidebar.info(f"📊 資料ref：{data_dict.get('ref', 'N/A')}")
+        
         worksheet = get_or_create_worksheet(sheet_name)
         
         if not worksheet:
+            st.sidebar.error(f"❌ 無法取得或建立工作表：{sheet_name}")
             return False, "無法取得工作表"
         
-        # 準備資料列 - 確保每個欄位都是單純字串，沒有換行或特殊格式
+        # 準備資料列
         ref = data_dict.get('ref', 'N/A')
         
-        # 清理資料：移除或替換換行符號，避免破壞表格結構
-        def clean_text(text, max_len=2000):
+        # 清理資料：將換行符號替換為可見標記
+        def clean_for_sheets(text, max_len=2000):
             if not text:
                 return ""
-            # 將換行符號替換為特殊標記，或移除
-            cleaned = str(text).replace('\n', ' | ').replace('\r', '')
+            cleaned = str(text).replace('\n', ' ⏎ ').replace('\r', '').replace('\t', '    ')
             return cleaned[:max_len]
         
         row_data = [
             ref,
             data_dict.get('type', 'Unknown'),
-            clean_text(data_dict.get('original', ''), 200),
-            clean_text(data_dict.get('v1_content', ''), 2000),
-            clean_text(data_dict.get('v2_content', ''), 2000),
-            clean_text(data_dict.get('w_sheet', ''), 2000),
-            clean_text(data_dict.get('p_sheet', ''), 2000),
-            clean_text(data_dict.get('grammar_list', ''), 2000),
+            clean_for_sheets(data_dict.get('original', ''), 200),
+            clean_for_sheets(data_dict.get('v1_content', ''), 2000),
+            clean_for_sheets(data_dict.get('v2_content', ''), 2000),
+            clean_for_sheets(data_dict.get('w_sheet', ''), 2000),
+            clean_for_sheets(data_dict.get('p_sheet', ''), 2000),
+            clean_for_sheets(data_dict.get('grammar_list', ''), 2000),
             dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
             json.dumps(data_dict.get('saved_sheets', []))
         ]
+        
+        # 🔔 顯示即將寫入的資料預覽
+        st.sidebar.info(f"📋 寫入資料：{len(row_data)} 個欄位")
+        st.sidebar.caption(f"A欄(ref): {row_data[0]}")
+        st.sidebar.caption(f"B欄(type): {row_data[1]}")
+        st.sidebar.caption(f"F欄(w_sheet)長度: {len(row_data[5])} 字元")
         
         # 檢查是否已存在（更新 vs 新增）
         try:
             cell = worksheet.find(ref)
             if cell:
-                # 更新現有行 - 使用 update 指定範圍
-                # 將 row_data 包成二維列表 [[...]]
                 worksheet.update(f"A{cell.row}:J{cell.row}", [row_data])
+                st.sidebar.success(f"✅ 已更新現有資料：{ref}（第{cell.row}行）")
                 return True, "updated"
-        except:
-            pass
+        except Exception as find_error:
+            st.sidebar.info(f"ℹ️ 未找到現有資料，將新增：{ref}")
         
-        # 新增行 - 使用 append_row，傳入 list
-        # 這會自動將 list 的每個元素分到不同欄位
-        worksheet.append_row(row_data)
+        # 新增行
+        result = worksheet.append_row(row_data)
+        st.sidebar.success(f"✅ 已新增資料到 {sheet_name}：{ref}")
         return True, "created"
         
     except Exception as e:
+        st.sidebar.error(f"❌ Google Sheets寫入失敗：{str(e)}")
+        import traceback
+        st.sidebar.code(traceback.format_exc())
         return False, str(e)
 
 def load_from_google_sheets():
