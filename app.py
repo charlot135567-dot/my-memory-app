@@ -968,11 +968,7 @@ with tabs[0]:
 
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    p = (row.get('Word/Phrase', '') or 
-                         row.get('Word/phrase', '') or 
-                         row.get('words/phrases', '') or 
-                         row.get('Word', '') or
-                         row.get('No', ''))
+                    p = get_field(row, ['Word/Phrase', 'Word/phrase', 'words/phrases', 'Word'], '')
                     
                     c = (row.get('Chinese', '') or 
                          row.get('Chinese Meaning', '') or
