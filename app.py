@@ -1528,14 +1528,14 @@ with tabs[3]:
 | Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 
 【V2 Sheet 範例】
-| Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
+| Ref. | 口語訳 | Grammar | Note | KRF | Korean Syn/Ant | THSV11 (Key Phrases) |
 |------|--------|---------|------|-----|---------|--------|
 
 🔹 V1 Sheet 欄位要求：
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen).
 2. English (ESV)：檢索對應的 ESV 英文經文.
 3. Chinese：填入我提供的中文原文.
-4. Syn/Ant："同義字與反義字"，取自ESV中的高級/中高級單字或片語（含中/英翻譯）
+4.  Syn/Ant："同義字與反義字"，取自ESV中的高級/中高級單字或片語（含中/英翻譯）
 5. Grammar：嚴格遵守符號化格式＋嚴格提供詳細規範...
 
 🔹 V2 Sheet 欄位要求：
@@ -1544,8 +1544,8 @@ with tabs[3]:
 3. Grammar格式同 V1
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
-6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
-7. THSV11:輸出泰文"對應的重要片語key phrases".
+6. Korean Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
+7. THSV11 (Key Phrases):輸出泰文"對應的重要片語key phrases".
 
 請以 **Markdown 表格格式**輸出（非 JSON）.
 
