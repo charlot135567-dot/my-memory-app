@@ -85,17 +85,26 @@ def save_to_google_sheets(data_dict):
         if not worksheet:
             return False, "無法取得工作表"
         
-        # 準備資料列
+        # 準備資料列 - 確保每個欄位都是單純字串，沒有換行或特殊格式
         ref = data_dict.get('ref', 'N/A')
+        
+        # 清理資料：移除或替換換行符號，避免破壞表格結構
+        def clean_text(text, max_len=2000):
+            if not text:
+                return ""
+            # 將換行符號替換為特殊標記，或移除
+            cleaned = str(text).replace('\n', ' | ').replace('\r', '')
+            return cleaned[:max_len]
+        
         row_data = [
             ref,
             data_dict.get('type', 'Unknown'),
-            data_dict.get('original', '')[:200],
-            data_dict.get('v1_content', '')[:2000] if data_dict.get('v1_content') else "",
-            data_dict.get('v2_content', '')[:2000] if data_dict.get('v2_content') else "",
-            data_dict.get('w_sheet', '')[:2000] if data_dict.get('w_sheet') else "",
-            data_dict.get('p_sheet', '')[:2000] if data_dict.get('p_sheet') else "",
-            data_dict.get('grammar_list', '')[:2000] if data_dict.get('grammar_list') else "",
+            clean_text(data_dict.get('original', ''), 200),
+            clean_text(data_dict.get('v1_content', ''), 2000),
+            clean_text(data_dict.get('v2_content', ''), 2000),
+            clean_text(data_dict.get('w_sheet', ''), 2000),
+            clean_text(data_dict.get('p_sheet', ''), 2000),
+            clean_text(data_dict.get('grammar_list', ''), 2000),
             dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
             json.dumps(data_dict.get('saved_sheets', []))
         ]
@@ -104,12 +113,15 @@ def save_to_google_sheets(data_dict):
         try:
             cell = worksheet.find(ref)
             if cell:
+                # 更新現有行 - 使用 update 指定範圍
+                # 將 row_data 包成二維列表 [[...]]
                 worksheet.update(f"A{cell.row}:J{cell.row}", [row_data])
                 return True, "updated"
         except:
             pass
         
-        # 新增行
+        # 新增行 - 使用 append_row，傳入 list
+        # 這會自動將 list 的每個元素分到不同欄位
         worksheet.append_row(row_data)
         return True, "created"
         
