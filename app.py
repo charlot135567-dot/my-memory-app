@@ -1544,12 +1544,12 @@ with tabs[3]:
 
 🔹 V2 Sheet 欄位要求：
 1. Ref.：同 V1.
-2. 口語訳：檢索對應的日本《口語訳聖經》(1955).
+2. 口語訳：檢索對應的日本語.
 3. Grammar格式同 V1
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
 6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
-7. THSV11:輸出泰文"對應的重要片語key phrases"《Thai Holy Bible, Standard Version 2011》.
+7. THSV11:輸出泰文"對應的重要片語key phrases".
 
 請以 **Markdown 表格格式**輸出（非 JSON）.
 
