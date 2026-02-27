@@ -666,7 +666,7 @@ with tabs[0]:
                     
                     # V2 Syn/Ant (韓文) + THSV11 (泰文)
                     v2_syn_ant = v2_row.get('Syn/Ant', '') if v2_row else ''
-                    v2_th = v2_row.get('THSV11', '') if v2_row else ''
+                    v2_th = v2_row.get('THSV11(Key Phrases)', '') if v2_row else ''
                     
                     vocab_items = []
                     if v1_syn_list:
