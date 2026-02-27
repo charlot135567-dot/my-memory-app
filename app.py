@@ -2,7 +2,7 @@
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
 import streamlit as st  
-import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re, tomli, tomli_w
+import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 import requests
