@@ -93,57 +93,58 @@ def get_field(row, keywords, default=''):
     return default
 
 # ---------- 萬用資料解析函數（支援 CSV 和 Markdown 表格）----------
+# ---------- 優化後的解析函數 ----------
 def parse_content_to_dict(content):
-    """
-    自動偵測並解析 CSV 或 Markdown 表格格式
-    回傳：list of dict
-    """
     if not content or not content.strip():
         return []
     
     content = content.strip()
     
-    # ✅ 修正：移除可能的標題行（V1, V2, W, P 等）
+    # 自動清理資料：移除不必要的系統標題列
     lines = content.split('\n')
-    if lines and lines[0].strip() in ['V1', 'V2', 'W', 'P', 'Grammar', 'V1 Sheet', 'V2 Sheet', 'W Sheet', 'P Sheet']:
+    system_headers = ['v1', 'v2', 'w', 'p', 'grammar', 'v1 sheet', 'v2 sheet']
+    if lines and lines[0].strip().lower() in system_headers:
         content = '\n'.join(lines[1:]).strip()
-    
-    # 偵測 Markdown 表格（以 | 開頭）
-    if content.startswith('|'):
+
+    # Markdown 表格解析優化
+    if '|' in content and ('---' in content or '|' in lines[0]):
         lines = [l.strip() for l in content.split('\n') if l.strip()]
-        if len(lines) < 3:  # 需要標題、分隔線、至少一筆資料
-            return []
+        if len(lines) < 2: return []
         
-        # 解析標題
-        headers = [h.strip() for h in lines[0].split('|') if h.strip()]
+        # 尋找真正的標題行（包含最多 | 的那一行）
+        header_idx = 0
+        for i, l in enumerate(lines):
+            if l.startswith('|'):
+                header_idx = i
+                break
+        
+        headers = [h.strip() for h in lines[header_idx].split('|') if h.strip()]
         data_rows = []
         
-        # 從第3行開始（跳過標題和分隔線）
-        for line in lines[2:]:
-            if not line.strip() or line.strip().replace('|', '').strip() == '':
-                continue
-            cells = [c.strip() for c in line.split('|')[1:-1]]  # 移除頭尾空字串
-            if len(cells) != len(headers):
-                continue
+        # 跳過標題和分隔線 (|---|)
+        start_row = header_idx + 1
+        if start_row < len(lines) and '---' in lines[start_row]:
+            start_row += 1
             
-            row_dict = {}
-            for i, header in enumerate(headers):
-                cell_value = cells[i]
-                # 移除粗體標記
-                cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
-                row_dict[header] = cell_value
+        for line in lines[start_row:]:
+            cells = [c.strip() for c in line.split('|')]
+            # 處理頭尾可能產生的空 cell
+            if line.startswith('|'): cells = cells[1:]
+            if line.endswith('|'): cells = cells[:-1]
             
-            if any(v.strip() for v in row_dict.values()):
+            if len(cells) >= len(headers):
+                row_dict = {headers[i]: cells[i] for i in range(len(headers))}
+                # 移除 Markdown 粗體 **
+                for k in row_dict:
+                    row_dict[k] = re.sub(r'\*\*(.*?)\*\*', r'\1', str(row_dict[k]))
                 data_rows.append(row_dict)
-        
         return data_rows
     
-    # 否則視為 CSV
+    # CSV 解析
     try:
         reader = csv.DictReader(StringIO(content))
-        rows = list(reader)
-        return [row for row in rows if any(v.strip() for v in row.values())]
-    except Exception as e:
+        return [row for row in reader if any(v.strip() for v in row.values())]
+    except:
         return []
 # ===================================================================
 # ✅ 修正：資料庫設定 - 統一使用 data 目錄，並加入 Google Sheets 備援
