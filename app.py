@@ -244,9 +244,11 @@ def save_sentences(data):
         # 自動同步到 Google Sheets
         if GC and SHEET_ID:
             try:
-                save_to_google_sheets(data)
-            except:
-                pass
+                # 同步所有資料到 Google Sheets
+                for ref, item_data in data.items():
+                    save_to_google_sheets(item_data)
+            except Exception as e:
+                st.sidebar.warning(f"Google Sheets 同步警告: {e}")
                 
     except Exception as e:
         st.error(f"儲存本地資料庫失敗：{e}")
@@ -282,7 +284,9 @@ if 'sentences' not in st.session_state:
     sheets_data = load_from_google_sheets()
     if sheets_data:
         st.session_state.sentences = sheets_data
-        save_sentences(sheets_data)
+        # 同時儲存到本地
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(sheets_data, f, ensure_ascii=False, indent=2)
     else:
         st.session_state.sentences = load_sentences()
 
@@ -305,7 +309,20 @@ if 'active_fav_del' not in st.session_state:
 # ===================================================================
 with st.sidebar:
     st.divider()
-with st.sidebar:
+    
+    # ✅ 修正：檢查資料欄位時需要 parse_content_to_dict 函數
+    def parse_content_to_dict(content):
+        """解析內容為字典列表（供資料檢查使用）"""
+        if not content:
+            return []
+        try:
+            from io import StringIO
+            import csv
+            reader = csv.DictReader(StringIO(content.strip()))
+            return list(reader)
+        except:
+            return []
+    
     if st.checkbox("🔍 開啟資料欄位檢查"):
         st.markdown("---")
         if 'sentences' in st.session_state and st.session_state.sentences:
@@ -665,8 +682,8 @@ with tabs[0]:
                                 v1_ant_list = [p.strip() for p in parts[1].split(',') if p.strip()]
                     
                     # V2 Syn/Ant (韓文) + THSV11 (泰文)
-                    v2_syn_ant = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
-                    v2_th = v2_row.get('THSV11(Key Phrases)', '') if v2_row else ''
+                    v2_syn_ant = v2_row.get('Syn/Ant', '') if v2_row else ''
+                    v2_th = v2_row.get('THSV11', '') if v2_row else ''
                     
                     vocab_items = []
                     if v1_syn_list:
@@ -749,7 +766,21 @@ with tabs[0]:
                     cn_text = v1_verse.get('Chinese', '')
                     jp_text = v2_verse.get('口語訳', '') if v2_verse else ''
                     kr_text = v2_verse.get('KRF', '') if v2_verse else ''
-                    th_text = v2_verse.get('THSV11(Key Phrases)', '') if v2_verse else ''
+                    th_text = v2_verse.get('THSV11', '') if v2_verse else ''
+                    
+                    # 組合金句顯示
+                    verse_lines = []
+                    if en_text:
+                        verse_text = f"🇬🇧 <b>{current_verse_ref}</b> {en_text}"
+                        verse_lines.append(verse_text)
+                    if jp_text:
+                        verse_lines.append(f"🇯🇵 {jp_text}")
+                    if kr_text:
+                        verse_lines.append(f"🇰🇷 {kr_text}")
+                    if th_text:
+                        verse_lines.append(f"🇹🇭 {th_text}")
+                    if cn_text:
+                        verse_lines.append(f"🇨🇳 {cn_text}")
         
         # ============================================================
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
@@ -1553,7 +1584,7 @@ with tabs[3]:
 | Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 
 【V2 Sheet 範例】
-| Ref. | 口語訳 | Grammar | Note | KRF | Korean Syn/Ant | THSV11(Key Phrases)|
+| Ref. | 口語訳 | Grammar | Note | KRF | Korean Syn/Ant | THSV11 |
 |------|--------|---------|------|-----|---------|--------|
 
 🔹 V1 Sheet 欄位要求：
@@ -1592,7 +1623,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
 6. Korean Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
-7. THSV11(Key Phrases):輸出泰文"對應的重要片語key phrases"《Thai Holy Bible, Standard Version 2011》.
+7. THSV11:輸出泰文"對應的重要片語key phrases"《Thai Holy Bible, Standard Version 2011》.
 
 ⚠️ 自動推斷書卷（若只有數字如31:6）：
 • "可以把濃酒" → Pro
@@ -1716,6 +1747,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 
                 # 存入 session_state
                 st.session_state.sentences[blank_ref] = blank_structure
+                # ✅ 修正：儲存整個資料庫，不是單筆
                 save_sentences(st.session_state.sentences)
                 
                 # 自動進入編輯模式
@@ -1832,7 +1864,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
+                        # ✅ 修正：儲存整個資料庫
+                        save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
                 
                 with save_cols[1]:
@@ -1844,7 +1877,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
+                        # ✅ 修正：儲存整個資料庫
+                        save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地與 Google Sheets！")
         
         else:  # Mode B
@@ -1900,7 +1934,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
+                        # ✅ 修正：儲存整個資料庫
+                        save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
                 
                 with save_cols[1]:
@@ -1913,7 +1948,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
                             'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
-                        save_sentences(st.session_state.sentences[st.session_state.edit_ref])
+                        # ✅ 修正：儲存整個資料庫
+                        save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地與 Google Sheets！")
         
         st.divider()
@@ -2095,7 +2131,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                 "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                             }
                             st.session_state.sentences[ref] = full_data
-                            save_sentences(full_data)
+                            # ✅ 修正：儲存整個資料庫
+                            save_sentences(st.session_state.sentences)
                             st.success(f"✅ 已存本地：{ref}")
                             st.balloons()
                         except Exception as e:
@@ -2126,7 +2163,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                 success, msg = save_to_google_sheets(full_data)
                                 if success:
                                     st.session_state.sentences[ref_input] = full_data
-                                    save_sentences(full_data)
+                                    # ✅ 修正：儲存整個資料庫
+                                    save_sentences(st.session_state.sentences)
                                     st.success(f"✅ 已存 Google Sheets：{ref_input}")
                                     st.balloons()
                                 else:
@@ -2244,7 +2282,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 with btn_cols[1]:
                     if st.button("🗑️ 刪除", key=f"del_{selected_ref}"):
                         del st.session_state.sentences[selected_ref]
-                        save_sentences({})  # 觸發儲存
+                        # ✅ 修正：儲存整個資料庫
+                        save_sentences(st.session_state.sentences)
                         st.rerun()
 
     # ---------- 🔍 簡易搜尋 ----------
