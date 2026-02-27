@@ -86,75 +86,162 @@ def get_or_create_worksheet(sheet_name, rows=1000, cols=10):
         st.error(f"工作表操作失敗: {e}")
         return None
 
-def save_to_google_sheets(data_dict):
-    """儲存資料到 Google Sheets（主要儲存）"""
+def save_to_google_sheets_detailed(data_dict):
+    """將資料分別存入對應的工作表"""
     if not GC or not SHEET_ID:
-        st.sidebar.error("❌ Google Sheets 未連線：GC或SHEET_ID為空")
         return False, "Google Sheets 未連線"
     
     try:
-        mode = data_dict.get('mode', 'A')
-        sheet_name = f"Mode_{mode}_Data"
-        
-        # 🔔 除錯訊息
-        st.sidebar.info(f"📝 嘗試寫入工作表：{sheet_name}")
-        st.sidebar.info(f"📊 資料ref：{data_dict.get('ref', 'N/A')}")
-        
-        worksheet = get_or_create_worksheet(sheet_name)
-        
-        if not worksheet:
-            st.sidebar.error(f"❌ 無法取得或建立工作表：{sheet_name}")
-            return False, "無法取得工作表"
-        
-        # 準備資料列
         ref = data_dict.get('ref', 'N/A')
+        mode = data_dict.get('mode', 'A')
         
-        # 清理資料：將換行符號替換為可見標記
-        def clean_for_sheets(text, max_len=2000):
-            if not text:
-                return ""
-            cleaned = str(text).replace('\n', ' ⏎ ').replace('\r', '').replace('\t', '    ')
-            return cleaned[:max_len]
-        
-        row_data = [
-            ref,
-            data_dict.get('type', 'Unknown'),
-            clean_for_sheets(data_dict.get('original', ''), 200),
-            clean_for_sheets(data_dict.get('v1_content', ''), 2000),
-            clean_for_sheets(data_dict.get('v2_content', ''), 2000),
-            clean_for_sheets(data_dict.get('w_sheet', ''), 2000),
-            clean_for_sheets(data_dict.get('p_sheet', ''), 2000),
-            clean_for_sheets(data_dict.get('grammar_list', ''), 2000),
-            dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            json.dumps(data_dict.get('saved_sheets', []))
-        ]
-        
-        # 🔔 顯示即將寫入的資料預覽
-        st.sidebar.info(f"📋 寫入資料：{len(row_data)} 個欄位")
-        st.sidebar.caption(f"A欄(ref): {row_data[0]}")
-        st.sidebar.caption(f"B欄(type): {row_data[1]}")
-        st.sidebar.caption(f"F欄(w_sheet)長度: {len(row_data[5])} 字元")
-        
-        # 檢查是否已存在（更新 vs 新增）
-        try:
-            cell = worksheet.find(ref)
-            if cell:
-                worksheet.update(f"A{cell.row}:J{cell.row}", [row_data])
-                st.sidebar.success(f"✅ 已更新現有資料：{ref}（第{cell.row}行）")
-                return True, "updated"
-        except Exception as find_error:
-            st.sidebar.info(f"ℹ️ 未找到現有資料，將新增：{ref}")
-        
-        # 新增行
-        result = worksheet.append_row(row_data)
-        st.sidebar.success(f"✅ 已新增資料到 {sheet_name}：{ref}")
-        return True, "created"
-        
+        if mode == 'A':
+            # 模式A：存入 V1_Sheet 和 V2_Sheet
+            success_v1 = save_v1_sheet(ref, data_dict.get('v1_content', ''))
+            success_v2 = save_v2_sheet(ref, data_dict.get('v2_content', ''))
+            return success_v1 and success_v2, "Mode A saved"
+        else:
+            # 模式B：存入 W_Sheet, P_Sheet, Grammar_List
+            success_w = save_w_sheet(ref, data_dict.get('w_sheet', ''))
+            success_p = save_p_sheet(ref, data_dict.get('p_sheet', ''))
+            success_g = save_grammar_sheet(ref, data_dict.get('grammar_list', ''))
+            return success_w and success_p and success_g, "Mode B saved"
+            
     except Exception as e:
-        st.sidebar.error(f"❌ Google Sheets寫入失敗：{str(e)}")
-        import traceback
-        st.sidebar.code(traceback.format_exc())
         return False, str(e)
+
+def save_v1_sheet(ref, content):
+    """儲存到 V1_Sheet"""
+    if not content:
+        return True
+    
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("V1_Sheet")
+        except:
+            ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=5)
+            ws.append_row(["Ref.", "English (ESV)", "Chinese", "Syn/Ant", "Grammar"])
+        
+        # 解析內容（CSV 或 Markdown 表格）
+        rows = parse_content_to_rows(content)
+        for row in rows:
+            ws.append_row([ref] + row)
+        return True
+    except:
+        return False
+
+def save_v2_sheet(ref, content):
+    """儲存到 V2_Sheet"""
+    if not content:
+        return True
+    
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("V2_Sheet")
+        except:
+            ws = sh.add_worksheet("V2_Sheet", rows=1000, cols=7)
+            ws.append_row(["Ref.", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11"])
+        
+        rows = parse_content_to_rows(content)
+        for row in rows:
+            ws.append_row([ref] + row)
+        return True
+    except:
+        return False
+
+def save_w_sheet(ref, content):
+    """儲存到 W_Sheet"""
+    if not content:
+        return True
+    
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("W_Sheet")
+        except:
+            ws = sh.add_worksheet("W_Sheet", rows=1000, cols=6)
+            ws.append_row(["No", "Word/phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
+        
+        rows = parse_content_to_rows(content)
+        for row in rows:
+            ws.append_row([ref] + row)
+        return True
+    except:
+        return False
+
+def save_p_sheet(ref, content):
+    """儲存到 P_Sheet"""
+    if not content:
+        return True
+    
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("P_Sheet")
+        except:
+            ws = sh.add_worksheet("P_Sheet", rows=1000, cols=3)
+            ws.append_row(["Paragraph", "English Refinement", "中英夾雜講章"])
+        
+        rows = parse_content_to_rows(content)
+        for row in rows:
+            ws.append_row([ref] + row)
+        return True
+    except:
+        return False
+
+def save_grammar_sheet(ref, content):
+    """儲存到 Grammar_List"""
+    if not content:
+        return True
+    
+    try:
+        sh = GC.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("Grammar_List")
+        except:
+            ws = sh.add_worksheet("Grammar_List", rows=1000, cols=4)
+            ws.append_row(["No", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
+        
+        rows = parse_content_to_rows(content)
+        for row in rows:
+            ws.append_row([ref] + row)
+        return True
+    except:
+        return False
+
+def parse_content_to_rows(content):
+    """解析 CSV 或 Markdown 表格為二維列表"""
+    if not content:
+        return []
+    
+    rows = []
+    lines = content.strip().split('\n')
+    
+    # 檢查是否為 Markdown 表格
+    if '|' in content:
+        # Markdown 表格解析
+        for line in lines:
+            line = line.strip()
+            if line.startswith('|') and not line.startswith('|---'):
+                cells = [c.strip() for c in line.split('|')[1:-1]]
+                if cells and any(cells):
+                    rows.append(cells)
+    else:
+        # CSV 解析
+        import csv
+        from io import StringIO
+        reader = csv.reader(StringIO(content))
+        for row in reader:
+            if row and any(row):
+                rows.append(row)
+    
+    # 跳過標題列（如果有）
+    if rows and any(keyword in str(rows[0]) for keyword in ['Ref', 'No', 'Word', 'Paragraph']):
+        rows = rows[1:]
+    
+    return rows
 
 def load_from_google_sheets():
     """從 Google Sheets 載入所有資料"""
