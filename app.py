@@ -93,7 +93,6 @@ def get_field(row, keywords, default=''):
     return default
 
 # ---------- 萬用資料解析函數（支援 CSV 和 Markdown 表格）----------
-# ---------- 優化後的解析函數 ----------
 def parse_content_to_dict(content):
     if not content or not content.strip():
         return []
