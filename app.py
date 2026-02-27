@@ -1201,7 +1201,6 @@ with tabs[3]:
     # 常數定義（避免魔法字串）
     NOTION_API_VERSION = "2022-06-28"
     NOTION_BASE_URL = "https://api.notion.com/v1"
-    # ═══════════════════════════════════════════════════════════════
     # ---------- 背景圖片套用 ----------
     try:
         selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
@@ -1360,7 +1359,6 @@ with tabs[3]:
 【其他補充】
 {data_dict.get('other_sheets', '無')}
 """
-
         properties = {
             "Content": {"title": [{"text": {"content": data_dict.get('original', '')[:100]}}]},
             "Translation": {"rich_text": [{"text": {"content": full_content[:2000]}}]},
@@ -1641,7 +1639,7 @@ with tabs[3]:
 | Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 
 【V2 Sheet 範例】
-| Ref. | 口語訳 | Grammar | Note | KRF | Syn/Ant | THSV11 |
+| Ref. | 口語訳 | Grammar | Note | KRF | Korean Syn/Ant | THSV11(Key Phrases)|
 |------|--------|---------|------|-----|---------|--------|
 
 🔹 V1 Sheet 欄位要求：
@@ -1679,7 +1677,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
 3. Grammar格式同 V1
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
-6. Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
+6. Korean Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
 7. THSV11:輸出泰文"對應的重要片語key phrases"《Thai Holy Bible, Standard Version 2011》.
 
 ⚠️ 自動推斷書卷（若只有數字如31:6）：
