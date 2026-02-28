@@ -515,7 +515,7 @@ if 'active_fav_del' not in st.session_state:
 with st.sidebar:
     st.divider()
     
-    # ✅ 修正：檢查資料欄位時需要 parse_content_to_dict 函數
+    # ✅ 資料檢查工具
     def parse_content_to_dict(content):
         """解析內容為字典列表（供資料檢查使用）"""
         if not content:
@@ -535,22 +535,103 @@ with st.sidebar:
             data = st.session_state.sentences[first_ref]
             
             st.write(f"經節範例: {first_ref}")
+            st.write(f"模式: {data.get('mode', 'Unknown')}")
             
             # 檢查 V1 內容
             v1_test = parse_content_to_dict(data.get('v1_content', ''))
             if v1_test:
                 st.info(f"V1 欄位偵測: {list(v1_test[0].keys())}")
             else:
-                st.error("V1 內容解析失敗，請檢查 Markdown 或 CSV 格式")
+                st.error("V1 內容解析失敗")
                 
             # 檢查 V2 內容
             v2_test = parse_content_to_dict(data.get('v2_content', ''))
             if v2_test:
                 st.success(f"V2 欄位偵測: {list(v2_test[0].keys())}")
             else:
-                st.warning("V2 內容為空或解析失敗")
+                st.warning("V2 內容為空")
+                
+            # 檢查 W Sheet（模式B）
+            if data.get('w_sheet'):
+                w_test = parse_content_to_dict(data.get('w_sheet', ''))
+                if w_test:
+                    st.info(f"W Sheet 欄位: {list(w_test[0].keys())}")
+                    
+            # 檢查 Grammar List（模式B）
+            if data.get('grammar_list'):
+                g_test = parse_content_to_dict(data.get('grammar_list', ''))
+                if g_test:
+                    st.info(f"Grammar 欄位: {list(g_test[0].keys())}")
         else:
             st.write("資料庫目前無資料")
+    
+    # ✅ 開發工具：重置 Google Sheets
+    st.divider()
+    st.markdown("### 🛠️ 開發工具")
+    
+    with st.expander("進階設定", expanded=False):
+        if st.button("🚨 重置為 5 工作表格式", type="secondary", use_container_width=True):
+            if GC and SHEET_ID:
+                try:
+                    sh = GC.open_by_key(SHEET_ID)
+                    
+                    # 刪除舊的錯誤工作表
+                    for old_name in ['Mode_A_Data', 'Mode_B_Data']:
+                        try:
+                            ws = sh.worksheet(old_name)
+                            sh.del_worksheet(ws)
+                            st.success(f"已刪除舊工作表：{old_name}")
+                        except:
+                            pass
+                    
+                    # 建立新的 5 個工作表
+                    new_sheets = [
+                        ("V1_Sheet", ["Ref.", "English (ESV)", "Chinese", "Syn/Ant", "Grammar"]),
+                        ("V2_Sheet", ["Ref.", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11"]),
+                        ("W_Sheet", ["No", "Word/phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"]),
+                        ("P_Sheet", ["Paragraph", "English Refinement", "中英夾雜講章"]),
+                        ("Grammar_List", ["No", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
+                    ]
+                    
+                    for sheet_name, headers in new_sheets:
+                        try:
+                            # 檢查是否已存在
+                            try:
+                                existing = sh.worksheet(sheet_name)
+                                st.info(f"已存在：{sheet_name}")
+                                continue
+                            except gspread.WorksheetNotFound:
+                                pass
+                            
+                            # 建立新工作表
+                            ws = sh.add_worksheet(sheet_name, rows=1000, cols=len(headers))
+                            ws.append_row(headers)
+                            st.success(f"✅ 已建立：{sheet_name}")
+                        except Exception as e:
+                            st.error(f"建立 {sheet_name} 失敗：{e}")
+                    
+                    st.balloons()
+                    st.info("✅ 重置完成！請重新整理頁面")
+                    
+                except Exception as e:
+                    st.error(f"重置失敗：{e}")
+            else:
+                st.error("Google Sheets 未連線")
+        
+        # 檢查 Google Sheets 連線狀態
+        if st.button("🔎 檢查雲端工作表", use_container_width=True):
+            if GC and SHEET_ID:
+                try:
+                    sh = GC.open_by_key(SHEET_ID)
+                    all_worksheets = sh.worksheets()
+                    st.write(f"找到 {len(all_worksheets)} 個工作表：")
+                    for ws in all_worksheets:
+                        row_count = len(ws.get_all_values())
+                        st.write(f"• **{ws.title}**：{row_count} 行")
+                except Exception as e:
+                    st.error(f"檢查失敗：{e}")
+            else:
+                st.error("Google Sheets 未連線")
             
     c1, c2 = st.columns(2)
     c1.link_button("✨ Google AI", "https://gemini.google.com")
