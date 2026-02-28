@@ -281,9 +281,9 @@ def parse_content_to_rows(content):
         rows = rows[1:]
     
     return rows
-
+    
 def load_from_google_sheets():
-    """從 Google Sheets 載入所有資料"""
+    """從 5 個工作表載入所有資料"""
     if not GC or not SHEET_ID:
         return {}
     
@@ -291,55 +291,94 @@ def load_from_google_sheets():
     try:
         sh = GC.open_by_key(SHEET_ID)
         
-        for mode in ['A', 'B']:
-            sheet_name = f"Mode_{mode}_Data"
-            try:
-                worksheet = sh.worksheet(sheet_name)
-                rows = worksheet.get_all_values()
-                
-                if len(rows) > 1:
-                    headers = rows[0]
-                    for row in rows[1:]:
-                        if len(row) >= 10:
-                            ref = row[0]
+        # 載入 V1_Sheet（模式A）
+        try:
+            ws = sh.worksheet("V1_Sheet")
+            rows = ws.get_all_values()
+            if len(rows) > 1:
+                for row in rows[1:]:  # 跳過標題
+                    if len(row) >= 5:
+                        ref = row[0]
+                        if ref not in all_data:
                             all_data[ref] = {
                                 "ref": ref,
-                                "type": row[1],
-                                "original": row[2],
-                                "v1_content": row[3] if len(row) > 3 else "",
-                                "v2_content": row[4] if len(row) > 4 else "",
-                                "w_sheet": row[5] if len(row) > 5 else "",
-                                "p_sheet": row[6] if len(row) > 6 else "",
-                                "grammar_list": row[7] if len(row) > 7 else "",
-                                "date_added": row[8] if len(row) > 8 else "",
-                                "saved_sheets": json.loads(row[9]) if len(row) > 9 and row[9] else [],
-                                "mode": mode,
-                                "source": "google_sheets"
+                                "mode": "A",
+                                "type": "Scripture",
+                                "v1_content": "",
+                                "v2_content": "",
+                                "date_added": ""
                             }
-            except gspread.WorksheetNotFound:
-                continue
-                
+                        # 重建 V1 內容
+                        all_data[ref]["v1_content"] += f"{row[0]}\t{row[1]}\t{row[2]}\t{row[3]}\t{row[4]}\n"
+        except gspread.WorksheetNotFound:
+            pass
+        
+        # 載入 V2_Sheet（模式A）
+        try:
+            ws = sh.worksheet("V2_Sheet")
+            rows = ws.get_all_values()
+            if len(rows) > 1:
+                for row in rows[1:]:
+                    if len(row) >= 7:
+                        ref = row[0]
+                        if ref in all_data:
+                            all_data[ref]["v2_content"] += f"{row[0]}\t{row[1]}\t{row[2]}\t{row[3]}\t{row[4]}\t{row[5]}\t{row[6]}\n"
+        except gspread.WorksheetNotFound:
+            pass
+        
+        # 載入 W_Sheet（模式B）
+        try:
+            ws = sh.worksheet("W_Sheet")
+            rows = ws.get_all_values()
+            if len(rows) > 1:
+                for row in rows[1:]:
+                    if len(row) >= 6:
+                        ref = row[0]
+                        if ref not in all_data:
+                            all_data[ref] = {
+                                "ref": ref,
+                                "mode": "B",
+                                "type": "Document",
+                                "w_sheet": "",
+                                "p_sheet": "",
+                                "grammar_list": "",
+                                "date_added": ""
+                            }
+                        all_data[ref]["w_sheet"] += f"{row[0]}\t{row[1]}\t{row[2]}\t{row[3]}\t{row[4]}\t{row[5]}\n"
+        except gspread.WorksheetNotFound:
+            pass
+        
+        # 載入 P_Sheet（模式B）
+        try:
+            ws = sh.worksheet("P_Sheet")
+            rows = ws.get_all_values()
+            if len(rows) > 1:
+                for row in rows[1:]:
+                    if len(row) >= 3:
+                        ref = row[0]
+                        if ref in all_data and all_data[ref]["mode"] == "B":
+                            all_data[ref]["p_sheet"] += f"{row[0]}\t{row[1]}\t{row[2]}\n"
+        except gspread.WorksheetNotFound:
+            pass
+        
+        # 載入 Grammar_List（模式B）
+        try:
+            ws = sh.worksheet("Grammar_List")
+            rows = ws.get_all_values()
+            if len(rows) > 1:
+                for row in rows[1:]:
+                    if len(row) >= 4:
+                        ref = row[0]
+                        if ref in all_data and all_data[ref]["mode"] == "B":
+                            all_data[ref]["grammar_list"] += f"{row[0]}\t{row[1]}\t{row[2]}\t{row[3]}\n"
+        except gspread.WorksheetNotFound:
+            pass
+        
         return all_data
+        
     except Exception as e:
         st.sidebar.error(f"載入 Google Sheets 失敗: {e}")
         return {}
-
-def sync_local_to_sheets():
-    """同步本地資料到 Google Sheets"""
-    if not GC or not SHEET_ID:
-        return False
-    
-    try:
-        local_data = load_sentences()
-        success_count = 0
-        for ref, data in local_data.items():
-            success, _ = save_to_google_sheets(data)
-            if success:
-                success_count += 1
-        return success_count
-    except Exception as e:
-        st.error(f"同步失敗: {e}")
-        return 0
 
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
