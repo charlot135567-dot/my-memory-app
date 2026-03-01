@@ -1,5 +1,5 @@
 # ===================================================================
-# 基礎架構版本 - 僅 TAB4 功能
+# 基礎架構版本 - 僅 TAB4 功能（修正版）
 # 目標：穩定的 Google Sheets 連線 + 資料持久化
 # ===================================================================
 import streamlit as st
@@ -12,7 +12,7 @@ from google.oauth2.service_account import Credentials
 from io import StringIO
 import csv
 
-# ---------- 頁面設定 ----------
+# ---------- 頁面設定（必須在第一個 st 命令）----------
 st.set_page_config(layout="wide", page_title="Bible Study DB - Base")
 
 # ---------- 資料庫設定 ----------
@@ -20,17 +20,17 @@ DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 SENTENCES_FILE = os.path.join(DATA_DIR, "sentences.json")
 
-# ---------- Google Sheets 連線（每次重新建立）----------
+# ---------- Google Sheets 連線（修正回傳值）----------
 def get_google_sheets_client():
-    """重新建立 Google Sheets 連線（避免 session state 重置問題）"""
+    """重新建立 Google Sheets 連線，回傳 (gc, sheet_id) 或 (None, None)"""
     try:
         if "gcp_service_account" not in st.secrets:
-            st.error("❌ 找不到 gcp_service_account 設定")
-            return None
+            st.sidebar.error("❌ 找不到 gcp_service_account")
+            return None, None
         
         if "sheets" not in st.secrets or "spreadsheet_id" not in st.secrets["sheets"]:
-            st.error("❌ 找不到 spreadsheet_id 設定")
-            return None
+            st.sidebar.error("❌ 找不到 spreadsheet_id")
+            return None, None
             
         gcp_sa = st.secrets["gcp_service_account"]
         sheet_id = st.secrets["sheets"]["spreadsheet_id"]
@@ -40,13 +40,13 @@ def get_google_sheets_client():
             scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
         gc = gspread.authorize(creds)
-        return gc, sheet_id
+        return gc, sheet_id  # 永遠回傳兩個值
         
     except Exception as e:
-        st.error(f"Google Sheets 連線失敗: {e}")
-        return None, None
+        st.sidebar.error(f"連線失敗: {e}")
+        return None, None  # 永遠回傳兩個值
 
-# ---------- 本地檔案操作（原子寫入 + 備份）----------
+# ---------- 本地檔案操作 ----------
 def load_sentences():
     """安全載入本地資料庫"""
     if not os.path.exists(SENTENCES_FILE):
@@ -59,54 +59,50 @@ def load_sentences():
                 return {}
             return json.loads(content)
     except json.JSONDecodeError:
-        # 備份損毀檔案
         backup_name = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
         try:
             os.rename(SENTENCES_FILE, backup_name)
-            st.warning(f"⚠️ 資料庫損毀，已備份為 {backup_name}")
+            st.sidebar.warning(f"⚠️ 資料庫損毀，已備份")
         except:
             pass
         return {}
     except Exception as e:
-        st.error(f"載入失敗: {e}")
+        st.sidebar.error(f"載入失敗: {e}")
         return {}
 
 def save_sentences(data):
     """原子寫入 + 自動備份"""
     if not isinstance(data, dict):
-        st.error("資料格式錯誤")
         return False
     
     try:
-        # 1. 寫入臨時檔案
         temp_file = f"{SENTENCES_FILE}.tmp"
         with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
-        # 2. 備份舊檔（如果存在）
+        # 備份舊檔
         if os.path.exists(SENTENCES_FILE):
             backup_file = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
             try:
                 os.replace(SENTENCES_FILE, backup_file)
-                # 清理舊備份（只留最近5個）
+                # 清理舊備份
                 backups = sorted([f for f in os.listdir(DATA_DIR) if f.startswith("sentences.json.backup_")])
                 for old in backups[:-5]:
                     os.remove(os.path.join(DATA_DIR, old))
             except:
                 pass
         
-        # 3. 原子移動
         os.replace(temp_file, SENTENCES_FILE)
         return True
         
     except Exception as e:
-        st.error(f"儲存失敗: {e}")
+        st.sidebar.error(f"儲存失敗: {e}")
         return False
 
-# ---------- 解析內容為行數據（支援 \t 分隔）----------
+# ---------- 解析內容 ----------
 def parse_content_to_rows(content, expected_cols=None):
     """解析 CSV 或 Markdown 表格"""
-    if not content:
+    if not content or not content.strip():
         return []
     
     rows = []
@@ -146,7 +142,7 @@ def parse_content_to_rows(content, expected_cols=None):
     
     return rows
 
-# ---------- Google Sheets 儲存函式（欄位對齊版）----------
+# ---------- Google Sheets 操作 ----------
 def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
     """儲存資料到對應工作表"""
     if not gc or not sheet_id:
@@ -156,7 +152,7 @@ def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
         sh = gc.open_by_key(sheet_id)
         
         if mode == 'A':
-            # V1_Sheet: Ref + 5 cols = 6 total
+            # V1_Sheet
             try:
                 ws = sh.worksheet("V1_Sheet")
             except:
@@ -167,7 +163,7 @@ def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
             if rows:
                 ws.append_rows([[ref] + r for r in rows])
             
-            # V2_Sheet: Ref + 6 cols = 7 total
+            # V2_Sheet
             try:
                 ws = sh.worksheet("V2_Sheet")
             except:
@@ -179,7 +175,7 @@ def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
                 ws.append_rows([[ref] + r for r in rows])
                 
         else:  # Mode B
-            # W_Sheet: Ref + 5 cols = 6 total
+            # W_Sheet
             try:
                 ws = sh.worksheet("W_Sheet")
             except:
@@ -190,7 +186,7 @@ def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
             if rows:
                 ws.append_rows([[ref] + r for r in rows])
             
-            # P_Sheet: Ref + 2 cols = 3 total
+            # P_Sheet
             try:
                 ws = sh.worksheet("P_Sheet")
             except:
@@ -201,7 +197,7 @@ def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
             if rows:
                 ws.append_rows([[ref] + r for r in rows])
             
-            # Grammar_List: Ref + 3 cols = 4 total
+            # Grammar_List
             try:
                 ws = sh.worksheet("Grammar_List")
             except:
@@ -217,9 +213,8 @@ def save_to_gsheet(gc, sheet_id, ref, mode, data_dict):
     except Exception as e:
         return False, str(e)
 
-# ---------- 從 Google Sheets 載入所有資料----------
 def load_from_gsheet(gc, sheet_id):
-    """載入所有工作表資料"""
+    """從 Google Sheets 載入所有資料"""
     if not gc or not sheet_id:
         return {}
     
@@ -231,7 +226,7 @@ def load_from_gsheet(gc, sheet_id):
         try:
             ws = sh.worksheet("V1_Sheet")
             rows = ws.get_all_values()
-            for row in rows[1:]:  # skip header
+            for row in rows[1:]:
                 if len(row) >= 6:
                     ref = row[0]
                     if ref not in all_data:
@@ -292,25 +287,25 @@ def load_from_gsheet(gc, sheet_id):
         return all_data
         
     except Exception as e:
-        st.error(f"載入失敗: {e}")
+        st.sidebar.error(f"載入失敗: {e}")
         return {}
 
-# ---------- 初始化 Session State（關鍵：重啟後自動恢復）----------
+# ---------- 初始化 Session State ----------
 if 'sentences' not in st.session_state:
-    # 步驟 1: 先嘗試本地載入
+    # 先嘗試本地載入
     local_data = load_sentences()
     
     if local_data:
         st.session_state.sentences = local_data
         st.sidebar.success(f"✅ 本地載入 {len(local_data)} 筆")
     else:
-        # 步驟 2: 本地沒有，嘗試 Google Sheets
+        # 嘗試 Google Sheets
         gc, sheet_id = get_google_sheets_client()
         if gc and sheet_id:
             sheets_data = load_from_gsheet(gc, sheet_id)
             if sheets_data:
                 st.session_state.sentences = sheets_data
-                save_sentences(sheets_data)  # 備份到本地
+                save_sentences(sheets_data)
                 st.sidebar.success(f"✅ 雲端載入 {len(sheets_data)} 筆")
             else:
                 st.session_state.sentences = {}
@@ -326,8 +321,9 @@ if 'edit_ref' not in st.session_state:
 with st.sidebar:
     st.title("💾 資料庫控制台")
     
-    # 連線狀態檢查
+    # 檢查連線（每次重新取得）
     gc, sheet_id = get_google_sheets_client()
+    
     if gc and sheet_id:
         st.success("✅ Google Sheets 已連線")
         try:
@@ -335,18 +331,19 @@ with st.sidebar:
             sheets = sh.worksheets()
             st.caption(f"工作表: {len(sheets)}個")
             for ws in sheets:
-                st.caption(f"  • {ws.title}: {ws.row_count}行")
-        except:
-            pass
+                st.caption(f"• {ws.title}")
+        except Exception as e:
+            st.caption(f"無法讀取工作表: {e}")
     else:
         st.error("❌ Google Sheets 未連線")
         st.caption("請設定 secrets.toml")
     
     st.divider()
-    st.caption(f"本地資料: {len(st.session_state.sentences)}筆")
+    st.caption(f"本地資料: {len(st.session_state.get('sentences', {}))}筆")
     
-    # 手動同步按鈕
+    # 手動同步
     if st.button("🔄 強制從雲端同步", use_container_width=True):
+        gc, sheet_id = get_google_sheets_client()
         if gc and sheet_id:
             with st.spinner("同步中..."):
                 sheets_data = load_from_gsheet(gc, sheet_id)
@@ -355,11 +352,13 @@ with st.sidebar:
                     save_sentences(sheets_data)
                     st.success(f"同步完成: {len(sheets_data)}筆")
                     st.rerun()
+                else:
+                    st.error("雲端無資料")
 
 # ---------- 主介面 ----------
 st.title("📚 聖經學習資料庫 - 基礎版")
 
-# 連線狀態
+# 取得連線（主介面使用）
 gc, sheet_id = get_google_sheets_client()
 
 # 新增資料區
@@ -373,12 +372,27 @@ with st.expander("➕ 新增資料", expanded=True):
         st.caption("💡 模式B: W+P+Grammar Sheet")
     
     if mode.startswith("A"):
-        v1_content = st.text_area("V1 Sheet 內容 (English/Chinese/Syn/Grammar)", height=150, key="v1")
-        v2_content = st.text_area("V2 Sheet 內容 (Japanese/Korean/Thai)", height=150, key="v2")
+        v1_content = st.text_area("V1 Sheet 內容 (用 \\t 分隔欄位)", 
+                                   height=150, 
+                                   placeholder="Ref\tEnglish\tChinese\tSyn/Ant\tGrammar",
+                                   key="v1")
+        v2_content = st.text_area("V2 Sheet 內容", 
+                                   height=150,
+                                   placeholder="Ref\tJapanese\tGrammar\tNote\tKorean\tKorean_SA\tThai", 
+                                   key="v2")
     else:
-        w_content = st.text_area("W Sheet 內容 (Words/Phrases)", height=100, key="w")
-        p_content = st.text_area("P Sheet 內容 (Paragraphs)", height=100, key="p")
-        g_content = st.text_area("Grammar List 內容", height=100, key="g")
+        w_content = st.text_area("W Sheet 內容", 
+                                  height=100,
+                                  placeholder="Ref\tNo\tWord\tChinese\tSynonym\tAntonym", 
+                                  key="w")
+        p_content = st.text_area("P Sheet 內容", 
+                                  height=100,
+                                  placeholder="Ref\tEnglish\tChinese", 
+                                  key="p")
+        g_content = st.text_area("Grammar List 內容", 
+                                  height=100,
+                                  placeholder="Ref\tSentence\tRule\tAnalysis", 
+                                  key="g")
     
     col_save1, col_save2 = st.columns(2)
     with col_save1:
@@ -419,12 +433,13 @@ with st.expander("➕ 新增資料", expanded=True):
                     st.error(f"❌ {msg}")
         else:
             st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
+            st.caption("請先設定 Google Sheets")
 
 # 資料列表
 st.divider()
-st.subheader(f"📋 已儲存資料 ({len(st.session_state.sentences)}筆)")
+st.subheader(f"📋 已儲存資料 ({len(st.session_state.get('sentences', {}))}筆)")
 
-if st.session_state.sentences:
+if st.session_state.get('sentences'):
     for ref, item in list(st.session_state.sentences.items()):
         with st.expander(f"{ref} [{item.get('mode', '?')}]", expanded=False):
             cols = st.columns([3, 1, 1])
@@ -432,7 +447,6 @@ if st.session_state.sentences:
                 st.write(f"**日期:** {item.get('date', 'N/A')}")
                 st.write(f"**模式:** {item.get('mode', 'N/A')}")
                 
-                # 顯示內容預覽
                 has_content = []
                 if item.get('v1'): has_content.append(f"V1 ({len(item['v1'])}字)")
                 if item.get('v2'): has_content.append(f"V2 ({len(item['v2'])}字)")
@@ -449,28 +463,23 @@ if st.session_state.sentences:
                 if st.button("🗑️ 刪除", key=f"del_{ref}", use_container_width=True):
                     del st.session_state.sentences[ref]
                     save_sentences(st.session_state.sentences)
-                    # 同步刪除 Google Sheets（可選）
                     st.rerun()
             
-            # 顯示完整內容
-            if item.get('v1'):
-                with st.expander("V1 內容"):
-                    st.text(item['v1'])
-            if item.get('v2'):
-                with st.expander("V2 內容"):
-                    st.text(item['v2'])
-            if item.get('w'):
-                with st.expander("W 內容"):
-                    st.text(item['w'])
-            if item.get('p'):
-                with st.expander("P 內容"):
-                    st.text(item['p'])
-            if item.get('g'):
-                with st.expander("Grammar 內容"):
-                    st.text(item['g'])
+            # 顯示內容
+            tabs_content = st.tabs(["V1", "V2", "W", "P", "G"])
+            with tabs_content[0]:
+                st.text(item.get('v1', '[無]'))
+            with tabs_content[1]:
+                st.text(item.get('v2', '[無]'))
+            with tabs_content[2]:
+                st.text(item.get('w', '[無]'))
+            with tabs_content[3]:
+                st.text(item.get('p', '[無]'))
+            with tabs_content[4]:
+                st.text(item.get('g', '[無]'))
 
 # 編輯模式
-if st.session_state.edit_ref and st.session_state.edit_ref in st.session_state.sentences:
+if st.session_state.get('edit_ref') and st.session_state.edit_ref in st.session_state.sentences:
     st.divider()
     st.subheader(f"✏️ 編輯: {st.session_state.edit_ref}")
     item = st.session_state.sentences[st.session_state.edit_ref]
@@ -486,6 +495,7 @@ if st.session_state.edit_ref and st.session_state.edit_ref in st.session_state.s
             save_sentences(st.session_state.sentences)
             
             # 同步到 Google Sheets
+            gc, sheet_id = get_google_sheets_client()
             if gc and sheet_id:
                 save_to_gsheet(gc, sheet_id, st.session_state.edit_ref, 'A', item)
             
@@ -503,6 +513,7 @@ if st.session_state.edit_ref and st.session_state.edit_ref in st.session_state.s
             item['date'] = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
             save_sentences(st.session_state.sentences)
             
+            gc, sheet_id = get_google_sheets_client()
             if gc and sheet_id:
                 save_to_gsheet(gc, sheet_id, st.session_state.edit_ref, 'B', item)
             
@@ -517,37 +528,36 @@ if st.session_state.edit_ref and st.session_state.edit_ref in st.session_state.s
 st.divider()
 col_tool1, col_tool2 = st.columns(2)
 with col_tool1:
-    # 匯出 JSON
-    if st.session_state.sentences:
+    if st.session_state.get('sentences'):
         json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
-        st.download_button("⬇️ 下載 JSON 備份", json_str, 
+        st.download_button("⬇️ 下載 JSON", json_str, 
                           file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
                           mime="application/json", use_container_width=True)
 
 with col_tool2:
-    # 重置 Google Sheets（開發用）
-    if st.checkbox("🛠️ 開發者模式", value=False):
+    if st.checkbox("🛠️ 開發者模式"):
+        gc, sheet_id = get_google_sheets_client()
         if gc and sheet_id:
-            if st.button("🚨 重建所有工作表", use_container_width=True):
+            if st.button("🚨 重建工作表", use_container_width=True):
                 try:
                     sh = gc.open_by_key(sheet_id)
-                    # 刪除現有
                     for name in ["V1_Sheet", "V2_Sheet", "W_Sheet", "P_Sheet", "Grammar_List"]:
                         try:
                             ws = sh.worksheet(name)
                             sh.del_worksheet(ws)
                         except:
                             pass
-                    # 重建
+                    
                     sh.add_worksheet("V1_Sheet", rows=1000, cols=6).append_row(["Ref", "English", "Chinese", "Syn/Ant", "Grammar", "Note"])
                     sh.add_worksheet("V2_Sheet", rows=1000, cols=7).append_row(["Ref", "Japanese", "Grammar", "Note", "Korean", "Korean_SA", "Thai"])
                     sh.add_worksheet("W_Sheet", rows=1000, cols=6).append_row(["Ref", "No", "Word", "Chinese", "Synonym", "Antonym"])
                     sh.add_worksheet("P_Sheet", rows=1000, cols=3).append_row(["Ref", "English", "Chinese"])
                     sh.add_worksheet("Grammar_List", rows=1000, cols=4).append_row(["Ref", "Sentence", "Rule", "Analysis"])
-                    st.success("✅ 工作表重建完成")
+                    
+                    st.success("✅ 重建完成")
                     st.rerun()
                 except Exception as e:
                     st.error(f"重建失敗: {e}")
 
 # 狀態顯示
-st.caption(f"💾 本地: {len(st.session_state.sentences)}筆 | 最後更新: {dt.datetime.now().strftime('%H:%M:%S')}")
+st.caption(f"💾 本地: {len(st.session_state.get('sentences', {}))}筆 | 時間: {dt.datetime.now().strftime('%H:%M:%S')}")
