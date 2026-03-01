@@ -9,7 +9,16 @@ import gspread
 from google.oauth2.service_account import Credentials
 from io import StringIO
 import csv
+import toml
 
+# 如果 st.secrets 沒有設定，嘗試從 .streamlit/secrets.toml 載入
+if "gcp_service_account" not in st.secrets:
+    secrets_path = os.path.join(os.path.dirname(__file__), '.streamlit', 'secrets.toml')
+    if os.path.exists(secrets_path):
+        with open(secrets_path, 'r', encoding='utf-8') as f:
+            secrets = toml.load(f)
+            for key, value in secrets.items():
+                st.secrets[key] = value
 # ---------- 頁面設定 ----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
