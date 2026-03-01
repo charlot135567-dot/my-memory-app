@@ -2,13 +2,51 @@
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
 import streamlit as st  
-import subprocess, sys, os, datetime as dt, pandas as pd, io, json, re
+import os, datetime as dt, pandas as pd, io, json, re
 import requests
 import base64
 import gspread
 from google.oauth2.service_account import Credentials
+from io import StringIO
+import csv
 
-# ---------- 修正：Google Sheets 連線（每次重新建立，確保回傳兩個值）----------
+# ---------- 頁面設定 ----------
+st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
+
+# ---------- 診斷：檢查 secrets ----------
+if "gcp_service_account" not in st.secrets:
+    st.error("❌ 找不到 gcp_service_account secrets！")
+    st.info("""
+    **請在 Streamlit Community Cloud 設定 Secrets：**
+    
+    1. 前往 https://share.streamlit.io/
+    2. 點擊你的 app → ⚙️ Settings → Secrets
+    3. 貼上 TOML 格式的 Google Sheets 憑證：
+    
+    ```toml
+    [gcp_service_account]
+    type = "service_account"
+    project_id = "..."
+    private_key_id = "..."
+    private_key = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+    client_email = "..."
+    client_id = "..."
+    auth_uri = "https://accounts.google.com/o/oauth2/auth"
+    token_uri = "https://oauth2.googleapis.com/token"
+    
+    [sheets]
+    spreadsheet_id = "你的試算表ID"
+    ```
+    """)
+    # 停止執行，避免後續錯誤
+    st.stop()
+
+if "sheets" not in st.secrets or "spreadsheet_id" not in st.secrets["sheets"]:
+    st.error("❌ 找不到 sheets.spreadsheet_id！")
+    st.info("請在 secrets 中加入 `[sheets]` 區塊和 `spreadsheet_id`")
+    st.stop()
+
+# ---------- Google Sheets 連線（每次重新建立）----------
 def get_google_sheets_client():
     """重新建立 Google Sheets 連線，回傳 (gc, sheet_id) 或 (None, None)"""
     try:
@@ -31,7 +69,7 @@ def get_google_sheets_client():
         st.sidebar.error(f"Google Sheets 連線失敗: {e}")
         return None, None
 
-# ---------- 修正：資料庫設定 - 統一使用 data 目錄，並加入 Google Sheets 備援----------
+# ---------- 資料庫設定 ----------
 DATA_DIR = "data"
 SENTENCES_FILE = os.path.join(DATA_DIR, "sentences.json")
 TODO_FILE = os.path.join(DATA_DIR, "todos.json")
@@ -39,7 +77,7 @@ FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# ---------- 修正：本地檔案操作（原子寫入 + 備份）----------
+# ---------- 本地檔案操作（原子寫入 + 備份）----------
 def load_sentences():
     """安全載入本地資料庫"""
     if not os.path.exists(SENTENCES_FILE):
@@ -122,7 +160,7 @@ def save_favorites():
     with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
         json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
 
-# ---------- 修正：解析內容為行數據（支援 \t 分隔 + 欄位對齊）----------
+# ---------- 解析內容（支援 \t 分隔 + 欄位對齊）----------
 def parse_content_to_rows(content, expected_cols=None):
     """解析 CSV 或 Markdown 表格為二維列表"""
     if not content:
@@ -131,7 +169,6 @@ def parse_content_to_rows(content, expected_cols=None):
     rows = []
     lines = content.strip().split('\n')
     
-    # Markdown 表格
     if '|' in content:
         for line in lines:
             line = line.strip()
@@ -140,19 +177,15 @@ def parse_content_to_rows(content, expected_cols=None):
                 if any(cells):
                     rows.append(cells)
     else:
-        # CSV with \t delimiter
-        import csv
         reader = csv.reader(StringIO(content), delimiter='\t')
         for row in reader:
             if any(row):
                 row = [re.sub(r'\*\*(.*?)\*\*', r'\1', c) for c in row]
                 rows.append(row)
     
-    # 跳過標題列
     if rows and any(k in str(rows[0]) for k in ['Ref', 'No', 'Word', 'Paragraph', 'English', 'Chinese', '口語訳']):
         rows = rows[1:]
     
-    # 欄位數對齊
     if expected_cols and rows:
         normalized = []
         for row in rows:
@@ -165,7 +198,7 @@ def parse_content_to_rows(content, expected_cols=None):
     
     return rows
 
-# ---------- 修正：Google Sheets 儲存函式（欄位對齊版）----------
+# ---------- Google Sheets 儲存函式（欄位對齊版）----------
 def save_v1_sheet(ref, content, gc, sheet_id):
     """儲存到 V1_Sheet"""
     if not content or not content.strip() or not gc or not sheet_id:
@@ -179,8 +212,7 @@ def save_v1_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=5)
             ws.append_row(["Ref.", "English (ESV)", "Chinese", "Syn/Ant", "Grammar"])
         
-        rows = parse_content_to_rows(content, expected_cols=4)  # 4 data cols + ref = 5 total
-        
+        rows = parse_content_to_rows(content, expected_cols=4)
         if rows:
             rows_with_ref = [[ref] + row for row in rows]
             ws.append_rows(rows_with_ref)
@@ -203,8 +235,7 @@ def save_v2_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("V2_Sheet", rows=1000, cols=7)
             ws.append_row(["Ref.", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11"])
         
-        rows = parse_content_to_rows(content, expected_cols=6)  # 6 data cols + ref = 7 total
-        
+        rows = parse_content_to_rows(content, expected_cols=6)
         if rows:
             rows_with_ref = [[ref] + row for row in rows]
             ws.append_rows(rows_with_ref)
@@ -227,8 +258,7 @@ def save_w_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("W_Sheet", rows=1000, cols=6)
             ws.append_row(["No", "Word/phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
         
-        rows = parse_content_to_rows(content, expected_cols=5)  # 5 data cols + ref = 6 total
-        
+        rows = parse_content_to_rows(content, expected_cols=5)
         if rows:
             rows_with_ref = [[ref] + row for row in rows]
             ws.append_rows(rows_with_ref)
@@ -251,8 +281,7 @@ def save_p_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("P_Sheet", rows=1000, cols=3)
             ws.append_row(["Paragraph", "English Refinement", "中英夾雜講章"])
         
-        rows = parse_content_to_rows(content, expected_cols=2)  # 2 data cols + ref = 3 total
-        
+        rows = parse_content_to_rows(content, expected_cols=2)
         if rows:
             rows_with_ref = [[ref] + row for row in rows]
             ws.append_rows(rows_with_ref)
@@ -275,8 +304,7 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("Grammar_List", rows=1000, cols=4)
             ws.append_row(["No", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
         
-        rows = parse_content_to_rows(content, expected_cols=3)  # 3 data cols + ref = 4 total
-        
+        rows = parse_content_to_rows(content, expected_cols=3)
         if rows:
             rows_with_ref = [[ref] + row for row in rows]
             ws.append_rows(rows_with_ref)
@@ -326,7 +354,7 @@ def save_to_google_sheets(data_dict):
         st.sidebar.code(traceback.format_exc())
         return False, str(e)
 
-# ---------- 修正：從 Google Sheets 載入（欄位對齊版）----------
+# ---------- 從 Google Sheets 載入（欄位對齊版）----------
 def load_from_google_sheets():
     """從 5 個工作表載入所有資料"""
     gc, sheet_id = get_google_sheets_client()
@@ -353,7 +381,6 @@ def load_from_google_sheets():
                                 "w_sheet": "", "p_sheet": "", "grammar_list": "", "other": "",
                                 "date_added": ""
                             }
-                        # 確保欄位數正確：Ref + 4 data = 5 cols
                         row_data = row[:5] if len(row) >= 5 else row + [''] * (5 - len(row))
                         all_data[ref]["v1_content"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
@@ -458,14 +485,13 @@ def to_excel(result: dict) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
-# ---------- 修正：初始化 Session State（優先從本地載入，再嘗試 Google Sheets）----------
+# ---------- 初始化 Session State（優先從本地載入，再嘗試 Google Sheets）----------
 if 'sentences' not in st.session_state:
     local_data = load_sentences()
     
     if local_data:
         st.session_state.sentences = local_data
     else:
-        # 嘗試 Google Sheets
         sheets_data = load_from_google_sheets()
         if sheets_data:
             st.session_state.sentences = sheets_data
