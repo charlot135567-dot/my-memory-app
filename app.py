@@ -1117,12 +1117,17 @@ its part of speech and meaning in this sentence must be clearly identified...等
         current_mode = item.get('mode', 'A')
         
         if current_mode == 'A':
+            # 使用動態索引來記住當前選中的 tab
+            if 'edit_tab_index' not in st.session_state:
+                st.session_state.edit_tab_index = 0
+            
             edit_tabs = st.tabs(["V1 Sheet", "V2 Sheet", "其他補充", "儲存"])
             
             with edit_tabs[0]:
+                # 直接顯示已暫存的內容，無需額外點擊
                 new_v1 = st.text_area(
                     "V1 Sheet 內容",
-                    value=st.session_state.current_entry['v1'],
+                    value=st.session_state.current_entry.get('v1', ''),
                     height=300,
                     key="edit_v1"
                 )
@@ -1131,7 +1136,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
             with edit_tabs[1]:
                 new_v2 = st.text_area(
                     "V2 Sheet 內容",
-                    value=st.session_state.current_entry['v2'],
+                    value=st.session_state.current_entry.get('v2', ''),
                     height=300,
                     key="edit_v2"
                 )
@@ -1140,7 +1145,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
             with edit_tabs[2]:
                 new_other = st.text_area(
                     "其他補充",
-                    value=st.session_state.current_entry['other'],
+                    value=st.session_state.current_entry.get('other', ''),
                     height=200,
                     key="edit_other"
                 )
