@@ -219,7 +219,7 @@ def save_v1_sheet(ref, content, gc, sheet_id):
             ws = sh.worksheet("V1_Sheet")
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=5)
-            ws.append_row(["Ref.", "English (ESV)", "Chinese", "Syn/Ant", "Grammar"])
+            ws.append_row(["Ref. 經文出處", "English（ESV經文）", "Chinese經文", "Syn/Ant", "Grammar"])
         
         rows = parse_content_to_rows(content, expected_cols=5)  # 改為5，包含Ref.
         if rows:
@@ -242,7 +242,7 @@ def save_v2_sheet(ref, content, gc, sheet_id):
             ws = sh.worksheet("V2_Sheet")
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("V2_Sheet", rows=1000, cols=7)
-            ws.append_row(["Ref.", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11"])
+            ws.append_row(["Ref.經文出處", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11 泰文重要片語"])
         
         rows = parse_content_to_rows(content, expected_cols=7)  # 改為7，包含Ref.
         if rows:
