@@ -1542,8 +1542,10 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                 if success:
                                     st.session_state.sentences[ref_input] = full_data
                                     save_sentences(st.session_state.sentences)
+                                    st.session_state.uploaded_to_sheets = True  # 🔥 鎖定重複上傳
                                     st.success(f"✅ 已存 Google Sheets：{ref_input}")
                                     st.balloons()
+                                    st.rerun()  # 🔥 重新整理顯示鎖定狀態
                                 else:
                                     st.error(f"❌ Google Sheets 失敗：{msg}")
                             except Exception as e:
