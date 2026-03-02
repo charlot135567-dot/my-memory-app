@@ -875,7 +875,7 @@ with tabs[3]:
         mode = detect_content_mode(raw_text)
         
         if mode in ["json", "scripture"]:
-            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請根據輸入內容選擇對應模式輸出。
+            full_prompt = f"""你是一位精通多國語言的聖經專家與語言學教授。請嚴格根據輸入內容選擇對應模式及對應欄位輸出。
             所有翻譯嚴格規定按聖經語言翻譯，不可私自亂翻譯
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
