@@ -883,19 +883,19 @@ with tabs[3]:
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**（如下範例），方便我直接複製貼回 Excel：
 
 【V1 Sheet 範例】
-| Ref. | English (ESV) | Chinese | Syn/Ant | Grammar |
+| Ref. | English（ESV經文) | Chinese經文 | Syn/Ant | Grammar |
 |------|---------------|---------|---------|---------|
 | Pro 31:6 | Give strong drink... | 可以把濃酒... | strong drink (烈酒) / watered down wine (淡酒) | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 
 【V2 Sheet 範例】
-| Ref. | 口語訳 | Grammar | Note | KRF | Korean Syn/Ant | THSV11 |
+| Ref. | 口語訳 | Grammar | Note | KRF | Korean Syn/Ant | THSV11泰文重要片語 |
 |------|--------|---------|------|-----|---------|--------|
 
 🔹 V1 Sheet 欄位要求：
 1. Ref.：自動找尋經卷章節並用縮寫 (如: Pro, Rom, Gen).
 2. English (ESV)：檢索對應的 ESV 英文經文.
-3. Chinese：填入我提供的中文原文.
-4. Syn/Ant："同義字與反義字"，取自ESV中的高級/中高級單字或片語（含中/英翻譯）
+3. Chinese：提供的中文原文.
+4. Syn/Ant："同義與反義字"，取自ESV英文經文中的高級/中高級單字或片語（含中/英翻譯）
 5. Grammar：嚴格遵守符號化格式＋嚴格提供詳細規範如下：
    例箴17:7Fine speech is not becoming to a fool; still less is false speech to a prince.
 1️⃣[分段解析+語法標籤]： 1st clause：」Fine speech" is not becoming to a fool
@@ -921,13 +921,13 @@ its part of speech and meaning in this sentence must be clearly identified...等
   請以 **Markdown 表格格式**輸出（非 JSON）.
   
 🔹 V2 Sheet 欄位要求：
-1. Ref.：同 V1.
+1. Ref.：同 V1 Ref.欄位同資料.
 2. 口語訳：檢索對應的日本《口語訳聖經》(1955).
-3. Grammar格式同 V1
+3. Grammar：同V1模式
 4. Note：日文文法或語境的補充說明.
 5. KRF：檢索對應的韓文《Korean Revised Version》.
 6. Korean Syn/Ant：韓文高/ 中高級字（含日/韓/中翻譯）.
-7. THSV11:輸出泰文"對應的重要片語key phrases"《Thai Holy Bible, Standard Version 2011》.
+7. THSV11泰文重要片語:輸出泰文"對應的重要片語key phrases"《版本用：Thai Holy Bible, Standard Version 2011》.
 
 ⚠️ 自動推斷書卷（若只有數字如31:6）：
 • "可以把濃酒" → Pro
