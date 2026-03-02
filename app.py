@@ -1309,14 +1309,16 @@ its part of speech and meaning in this sentence must be clearly identified...等
 
         # STEP 3: 多工作表收集區
         with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
-            st.info("💡 可以分批貼上 V1、V2、W Sheet、P Sheet 等，貼好一個存一個，最後統一儲存")
+            # 移除：st.info("💡 可以分批貼上...")
+            # 移除：st.selectbox("選擇要貼上的工作表"...)
             
             if st.session_state.content_mode == "A":
                 sheet_options = ["V1 Sheet", "V2 Sheet", "其他補充"]
             else:
                 sheet_options = ["W Sheet", "P Sheet", "Grammar List", "其他補充"]
             
-            selected_sheet = st.selectbox("選擇要貼上的工作表", sheet_options)
+            # 改用 radio 或直接用 tabs，這裡改用簡單的 selectbox 但移除說明文字
+            selected_sheet = st.selectbox("選擇工作表", sheet_options, key="sheet_selector")
             
             sheet_content = st.text_area(
                 f"貼上 {selected_sheet} 內容",
