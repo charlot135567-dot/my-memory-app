@@ -1333,66 +1333,102 @@ its part of speech and meaning in this sentence must be clearly identified...等
             with cols[1]:
                 st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
 
-        # STEP 3: 多工作表收集區
+        # STEP 3: 多工作表收集區（改為 Tab 介面）
         with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
-            # 移除：st.info("💡 可以分批貼上...")
-            # 移除：st.selectbox("選擇要貼上的工作表"...)
             
             if st.session_state.content_mode == "A":
-                sheet_options = ["V1 Sheet", "V2 Sheet", "其他補充"]
-            else:
-                sheet_options = ["W Sheet", "P Sheet", "Grammar List", "其他補充"]
+                sheet_tabs = st.tabs(["V1 Sheet", "V2 Sheet", "其他補充"])
+                
+                with sheet_tabs[0]:
+                    v1_content = st.text_area(
+                        "貼上 V1 Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('v1', ''),
+                        height=300,
+                        key="input_v1_tab"
+                    )
+                    st.session_state.current_entry['v1'] = v1_content
+                    if v1_content and "V1 Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("V1 Sheet")
+                        st.caption("✅ V1 Sheet 已自動暫存")
+                
+                with sheet_tabs[1]:
+                    v2_content = st.text_area(
+                        "貼上 V2 Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('v2', ''),
+                        height=300,
+                        key="input_v2_tab"
+                    )
+                    st.session_state.current_entry['v2'] = v2_content
+                    if v2_content and "V2 Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("V2 Sheet")
+                        st.caption("✅ V2 Sheet 已自動暫存")
+                
+                with sheet_tabs[2]:
+                    other_content = st.text_area(
+                        "其他補充",
+                        value=st.session_state.current_entry.get('other', ''),
+                        height=200,
+                        key="input_other_tab"
+                    )
+                    st.session_state.current_entry['other'] = other_content
+                    if other_content and "其他補充" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("其他補充")
+                        st.caption("✅ 其他補充 已自動暫存")
             
-            # 改用 radio 或直接用 tabs，這裡改用簡單的 selectbox 但移除說明文字
-            selected_sheet = st.selectbox("選擇工作表", sheet_options, key="sheet_selector")
+            else:  # Mode B
+                sheet_tabs = st.tabs(["W Sheet", "P Sheet", "Grammar List", "其他補充"])
+                
+                with sheet_tabs[0]:
+                    w_content = st.text_area(
+                        "貼上 W Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('w_sheet', ''),
+                        height=300,
+                        key="input_w_tab"
+                    )
+                    st.session_state.current_entry['w_sheet'] = w_content
+                    if w_content and "W Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("W Sheet")
+                        st.caption("✅ W Sheet 已自動暫存")
+                
+                with sheet_tabs[1]:
+                    p_content = st.text_area(
+                        "貼上 P Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('p_sheet', ''),
+                        height=300,
+                        key="input_p_tab"
+                    )
+                    st.session_state.current_entry['p_sheet'] = p_content
+                    if p_content and "P Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("P Sheet")
+                        st.caption("✅ P Sheet 已自動暫存")
+                
+                with sheet_tabs[2]:
+                    g_content = st.text_area(
+                        "貼上 Grammar List 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('grammar_list', ''),
+                        height=300,
+                        key="input_g_tab"
+                    )
+                    st.session_state.current_entry['grammar_list'] = g_content
+                    if g_content and "Grammar List" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("Grammar List")
+                        st.caption("✅ Grammar List 已自動暫存")
+                
+                with sheet_tabs[3]:
+                    other_content = st.text_area(
+                        "其他補充",
+                        value=st.session_state.current_entry.get('other', ''),
+                        height=200,
+                        key="input_other_b_tab"
+                    )
+                    st.session_state.current_entry['other'] = other_content
+                    if other_content and "其他補充" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("其他補充")
+                        st.caption("✅ 其他補充 已自動暫存")
             
-            sheet_content = st.text_area(
-                f"貼上 {selected_sheet} 內容",
-                height=200,
-                key=f"input_{selected_sheet.replace(' ', '_')}"
-            )
-            
-            col_temp, col_view = st.columns([1, 3])
-            with col_temp:
-                if st.button("➕ 暫存此工作表", use_container_width=True):
-                    key_map = {
-                        "V1 Sheet": "v1",
-                        "V2 Sheet": "v2", 
-                        "W Sheet": "w_sheet",
-                        "P Sheet": "p_sheet",
-                        "Grammar List": "grammar_list",
-                        "其他補充": "other"
-                    }
-                    key = key_map.get(selected_sheet, 'other')
-                    st.session_state.current_entry[key] = sheet_content  # 確保這行有執行
-                    if selected_sheet not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append(selected_sheet)
-                    st.success(f"✅ {selected_sheet} 已暫存！")
-                    
-                    # 可選：自動切換到下一個工作表
-                    current_index = sheet_options.index(selected_sheet)
-                    if current_index < len(sheet_options) - 1:
-                        st.session_state.next_sheet = sheet_options[current_index + 1]
-                    
-                    st.rerun()
-            
-            with col_view:
-                if st.session_state.saved_entries:
-                    st.write("📋 已暫存：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
-            
+            # 顯示暫存狀態
             if st.session_state.saved_entries:
-                with st.expander("👁️ 預覽已暫存的內容"):
-                    for sheet in st.session_state.saved_entries:
-                        key_map = {
-                            "V1 Sheet": "v1", "V2 Sheet": "v2",
-                            "W Sheet": "w_sheet", "P Sheet": "p_sheet",
-                            "Grammar List": "grammar_list", "其他補充": "other"
-                        }
-                        key = key_map.get(sheet, 'other')
-                        content = st.session_state.current_entry.get(key, '')
-                        if content:
-                            st.write(f"**{sheet}：**")
-                            st.code(content[:200] + "..." if len(content) > 200 else content)
+                st.write("📋 已暫存工作表：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
 
         # STEP 4: 統一儲存區
         with st.expander("步驟 4：儲存到資料庫", expanded=True):
