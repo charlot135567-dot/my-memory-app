@@ -1434,6 +1434,24 @@ its part of speech and meaning in this sentence must be clearly identified...等
         with st.expander("步驟 4：儲存到資料庫", expanded=True):
             st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
             
+            if 'uploaded_to_sheets' not in st.session_state:
+                st.session_state.uploaded_to_sheets = False
+            
+            if st.session_state.uploaded_to_sheets:
+                st.success("✅ 此資料已上傳至 Google Sheets")
+                st.info("請點擊下方「🔄 新的分析」開始下一筆資料")
+                
+                if st.button("🔄 新的分析", use_container_width=True):
+                    keys_to_clear = [
+                        'is_prompt_generated', 'main_input_value', 'original_text',
+                        'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
+                        'current_entry', 'saved_entries', 'ref_no_input', 'uploaded_to_sheets'
+                    ]
+                    for key in keys_to_clear:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.rerun()
+            
             def get_default_ref():
                 v1_content = st.session_state.current_entry.get('v1', '')
                 if v1_content:
