@@ -1017,8 +1017,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
                     blank_structure = {
                         "ref": blank_ref,
                         "original": "[空白資料-待填入經文]",
-                        "v1_content": "Ref.\tEnglish (ESV)\tChinese\tSyn/Ant\tGrammar\n",
-                        "v2_content": "Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11\n",
+                        "v1_content": "Ref. 經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
+                        "v2_content": "Ref.經文出處\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n",
                         "w_sheet": "",
                         "p_sheet": "",
                         "grammar_list": "",
