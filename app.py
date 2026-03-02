@@ -1343,10 +1343,16 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "其他補充": "other"
                     }
                     key = key_map.get(selected_sheet, 'other')
-                    st.session_state.current_entry[key] = sheet_content
+                    st.session_state.current_entry[key] = sheet_content  # 確保這行有執行
                     if selected_sheet not in st.session_state.saved_entries:
                         st.session_state.saved_entries.append(selected_sheet)
                     st.success(f"✅ {selected_sheet} 已暫存！")
+                    
+                    # 可選：自動切換到下一個工作表
+                    current_index = sheet_options.index(selected_sheet)
+                    if current_index < len(sheet_options) - 1:
+                        st.session_state.next_sheet = sheet_options[current_index + 1]
+                    
                     st.rerun()
             
             with col_view:
