@@ -221,11 +221,11 @@ def save_v1_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=5)
             ws.append_row(["Ref.", "English (ESV)", "Chinese", "Syn/Ant", "Grammar"])
         
-        rows = parse_content_to_rows(content, expected_cols=4)
+        rows = parse_content_to_rows(content, expected_cols=5)  # 改為5，包含Ref.
         if rows:
-            rows_with_ref = [[ref] + row for row in rows]
-            ws.append_rows(rows_with_ref)
-            st.sidebar.caption(f"  V1_Sheet：寫入 {len(rows_with_ref)} 行")
+            # 不再添加 ref，因為 AI 輸出已經包含 Ref. 在第一欄
+            ws.append_rows(rows)
+            st.sidebar.caption(f"  V1_Sheet：寫入 {len(rows)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  V1_Sheet 失敗：{e}")
@@ -244,11 +244,11 @@ def save_v2_sheet(ref, content, gc, sheet_id):
             ws = sh.add_worksheet("V2_Sheet", rows=1000, cols=7)
             ws.append_row(["Ref.", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11"])
         
-        rows = parse_content_to_rows(content, expected_cols=6)
+        rows = parse_content_to_rows(content, expected_cols=7)  # 改為7，包含Ref.
         if rows:
-            rows_with_ref = [[ref] + row for row in rows]
-            ws.append_rows(rows_with_ref)
-            st.sidebar.caption(f"  V2_Sheet：寫入 {len(rows_with_ref)} 行")
+            # 不再添加 ref，因為 AI 輸出已經包含 Ref. 在第一欄
+            ws.append_rows(rows)
+            st.sidebar.caption(f"  V2_Sheet：寫入 {len(rows)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  V2_Sheet 失敗：{e}")
