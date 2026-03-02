@@ -324,7 +324,7 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_to_google_sheets(data_dict):
-    """將資料分別存入對應的 5 個工作表"""
+    """將資料分別存入對應的 5 個工作表，避免重複上傳"""
     gc, sheet_id = get_google_sheets_client()
     
     if not gc or not sheet_id:
@@ -335,6 +335,27 @@ def save_to_google_sheets(data_dict):
         ref = data_dict.get('ref', 'N/A')
         mode = data_dict.get('mode', 'A')
         
+        # 🔒 檢查是否已存在相同的 ref
+        sh = gc.open_by_key(sheet_id)
+        existing_refs = set()
+        
+        # 檢查 V1_Sheet 或 W_Sheet（根據模式）
+        check_sheet = "V1_Sheet" if mode == 'A' else "W_Sheet"
+        try:
+            ws = sh.worksheet(check_sheet)
+            all_values = ws.get_all_values()
+            # 收集第一欄的所有 ref（跳過 header）
+            for row in all_values[1:]:
+                if row and len(row) > 0:
+                    existing_refs.add(row[0].strip())
+        except gspread.WorksheetNotFound:
+            pass
+        
+        if ref in existing_refs:
+            st.sidebar.warning(f"⚠️ {ref} 已存在於 Google Sheets，跳過重複儲存")
+            return False, f"重複資料：{ref} 已存在"
+        
+        # 繼續原本的儲存邏輯
         st.sidebar.info(f"📝 開始儲存：{ref}（模式 {mode}）")
         
         if mode == 'A':
