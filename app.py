@@ -525,19 +525,21 @@ def to_excel(result: dict) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
-# ---------- 初始化 Session State（優先從本地載入，再嘗試 Google Sheets）----------
+# ---------- 初始化 Session State（優先從 Google Sheets 載入）----------
 if 'sentences' not in st.session_state:
-    local_data = load_sentences()
+    # 先嘗試從 Google Sheets 載入最新資料
+    sheets_data = load_from_google_sheets()
     
-    if local_data:
-        st.session_state.sentences = local_data
+    if sheets_data:
+        st.session_state.sentences = sheets_data
+        save_sentences(sheets_data)  # 同步到本地
+        st.sidebar.success(f"☁️ 已從 Google Sheets 載入 {len(sheets_data)} 筆資料")
     else:
-        sheets_data = load_from_google_sheets()
-        if sheets_data:
-            st.session_state.sentences = sheets_data
-            save_sentences(sheets_data)
-        else:
-            st.session_state.sentences = {}
+        # 雲端沒資料才讀本地
+        local_data = load_sentences()
+        st.session_state.sentences = local_data if local_data else {}
+        if local_data:
+            st.sidebar.info(f"💾 已從本地載入 {len(local_data)} 筆資料")
 
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
