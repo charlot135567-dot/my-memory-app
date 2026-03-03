@@ -657,7 +657,6 @@ with st.sidebar:
                         ("P_Sheet", ["檔名_批次", "Paragraph", "English Refinement", "中英夾雜講章"]),
                         ("Grammar_List", ["檔名_批次", "No經卷範圍", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
                     ]
-                    ]
                     
                     for sheet_name, headers in new_sheets:
                         try:
