@@ -969,10 +969,10 @@ its part of speech and meaning in this sentence must be clearly identified...等
 ⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
 
  【W Sheet - 重點要求：取高級/中高級單字15個＋片語15個】
-| No | Word/Phrase| Chinese | Synonym+中文對照 | Antonym＋中文對照 | 全句聖經中英對照例句 |
+⭐️No：請從文稿前5行找到經卷＋經節填入欄位
+| No經卷範圍 | Word/Phrase| Chinese | Synonym+中文對照 | Antonym＋中文對照 | 全句聖經中英對照例句 |
 |----|-------------|-------|---------|---------|---------|---------------|
 | 1 | steadfast 堅定不移的 | firm | wavering | 1Co 15:58 Therefore... |
-⭐️No：請從文稿前5行找到經卷＋經節填入欄位
 
 【P Sheet - 文稿段落】
 | Paragraph | English Refinement | 中英夾雜講章 |
@@ -980,7 +980,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
 | 1 | We need to be steadfast... | 我們需要 (**steadfast**) ... |
 
 【Grammar List - 重點要求：6 句 × 每句4個解析】
-| No | Original Sentence (from text) | Grammar Rule | Analysis & Example (1️⃣2️⃣3️⃣...5️⃣) |
+⭐️No：請從文稿前5行找到經卷＋經節填入欄位
+| No經卷範圍 | Original Sentence (from text) | Grammar Rule | Analysis & Example (1️⃣2️⃣3️⃣...5️⃣) |
 |----|------------------------------|--------------|-----------------------------------|
 | 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 🔹 Grammar List：從文稿中精選 6 個**最具教學價值**的句子
