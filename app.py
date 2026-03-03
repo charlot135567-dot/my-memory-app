@@ -511,6 +511,75 @@ def load_from_google_sheets():
                                 all_data[group_ref]["saved_sheets"].append("Grammar List")
         except gspread.WorksheetNotFound:
             pass
+            
+    except Exception as e:
+        st.error(f"載入 Google Sheets 時發生錯誤: {str(e)}")
+        return {}
+    
+    return all_data
+
+
+# 🔥 修復：補上完整的 save_analysis_result 函數
+def save_analysis_result(result, input_text):
+    """儲存分析結果到 session state 和 Google Sheets"""
+    try:
+        # 生成唯一識別碼
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        if result.get("mode") == "A":
+            # 模式 A：經文分析
+            ref = result.get("ref", "unknown")
+            file_name = st.session_state.get('current_file', 'manual_input')
+            group_key = f"{file_name}_{timestamp}"
+            
+            # 建立儲存結構
+            save_data = {
+                "ref": group_key,
+                "mode": "A",
+                "type": "Scripture",
+                "v1_content": result.get("v1_sheet", ""),
+                "v2_content": result.get("v2_sheet", ""),
+                "w_sheet": "",
+                "p_sheet": "",
+                "grammar_list": "",
+                "other": result.get("other", ""),
+                "saved_sheets": result.get("saved_sheets", []),
+                "date_added": datetime.now().isoformat()
+            }
+            
+        else:
+            # 模式 B：文件分析
+            file_name = st.session_state.get('current_file', 'document_analysis')
+            group_key = f"{file_name}_{timestamp}"
+            
+            save_data = {
+                "ref": group_key,
+                "mode": "B",
+                "type": "Document",
+                "v1_content": "",
+                "v2_content": "",
+                "w_sheet": result.get("w_sheet", ""),
+                "p_sheet": result.get("p_sheet", ""),
+                "grammar_list": result.get("grammar_list", ""),
+                "other": result.get("other", ""),
+                "saved_sheets": result.get("saved_sheets", []),
+                "date_added": datetime.now().isoformat()
+            }
+        
+        # 儲存到 session state
+        if 'analysis_history' not in st.session_state:
+            st.session_state.analysis_history = {}
+        
+        st.session_state.analysis_history[group_key] = save_data
+        
+        # 儲存到 Google Sheets
+        save_to_google_sheets(save_data, group_key)
+        
+        return group_key
+        
+    except Exception as e:
+        st.error(f"儲存分析結果時發生錯誤: {str(e)}")
+        return None
 
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
