@@ -626,7 +626,6 @@ with st.sidebar:
                     
                     # 建立新的 5 個工作表
                     new_sheets = [
-                    new_sheets = [
                         ("V1_Sheet", ["檔名_批次", "Ref. 經文出處", "English（ESV經文）", "Chinese經文", "Syn/Ant", "Grammar"]),
                         ("V2_Sheet", ["檔名_批次", "Ref.經文出處", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11 泰文重要片語"]),
                         ("W_Sheet", ["No", "Word/phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"]),
