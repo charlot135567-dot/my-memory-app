@@ -530,9 +530,13 @@ if 'sentences' not in st.session_state:
     # 先嘗試從 Google Sheets 載入最新資料
     sheets_data = load_from_google_sheets()
     
-    if sheets_data:
+    # 🔍 除錯訊息
+    st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
+    st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
+    
+    if sheets_data and len(sheets_data) > 0:
         st.session_state.sentences = sheets_data
-        save_sentences(sheets_data)  # 同步到本地
+        save_sentences(sheets_data)
         st.sidebar.success(f"☁️ 已從 Google Sheets 載入 {len(sheets_data)} 筆資料")
     else:
         # 雲端沒資料才讀本地
@@ -540,6 +544,7 @@ if 'sentences' not in st.session_state:
         st.session_state.sentences = local_data if local_data else {}
         if local_data:
             st.sidebar.info(f"💾 已從本地載入 {len(local_data)} 筆資料")
+        st.sidebar.warning("⚠️ Google Sheets 無資料或載入失敗")
 
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
