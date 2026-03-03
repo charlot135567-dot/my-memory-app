@@ -398,37 +398,45 @@ def load_from_google_sheets():
     try:
         sh = gc.open_by_key(sheet_id)
         
-        # V1_Sheet
+        # V1_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("V1_Sheet")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 5:
-                        ref = row[0]
-                        if ref not in all_data:
-                            all_data[ref] = {
-                                "ref": ref, "mode": "A", "type": "Scripture",
-                                "v1_content": "", "v2_content": "",
+                    if len(row) >= 6:
+                        group_ref = row[0]  # 第一欄是檔名_批次
+                        verse_ref = row[1]  # 第二欄是經節出處
+                        
+                        if group_ref not in all_data:
+                            all_data[group_ref] = {
+                                "ref": group_ref,
+                                "mode": "A",
+                                "type": "Scripture",
+                                "v1_content": "Ref. 經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
+                                "v2_content": "",
                                 "w_sheet": "", "p_sheet": "", "grammar_list": "", "other": "",
                                 "date_added": ""
                             }
-                        row_data = row[:5] if len(row) >= 5 else row + [''] * (5 - len(row))
-                        all_data[ref]["v1_content"] += "\t".join(row_data) + "\n"
+                        # 組合 V1 內容（去掉檔名欄位，保留原始欄位）
+                        row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
+                        all_data[group_ref]["v1_content"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
             pass
         
-        # V2_Sheet
+        # V2_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("V2_Sheet")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 7:
-                        ref = row[0]
-                        if ref in all_data:
-                            row_data = row[:7] if len(row) >= 7 else row + [''] * (7 - len(row))
-                            all_data[ref]["v2_content"] += "\t".join(row_data) + "\n"
+                    if len(row) >= 8:
+                        group_ref = row[0]  # 第一欄是檔名_批次
+                        
+                        if group_ref in all_data:
+                            # 組合 V2 內容
+                            row_data = row[1:8] if len(row) >= 8 else row[1:] + [''] * (8 - len(row))
+                            all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
             pass
         
