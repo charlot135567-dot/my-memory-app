@@ -257,7 +257,7 @@ def save_v2_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_w_sheet(ref, content, gc, sheet_id):
-    """儲存到 W_Sheet"""
+    """儲存到 W_Sheet，第一欄為原始檔名"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -266,21 +266,22 @@ def save_w_sheet(ref, content, gc, sheet_id):
         try:
             ws = sh.worksheet("W_Sheet")
         except gspread.WorksheetNotFound:
-            ws = sh.add_worksheet("W_Sheet", rows=1000, cols=6)
-            ws.append_row(["No", "Word/phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
+            ws = sh.add_worksheet("W_Sheet", rows=1000, cols=7)
+            # 🔥 加上檔名_批次欄位
+            ws.append_row(["檔名_批次", "No經卷範圍", "Word/Phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
         
-        rows = parse_content_to_rows(content, expected_cols=5)
+        rows = parse_content_to_rows(content, expected_cols=6)
         if rows:
-            rows_with_ref = [[ref] + row for row in rows]
-            ws.append_rows(rows_with_ref)
-            st.sidebar.caption(f"  W_Sheet：寫入 {len(rows_with_ref)} 行")
+            rows_with_group = [[ref] + row for row in rows]
+            ws.append_rows(rows_with_group)
+            st.sidebar.caption(f"  W_Sheet：寫入 {len(rows_with_group)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  W_Sheet 失敗：{e}")
         return False
 
 def save_p_sheet(ref, content, gc, sheet_id):
-    """儲存到 P_Sheet"""
+    """儲存到 P_Sheet，第一欄為原始檔名"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -289,21 +290,22 @@ def save_p_sheet(ref, content, gc, sheet_id):
         try:
             ws = sh.worksheet("P_Sheet")
         except gspread.WorksheetNotFound:
-            ws = sh.add_worksheet("P_Sheet", rows=1000, cols=3)
-            ws.append_row(["Paragraph", "English Refinement", "中英夾雜講章"])
+            ws = sh.add_worksheet("P_Sheet", rows=1000, cols=4)
+            # 🔥 加上檔名_批次欄位
+            ws.append_row(["檔名_批次", "Paragraph", "English Refinement", "中英夾雜講章"])
         
-        rows = parse_content_to_rows(content, expected_cols=2)
+        rows = parse_content_to_rows(content, expected_cols=3)
         if rows:
-            rows_with_ref = [[ref] + row for row in rows]
-            ws.append_rows(rows_with_ref)
-            st.sidebar.caption(f"  P_Sheet：寫入 {len(rows_with_ref)} 行")
+            rows_with_group = [[ref] + row for row in rows]
+            ws.append_rows(rows_with_group)
+            st.sidebar.caption(f"  P_Sheet：寫入 {len(rows_with_group)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  P_Sheet 失敗：{e}")
         return False
 
 def save_grammar_sheet(ref, content, gc, sheet_id):
-    """儲存到 Grammar_List"""
+    """儲存到 Grammar_List，第一欄為原始檔名"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -312,14 +314,15 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
         try:
             ws = sh.worksheet("Grammar_List")
         except gspread.WorksheetNotFound:
-            ws = sh.add_worksheet("Grammar_List", rows=1000, cols=4)
-            ws.append_row(["No", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
+            ws = sh.add_worksheet("Grammar_List", rows=1000, cols=5)
+            # 🔥 加上檔名_批次欄位
+            ws.append_row(["檔名_批次", "No經卷範圍", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
         
-        rows = parse_content_to_rows(content, expected_cols=3)
+        rows = parse_content_to_rows(content, expected_cols=4)
         if rows:
-            rows_with_ref = [[ref] + row for row in rows]
-            ws.append_rows(rows_with_ref)
-            st.sidebar.caption(f"  Grammar_List：寫入 {len(rows_with_ref)} 行")
+            rows_with_group = [[ref] + row for row in rows]
+            ws.append_rows(rows_with_group)
+            st.sidebar.caption(f"  Grammar_List：寫入 {len(rows_with_group)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  Grammar_List 失敗：{e}")
