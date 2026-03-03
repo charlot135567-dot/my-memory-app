@@ -416,6 +416,7 @@ def load_from_google_sheets():
                                 "v1_content": "Ref. 經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
                                 "v2_content": "",
                                 "w_sheet": "", "p_sheet": "", "grammar_list": "", "other": "",
+                                "saved_sheets": ["V1 Sheet"],  # 🔥 加上這行
                                 "date_added": ""
                             }
                         # 組合 V1 內容（去掉檔名欄位，保留原始欄位）
@@ -437,6 +438,9 @@ def load_from_google_sheets():
                             # 組合 V2 內容
                             row_data = row[1:8] if len(row) >= 8 else row[1:] + [''] * (8 - len(row))
                             all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
+                            # 🔥 加上這行：確保 saved_sheets 包含 V2
+                            if "V2 Sheet" not in all_data[group_ref]["saved_sheets"]:
+                                all_data[group_ref]["saved_sheets"].append("V2 Sheet")
         except gspread.WorksheetNotFound:
             pass
         
