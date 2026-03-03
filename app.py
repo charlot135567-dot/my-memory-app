@@ -447,59 +447,70 @@ def load_from_google_sheets():
         except gspread.WorksheetNotFound:
             pass
         
-        # W_Sheet
+        # W_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("W_Sheet")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 6:
-                        ref = row[0]
-                        if ref not in all_data:
-                            all_data[ref] = {
-                                "ref": ref, "mode": "B", "type": "Document",
-                                "v1_content": "", "v2_content": "",
-                                "w_sheet": "", "p_sheet": "", "grammar_list": "", "other": "",
+                    if len(row) >= 7:
+                        group_ref = row[0]  # 第一欄是檔名_批次
+                        
+                        if group_ref not in all_data:
+                            all_data[group_ref] = {
+                                "ref": group_ref,
+                                "mode": "B",
+                                "type": "Document",
+                                "v1_content": "",
+                                "v2_content": "",
+                                "w_sheet": "No經卷範圍\tWord/Phrase\tChinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
+                                "p_sheet": "",
+                                "grammar_list": "",
+                                "other": "",
+                                "saved_sheets": ["W Sheet"],
                                 "date_added": ""
                             }
-                        row_data = row[:6] if len(row) >= 6 else row + [''] * (6 - len(row))
-                        all_data[ref]["w_sheet"] += "\t".join(row_data) + "\n"
+                        # 組合 W_Sheet 內容（去掉檔名欄位）
+                        row_data = row[1:7] if len(row) >= 7 else row[1:] + [''] * (7 - len(row))
+                        all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
             pass
         
-        # P_Sheet
+        # P_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("P_Sheet")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 3:
-                        ref = row[0]
-                        if ref in all_data and all_data[ref]["mode"] == "B":
-                            row_data = row[:3] if len(row) >= 3 else row + [''] * (3 - len(row))
-                            all_data[ref]["p_sheet"] += "\t".join(row_data) + "\n"
+                    if len(row) >= 4:
+                        group_ref = row[0]  # 第一欄是檔名_批次
+                        
+                        if group_ref in all_data and all_data[group_ref]["mode"] == "B":
+                            # 組合 P_Sheet 內容
+                            row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
+                            all_data[group_ref]["p_sheet"] += "\t".join(row_data) + "\n"
+                            if "P Sheet" not in all_data[group_ref]["saved_sheets"]:
+                                all_data[group_ref]["saved_sheets"].append("P Sheet")
         except gspread.WorksheetNotFound:
             pass
         
-        # Grammar_List
+        # Grammar_List - 按檔名分組
         try:
             ws = sh.worksheet("Grammar_List")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 4:
-                        ref = row[0]
-                        if ref in all_data and all_data[ref]["mode"] == "B":
-                            row_data = row[:4] if len(row) >= 4 else row + [''] * (4 - len(row))
-                            all_data[ref]["grammar_list"] += "\t".join(row_data) + "\n"
+                    if len(row) >= 5:
+                        group_ref = row[0]  # 第一欄是檔名_批次
+                        
+                        if group_ref in all_data and all_data[group_ref]["mode"] == "B":
+                            # 組合 Grammar_List 內容
+                            row_data = row[1:5] if len(row) >= 5 else row[1:] + [''] * (5 - len(row))
+                            all_data[group_ref]["grammar_list"] += "\t".join(row_data) + "\n"
+                            if "Grammar List" not in all_data[group_ref]["saved_sheets"]:
+                                all_data[group_ref]["saved_sheets"].append("Grammar List")
         except gspread.WorksheetNotFound:
             pass
-        
-        return all_data
-        
-    except Exception as e:
-        st.sidebar.error(f"載入 Google Sheets 失敗: {e}")
-        return {}
 
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
