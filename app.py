@@ -209,7 +209,7 @@ def parse_content_to_rows(content, expected_cols=None):
 
 # ---------- Google Sheets 儲存函式（欄位對齊版）----------
 def save_v1_sheet(ref, content, gc, sheet_id):
-    """儲存到 V1_Sheet"""
+    """儲存到 V1_Sheet，第一欄為原始檔名，第二欄起為資料"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -218,21 +218,23 @@ def save_v1_sheet(ref, content, gc, sheet_id):
         try:
             ws = sh.worksheet("V1_Sheet")
         except gspread.WorksheetNotFound:
-            ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=5)
-            ws.append_row(["Ref. 經文出處", "English（ESV經文）", "Chinese經文", "Syn/Ant", "Grammar"])
+            ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=6)
+            # 修改 Header：第一欄是「檔名/批次」，第二欄才是經節出處
+            ws.append_row(["檔名_批次", "Ref. 經文出處", "English（ESV經文）", "Chinese經文", "Syn/Ant", "Grammar"])
         
-        rows = parse_content_to_rows(content, expected_cols=5)  # 改為5，包含Ref.
+        rows = parse_content_to_rows(content, expected_cols=5)
         if rows:
-            # 不再添加 ref，因為 AI 輸出已經包含 Ref. 在第一欄
-            ws.append_rows(rows)
-            st.sidebar.caption(f"  V1_Sheet：寫入 {len(rows)} 行")
+            # 每一行前面加上原始檔名 ref
+            rows_with_group = [[ref] + row for row in rows]
+            ws.append_rows(rows_with_group)
+            st.sidebar.caption(f"  V1_Sheet：寫入 {len(rows_with_group)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  V1_Sheet 失敗：{e}")
         return False
 
 def save_v2_sheet(ref, content, gc, sheet_id):
-    """儲存到 V2_Sheet"""
+    """儲存到 V2_Sheet，第一欄為原始檔名，第二欄起為資料"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -241,14 +243,14 @@ def save_v2_sheet(ref, content, gc, sheet_id):
         try:
             ws = sh.worksheet("V2_Sheet")
         except gspread.WorksheetNotFound:
-            ws = sh.add_worksheet("V2_Sheet", rows=1000, cols=7)
-            ws.append_row(["Ref.經文出處", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11 泰文重要片語"])
+            ws = sh.add_worksheet("V2_Sheet", rows=1000, cols=8)
+            ws.append_row(["檔名_批次", "Ref.經文出處", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11 泰文重要片語"])
         
-        rows = parse_content_to_rows(content, expected_cols=7)  # 改為7，包含Ref.
+        rows = parse_content_to_rows(content, expected_cols=7)
         if rows:
-            # 不再添加 ref，因為 AI 輸出已經包含 Ref. 在第一欄
-            ws.append_rows(rows)
-            st.sidebar.caption(f"  V2_Sheet：寫入 {len(rows)} 行")
+            rows_with_group = [[ref] + row for row in rows]
+            ws.append_rows(rows_with_group)
+            st.sidebar.caption(f"  V2_Sheet：寫入 {len(rows_with_group)} 行")
         return True
     except Exception as e:
         st.sidebar.error(f"  V2_Sheet 失敗：{e}")
