@@ -454,7 +454,7 @@ def load_from_google_sheets():
             if len(rows) > 1:
                 for row in rows[1:]:
                     if len(row) >= 7:
-                        group_ref = row[0]  # 第一欄是檔名_批次
+                        group_ref = row[0]  # 第一欄是檔名_批次 
                         
                         if group_ref not in all_data:
                             all_data[group_ref] = {
