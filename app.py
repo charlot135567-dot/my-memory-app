@@ -316,7 +316,7 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("Grammar_List", rows=1000, cols=5)
             # 🔥 加上檔名_批次欄位
-            ws.append_row(["檔名_批次", "No經卷範圍", "Original Sentence(from text)", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
+            ws.append_row(["檔名_批次", "No經卷範圍", "Original Sentence(from text)", "Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
         
         rows = parse_content_to_rows(content, expected_cols=4)
         if rows:
