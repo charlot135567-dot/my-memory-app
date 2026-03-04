@@ -463,7 +463,7 @@ def load_from_google_sheets():
                                 "type": "Document",
                                 "v1_content": "",
                                 "v2_content": "",
-                                "w_sheet": "No經卷範圍\tWord/Phrase\tChinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
+                                "w_sheet": "No經卷範圍\tWord/Phrase＋Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
                                 "p_sheet": "",
                                 "grammar_list": "",
                                 "other": "",
