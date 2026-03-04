@@ -465,7 +465,7 @@ def load_from_google_sheets():
                                 "v2_content": "",
                                 "w_sheet": "No經卷範圍\tWord/Phrase＋Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
                                 "p_sheet": "",
-                                "grammar_list": "",
+                                "grammar_list": "No經卷範圍\tOriginal Sentence\tGrammar Rule＋Analysis\n",  
                                 "other": "",
                                 "saved_sheets": ["W Sheet"],
                                 "date_added": ""
