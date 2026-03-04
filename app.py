@@ -1546,7 +1546,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 st.success("✅ 此資料已上傳至 Google Sheets")
                 st.info("請點擊下方「🔄 新的分析」開始下一筆資料")
                 
-                if st.button("🔄 新的分析", use_container_width=True):
+                if st.button("🔄 新的分析", key="new_analysis_main", use_container_width=True):
                     keys_to_clear = [
                         'is_prompt_generated', 'main_input_value', 'original_text',
                         'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
@@ -1658,7 +1658,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                 else:
                     st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
 
-            if st.button("🔄 新的分析", use_container_width=True):
+            if st.button("🔄 新的分析", key="new_analysis_secondary", use_container_width=True):
                 keys_to_clear = [
                     'is_prompt_generated', 'main_input_value', 'original_text',
                     'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
