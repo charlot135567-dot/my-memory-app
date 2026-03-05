@@ -446,14 +446,14 @@ def load_from_google_sheets():
                                 all_data[group_ref]["saved_sheets"].append("V2 Sheet")
         except gspread.WorksheetNotFound:
             pass
-        
-        # W_Sheet - 按檔名分組
+            
+          # W_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("W_Sheet")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 7:
+                    if len(row) >= 6:  # 🔥 從 7 改為 6
                         group_ref = row[0]  # 第一欄是檔名_批次 
                         
                         if group_ref not in all_data:
@@ -470,7 +470,7 @@ def load_from_google_sheets():
                                 "saved_sheets": ["W Sheet"],
                                 "date_added": ""
                             }
-                        # 組合 W_Sheet 內容（去掉檔名欄位）
+                        # 組合 W_Sheet 內容（去掉檔名欄位，取5欄）
                         row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                         all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
@@ -482,11 +482,11 @@ def load_from_google_sheets():
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 4:
+                    if len(row) >= 4:  # ✅ 維持 4（A-D 4欄）
                         group_ref = row[0]  # 第一欄是檔名_批次
                         
                         if group_ref in all_data and all_data[group_ref]["mode"] == "B":
-                            # 組合 P_Sheet 內容
+                            # 組合 P_Sheet 內容（去掉檔名欄位，取3欄）
                             row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
                             all_data[group_ref]["p_sheet"] += "\t".join(row_data) + "\n"
                             if "P Sheet" not in all_data[group_ref]["saved_sheets"]:
@@ -500,12 +500,12 @@ def load_from_google_sheets():
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 5:
+                    if len(row) >= 4:  # 🔥 從 5 改為 4
                         group_ref = row[0]  # 第一欄是檔名_批次
                         
                         if group_ref in all_data and all_data[group_ref]["mode"] == "B":
-                            # 組合 Grammar_List 內容
-                            row_data = row[1:5] if len(row) >= 5 else row[1:] + [''] * (5 - len(row))
+                            # 組合 Grammar_List 內容（去掉檔名欄位，取3欄）
+                            row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
                             all_data[group_ref]["grammar_list"] += "\t".join(row_data) + "\n"
                             if "Grammar List" not in all_data[group_ref]["saved_sheets"]:
                                 all_data[group_ref]["saved_sheets"].append("Grammar List")
