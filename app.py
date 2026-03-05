@@ -1085,7 +1085,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
 
 【Grammar List - 重點要求：6 句 × 每句4個解析】
 ⭐️No：請從文稿前5行找到經卷＋經節填入欄位
-| No經卷範圍 | Original Sentence (from text) | Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣) |
+| No經卷範圍 | Original Sentence＋中文翻譯 | Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣) |
 |----|------------------------------|--------------|-----------------------------------|
 | 1 | [文稿中的第1個精選句] | [文法規則名稱] | 1️⃣[分段解析+語法標籤]...<br>2️⃣[詞性辨析]...<br>3️⃣[修辭與結構或遞進邏輯]...<br>4️⃣[語意解釋]...<br>...|
 🔹 Grammar List：從文稿中精選 6 個**最具教學價值**的句子
