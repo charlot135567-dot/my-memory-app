@@ -614,13 +614,20 @@ def to_excel(result: dict) -> bytes:
 
 # ---------- 初始化 Session State（優先從 Google Sheets 載入）----------
 if 'sentences' not in st.session_state:
-    # 先嘗試從 Google Sheets 載入最新資料
-    sheets_data = load_from_google_sheets()
-    
-    # 🔍 除錯訊息
-    st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
-    st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
-    
+# 先嘗試從 Google Sheets 載入最新資料
+sheets_data = load_from_google_sheets()
+
+# 🔍 除錯訊息
+st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
+st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
+
+# 🔥 新增：檢查 B 模式資料
+if sheets_data:
+    b_mode_items = {k: v for k, v in sheets_data.items() if v.get('mode') == 'B'}
+    st.sidebar.write(f"DEBUG: B 模式資料數量 = {len(b_mode_items)}")
+    if b_mode_items:
+        st.sidebar.write(f"DEBUG: B 模式項目 = {list(b_mode_items.keys())}")
+        
     if sheets_data and len(sheets_data) > 0:
         st.session_state.sentences = sheets_data
         save_sentences(sheets_data)
