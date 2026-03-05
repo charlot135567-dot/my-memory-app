@@ -463,7 +463,7 @@ def load_from_google_sheets():
                                 "type": "Document",
                                 "v1_content": "",
                                 "v2_content": "",
-                                "w_sheet": "No經卷範圍\tWord/Phrase＋Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
+                                "w_sheet": "No經卷範圍\tWord/Phrase+Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
                                 "p_sheet": "",
                                 "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule＋Analysis\n",  
                                 "other": "",
@@ -471,7 +471,7 @@ def load_from_google_sheets():
                                 "date_added": ""
                             }
                         # 組合 W_Sheet 內容（去掉檔名欄位）
-                        row_data = row[1:7] if len(row) >= 7 else row[1:] + [''] * (7 - len(row))
+                        row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                         all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
             pass
