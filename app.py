@@ -614,12 +614,12 @@ def to_excel(result: dict) -> bytes:
 
 # ---------- 初始化 Session State（優先從 Google Sheets 載入）----------
 if 'sentences' not in st.session_state:
-# 先嘗試從 Google Sheets 載入最新資料
-sheets_data = load_from_google_sheets()
-
-# 🔍 除錯訊息
-st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
-st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
+    # 先嘗試從 Google Sheets 載入最新資料
+    sheets_data = load_from_google_sheets()
+    
+    # 🔍 除錯訊息
+    st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
+    st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
 
 # 🔥 新增：檢查 B 模式資料
 if sheets_data:
