@@ -620,6 +620,12 @@ if 'sentences' not in st.session_state:
     # 🔍 除錯訊息
     st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
     st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
+    
+    if sheets_data:  # ✅ 縮排對齊
+        b_mode_items = {k: v for k, v in sheets_data.items() if v.get('mode') == 'B'}
+        st.sidebar.write(f"DEBUG: B 模式資料數量 = {len(b_mode_items)}")
+        if b_mode_items:
+            st.sidebar.write(f"DEBUG: B 模式項目 = {list(b_mode_items.keys())}")
 
 # 🔥 新增：檢查 B 模式資料
 if sheets_data:
