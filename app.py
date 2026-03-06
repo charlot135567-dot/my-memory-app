@@ -617,30 +617,19 @@ def to_excel(result: dict) -> bytes:
 
 # ---------- 初始化 Session State（優先從 Google Sheets 載入）----------
 if 'sentences' not in st.session_state:
-    # 先嘗試從 Google Sheets 載入最新資料
-    sheets_data = load_from_google_sheets()  # ✅ 這一行必須縮排
+    sheets_data = load_from_google_sheets()
     
-    # 🔍 除錯訊息
-    st.sidebar.write(f"DEBUG: sheets_data 類型 = {type(sheets_data)}")
-    st.sidebar.write(f"DEBUG: sheets_data 內容 = {sheets_data}")
-    
-    if sheets_data:  # ✅ 這一行也要縮排，與上面對齊
-        b_mode_items = {k: v for k, v in sheets_data.items() if v.get('mode') == 'B'}
-        st.sidebar.write(f"DEBUG: B 模式資料數量 = {len(b_mode_items)}")
-        if b_mode_items:
-            st.sidebar.write(f"DEBUG: B 模式項目 = {list(b_mode_items.keys())}")
-            
-    if sheets_data and len(sheets_data) > 0:
+    if sheets_data:
         st.session_state.sentences = sheets_data
         save_sentences(sheets_data)
         st.sidebar.success(f"☁️ 已從 Google Sheets 載入 {len(sheets_data)} 筆資料")
     else:
-        # 雲端沒資料才讀本地
         local_data = load_sentences()
         st.session_state.sentences = local_data if local_data else {}
         if local_data:
             st.sidebar.info(f"💾 已從本地載入 {len(local_data)} 筆資料")
-        st.sidebar.warning("⚠️ Google Sheets 無資料或載入失敗")
+        else:
+            st.session_state.sentences = {}
 
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
