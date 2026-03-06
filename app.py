@@ -851,7 +851,6 @@ except:
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
-st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 with st.sidebar:
     # ===== 每日鼓勵話語 + Mashimaro（最上方）=====
     # 每日不同的韓文鼓勵話語
@@ -875,7 +874,7 @@ with st.sidebar:
     st.image(IMG_URLS["M3"], width=250)
     st.divider()
     
-    # ... 原本的 Sidebar 內容 ...
+st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
 if 'analysis_history' not in st.session_state:
