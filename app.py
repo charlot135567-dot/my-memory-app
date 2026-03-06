@@ -789,14 +789,7 @@ with st.sidebar:
     gc, sheet_id = get_google_sheets_client()
     if gc and sheet_id:
         st.success("✅ Google Sheets 已連線")
-        if st.button("🔄 強制同步到雲端", use_container_width=True):
-            # 同步所有本地資料到 Google Sheets
-            count = 0
-            for ref, data in st.session_state.get('sentences', {}).items():
-                success, _ = save_to_google_sheets(data)
-                if success:
-                    count += 1
-            st.success(f"已同步 {count} 筆資料到 Google Sheets")
+        
     else:
         st.error("❌ Google Sheets 未連線")
         st.caption("請在 secrets.toml 設定 gcp_service_account")
