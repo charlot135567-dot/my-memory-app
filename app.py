@@ -114,15 +114,18 @@ def load_sentences():
         return {}
 
 def save_sentences(data):
-    """安全儲存本地資料庫（原子寫入）"""
+    """簡化版：儲存本地快取（無備份）"""
     if not isinstance(data, dict):
         st.error("儲存失敗：資料必須是字典格式")
         return False
     
     try:
-        temp_file = f"{SENTENCES_FILE}.tmp"
-        with open(temp_file, "w", encoding="utf-8") as f:
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"儲存本地資料庫失敗：{e}")
+        return False
         
         if os.path.exists(SENTENCES_FILE):
             backup_file = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -1790,12 +1793,3 @@ its part of speech and meaning in this sentence must be clearly identified...等
     st.divider()
     total_count = len(st.session_state.get('sentences', {}))
     st.caption(f"💾 資料庫：{total_count} 筆")
-    if st.session_state.get('sentences', {}):
-        json_str = json.dumps(st.session_state.sentences, ensure_ascii=False, indent=2)
-        st.download_button(
-            "⬇️ 備份 JSON",
-            json_str,
-            file_name=f"backup_{dt.datetime.now().strftime('%m%d_%H%M')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
