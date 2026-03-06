@@ -645,125 +645,51 @@ if 'active_fav_del' not in st.session_state:
     st.session_state.active_fav_del = None
 
 # ===================================================================
-# 1. 側邊欄（保留原 UI）
+# 1. 側邊欄（簡化版）
 # ===================================================================
+
+# 圖片 URL（移到 Sidebar 之前）
+IMG_URLS = {
+    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
+    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
+    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
+    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
+    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
+    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
+    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg",
+    "M5": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro5.jpg",
+    "M6": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro6.jpg"
+}
+
+# ---------- 側邊欄開始 ----------
 with st.sidebar:
+    
+    # ===== 每日 AI 生成韓文鼓勵話 + Mashimaro（最頂部）=====
+    import datetime
+    import random
+    
+    # 用日期種子確保每日固定
+    today = datetime.date.today()
+    random.seed(today.year * 10000 + today.month * 100 + today.day)
+    
+    # 這裡之後會換成 AI 生成，先用固定列表示範
+    korean_quotes = [
+        "당신은 하나님의 소중한 보물입니다 💎",
+        "오늘도 당신을 사랑하십니다 ❤️",
+        "당신은 특별한 존재입니다 ⭐",
+        "하나님의 은혜가 함께하길 🙏",
+        "당신의 미소가 세상을 밝힙니다 😊",
+        "오늘도 힘내세요! 💪",
+        "당신은 축복받은 사람입니다 🌈",
+    ]
+    today_quote = random.choice(korean_quotes)
+    random.seed()  # 重置種子
+    
+    st.markdown(f'<p class="cute-korean">{today_quote}</p>', unsafe_allow_html=True)
+    st.image(IMG_URLS["M3"], width=250)
     st.divider()
     
-    # 資料檢查工具
-    def parse_content_to_dict(content):
-        """解析內容為字典列表（供資料檢查使用）"""
-        if not content:
-            return []
-        try:
-            from io import StringIO
-            import csv
-            reader = csv.DictReader(StringIO(content.strip()), delimiter='\t')
-            return list(reader)
-        except:
-            return []
-    
-    if st.checkbox("🔍 開啟資料欄位檢查"):
-        st.markdown("---")
-        if 'sentences' in st.session_state and st.session_state.sentences:
-            first_ref = list(st.session_state.sentences.keys())[0]
-            data = st.session_state.sentences[first_ref]
-            
-            st.write(f"經節範例: {first_ref}")
-            st.write(f"模式: {data.get('mode', 'Unknown')}")
-            
-            v1_test = parse_content_to_dict(data.get('v1_content', ''))
-            if v1_test:
-                st.info(f"V1 欄位偵測: {list(v1_test[0].keys())}")
-            else:
-                st.error("V1 內容解析失敗")
-                
-            v2_test = parse_content_to_dict(data.get('v2_content', ''))
-            if v2_test:
-                st.success(f"V2 欄位偵測: {list(v2_test[0].keys())}")
-            else:
-                st.warning("V2 內容為空")
-                
-            if data.get('w_sheet'):
-                w_test = parse_content_to_dict(data.get('w_sheet', ''))
-                if w_test:
-                    st.info(f"W Sheet 欄位: {list(w_test[0].keys())}")
-                    
-            if data.get('grammar_list'):
-                g_test = parse_content_to_dict(data.get('grammar_list', ''))
-                if g_test:
-                    st.info(f"Grammar 欄位: {list(g_test[0].keys())}")
-        else:
-            st.write("資料庫目前無資料")
-    
-    # 開發工具：重置 Google Sheets
-    st.divider()
-    st.markdown("### 🛠️ 開發工具")
-    
-    with st.expander("進階設定", expanded=False):
-        if st.button("🚨 重置為 5 工作表格式", type="secondary", use_container_width=True):
-            gc, sheet_id = get_google_sheets_client()
-            if gc and sheet_id:
-                try:
-                    sh = gc.open_by_key(sheet_id)
-                    
-                    # 刪除舊的錯誤工作表
-                    for old_name in ['Mode_A_Data', 'Mode_B_Data']:
-                        try:
-                            ws = sh.worksheet(old_name)
-                            sh.del_worksheet(ws)
-                            st.success(f"已刪除舊工作表：{old_name}")
-                        except:
-                            pass
-                    
-                    # 建立新的 5 個工作表
-                    new_sheets = [
-                        ("V1_Sheet", ["檔名_批次", "Ref. 經文出處", "English（ESV經文）", "Chinese經文", "Syn/Ant", "Grammar"]),
-                        ("V2_Sheet", ["檔名_批次", "Ref.經文出處", "口語訳", "Grammar", "Note", "KRF", "Korean Syn/Ant", "THSV11 泰文重要片語"]),
-                        ("W_Sheet", ["檔名_批次", "No經卷範圍", "Word/Phrase", "Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"]),
-                        ("P_Sheet", ["檔名_批次", "Paragraph", "English Refinement", "中英夾雜講章"]),
-                        ("Grammar_List", ["檔名_批次", "No經卷範圍", "Original Sentence＋中文翻譯", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
-                    ]
-                    
-                    for sheet_name, headers in new_sheets:
-                        try:
-                            try:
-                                existing = sh.worksheet(sheet_name)
-                                st.info(f"已存在：{sheet_name}")
-                                continue
-                            except gspread.WorksheetNotFound:
-                                pass
-                            
-                            ws = sh.add_worksheet(sheet_name, rows=1000, cols=len(headers))
-                            ws.append_row(headers)
-                            st.success(f"✅ 已建立：{sheet_name}")
-                        except Exception as e:
-                            st.error(f"建立 {sheet_name} 失敗：{e}")
-                    
-                    st.balloons()
-                    st.info("✅ 重置完成！請重新整理頁面")
-                    
-                except Exception as e:
-                    st.error(f"重置失敗：{e}")
-            else:
-                st.error("Google Sheets 未連線")
-        
-        # 檢查 Google Sheets 連線狀態
-        if st.button("🔎 檢查雲端工作表", use_container_width=True):
-            gc, sheet_id = get_google_sheets_client()
-            if gc and sheet_id:
-                try:
-                    sh = gc.open_by_key(sheet_id)
-                    all_worksheets = sh.worksheets()
-                    st.write(f"找到 {len(all_worksheets)} 個工作表：")
-                    for ws in all_worksheets:
-                        row_count = len(ws.get_all_values())
-                        st.write(f"• **{ws.title}**：{row_count} 行")
-                except Exception as e:
-                    st.error(f"檢查失敗：{e}")
-            else:
-                st.error("Google Sheets 未連線")
-            
+    # ===== 快速連結 =====
     c1, c2 = st.columns(2)
     c1.link_button("✨ Google AI", "https://gemini.google.com")
     c2.link_button("🤖 Kimi K2", "https://kimi.moonshot.cn")
@@ -772,21 +698,8 @@ with st.sidebar:
     c4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
     
     st.divider()
-    st.markdown("### 💾 資料庫狀態")
     
-    # 修正：動態檢查連線狀態
-    gc, sheet_id = get_google_sheets_client()
-    if gc and sheet_id:
-        st.success("✅ Google Sheets 已連線")
-        
-    else:
-        st.error("❌ Google Sheets 未連線")
-        st.caption("請在 secrets.toml 設定 gcp_service_account")
-    
-    local_count = len(st.session_state.get('sentences', {}))
-    st.caption(f"本地快取：{local_count} 筆")
-    
-    st.divider()
+    # ===== 底部背景設定 =====
     st.markdown("### 🖼️ 底部背景設定")
     
     bg_options = {
@@ -818,6 +731,24 @@ with st.sidebar:
         bg_size = st.slider("圖片大小", 5, 50, st.session_state.bg_size, format="%d%%", key="bg_size")
     with col2:
         bg_bottom = st.slider("底部間距", 0, 100, st.session_state.bg_bottom, format="%dpx", key="bg_bottom")
+    
+    st.divider()
+    
+    # ===== 檢查雲端工作表（最底部）=====
+    if st.button("🔎 檢查雲端工作表", use_container_width=True):
+        gc, sheet_id = get_google_sheets_client()
+        if gc and sheet_id:
+            try:
+                sh = gc.open_by_key(sheet_id)
+                all_worksheets = sh.worksheets()
+                st.write(f"找到 {len(all_worksheets)} 個工作表：")
+                for ws in all_worksheets:
+                    row_count = len(ws.get_all_values())
+                    st.write(f"• **{ws.title}**：{row_count} 行")
+            except Exception as e:
+                st.error(f"檢查失敗：{e}")
+        else:
+            st.error("Google Sheets 未連線")
 
 # 背景圖片套用（sidebar 外面）
 selected_img_file = bg_options[st.session_state.selected_bg]
