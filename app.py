@@ -1771,7 +1771,4 @@ its part of speech and meaning in this sentence must be clearly identified...等
             else:
                 st.info("無符合資料")
 
-    # 底部統計
-    st.divider()
-    total_count = len(st.session_state.get('sentences', {}))
-    st.caption(f"💾 資料庫：{total_count} 筆")
+
