@@ -852,6 +852,30 @@ except:
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
+with st.sidebar:
+    # ===== 每日鼓勵話語 + Mashimaro（最上方）=====
+    # 每日不同的韓文鼓勵話語
+    korean_quotes = [
+        "당신은 하나님의 소중한 보물입니다",  # 你是上帝珍貴的寶藏
+        "오늘도 당신을 사랑하십니다",         # 今天也愛著你
+        "당신은 특별한 존재입니다",           # 你是特別的存在
+        "하나님의 은혜가 함께하길",           # 願上帝的恩典與你同在
+        "당신의 미소가 세상을 밝힙니다",      # 你的微笑照亮世界
+        "오늘도 힘내세요!",                  # 今天也要加油！
+        "당신은 축복받은 사람입니다",         # 你是蒙福的人
+    ]
+    # 用日期選擇每日一句
+    import datetime
+    today_index = datetime.date.today().weekday() % len(korean_quotes)
+    today_quote = korean_quotes[today_index]
+    
+    st.markdown(f'<p class="cute-korean">{today_quote}</p>', unsafe_allow_html=True)
+    
+    # Mashimaro 圖片
+    st.image(IMG_URLS["M3"], width=250)
+    st.divider()
+    
+    # ... 原本的 Sidebar 內容 ...
 
 # 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
 if 'analysis_history' not in st.session_state:
@@ -882,10 +906,6 @@ IMG_URLS = {
     "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
     "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
 }
-with st.sidebar:
-    st.markdown('<p class="cute-korean">당신은 하나님의 소중한 보물입니다</p>', unsafe_allow_html=True)
-    st.image(IMG_URLS["M3"], width=250)
-    st.divider()
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
