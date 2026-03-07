@@ -20,7 +20,7 @@ if "gcp_service_account" not in st.secrets:
     st.info("""
     **請在 Streamlit Community Cloud 設定 Secrets：**
     
-    1. 前往 https://share.streamlit.io/ 
+    1. 前往 https://share.streamlit.io/  
     2. 點擊你的 app → ⚙️ Settings → Secrets
     3. 貼上 TOML 格式的 Google Sheets 憑證：
     
@@ -754,10 +754,7 @@ except:
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
-# 放在最前面（第 1 行）
-st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
-
-# 然後才是其他 import 和 Sidebar# 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
+# 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
 if 'analysis_history' not in st.session_state:
     st.session_state.analysis_history = []
 
@@ -775,17 +772,6 @@ st.markdown("""
 .fc-daygrid-day-frame:active {transform: scale(0.98); background-color: #FFE69C !important}
 </style>
 """, unsafe_allow_html=True)
-
-# 圖片 & 現成 TAB
-IMG_URLS = {
-    "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
-    "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
-    "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
-    "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
-    "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
-    "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
-    "M4": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro4.jpg"
-}
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
@@ -1670,5 +1656,4 @@ its part of speech and meaning in this sentence must be clearly identified...等
                     st.markdown(r)
             else:
                 st.info("無符合資料")
-
 
