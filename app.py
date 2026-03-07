@@ -1145,12 +1145,17 @@ with tabs[0]:
 # TAB 2：📅 靈修足跡月曆（最終零相依版）
 # ===================================================================
 with tabs[1]:
-    try:
-        from streamlit_calendar import calendar
-    except ImportError:
-        st.error("❌ 缺少 streamlit-calendar 套件")
-        st.code("pip install streamlit-calendar", language="bash")
-        st.stop()
+    from streamlit_calendar import calendar
+    
+    # 初始化 session_state（如果尚未存在）
+    if 'notes' not in st.session_state:
+        st.session_state.notes = {}
+    if 'todo' not in st.session_state:
+        st.session_state.todo = {}
+    if 'cal_key' not in st.session_state:
+        st.session_state.cal_key = 0
+    if 'sel_date' not in st.session_state:
+        st.session_state.sel_date = str(dt.date.today())
 
     # ---- 內嵌前置工具（零相依） ----
     import re
