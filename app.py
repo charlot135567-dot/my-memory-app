@@ -796,11 +796,7 @@ with tabs[0]:
                     rows.append(row_dict)
             
             return rows
-if rows:
-    st.write(f"DEBUG: 第一行欄位名稱: {list(rows[0].keys())}")
-    st.write(f"DEBUG: 第一行資料: {rows[0]}")
-    
-    # ============================================================
+        # ============================================================
         # 關鍵修正：分離模式A和模式B的資料，支援雙格式
         # ============================================================
         
@@ -808,6 +804,17 @@ if rows:
         all_mode_a = []  # 單字、金句來源
         all_mode_b = []  # 片語來源
         all_grammar_sources = []  # 文法來源（A或B都可以）
+        
+        # DEBUG: 顯示第一筆資料的欄位名稱
+        if sentences:
+            first_ref = list(sentences.keys())[0]
+            first_data = sentences[first_ref]
+            v1_test = parse_csv(first_data.get('v1_content', '')) or parse_markdown_table(first_data.get('v1_content', ''))
+            if v1_test:
+                st.write(f"DEBUG V1 欄位: {list(v1_test[0].keys())}")
+            w_test = parse_csv(first_data.get('w_sheet', '')) or parse_markdown_table(first_data.get('w_sheet', ''))
+            if w_test:
+                st.write(f"DEBUG W 欄位: {list(w_test[0].keys())}")
         
         for ref, data in sentences.items():
             v1_content = data.get('v1_content', '')
@@ -838,6 +845,26 @@ if rows:
                         'v2_row': v2_rows[i] if i < len(v2_rows) else {},
                         'index': i,
                         'total_in_file': len(v1_rows)
+                    })
+            
+            # 模式B：有W Sheet → 用於片語（修正：只要有W Sheet就加入）
+            if w_rows and len(w_rows) > 0:
+                all_mode_b.append({
+                    'ref': ref,
+                    'w': w_rows,
+                    'w_count': len(w_rows)
+                })
+            
+            # Grammar List（模式B的文法）
+            if g_rows:
+                for i, row in enumerate(g_rows):
+                    all_grammar_sources.append({
+                        'type': 'B',
+                        'ref': ref,
+                        'row': row,
+                        'v2_row': {},
+                        'index': i,
+                        'total_in_file': len(g_rows)
                     })
             
             # 模式B：有W Sheet → 用於片語（修正：只要有W Sheet就加入）
