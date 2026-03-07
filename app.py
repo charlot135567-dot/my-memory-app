@@ -907,12 +907,12 @@ with tabs[0]:
                 ant_text = ' | '.join(vocab_item['ant'])
                 display_parts.append(f"<span style='color:#CD5C5C;'>❄️{ant_text}</span>")
             
-            # 多語言
-            if vocab_item['jp']:
+            # 多語言（V2 Sheet）
+            if vocab_item.get('jp'):
                 display_parts.append(f"<span style='color:#FF8C00;'>🇯🇵 {vocab_item['jp']}</span>")
-            if vocab_item['kr']:
+            if vocab_item.get('kr'):
                 display_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {vocab_item['kr']}</span>")
-            if vocab_item['th']:
+            if vocab_item.get('th'):
                 display_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {vocab_item['th']}</span>")
             
             vocab_display = display_parts
