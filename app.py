@@ -740,6 +740,31 @@ with tabs[0]:
                 # 檢查是否為Markdown表格
                 if '|' in content and '\n' in content and content.strip().startswith('|'):
                     return []  # 交給parse_markdown處理
+                
+                # 處理Tab分隔格式（您的資料格式）
+                if '\t' in content:
+                    lines = content.strip().split('\n')
+                    if len(lines) >= 1:
+                        headers = [h.strip() for h in lines[0].split('\t')]
+                        rows = []
+                        for line in lines[1:]:
+                            if not line.strip():
+                                continue
+                            cells = [c.strip() for c in line.split('\t')]
+                            # 確保欄位數量一致
+                            while len(cells) < len(headers):
+                                cells.append('')
+                            row_dict = {}
+                            for i, header in enumerate(headers):
+                                cell_value = cells[i] if i < len(cells) else ''
+                                # 清理Markdown標記（**粗體**）
+                                cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
+                                row_dict[header] = cell_value
+                            if any(v.strip() for v in row_dict.values()):
+                                rows.append(row_dict)
+                        return rows
+                
+                # 標準CSV格式
                 reader = csv.DictReader(StringIO(content.strip()))
                 rows = list(reader)
                 return [row for row in rows if any(v.strip() for v in row.values())]
