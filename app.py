@@ -812,7 +812,7 @@ with tabs[0]:
                         else:
                             syn_list.append(syn_ant_text.strip())
                     
-        vocab_item = {
+            vocab_item = {
                         'ref': verse_ref,
                         'syn': syn_list,
                         'ant': ant_list,
@@ -884,132 +884,261 @@ with tabs[0]:
                         })
 
         # ============================================================
-        # 1) 單字顯示
+        # 1) 單字顯示（輪轉邏輯）
         # ============================================================
         vocab_display = []
         current_vocab_ref = "N/A"
         
         if all_vocab_items:
             vocab_idx = st.session_state.tab1_vocab_index % len(all_vocab_items)
-            v_item = all_vocab_items[vocab_idx]
-            current_vocab_ref = v_item['ref']
+            vocab_item = all_vocab_items[vocab_idx]
+            current_vocab_ref = vocab_item['ref']
             
-            if v_item['syn']:
-                vocab_display.append(f"<span style='color:#2E8B57;'>✨{' | '.join(v_item['syn'])}</span>")
-            if v_item['ant']:
-                vocab_display.append(f"<span style='color:#CD5C5C;'>❄️{' | '.join(v_item['ant'])}</span>")
-            if v_item.get('jp'):
-                vocab_display.append(f"<span style='color:#FF8C00;'>🇯🇵 {v_item['jp']}</span>")
-            if v_item.get('kr'):
-                vocab_display.append(f"<span style='color:#4682B4;'>🇰🇷 {v_item['kr']}</span>")
-            if v_item.get('th'):
-                vocab_display.append(f"<span style='color:#9932CC;'>🇹🇭 {v_item['th']}</span>")
+            display_parts = []
+            
+            # Syn（綠色）
+            if vocab_item['syn']:
+                syn_text = ' | '.join(vocab_item['syn'])
+                display_parts.append(f"<span style='color:#2E8B57;'>✨{syn_text}</span>")
+            
+            # Ant（紅色）
+            if vocab_item['ant']:
+                ant_text = ' | '.join(vocab_item['ant'])
+                display_parts.append(f"<span style='color:#CD5C5C;'>❄️{ant_text}</span>")
+            
+            # 多語言（V2 Sheet）
+            if vocab_item.get('jp'):
+                display_parts.append(f"<span style='color:#FF8C00;'>🇯🇵 {vocab_item['jp']}</span>")
+            if vocab_item.get('kr'):
+                display_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {vocab_item['kr']}</span>")
+            if vocab_item.get('th'):
+                display_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {vocab_item['th']}</span>")
+            
+            vocab_display = display_parts
 
         # ============================================================
-        # 2) 片語顯示（一次顯示4個）
+        # 2) 片語顯示（一次顯示4個，輪轉邏輯）
         # ============================================================
         w_phrases = []
         current_phrase_ref = "N/A"
+        
         if all_phrase_items:
             start_idx = st.session_state.tab1_phrase_index % len(all_phrase_items)
+            
             for i in range(min(4, len(all_phrase_items))):
                 idx = (start_idx + i) % len(all_phrase_items)
                 w_phrases.append(all_phrase_items[idx])
-                if i == 0: current_phrase_ref = all_phrase_items[idx]['ref']
+                if i == 0:
+                    current_phrase_ref = all_phrase_items[idx]['ref']
 
         # ============================================================
-        # 3) 金句顯示
+        # 3) 金句顯示（輪轉邏輯）
         # ============================================================
         verse_lines = []
         current_verse_ref = "N/A"
+        
         if all_verse_items:
-            v_idx = st.session_state.tab1_verse_index % len(all_verse_items)
-            v_item = all_verse_items[v_idx]
-            current_verse_ref = v_item['ref']
-            if v_item['ref'] and v_item['en']:
-                verse_lines.append(f"<b>{v_item['ref']}</b> {v_item['en']}")
-            if v_item['cn']:
-                verse_lines.append(f"<span style='color:#666;'>{v_item['cn']}</span>")
+            verse_idx = st.session_state.tab1_verse_index % len(all_verse_items)
+            verse_item = all_verse_items[verse_idx]
+            current_verse_ref = verse_item['ref']
             
+            if verse_item['ref'] and verse_item['en']:
+                verse_lines.append(f"<b>{verse_item['ref']}</b> {verse_item['en']}")
+            if verse_item['cn']:
+                verse_lines.append(f"<span style='color:#666;'>{verse_item['cn']}</span>")
+            
+            # 多語言（V2 Sheet）
             other_langs = []
-            if v_item.get('jp'): other_langs.append(f"🇯🇵 {v_item['jp']}")
-            if v_item.get('kr'): other_langs.append(f"🇰🇷 {v_item['kr']}")
-            if v_item.get('th'): other_langs.append(f"🇹🇭 {v_item['th']}")
+            if verse_item.get('jp'):
+                other_langs.append(f"🇯🇵 {verse_item['jp']}")
+            if verse_item.get('kr'):
+                other_langs.append(f"🇰🇷 {verse_item['kr']}")
+            if verse_item.get('th'):
+                other_langs.append(f"🇹🇭 {verse_item['th']}")
+            
             if other_langs:
                 verse_lines.append("<div style='font-size:0.85em; color:#888;'>" + " | ".join(other_langs) + "</div>")
 
         # ============================================================
-        # 4) 文法解析顯示
+        # 4) 文法解析顯示（輪轉邏輯）
         # ============================================================
         grammar_html = "等待資料中..."
         current_grammar_ref = "N/A"
         
         if all_grammar_items:
-            g_idx = st.session_state.tab1_grammar_index % len(all_grammar_items)
-            g_item = all_grammar_items[g_idx]
+            grammar_idx = st.session_state.tab1_grammar_index % len(all_grammar_items)
+            g_item = all_grammar_items[grammar_idx]
             current_grammar_ref = g_item['ref']
-            h_parts = []
+            
+            html_parts = []
             
             if g_item['type'] == 'A':
-                if g_item['ref'] and g_item['en']:
-                    h_parts.append(f'<div style="color:#FFD700; font-size:15px; font-weight:bold;"><b>{g_item["ref"]}</b>{g_item["en"]}</div>')
-                if g_item['cn']: h_parts.append(f"<span style='color:#AAAAAA;'>{g_item['cn']}</span>")
+                # 模式 A 文法：從 V1 Sheet
+                ref = g_item['ref']
+                en = g_item['en']
+                cn = g_item['cn']
+                grammar = g_item['grammar']
+                syn = g_item['syn']
+                ant = g_item['ant']
+                jp = g_item['jp']
+                note = g_item['note']
                 
-                sa_parts = []
-                if g_item['syn']: sa_parts.append(f'<span style="color:#2E8B57;">✨Syn:{"|".join(g_item["syn"])}</span>')
-                if g_item['ant']: sa_parts.append(f'<span style="color:#CD5C5C;">❄️Ant:{"|".join(g_item["ant"])}</span>')
-                if sa_parts: h_parts.append(" ".join(sa_parts))
+                # 經文（黃色字體，Ref 緊貼英文）
+                if ref and en:
+                    html_parts.append(
+                        f'<div style="color:#FFD700; font-size:15px; font-weight:bold;">'
+                        f'<b>{ref}</b>{en}</div>'
+                    )
+                elif en:
+                    html_parts.append(
+                        f'<div style="color:#FFD700; font-size:15px; font-weight:bold;">{en}</div>'
+                    )
                 
-                if g_item['grammar']:
-                    gt = str(g_item['grammar']).replace('1️⃣','<br>1️⃣').replace('2️⃣','<br>2️⃣').replace('3️⃣','<br>3️⃣').replace('4️⃣','<br>4️⃣')
-                    h_parts.append(gt)
+                if cn:
+                    html_parts.append(f"<span style='color:#AAAAAA;'>{cn}</span>")
                 
-                v2_p = []
-                if g_item['jp']: v2_p.append(f"<span style='color:#FF8C00;'>🇯🇵 {g_item['jp']}</span>")
-                if g_item['kr']: v2_p.append(f"<span style='color:#4682B4;'>🇰🇷 {g_item['kr']}</span>")
-                if g_item['th']: v2_p.append(f"<span style='color:#9932CC;'>🇹🇭 {g_item['th']}</span>")
-                if g_item['note']: v2_p.append(f'<span style="color:#D2691E;">備註：</span>{g_item["note"]}')
-                if v2_p: h_parts.append("<br>".join(v2_p))
+                # Syn/Ant
+                syn_ant_parts = []
+                if syn:
+                    syn_text = ' | '.join(syn)
+                    syn_ant_parts.append(f'<span style="color:#2E8B57;">✨Syn:{syn_text}</span>')
+                if ant:
+                    ant_text = ' | '.join(ant)
+                    syn_ant_parts.append(f'<span style="color:#CD5C5C;">❄️Ant:{ant_text}</span>')
+                
+                if syn_ant_parts:
+                    html_parts.append(" ".join(syn_ant_parts))
+                
+                # Grammar 內容（處理 1️⃣2️⃣3️⃣4️⃣ 格式）
+                if grammar:
+                    text = str(grammar)
+                    # 確保 1️⃣2️⃣3️⃣4️⃣ 換行顯示
+                    text = text.replace('1️⃣', '<br>1️⃣')
+                    text = text.replace('2️⃣', '<br>2️⃣')
+                    text = text.replace('3️⃣', '<br>3️⃣')
+                    text = text.replace('4️⃣', '<br>4️⃣')
+                    html_parts.append(text)
+                
+                # V2 多語言資料
+                v2_parts = []
+                if jp:
+                    v2_parts.append(f"<br><span style='color:#FF8C00;'>🇯🇵 {jp}</span>")
+                if g_item.get('kr'):
+                    v2_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {g_item['kr']}</span>")
+                if g_item.get('th'):
+                    v2_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {g_item['th']}</span>")
+                if note:
+                    v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{note}')
+                
+                if v2_parts:
+                    html_parts.append("<br>".join(v2_parts))
+                    
             else:
+                # 模式 B 文法：從 Grammar_List
                 orig = g_item.get('orig_sent', '')
-                if orig: h_parts.append(f'<div style="color:#FFD700; font-size:15px; font-weight:bold;">{orig}</div>')
-                if g_item.get('analysis'):
-                    af = str(g_item['analysis']).replace('1️⃣', '<br><span style="color:#2E8B57; font-weight:bold;">1️⃣')\
-                                               .replace('2️⃣', '</span><br><span style="color:#2E8B57; font-weight:bold;">2️⃣')\
-                                               .replace('3️⃣', '</span><br><span style="color:#2E8B57; font-weight:bold;">3️⃣')\
-                                               .replace('4️⃣', '</span><br><span style="color:#2E8B57; font-weight:bold;">4️⃣') + '</span>'
-                    h_parts.append(af)
+                analysis = g_item.get('analysis', '')
+                
+                if orig:
+                    # 嘗試分離經卷和句子
+                    match = re.match(r'^([A-Za-z0-9\s:]+?)([A-Z][a-z].*)$', orig.strip())
+                    if match:
+                        ref_part = match.group(1).strip()
+                        text_part = match.group(2).strip()
+                        html_parts.append(
+                            f'<div style="color:#FFD700; font-size:15px; font-weight:bold;">'
+                            f'<b>{ref_part}</b>{text_part}</div>'
+                        )
+                    else:
+                        html_parts.append(
+                            f'<div style="color:#FFD700; font-size:15px; font-weight:bold;">{orig}</div>'
+                        )
+                
+                if analysis:
+                    af = str(analysis).strip()
+                    # 處理 1️⃣2️⃣3️⃣4️⃣ 格式，加上顏色
+                    af = af.replace('1️⃣', '<br><span style="color:#2E8B57; font-weight:bold;">1️⃣')
+                    af = af.replace('2️⃣', '</span><br><span style="color:#2E8B57; font-weight:bold;">2️⃣')
+                    af = af.replace('3️⃣', '</span><br><span style="color:#2E8B57; font-weight:bold;">3️⃣')
+                    af = af.replace('4️⃣', '</span><br><span style="color:#2E8B57; font-weight:bold;">4️⃣')
+                    af = af + '</span>'
+                    html_parts.append(af)
             
-            grammar_html = "<br>".join(h_parts)
+            if html_parts:
+                grammar_html = "<br>".join(html_parts)
 
         # ============================================================
         # 渲染畫面
         # ============================================================
         col_left, col_right = st.columns([0.67, 0.33])
+        
         with col_left:
+            # 單字區塊
             if vocab_display:
-                st.markdown(f"<div style='margin-bottom:4px; line-height:1.6;'>{' ; '.join(vocab_display)}</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='margin-bottom:4px; line-height:1.6;'>" + 
+                    " ; ".join(vocab_display) + 
+                    "</div>", 
+                    unsafe_allow_html=True
+                )
+            else:
+                st.caption("無單字資料")
+            
             st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
+            # 片語區塊（修正：正確顯示 W_Sheet 欄位）
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    wp, s, a, ex = row.get('word_phrase',''), row.get('syn',''), row.get('ant',''), row.get('example','')
-                    p = [f"🔤 **{wp}**"]
-                    if s: p.append(f"<span style='color:#2E8B57;'>✨{s}</span>")
-                    if a: p.append(f"<span style='color:#CD5C5C;'>❄️{a}</span>")
-                    st.markdown(f"<div style='margin-bottom:2px;'>{' | '.join(p)}</div>", unsafe_allow_html=True)
-                    if ex: st.markdown(f"<div style='margin-bottom:4px; margin-left:20px; font-size:0.9em;'>📖 {ex}</div>", unsafe_allow_html=True)
+                    word_phrase = row.get('word_phrase', '')
+                    syn = row.get('syn', '')
+                    ant = row.get('ant', '')
+                    example = row.get('example', '')
+                    
+                    if word_phrase:
+                        parts = [f"🔤 **{word_phrase}**"]
+                        if syn: 
+                            parts.append(f"<span style='color:#2E8B57;'>✨{syn}</span>")
+                        if ant: 
+                            parts.append(f"<span style='color:#CD5C5C;'>❄️{ant}</span>")
+                        
+                        st.markdown(
+                            "<div style='margin-bottom:2px;'>" + " | ".join(parts) + "</div>", 
+                            unsafe_allow_html=True
+                        )
+                        
+                        if example:
+                            st.markdown(
+                                f"<div style='margin-bottom:4px; margin-left:20px; font-size:0.9em;'>📖 {example}</div>", 
+                                unsafe_allow_html=True
+                            )
+                        
+                        if i < len(w_phrases) - 1:
+                            st.markdown("<div style='margin:4px 0;'></div>", unsafe_allow_html=True)
+            else:
+                st.caption("無片語資料")
+
             st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
+            # 金句區塊
             if verse_lines:
-                for v in verse_lines: st.markdown(f"<div style='margin-bottom:4px;'>{v}</div>", unsafe_allow_html=True)
+                for v in verse_lines:
+                    st.markdown(f"<div style='margin-bottom:4px;'>{v}</div>", unsafe_allow_html=True)
+            else:
+                st.caption("📖 無金句資料")
 
         with col_right:
-            st.markdown(f'<div style="background-color:#1E1E1E; color:#FFFFFF; padding:10px; border-radius:8px; border-left:4px solid #FF8C00; font-size:13px; line-height:1.5;">{grammar_html}</div>', unsafe_allow_html=True)
-            m_left = max(0, (3600 - time_diff) / 60)
+            # 文法區塊
+            st.markdown(f"""
+                <div style="background-color:#1E1E1E; color:#FFFFFF; padding:10px; border-radius:8px; 
+                            border-left:4px solid #FF8C00; font-size:13px; line-height:1.5;">
+                    {grammar_html}
+                </div>
+                """, unsafe_allow_html=True)
+            
+            minutes_left = max(0, (3600 - time_diff) / 60)
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
-            st.caption(f"文法:{current_grammar_ref} | {m_left:.0f}分後更新")
-            st.caption(f"📊 單字:{len(all_vocab_items)} | 片語:{len(all_phrase_items)} | 金句:{len(all_verse_items)} | 文法:{len(all_grammar_items)}")
+            st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
+            st.caption(f"資料統計: 單字={len(all_vocab_items)}, 片語={len(all_phrase_items)}, 金句={len(all_verse_items)}, 文法={len(all_grammar_items)}")
+            
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（簡化版）
 # ===================================================================
