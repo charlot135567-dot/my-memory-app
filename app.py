@@ -562,23 +562,22 @@ with st.sidebar:
     # ===== 每日韓文鼓勵話（輪播）+ Mashimaro（最頂部）=====
     
     quotes = [
-        ("당신은 하나님의 소중한 보물입니다 💎"),
-        ("오늘도 당신을 사랑하십니다 ❤️"),
-        ("당신은 특별한 존재입니다 ⭐"),
-        ("하나님의 은혜가 함께하길 🙏"),
-        ("당신의 미소가 세상을 밝힙니다 😊"),
-        ("오늘도 힘내세요! 💪"),
-        ("당신은 축복받은 사람입니다 🌈"),
-        ("평안이 당신과 함께하길 ✨"),
-        ("사랑은 언제나 승리합니다 💕"),
-        ("당신의 꿈을 응원합니다 🌟"),
+        "당신은 하나님의 소중한 보물입니다 💎",
+        "오늘도 당신을 사랑하십니다 ❤️",
+        "당신은 특별한 존재입니다 ⭐",
+        "하나님의 은혜가 함께하길 🙏",
+        "당신의 미소가 세상을 밝힙니다 😊",
+        "오늘도 힘내세요! 💪",
+        "당신은 축복받은 사람입니다 🌈",
+        "평안이 당신과 함께하길 ✨",
+        "사랑은 언제나 승리합니다 💕",
+        "당신의 꿈을 응원합니다 🌟",
     ]
     today_index = datetime.date.today().weekday() % len(quotes)
-    korean_text, chinese_text = quotes[today_index]
+    korean_text = quotes[today_index]
     
-    # 顯示韓文（大）+ 中文（小）
+    # 顯示韓文
     st.markdown(f'<p class="cute-korean">{korean_text}</p>', unsafe_allow_html=True)
-    st.markdown(f'<p style="font-size: 14px; color: #666; text-align: center; margin-top: -10px;">{chinese_text}</p>', unsafe_allow_html=True)
     
     st.image(IMG_URLS["M3"], width=250)
     st.divider()
