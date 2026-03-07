@@ -980,16 +980,29 @@ with tabs[0]:
                     cumulative += f['v1_count']
                 
                 if verse_file:
-                    v1_verse = verse_file['v1'][row_idx]
-                    v2_verse = verse_file['v2'][row_idx % len(verse_file['v2'])] if verse_file['v2'] else {}
-                    
-                    current_verse_ref = v1_verse.get('Ref.', verse_file['ref'])
-                    
-                    en_text = v1_verse.get('English (ESV)', '')
-                    cn_text = v1_verse.get('Chinese', '')
-                    jp_text = v2_verse.get('口語訳', '') if v2_verse else ''
-                    kr_text = v2_verse.get('KRF', '') if v2_verse else ''
-                    th_text = v2_verse.get('THSV11', '') if v2_verse else ''
+                    v1_verse = verse_file['v1'][row_idx]
+                    v2_verse = verse_file['v2'][row_idx % len(verse_file['v2'])] if verse_file['v2'] else {}
+                    
+                    current_verse_ref = v1_verse.get('Ref.', verse_file['ref'])
+                    
+                    en_text = v1_verse.get('English (ESV)', '')
+                    cn_text = v1_verse.get('Chinese', '')
+                    jp_text = v2_verse.get('口語訳', '') if v2_verse else ''
+                    kr_text = v2_verse.get('KRF', '') if v2_verse else ''
+                    th_text = v2_verse.get('THSV11', '') if v2_verse else ''
+
+                    # --- 關鍵修正：將資料塞進 list 供下方渲染使用 ---
+                    verse_lines = []
+                    if en_text: verse_lines.append(f"<b>{current_verse_ref}</b> {en_text}")
+                    if cn_text: verse_lines.append(f"<span style='color:#666;'>{cn_text}</span>")
+                    
+                    # 組合日韓泰資料（同一行顯示或分行皆可）
+                    other_langs = []
+                    if jp_text: other_langs.append(f"🇯🇵 {jp_text}")
+                    if kr_text: other_langs.append(f"🇰🇷 {kr_text}")
+                    if th_text: other_langs.append(f"🇹🇭 {th_text}")
+                    if other_langs:
+                        verse_lines.append("<div style='font-size:0.85em; color:#888;'>" + " | ".join(other_langs) + "</div>")
         
         # ============================================================
         # 4) 文法：從兩處來，加入V2口語訳+Grammar+Note
