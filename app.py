@@ -1145,7 +1145,12 @@ with tabs[0]:
 # TAB 2：📅 靈修足跡月曆（最終零相依版）
 # ===================================================================
 with tabs[1]:
-    from streamlit_calendar import calendar  # ← 加入這行
+    try:
+        from streamlit_calendar import calendar
+    except ImportError:
+        st.error("❌ 缺少 streamlit-calendar 套件")
+        st.code("pip install streamlit-calendar", language="bash")
+        st.stop()
 
     # ---- 內嵌前置工具（零相依） ----
     import re
