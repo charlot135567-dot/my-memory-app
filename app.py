@@ -965,9 +965,7 @@ with tabs[0]:
                     # V2 多語言 - 注意实际栏位名称
                     v2_jp = v2_row.get('口語訳', '') if v2_row else ''
                     # Korean Syn/Ant 可能被截断，尝试多种可能
-                    v2_kr = (v2_row.get('Korean Syn/', '') or 
-                             v2_row.get('Korean Syn/Ant', '') or
-                             v2_row.get('Korean Syn', '')) if v2_row else ''
+                    v2_kr = (v2_row.get('Korean Syn/Ant', '') if v2_row else ''
                     v2_th = v2_row.get('THSV11 泰文重要片語', '') if v2_row else ''
                     
                     vocab_items = []
