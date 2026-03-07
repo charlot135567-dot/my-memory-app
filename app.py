@@ -820,7 +820,8 @@ with tabs[0]:
                         'kr': v2_row.get('Korean Syn/Ant', ''),
                         'th': v2_row.get('THSV11 泰文重要片語', '')
                     }
-                    if syn_list or ant_list:  # 只有有資料的才加入
+                    # 只要有任何資料就加入（包含多語言）
+                    if syn_list or ant_list or vocab_item['jp'] or vocab_item['kr'] or vocab_item['th']:
                         all_vocab_items.append(vocab_item)
                     
                     # --- 金句資料（V1 English/Chinese + V2 多語言）---
