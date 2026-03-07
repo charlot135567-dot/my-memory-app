@@ -984,47 +984,106 @@ with tabs[0]:
                     
                     vocab_display = vocab_items
         
-        # ============================================================
+                # ============================================================
         # 2) 片語：從模式B的 W Sheet
-        # 栏位：Word/Phrase＋Chinese + Synonym+中文對照 + Antonym+中文對照 + 全句聖經中英對照例句
         # ============================================================
         w_phrases = []
         current_phrase_ref = "N/A"
         
         all_available_phrases = []
         
+        # DEBUG
+        st.write(f"DEBUG: all_mode_b 數量: {len(all_mode_b)}")
+        
         for mb in all_mode_b:
             w_rows = mb.get('w', [])
             w_count = len(w_rows)
             
-            # 从第16个开始（索引15）
-            if w_count > 15:
-                for idx in range(15, w_count):
-                    all_available_phrases.append({
-                        'data': w_rows[idx],
-                        'ref': mb['ref'],
-                        'original_idx': idx + 1
-                    })
+            st.write(f"DEBUG: {mb['ref']} 有 {w_count} 行")
+            
+            # 從第16個開始（索引15），但只要有資料就顯示
+            start_idx = 15 if w_count > 15 else 0
+            
+            for idx in range(start_idx, w_count):
+                all_available_phrases.append({
+                    'data': w_rows[idx],
+                    'ref': mb['ref'],
+                    'original_idx': idx + 1
+                })
+        
+        st.write(f"DEBUG: 可用片語總數: {len(all_available_phrases)}")
         
         if len(all_available_phrases) > 0:
             total_available = len(all_available_phrases)
             start_idx = st.session_state.tab1_phrase_index % total_available
             
-            for i in range(4):
+            # 取4個片語
+            for i in range(min(4, total_available)):
                 idx = (start_idx + i) % total_available
                 item = all_available_phrases[idx]
                 w_phrases.append(item['data'])
                 if i == 0:
                     current_phrase_ref = f"{item['ref']} #{item['original_idx']}"
         
+        # ... 中間程式碼 ...
+        
+        # 在渲染區塊，修正欄位名稱比對
+        with col_left:
+            # 片語區塊
+            if w_phrases:
+                st.write(f"DEBUG: 顯示 {len(w_phrases)} 個片語")
+                for i, row in enumerate(w_phrases):
+                    st.write(f"DEBUG 片語{i}: {row}")
+                    
+                    # W Sheet 實際欄位名稱（根據截圖）
+                    p = (row.get('Word/Phrase+Chinese', '') or 
+                         row.get('Word/Phrase＋Chinese', ''))  # 嘗試半形和全形
+                    
+                    s = (row.get('Synonym+中文對照', '') or 
+                         row.get('Synonym＋中文對照', ''))
+                    
+                    a = (row.get('Antonym+中文對照', '') or 
+                         row.get('Antonym＋中文對照', ''))
+                    
+                    bible_ex = row.get('全句聖經中英對照例句', '')
+                    
+                    if p:
+                        parts = [f"🔤 **{p}**"]
+                        if s: 
+                            parts.append(f"<span style='color:#2E8B57;'>✨{s}</span>")
+                        if a: 
+                            parts.append(f"<span style='color:#CD5C5C;'>❄️{a}</span>")
+                        
+                        st.markdown(
+                            "<div style='margin-bottom:2px;'>" + " | ".join(parts) + "</div>", 
+                            unsafe_allow_html=True
+                        )
+                        
+                        if bible_ex:
+                            st.markdown(
+                                f"<div style='margin-bottom:4px; margin-left:20px; font-size:0.9em;'>📖 {bible_ex}</div>", 
+                                unsafe_allow_html=True
+                            )
+                        
+                        if i < len(w_phrases) - 1:
+                            st.markdown("<div style='margin:4px 0;'></div>", unsafe_allow_html=True)
+            else:
+                st.caption("無片語資料")
+                st.write(f"DEBUG: all_mode_b={len(all_mode_b)}, phrases={len(all_available_phrases)}")
+        
         # ============================================================
-        # 3) 金句：V1 English＋Chinese + V2 多語言
+        # 3) 金句
         # ============================================================
         verse_lines = []
         current_verse_ref = "N/A"
         
+        # DEBUG
+        st.write(f"DEBUG: 模式A檔案數: {len(all_mode_a)}")
+        
         if all_mode_a:
             total_verse_items = sum(f['v1_count'] for f in all_mode_a)
+            st.write(f"DEBUG: 金句總項目: {total_verse_items}")
+            
             if total_verse_items > 0:
                 verse_counter = (st.session_state.tab1_verse_index + 6) % total_verse_items
                 cumulative = 0
@@ -1038,18 +1097,25 @@ with tabs[0]:
                         break
                     cumulative += f['v1_count']
                 
+                st.write(f"DEBUG: 選擇檔案: {verse_file['ref'] if verse_file else 'None'}, 行: {row_idx}")
+                
                 if verse_file:
                     v1_verse = verse_file['v1'][row_idx]
                     v2_verse = verse_file['v2'][row_idx % len(verse_file['v2'])] if verse_file['v2'] else {}
+                    
+                    st.write(f"DEBUG: V1 行資料: {v1_verse}")
                     
                     current_verse_ref = v1_verse.get('Ref. 經文出處', verse_file['ref'])
                     
                     en_text = v1_verse.get('English（ESV經文）', '')
                     cn_text = v1_verse.get('Chinese經文', '')
+                    
+                    st.write(f"DEBUG: EN={en_text[:50] if en_text else 'None'}, CN={cn_text[:50] if cn_text else 'None'}")
+                    
                     v2_jp = v2_verse.get('口語訳', '') if v2_verse else ''
-                    v2_kr = (v2_verse.get('Korean Syn/', '') or 
-                             v2_verse.get('Korean Syn/Ant', '') or
-                             v2_verse.get('Korean Syn', '')) if v2_verse else ''
+                    v2_kr = (v2_row.get('Korean Syn/', '') or 
+                             v2_row.get('Korean Syn/Ant', '') or
+                             v2_row.get('Korean Syn', '')) if v2_verse else ''
                     v2_th = v2_verse.get('THSV11 泰文重要片語', '') if v2_verse else ''
 
                     verse_lines = []
