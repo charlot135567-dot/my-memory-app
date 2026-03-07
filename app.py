@@ -812,7 +812,7 @@ with tabs[0]:
                         else:
                             syn_list.append(syn_ant_text.strip())
                     
-            vocab_item = {
+                    vocab_item = {
                         'ref': verse_ref,
                         'syn': syn_list,
                         'ant': ant_list,
@@ -820,8 +820,7 @@ with tabs[0]:
                         'kr': v2_row.get('Korean Syn/Ant', ''),
                         'th': v2_row.get('THSV11 泰文重要片語', '')
                     }
-                    # 只要有任何資料就加入（包含多語言）
-                    if syn_list or ant_list or vocab_item['jp'] or vocab_item['kr'] or vocab_item['th']:
+                    if syn_list or ant_list:  # 只有有資料的才加入
                         all_vocab_items.append(vocab_item)
                     
                     # --- 金句資料（V1 English/Chinese + V2 多語言）---
@@ -849,7 +848,6 @@ with tabs[0]:
                             'ant': ant_list,
                             'jp': v2_row.get('口語訳', ''),
                             'kr': v2_row.get('Korean Syn/Ant', ''),
-                            'th': v2_row.get('THSV11 泰文重要片語', ''),
                             'note': v2_row.get('Note', '')
                         })
             
@@ -906,12 +904,12 @@ with tabs[0]:
                 ant_text = ' | '.join(vocab_item['ant'])
                 display_parts.append(f"<span style='color:#CD5C5C;'>❄️{ant_text}</span>")
             
-            # 多語言（V2 Sheet）
-            if vocab_item.get('jp'):
+            # 多語言
+            if vocab_item['jp']:
                 display_parts.append(f"<span style='color:#FF8C00;'>🇯🇵 {vocab_item['jp']}</span>")
-            if vocab_item.get('kr'):
+            if vocab_item['kr']:
                 display_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {vocab_item['kr']}</span>")
-            if vocab_item.get('th'):
+            if vocab_item['th']:
                 display_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {vocab_item['th']}</span>")
             
             vocab_display = display_parts
@@ -947,13 +945,12 @@ with tabs[0]:
             if verse_item['cn']:
                 verse_lines.append(f"<span style='color:#666;'>{verse_item['cn']}</span>")
             
-            # 多語言（V2 Sheet）
             other_langs = []
-            if verse_item.get('jp'):
+            if verse_item['jp']:
                 other_langs.append(f"🇯🇵 {verse_item['jp']}")
-            if verse_item.get('kr'):
+            if verse_item['kr']:
                 other_langs.append(f"🇰🇷 {verse_item['kr']}")
-            if verse_item.get('th'):
+            if verse_item['th']:
                 other_langs.append(f"🇹🇭 {verse_item['th']}")
             
             if other_langs:
@@ -1019,18 +1016,13 @@ with tabs[0]:
                     text = text.replace('4️⃣', '<br>4️⃣')
                     html_parts.append(text)
                 
-                # V2 多語言資料
-                v2_parts = []
-                if jp:
-                    v2_parts.append(f"<br><span style='color:#FF8C00;'>🇯🇵 {jp}</span>")
-                if g_item.get('kr'):
-                    v2_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {g_item['kr']}</span>")
-                if g_item.get('th'):
-                    v2_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {g_item['th']}</span>")
-                if note:
-                    v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{note}')
-                
-                if v2_parts:
+                # 日文補充
+                if jp or note:
+                    v2_parts = []
+                    if jp:
+                        v2_parts.append(f"<br><b>{ref}</b> {jp}")
+                    if note:
+                        v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{note}')
                     html_parts.append("<br>".join(v2_parts))
                     
             else:
@@ -1138,7 +1130,6 @@ with tabs[0]:
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
             st.caption(f"資料統計: 單字={len(all_vocab_items)}, 片語={len(all_phrase_items)}, 金句={len(all_verse_items)}, 文法={len(all_grammar_items)}")
-            
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（簡化版）
 # ===================================================================
