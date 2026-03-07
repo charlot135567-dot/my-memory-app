@@ -11,15 +11,7 @@ from io import StringIO
 import csv
 import toml
 
-# 如果 st.secrets 沒有設定，嘗試從 .streamlit/secrets.toml 載入
-if "gcp_service_account" not in st.secrets:
-    secrets_path = os.path.join(os.path.dirname(__file__), '.streamlit', 'secrets.toml')
-    if os.path.exists(secrets_path):
-        with open(secrets_path, 'r', encoding='utf-8') as f:
-            secrets = toml.load(f)
-            for key, value in secrets.items():
-                st.secrets[key] = value
-# ---------- 頁面設定 ----------
+# ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # ---------- 診斷：檢查 secrets ----------
@@ -28,7 +20,7 @@ if "gcp_service_account" not in st.secrets:
     st.info("""
     **請在 Streamlit Community Cloud 設定 Secrets：**
     
-    1. 前往 https://share.streamlit.io/
+    1. 前往 https://share.streamlit.io/ 
     2. 點擊你的 app → ⚙️ Settings → Secrets
     3. 貼上 TOML 格式的 Google Sheets 憑證：
     
@@ -45,9 +37,11 @@ if "gcp_service_account" not in st.secrets:
     
     [sheets]
     spreadsheet_id = "你的試算表ID"
+    
+    [gemini]
+    api_key = "你的 Gemini API Key"
     ```
     """)
-    # 停止執行，避免後續錯誤
     st.stop()
 
 if "sheets" not in st.secrets or "spreadsheet_id" not in st.secrets["sheets"]:
@@ -86,7 +80,7 @@ FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# ---------- 本地檔案操作（原子寫入 + 備份）----------
+# ---------- 本地檔案操作（簡化版，無備份）----------
 def load_sentences():
     """安全載入本地資料庫"""
     if not os.path.exists(SENTENCES_FILE):
@@ -102,12 +96,6 @@ def load_sentences():
                 return {}
             return data
     except json.JSONDecodeError:
-        backup_name = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        try:
-            os.rename(SENTENCES_FILE, backup_name)
-            st.warning(f"⚠️ 資料庫損毀，已備份為 {backup_name}")
-        except:
-            pass
         return {}
     except Exception as e:
         st.error(f"載入本地資料庫失敗：{e}")
@@ -122,25 +110,6 @@ def save_sentences(data):
     try:
         with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        st.error(f"儲存本地資料庫失敗：{e}")
-        return False
-        
-        if os.path.exists(SENTENCES_FILE):
-            backup_file = f"{SENTENCES_FILE}.backup_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            try:
-                os.replace(SENTENCES_FILE, backup_file)
-                backups = sorted([f for f in os.listdir(DATA_DIR) if f.startswith("sentences.json.backup_")])
-                for old in backups[:-5]:
-                    try:
-                        os.remove(os.path.join(DATA_DIR, old))
-                    except:
-                        pass
-            except:
-                pass
-        
-        os.replace(temp_file, SENTENCES_FILE)
         return True
     except Exception as e:
         st.error(f"儲存本地資料庫失敗：{e}")
@@ -222,12 +191,10 @@ def save_v1_sheet(ref, content, gc, sheet_id):
             ws = sh.worksheet("V1_Sheet")
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("V1_Sheet", rows=1000, cols=6)
-            # 修改 Header：第一欄是「檔名/批次」，第二欄才是經節出處
             ws.append_row(["檔名_批次", "Ref. 經文出處", "English（ESV經文）", "Chinese經文", "Syn/Ant", "Grammar"])
         
         rows = parse_content_to_rows(content, expected_cols=5)
         if rows:
-            # 每一行前面加上原始檔名 ref
             rows_with_group = [[ref] + row for row in rows]
             ws.append_rows(rows_with_group)
             st.sidebar.caption(f"  V1_Sheet：寫入 {len(rows_with_group)} 行")
@@ -269,11 +236,10 @@ def save_w_sheet(ref, content, gc, sheet_id):
         try:
             ws = sh.worksheet("W_Sheet")
         except gspread.WorksheetNotFound:
-            ws = sh.add_worksheet("W_Sheet", rows=1000, cols=7)
-            # 🔥 加上檔名_批次欄位
-            ws.append_row(["檔名_批次", "No經卷範圍", "Word/Phrase＋Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
+            ws = sh.add_worksheet("W_Sheet", rows=1000, cols=6)
+            ws.append_row(["檔名_批次", "No經卷範圍", "Word/Phrase+Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
         
-        rows = parse_content_to_rows(content, expected_cols=6)
+        rows = parse_content_to_rows(content, expected_cols=5)
         if rows:
             rows_with_group = [[ref] + row for row in rows]
             ws.append_rows(rows_with_group)
@@ -294,7 +260,6 @@ def save_p_sheet(ref, content, gc, sheet_id):
             ws = sh.worksheet("P_Sheet")
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("P_Sheet", rows=1000, cols=4)
-            # 🔥 加上檔名_批次欄位
             ws.append_row(["檔名_批次", "Paragraph", "English Refinement", "中英夾雜講章"])
         
         rows = parse_content_to_rows(content, expected_cols=3)
@@ -318,8 +283,7 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
             ws = sh.worksheet("Grammar_List")
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("Grammar_List", rows=1000, cols=5)
-            # 🔥 加上檔名_批次欄位
-            ws.append_row(["檔名_批次", "No經卷範圍", "Word/Phrase+Chinese", "Synonym+中文對照", "Antonym+中文對照", "全句聖經中英對照例句"])
+            ws.append_row(["檔名_批次", "No經卷範圍", "Original Sentence＋中文翻譯", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
         
         rows = parse_content_to_rows(content, expected_cols=4)
         if rows:
@@ -343,16 +307,14 @@ def save_to_google_sheets(data_dict):
         ref = data_dict.get('ref', 'N/A')
         mode = data_dict.get('mode', 'A')
         
-        # 🔒 檢查是否已存在相同的 ref
+        # 檢查是否已存在相同的 ref
         sh = gc.open_by_key(sheet_id)
         existing_refs = set()
         
-        # 檢查 V1_Sheet 或 W_Sheet（根據模式）
         check_sheet = "V1_Sheet" if mode == 'A' else "W_Sheet"
         try:
             ws = sh.worksheet(check_sheet)
             all_values = ws.get_all_values()
-            # 收集第一欄的所有 ref（跳過 header）
             for row in all_values[1:]:
                 if row and len(row) > 0:
                     existing_refs.add(row[0].strip())
@@ -363,7 +325,6 @@ def save_to_google_sheets(data_dict):
             st.sidebar.warning(f"⚠️ {ref} 已存在於 Google Sheets，跳過重複儲存")
             return False, f"重複資料：{ref} 已存在"
         
-        # 繼續原本的儲存邏輯
         st.sidebar.info(f"📝 開始儲存：{ref}（模式 {mode}）")
         
         if mode == 'A':
@@ -411,8 +372,8 @@ def load_from_google_sheets():
             if len(rows) > 1:
                 for row in rows[1:]:
                     if len(row) >= 6:
-                        group_ref = row[0]  # 第一欄是檔名_批次
-                        verse_ref = row[1]  # 第二欄是經節出處
+                        group_ref = row[0]
+                        verse_ref = row[1]
                         
                         if group_ref not in all_data:
                             all_data[group_ref] = {
@@ -422,10 +383,9 @@ def load_from_google_sheets():
                                 "v1_content": "Ref. 經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
                                 "v2_content": "",
                                 "w_sheet": "", "p_sheet": "", "grammar_list": "", "other": "",
-                                "saved_sheets": ["V1 Sheet"],  # 🔥 加上這行
+                                "saved_sheets": ["V1 Sheet"],
                                 "date_added": ""
                             }
-                        # 組合 V1 內容（去掉檔名欄位，保留原始欄位）
                         row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                         all_data[group_ref]["v1_content"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
@@ -438,26 +398,24 @@ def load_from_google_sheets():
             if len(rows) > 1:
                 for row in rows[1:]:
                     if len(row) >= 8:
-                        group_ref = row[0]  # 第一欄是檔名_批次
+                        group_ref = row[0]
                         
                         if group_ref in all_data:
-                            # 組合 V2 內容
                             row_data = row[1:8] if len(row) >= 8 else row[1:] + [''] * (8 - len(row))
                             all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
-                            # 🔥 加上這行：確保 saved_sheets 包含 V2
                             if "V2 Sheet" not in all_data[group_ref]["saved_sheets"]:
                                 all_data[group_ref]["saved_sheets"].append("V2 Sheet")
         except gspread.WorksheetNotFound:
             pass
             
-          # W_Sheet - 按檔名分組
+        # W_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("W_Sheet")
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 6:  # 🔥 從 7 改為 6
-                        group_ref = row[0]  # 第一欄是檔名_批次 
+                    if len(row) >= 6:
+                        group_ref = row[0]
                         
                         if group_ref not in all_data:
                             all_data[group_ref] = {
@@ -468,12 +426,11 @@ def load_from_google_sheets():
                                 "v2_content": "",
                                 "w_sheet": "No經卷範圍\tWord/Phrase+Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
                                 "p_sheet": "",
-                                "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule＋Analysis\n",  
+                                "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
                                 "other": "",
                                 "saved_sheets": ["W Sheet"],
                                 "date_added": ""
                             }
-                        # 組合 W_Sheet 內容（去掉檔名欄位，取5欄）
                         row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                         all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
         except gspread.WorksheetNotFound:
@@ -485,11 +442,10 @@ def load_from_google_sheets():
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 4:  # ✅ 維持 4（A-D 4欄）
-                        group_ref = row[0]  # 第一欄是檔名_批次
+                    if len(row) >= 4:
+                        group_ref = row[0]
                         
                         if group_ref in all_data and all_data[group_ref]["mode"] == "B":
-                            # 組合 P_Sheet 內容（去掉檔名欄位，取3欄）
                             row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
                             all_data[group_ref]["p_sheet"] += "\t".join(row_data) + "\n"
                             if "P Sheet" not in all_data[group_ref]["saved_sheets"]:
@@ -503,12 +459,11 @@ def load_from_google_sheets():
             rows = ws.get_all_values()
             if len(rows) > 1:
                 for row in rows[1:]:
-                    if len(row) >= 4:  # 🔥 從 5 改為 4
-                        group_ref = row[0]  # 第一欄是檔名_批次
+                    if len(row) >= 5:
+                        group_ref = row[0]
                         
                         if group_ref in all_data and all_data[group_ref]["mode"] == "B":
-                            # 組合 Grammar_List 內容（去掉檔名欄位，取3欄）
-                            row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
+                            row_data = row[1:5] if len(row) >= 5 else row[1:] + [''] * (5 - len(row))
                             all_data[group_ref]["grammar_list"] += "\t".join(row_data) + "\n"
                             if "Grammar List" not in all_data[group_ref]["saved_sheets"]:
                                 all_data[group_ref]["saved_sheets"].append("Grammar List")
@@ -520,69 +475,6 @@ def load_from_google_sheets():
         return {}
     
     return all_data
-
-
-# 🔥 修復：補上完整的 save_analysis_result 函數
-def save_analysis_result(result, input_text):
-    """儲存分析結果到 session state 和 Google Sheets"""
-    try:
-        # 生成唯一識別碼
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        if result.get("mode") == "A":
-            # 模式 A：經文分析
-            ref = result.get("ref", "unknown")
-            file_name = st.session_state.get('current_file', 'manual_input')
-            group_key = f"{file_name}_{timestamp}"
-            
-            # 建立儲存結構
-            save_data = {
-                "ref": group_key,
-                "mode": "A",
-                "type": "Scripture",
-                "v1_content": result.get("v1_sheet", ""),
-                "v2_content": result.get("v2_sheet", ""),
-                "w_sheet": "",
-                "p_sheet": "",
-                "grammar_list": "",
-                "other": result.get("other", ""),
-                "saved_sheets": result.get("saved_sheets", []),
-                "date_added": datetime.now().isoformat()
-            }
-            
-        else:
-            # 模式 B：文件分析
-            file_name = st.session_state.get('current_file', 'document_analysis')
-            group_key = f"{file_name}_{timestamp}"
-            
-            save_data = {
-                "ref": group_key,
-                "mode": "B",
-                "type": "Document",
-                "v1_content": "",
-                "v2_content": "",
-                "w_sheet": result.get("w_sheet", ""),
-                "p_sheet": result.get("p_sheet", ""),
-                "grammar_list": result.get("grammar_list", ""),
-                "other": result.get("other", ""),
-                "saved_sheets": result.get("saved_sheets", []),
-                "date_added": datetime.now().isoformat()
-            }
-        
-        # 儲存到 session state
-        if 'analysis_history' not in st.session_state:
-            st.session_state.analysis_history = {}
-        
-        st.session_state.analysis_history[group_key] = save_data
-        
-        # 儲存到 Google Sheets
-        save_to_google_sheets(save_data, group_key)
-        
-        return group_key
-        
-    except Exception as e:
-        st.error(f"儲存分析結果時發生錯誤: {str(e)}")
-        return None
 
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
@@ -652,7 +544,7 @@ import datetime
 import requests
 import json
 
-# 圖片 URL（移到 Sidebar 之前）
+# 圖片 URL
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
