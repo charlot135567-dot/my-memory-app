@@ -812,7 +812,8 @@ with tabs[0]:
                         else:
                             syn_list.append(syn_ant_text.strip())
                     
-           vocab_item = {
+                    # --- 單字與多語言資料收集 ---
+                    vocab_item = {
                         'ref': verse_ref,
                         'syn': syn_list,
                         'ant': ant_list,
@@ -820,7 +821,8 @@ with tabs[0]:
                         'kr': v2_row.get('Korean Syn/Ant', ''),
                         'th': v2_row.get('THSV11 泰文重要片語', '')
                     }
-                    # 只要有任何資料就加入（包含多語言）
+                    
+                    # 判斷是否存入 all_vocab_items
                     if syn_list or ant_list or vocab_item['jp'] or vocab_item['kr'] or vocab_item['th']:
                         all_vocab_items.append(vocab_item)
                     
