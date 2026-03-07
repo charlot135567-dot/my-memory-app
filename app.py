@@ -557,78 +557,10 @@ IMG_URLS = {
     "M6": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro6.jpg"
 }
 
-# ---------- AI 生成每日韓文鼓勵話 ----------
-def get_daily_korean_quote():
-    """使用 Gemini API 生成每日韓文鼓勵話 + 中文翻譯"""
+# ---------- 側邊欄開始 ----------
+with st.sidebar:
+    # ===== 每日韓文鼓勵話（輪播）+ Mashimaro（最頂部）=====
     
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    
-    # 檢查今天是否已生成並快取
-    cache_file = f"daily_quote_{today}.json"
-    try:
-        if os.path.exists(cache_file):
-            with open(cache_file, "r", encoding="utf-8") as f:
-                cached = json.load(f)
-                return cached["korean"], cached["chinese"]
-    except:
-        pass
-    
-    # 使用 Gemini API（免費版）
-    try:
-        # 嘗試從 secrets 取得 API key，或使用免費公開端點
-        api_key = st.secrets.get("gemini", {}).get("api_key", "")
-        
-        if not api_key:
-            # 沒有 API key 時用備用列表
-            return get_fallback_quote()
-        
-        prompt = """請生成一句韓文鼓勵話，符合以下條件：
-1. 風格：可愛、溫暖、與聖經相關
-2. 長度：簡短有力，適合放在網站頂部
-3. 格式：請用以下格式回覆
-   韓文：[韓文句子]
-   中文：[中文翻譯]
-   
-範例：
-韓文：당신은 하나님이 사랑하시는 보물입니다 💎
-中文：你是上帝所珍愛的寶貝 💎"""
-
-        response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 100}
-            },
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            text = result["candidates"][0]["content"]["parts"][0]["text"]
-            
-            # 解析回覆
-            korean = ""
-            chinese = ""
-            for line in text.strip().split("\n"):
-                if line.startswith("韓文："):
-                    korean = line.replace("韓文：", "").strip()
-                elif line.startswith("中文："):
-                    chinese = line.replace("中文：", "").strip()
-            
-            if korean and chinese:
-                # 快取結果
-                with open(cache_file, "w", encoding="utf-8") as f:
-                    json.dump({"korean": korean, "chinese": chinese, "date": today}, f)
-                return korean, chinese
-                
-    except Exception as e:
-        st.sidebar.caption(f"⚠️ API 呼叫失敗，使用備用語錄")
-    
-    return get_fallback_quote()
-
-def get_fallback_quote():
-    """備用語錄（API 失敗時使用）"""
     quotes = [
         ("당신은 하나님의 소중한 보물입니다 💎", "你是上帝珍貴的寶貝 💎"),
         ("오늘도 당신을 사랑하십니다 ❤️", "今天祂依然愛著你 ❤️"),
@@ -641,18 +573,8 @@ def get_fallback_quote():
         ("사랑은 언제나 승리합니다 💕", "愛總是得勝 💕"),
         ("당신의 꿈을 응원합니다 🌟", "支持你的夢想 🌟"),
     ]
-    
-    # 用日期選擇
     today_index = datetime.date.today().weekday() % len(quotes)
-    return quotes[today_index]
-
-# ---------- 側邊欄開始 ----------
-with st.sidebar:
-    
-    # ===== 每日 AI 生成韓文鼓勵話 + Mashimaro（最頂部）=====
-    
-    with st.spinner("✨ 正在生成今日鼓勵話..."):
-        korean_text, chinese_text = get_daily_korean_quote()
+    korean_text, chinese_text = quotes[today_index]
     
     # 顯示韓文（大）+ 中文（小）
     st.markdown(f'<p class="cute-korean">{korean_text}</p>', unsafe_allow_html=True)
