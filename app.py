@@ -946,12 +946,13 @@ with tabs[0]:
             if verse_item['cn']:
                 verse_lines.append(f"<span style='color:#666;'>{verse_item['cn']}</span>")
             
+            # 多語言（V2 Sheet）
             other_langs = []
-            if verse_item['jp']:
+            if verse_item.get('jp'):
                 other_langs.append(f"🇯🇵 {verse_item['jp']}")
-            if verse_item['kr']:
+            if verse_item.get('kr'):
                 other_langs.append(f"🇰🇷 {verse_item['kr']}")
-            if verse_item['th']:
+            if verse_item.get('th'):
                 other_langs.append(f"🇹🇭 {verse_item['th']}")
             
             if other_langs:
