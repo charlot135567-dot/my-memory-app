@@ -536,6 +536,10 @@ if 'active_del_id' not in st.session_state:
 if 'active_fav_del' not in st.session_state:
     st.session_state.active_fav_del = None
 
+# ← 加入這行
+if 'notes' not in st.session_state:
+    st.session_state.notes = {}
+
 # ===================================================================
 # 1. 側邊欄（簡化版）
 # ===================================================================
