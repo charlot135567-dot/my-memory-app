@@ -802,9 +802,8 @@ with tabs[3]:
             所有翻譯嚴格規定按聖經語言翻譯，不可私自亂翻譯
 
 ### 模式 A：【聖經經文分析時】＝》一定要產出V1 + V2 Excel格式（Markdown表格）
-
-⚠️ 輸出格式要求：請使用 **Markdown 表格格式**（如下範例），方便我直接複製貼回 Excel：
-
+⚠️ 輸出格式要求：「輸出時，請確保 Grammar 欄位內的所有 1️⃣2️⃣3️⃣... 分段內容不使用物理換行，
+   改以空格或符號分隔，並確保每列經文嚴格佔據 **Markdown 表格格式**（如下範例）表格的一行。」
 【V1 Sheet 範例】
 | Ref. | English（ESV經文) | Chinese經文 | Syn/Ant | Grammar |
 |------|---------------|---------|---------|---------|
@@ -868,8 +867,8 @@ its part of speech and meaning in this sentence must be clearly identified...等
 
 ### 模式 B：【英文文稿分析時】＝》一定要產出W＋P Excel格式（Markdown表格）
 一定要取足"高級/中高級單字15個＋片語15個共30個在同一Excel Sheet裡"！！！！！！！！！
-⚠️ 輸出格式要求：請使用 **Markdown 表格格式**：
-
+⚠️ 輸出格式要求：「輸出時，請確保 Grammar 欄位內的所有 1️⃣2️⃣3️⃣... 分段內容不使用物理換行，
+   改以空格或符號分隔，並確保每列經文嚴格佔據 **Markdown 表格格式**（如下範例）表格的一行。」
  【W Sheet - 重點要求：取高級/中高級單字15個＋片語15個】
 ⭐️No：請從文稿前5行找到經卷＋經節填入欄位
 | No經卷範圍 | Word/Phrase＋Chinese | Synonym+中文對照 | Antonym＋中文對照 | 全句聖經中英對照例句 |
