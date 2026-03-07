@@ -850,6 +850,8 @@ with tabs[0]:
                             'syn': syn_list,
                             'ant': ant_list,
                             'jp': v2_row.get('口語訳', ''),
+                            'kr': v2_row.get('Korean Syn/Ant', ''),
+                            'th': v2_row.get('THSV11 泰文重要片語', ''),
                             'note': v2_row.get('Note', '')
                         })
             
