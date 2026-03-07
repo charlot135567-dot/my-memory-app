@@ -1020,13 +1020,18 @@ with tabs[0]:
                     text = text.replace('4️⃣', '<br>4️⃣')
                     html_parts.append(text)
                 
-                # 日文補充
-                if jp or note:
-                    v2_parts = []
-                    if jp:
-                        v2_parts.append(f"<br><b>{ref}</b> {jp}")
-                    if note:
-                        v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{note}')
+                # V2 多語言資料
+                v2_parts = []
+                if jp:
+                    v2_parts.append(f"<br><span style='color:#FF8C00;'>🇯🇵 {jp}</span>")
+                if g_item.get('kr'):
+                    v2_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {g_item['kr']}</span>")
+                if g_item.get('th'):
+                    v2_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {g_item['th']}</span>")
+                if note:
+                    v2_parts.append(f'<span style="color:#D2691E;">備註：</span>{note}')
+                
+                if v2_parts:
                     html_parts.append("<br>".join(v2_parts))
                     
             else:
