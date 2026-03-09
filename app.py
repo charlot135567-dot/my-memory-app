@@ -353,6 +353,151 @@ def save_to_google_sheets(data_dict):
         st.sidebar.code(traceback.format_exc())
         return False, str(e)
 
+def load_sentences_from_google_sheets():
+    """
+    從 Google Sheets 載入所有資料，按檔名分組整合
+    回傳格式：{ref: data_dict, ...}
+    """
+    gc, sheet_id = get_google_sheets_client()
+    
+    if not gc or not sheet_id:
+        st.sidebar.error("❌ 無法連線到 Google Sheets")
+        return {}
+    
+    all_data = {}
+    sh = gc.open_by_key(sheet_id)
+    
+    # V1_Sheet - 按檔名分組
+    try:
+        ws = sh.worksheet("V1_Sheet")
+        rows = ws.get_all_values()
+        st.sidebar.caption(f"📊 V1_Sheet：讀取 {len(rows)} 行")
+        
+        if len(rows) > 1:
+            for row in rows[1:]:  # 跳過標題
+                if len(row) >= 6:
+                    group_ref = row[0].strip()
+                    
+                    if group_ref not in all_data:
+                        all_data[group_ref] = {
+                            "ref": group_ref,
+                            "mode": "A",
+                            "type": "Scripture",
+                            "v1_content": "Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
+                            "v2_content": "",
+                            "w_sheet": "",
+                            "p_sheet": "",
+                            "grammar_list": "",
+                            "other": "",
+                            "saved_sheets": ["V1 Sheet"],
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
+                    # 組合資料（第2欄開始是實際資料）
+                    row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
+                    all_data[group_ref]["v1_content"] += "\t".join(row_data) + "\n"
+    except gspread.WorksheetNotFound:
+        st.sidebar.caption("ℹ️ V1_Sheet 不存在")
+    except Exception as e:
+        st.sidebar.error(f"V1_Sheet 讀取錯誤：{e}")
+    
+    # V2_Sheet - 按檔名分組
+    try:
+        ws = sh.worksheet("V2_Sheet")
+        rows = ws.get_all_values()
+        st.sidebar.caption(f"📊 V2_Sheet：讀取 {len(rows)} 行")
+        
+        if len(rows) > 1:
+            for row in rows[1:]:
+                if len(row) >= 8:
+                    group_ref = row[0].strip()
+                    
+                    if group_ref in all_data:
+                        row_data = row[1:8] if len(row) >= 8 else row[1:] + [''] * (8 - len(row))
+                        all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
+                        if "V2 Sheet" not in all_data[group_ref]["saved_sheets"]:
+                            all_data[group_ref]["saved_sheets"].append("V2 Sheet")
+    except gspread.WorksheetNotFound:
+        st.sidebar.caption("ℹ️ V2_Sheet 不存在")
+    except Exception as e:
+        st.sidebar.error(f"V2_Sheet 讀取錯誤：{e}")
+    
+    # W_Sheet - 按檔名分組（Mode B）
+    try:
+        ws = sh.worksheet("W_Sheet")
+        rows = ws.get_all_values()
+        st.sidebar.caption(f"📊 W_Sheet：讀取 {len(rows)} 行")
+        
+        if len(rows) > 1:
+            for row in rows[1:]:
+                if len(row) >= 6:
+                    group_ref = row[0].strip()
+                    
+                    if group_ref not in all_data:
+                        all_data[group_ref] = {
+                            "ref": group_ref,
+                            "mode": "B",
+                            "type": "Document",
+                            "v1_content": "",
+                            "v2_content": "",
+                            "w_sheet": "No經卷範圍\tWord/Phrase+Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
+                            "p_sheet": "",
+                            "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
+                            "other": "",
+                            "saved_sheets": ["W Sheet"],
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                        }
+                    row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
+                    all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
+    except gspread.WorksheetNotFound:
+        st.sidebar.caption("ℹ️ W_Sheet 不存在")
+    except Exception as e:
+        st.sidebar.error(f"W_Sheet 讀取錯誤：{e}")
+    
+    # P_Sheet - 按檔名分組
+    try:
+        ws = sh.worksheet("P_Sheet")
+        rows = ws.get_all_values()
+        st.sidebar.caption(f"📊 P_Sheet：讀取 {len(rows)} 行")
+        
+        if len(rows) > 1:
+            for row in rows[1:]:
+                if len(row) >= 4:
+                    group_ref = row[0].strip()
+                    
+                    if group_ref in all_data and all_data[group_ref]["mode"] == "B":
+                        row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
+                        all_data[group_ref]["p_sheet"] += "\t".join(row_data) + "\n"
+                        if "P Sheet" not in all_data[group_ref]["saved_sheets"]:
+                            all_data[group_ref]["saved_sheets"].append("P Sheet")
+    except gspread.WorksheetNotFound:
+        st.sidebar.caption("ℹ️ P_Sheet 不存在")
+    except Exception as e:
+        st.sidebar.error(f"P_Sheet 讀取錯誤：{e}")
+    
+    # Grammar_List - 按檔名分組
+    try:
+        ws = sh.worksheet("Grammar_List")
+        rows = ws.get_all_values()
+        st.sidebar.caption(f"📊 Grammar_List：讀取 {len(rows)} 行")
+        
+        if len(rows) > 1:
+            for row in rows[1:]:
+                if len(row) >= 5:
+                    group_ref = row[0].strip()
+                    
+                    if group_ref in all_data and all_data[group_ref]["mode"] == "B":
+                        row_data = row[1:5] if len(row) >= 5 else row[1:] + [''] * (5 - len(row))
+                        all_data[group_ref]["grammar_list"] += "\t".join(row_data) + "\n"
+                        if "Grammar List" not in all_data[group_ref]["saved_sheets"]:
+                            all_data[group_ref]["saved_sheets"].append("Grammar List")
+    except gspread.WorksheetNotFound:
+        st.sidebar.caption("ℹ️ Grammar_List 不存在")
+    except Exception as e:
+        st.sidebar.error(f"Grammar_List 讀取錯誤：{e}")
+    
+    st.sidebar.success(f"✅ 共載入 {len(all_data)} 筆資料")
+    return all_data
+    
 # ---------- 從 Google Sheets 載入（欄位對齊版）----------
 def load_from_google_sheets():
     """從 5 個工作表載入所有資料"""
