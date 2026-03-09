@@ -258,6 +258,7 @@ def save_p_sheet(ref, content, gc, sheet_id):
         sh = gc.open_by_key(sheet_id)
         try:
             ws = sh.worksheet("P_Sheet")
+        except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("P_Sheet", rows=1000, cols=4)
             ws.append_row(["檔名_批次", "Paragraph", "English Refinement", "中英夾雜講章"])
         
@@ -404,8 +405,6 @@ def load_from_google_sheets():
                             all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
                             if "V2 Sheet" not in all_data[group_ref]["saved_sheets"]:
                                 all_data[group_ref]["saved_sheets"].append("V2 Sheet")
-        except gspread.WorksheetNotFound:
-            pass
             
         # W_Sheet - 按檔名分組
         try:
