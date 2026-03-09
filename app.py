@@ -443,9 +443,6 @@ def load_from_google_sheets():
         except gspread.WorksheetNotFound:
             pass
         
-        except gspread.WorksheetNotFound:
-            pass
-        
         # P_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("P_Sheet")
