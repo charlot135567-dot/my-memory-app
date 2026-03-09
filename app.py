@@ -507,21 +507,38 @@ def to_excel(result: dict) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
-# ---------- 初始化 Session State（優先從 Google Sheets 載入）----------
-if 'sentences' not in st.session_state:
-    sheets_data = load_from_google_sheets()
-    
-    if sheets_data:
-        st.session_state.sentences = sheets_data
-        save_sentences(sheets_data)
-        st.sidebar.success(f"☁️ 已從 Google Sheets 載入 {len(sheets_data)} 筆資料")
-    else:
-        local_data = load_sentences()
-        st.session_state.sentences = local_data if local_data else {}
-        if local_data:
-            st.sidebar.info(f"💾 已從本地載入 {len(local_data)} 筆資料")
-        else:
-            st.session_state.sentences = {}
+        # W_Sheet - 按檔名分組
+        try:
+            ws = sh.worksheet("W_Sheet")
+            rows = ws.get_all_values()
+            st.write(f"W_Sheet 總行數: {len(rows)}")  # 🔥 debug
+            if len(rows) > 1:
+                st.write(f"W_Sheet 第2行欄位數: {len(rows[1])}")  # 🔥 debug
+                st.write(f"W_Sheet 第2行內容: {rows[1]}")  # 🔥 debug
+                for row in rows[1:]:
+                    if len(row) >= 6:
+                        group_ref = row[0]
+                        
+                        if group_ref not in all_data:
+                            all_data[group_ref] = {
+                                "ref": group_ref,
+                                "mode": "B",
+                                "type": "Document",
+                                "v1_content": "",
+                                "v2_content": "",
+                                "w_sheet": "No經卷範圍\tWord/Phrase+Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
+                                "p_sheet": "",
+                                "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
+                                "other": "",
+                                "saved_sheets": ["W Sheet"],
+                                "date_added": ""
+                            }
+                        row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
+                        all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
+                    else:  # ✅ 在這裡 - 與 if len(row) >= 6: 對齊
+                        st.write(f"跳過欄位不足的行: {len(row)} 欄, 內容: {row[:3]}...")  # 🔥 debug
+        except gspread.WorksheetNotFound:
+            pass
 
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
