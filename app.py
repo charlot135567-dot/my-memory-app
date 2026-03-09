@@ -82,7 +82,24 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 # ---------- 本地檔案操作（簡化版，無備份）----------
 def load_sentences():
-    """安全載入本地資料庫"""
+    """載入資料：優先從 Google Sheets，失敗時讀本地檔案"""
+    # 先嘗試從 Google Sheets 載入
+    google_data = load_sentences_from_google_sheets()
+    
+    if google_data:
+        # 同時更新本地檔案作為快取
+        try:
+            with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+                json.dump(google_data, f, ensure_ascii=False, indent=2)
+            st.sidebar.caption("💾 已同步更新本地快取")
+        except Exception as e:
+            st.sidebar.warning(f"本地快取更新失敗：{e}")
+        
+        return google_data
+    
+    # 如果 Google Sheets 失敗，讀取本地檔案
+    st.sidebar.info("📁 從本地檔案載入...")
+    
     if not os.path.exists(SENTENCES_FILE):
         return {}
     
@@ -1576,6 +1593,14 @@ with tabs[2]:
 # ===================================================================
 with tabs[3]:
     import streamlit.components.v1 as components
+
+    # ═══════════════════════════════════════════════════════════════
+    # 🔥 關鍵：確保資料已載入（只執行一次）
+    # ═══════════════════════════════════════════════════════════════
+    if 'sentences' not in st.session_state:
+        with st.spinner("🔄 正在載入資料..."):
+            st.session_state.sentences = load_sentences()
+            st.success(f"✅ 已載入 {len(st.session_state.sentences)} 筆資料")
 
     # 背景圖片套用
     try:
