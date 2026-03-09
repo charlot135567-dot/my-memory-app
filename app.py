@@ -412,7 +412,13 @@ def load_from_google_sheets():
         try:
             ws = sh.worksheet("W_Sheet")
             rows = ws.get_all_values()
+            # 🔥 這裡保留你的 Debug 訊息
+            st.write(f"W_Sheet 總行數: {len(rows)}") 
+            
             if len(rows) > 1:
+                # 🔥 這裡也可以 Debug 第一行資料
+                st.write(f"W_Sheet 第一行內容: {rows[1]}") 
+                
                 for row in rows[1:]:
                     if len(row) >= 6:
                         group_ref = row[0]
@@ -433,6 +439,12 @@ def load_from_google_sheets():
                             }
                         row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                         all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
+                    else:
+                        # 🔥 捕捉欄位不足的行，這就是為什麼 UI 沒顯示的原因！
+                        st.warning(f"跳過欄位不足的行: {len(row)} 欄, 內容: {row[:3]}...")
+        except gspread.WorksheetNotFound:
+            pass
+        
         except gspread.WorksheetNotFound:
             pass
         
@@ -506,39 +518,6 @@ def to_excel(result: dict) -> bytes:
         stats.to_excel(writer, sheet_name="統計", index=False)
     buffer.seek(0)
     return buffer.getvalue()
-
-        # W_Sheet - 按檔名分組
-        try:
-            ws = sh.worksheet("W_Sheet")
-            rows = ws.get_all_values()
-            st.write(f"W_Sheet 總行數: {len(rows)}")  # 🔥 debug
-            if len(rows) > 1:
-                st.write(f"W_Sheet 第2行欄位數: {len(rows[1])}")  # 🔥 debug
-                st.write(f"W_Sheet 第2行內容: {rows[1]}")  # 🔥 debug
-                for row in rows[1:]:
-                    if len(row) >= 6:
-                        group_ref = row[0]
-                        
-                        if group_ref not in all_data:
-                            all_data[group_ref] = {
-                                "ref": group_ref,
-                                "mode": "B",
-                                "type": "Document",
-                                "v1_content": "",
-                                "v2_content": "",
-                                "w_sheet": "No經卷範圍\tWord/Phrase+Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
-                                "p_sheet": "",
-                                "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
-                                "other": "",
-                                "saved_sheets": ["W Sheet"],
-                                "date_added": ""
-                            }
-                        row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
-                        all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
-                    else:  # ✅ 在這裡 - 與 if len(row) >= 6: 對齊
-                        st.write(f"跳過欄位不足的行: {len(row)} 欄, 內容: {row[:3]}...")  # 🔥 debug
-        except gspread.WorksheetNotFound:
-            pass
 
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
