@@ -405,7 +405,11 @@ def load_from_google_sheets():
                             all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
                             if "V2 Sheet" not in all_data[group_ref]["saved_sheets"]:
                                 all_data[group_ref]["saved_sheets"].append("V2 Sheet")
-            
+        except gspread.WorksheetNotFound:
+            pass
+        except Exception as e:
+            st.warning(f"讀取 V2_Sheet 時發生錯誤: {e}")
+        
         # W_Sheet - 按檔名分組
         try:
             ws = sh.worksheet("W_Sheet")
@@ -441,8 +445,8 @@ def load_from_google_sheets():
                         # 🔥 捕捉欄位不足的行，這就是為什麼 UI 沒顯示的原因！
                         st.warning(f"跳過欄位不足的行: {len(row)} 欄, 內容: {row[:3]}...")
         except Exception as e:
-          st.error(f"讀取 W_Sheet 時發生錯誤: {e}")
-          rows = []
+            st.error(f"讀取 W_Sheet 時發生錯誤: {e}")
+            rows = []
         
         # P_Sheet - 按檔名分組
         try:
