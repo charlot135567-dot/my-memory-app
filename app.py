@@ -440,8 +440,9 @@ def load_from_google_sheets():
                     else:
                         # 🔥 捕捉欄位不足的行，這就是為什麼 UI 沒顯示的原因！
                         st.warning(f"跳過欄位不足的行: {len(row)} 欄, 內容: {row[:3]}...")
-        except gspread.WorksheetNotFound:
-            pass
+        except Exception as e:
+          st.error(f"讀取 W_Sheet 時發生錯誤: {e}")
+          rows = []
         
         # P_Sheet - 按檔名分組
         try:
