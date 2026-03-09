@@ -258,7 +258,6 @@ def save_p_sheet(ref, content, gc, sheet_id):
         sh = gc.open_by_key(sheet_id)
         try:
             ws = sh.worksheet("P_Sheet")
-        except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("P_Sheet", rows=1000, cols=4)
             ws.append_row(["檔名_批次", "Paragraph", "English Refinement", "中英夾雜講章"])
         
