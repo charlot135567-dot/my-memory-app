@@ -1371,9 +1371,15 @@ with tabs[2]:
                         reader = csv.DictReader(lines)
                         for row in reader:
                             all_verses.append({
-                                'ref': row.get('Ref.', ''),
-                                'english': row.get('English (ESV)', ''),
-                                'chinese': row.get('Chinese', '')
+                                # 修改後 (符合你 save_v1_sheet 的標題)
+                                reader = csv.DictReader(lines, delimiter='\t') # 注意你的資料是用 \t 分隔
+                                for row in reader:
+                                   all_verses.append({
+                                     'ref': row.get('Ref. 經文出處', ''),
+                                     'english': row.get('English（ESV經文）', ''),
+                                     'chinese': row.get('Chinese經文', '')
+                                     'english': row.get('English (ESV)', ''),
+                                     'chinese': row.get('Chinese', '')
                             })
                 except Exception:
                     pass  # 靜默忽略解析錯誤
