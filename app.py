@@ -1323,9 +1323,11 @@ with tabs[1]:
 # ===================================================================
 with tabs[2]:
     import csv
-    from io import StringIO
     import random
+    import re  # ← 補上這個！
+    from io import StringIO
     
+    # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
         st.session_state.tab3_quiz_seed = random.randint(1, 1000)
         st.session_state.tab3_show_answers = False
@@ -1335,12 +1337,15 @@ with tabs[2]:
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 儲存資料")
     else:
-        # 排序資料
-        sorted_refs = sorted(sentences.keys(), 
-                           key=lambda x: sentences[x].get('date_added', ''), 
-                           reverse=True)
+        # 排序資料（依日期）
+        sorted_refs = sorted(
+            sentences.keys(), 
+            key=lambda x: sentences[x].get('date_added', ''), 
+            reverse=True
+        )
         total = len(sorted_refs)
         
+        # 加權分池
         new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
         mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
         old_refs = sorted_refs[int(total*0.9):] if total >= 10 else []
@@ -1353,7 +1358,7 @@ with tabs[2]:
         
         # 收集所有經文資料
         all_verses = []
-        for ref in weighted_pool[:10]:  # 取前10筆資料
+        for ref in weighted_pool[:10]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
@@ -1367,93 +1372,114 @@ with tabs[2]:
                                 'english': row.get('English (ESV)', ''),
                                 'chinese': row.get('Chinese', '')
                             })
-                except:
-                    pass
+                except Exception:
+                    pass  # 靜默忽略解析錯誤
         
-        # 隨機選6題（3題中翻英，3題英翻中）
-        random.shuffle(all_verses)
-        selected = all_verses[:6] if len(all_verses) >= 6 else all_verses
-        
-        # 分配題目
-        zh_to_en = selected[:3]  # 中翻英
-        en_to_zh = selected[3:6] if len(selected) > 3 else []  # 英翻中
-        
-        st.subheader("📝 翻譯挑戰")
-        
-        # ===== 題目 1-3：中翻英 =====
-        for i, q in enumerate(zh_to_en, 1):
-            st.markdown(f"**{i}.** {q['chinese'][:60]}")
-            st.text_input("", key=f"quiz_zh_en_{i}", placeholder="請翻譯成英文...", label_visibility="collapsed")
-            st.write("")
-        
-        # ===== 題目 4-6：英翻中 =====
-        for i, q in enumerate(en_to_zh, 4):
-            st.markdown(f"**{i}.** {q['english'][:100]}")
-            st.text_input("", key=f"quiz_en_zh_{i}", placeholder="請翻譯成中文...", label_visibility="collapsed")
-            st.write("")
-        
-        # ===== 單字題（3題）=====
-        # 從 Syn/Ant 提取單字
-        word_pool = []
-        for ref in weighted_pool[:5]:
-            data = sentences[ref]
-            v1_content = data.get('v1_content', '')
-            if v1_content:
-                try:
-                    lines = v1_content.strip().split('\n')
-                    if lines:
-                        reader = csv.DictReader(lines)
-                        for row in reader:
-                            syn_ant = row.get('Syn/Ant', '')
-                            if '/' in syn_ant:
-                                parts = syn_ant.split('/')
-                                for p in parts:
-                                    match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
-                                    if match:
-                                        word_pool.append({
-                                            'en': match.group(1).strip(),
-                                            'cn': match.group(2).strip()
-                                        })
-                except:
-                    pass
-        
-        random.shuffle(word_pool)
-        selected_words = word_pool[:3] if len(word_pool) >= 3 else word_pool
-        
-        for i, w in enumerate(selected_words, 7):
-            st.markdown(f"**{i}.** {w['cn']}（請寫出英文）")
-            st.text_input("", key=f"quiz_word_{i}", placeholder="English word...", label_visibility="collapsed")
-            st.write("")
-        
-        # ===== 翻看答案按 =====
-        col_btn, col_answer = st.columns([1, 3])
-        with col_btn:
-            if st.button("👁️ 翻看正確答案", use_container_width=True, type="primary"):
-                st.session_state.tab3_show_answers = True
-                st.rerun()
-        
-        with col_answer:
-            if st.session_state.tab3_show_answers:
-                with st.expander("📖 正確答案", expanded=True):
-                    # 顯示中翻英答案
-                    st.markdown("**中翻英：**")
-                    for i, q in enumerate(zh_to_en, 1):
-                        st.caption(f"{i}. {q['english'][:100]}")
-                    
-                    # 顯示英翻中答案
-                    st.markdown("**英翻中：**")
-                    for i, q in enumerate(en_to_zh, 4):
-                        st.caption(f"{i}. {q['chinese'][:60]}")
-                    
-                    # 顯示單字答案
-                    st.markdown("**單字：**")
-                    for i, w in enumerate(selected_words, 7):
-                        st.caption(f"{i}. {w['en']}")
-                             
-                if st.button("🔄 換一批題目", use_container_width=True):
-                    st.session_state.tab3_quiz_seed = random.randint(1, 1000)
-                    st.session_state.tab3_show_answers = False
+        # 需要至少 6 題才開始
+        if len(all_verses) < 6:
+            st.warning("經文資料不足，無法生成題目（至少需要6句經文）")
+        else:
+            # 隨機選6題，並固定順序
+            selected = random.sample(all_verses, 6)  # 使用 sample 避免重複
+            
+            # 分配題目：前3題中翻英，後3題英翻中
+            zh_to_en = selected[:3]
+            en_to_zh = selected[3:6]
+            
+            st.subheader("📝 翻譯挑戰")
+            
+            # ===== 題目 1-3：中翻英 =====
+            for i, q in enumerate(zh_to_en, 1):
+                st.markdown(f"**{i}.** {q['chinese'][:60]}...")
+                st.text_input(
+                    "中翻英", 
+                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",  # 加入 seed 避免快取問題
+                    placeholder="請翻譯成英文...", 
+                    label_visibility="collapsed"
+                )
+                st.write("")
+            
+            # ===== 題目 4-6：英翻中 =====
+            for i, q in enumerate(en_to_zh, 4):
+                st.markdown(f"**{i}.** {q['english'][:100]}...")
+                st.text_input(
+                    "英翻中", 
+                    key=f"quiz_en_zh_{i}_{st.session_state.tab3_quiz_seed}",
+                    placeholder="請翻譯成中文...", 
+                    label_visibility="collapsed"
+                )
+                st.write("")
+            
+            # ===== 單字題（3題）=====
+            word_pool = []
+            for ref in weighted_pool[:5]:
+                data = sentences[ref]
+                v1_content = data.get('v1_content', '')
+                if v1_content:
+                    try:
+                        lines = v1_content.strip().split('\n')
+                        if lines:
+                            reader = csv.DictReader(lines)
+                            for row in reader:
+                                syn_ant = row.get('Syn/Ant', '')
+                                if '/' in syn_ant:
+                                    parts = syn_ant.split('/')
+                                    for p in parts:
+                                        # 解析格式：word (中文)
+                                        match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
+                                        if match:
+                                            word_pool.append({
+                                                'en': match.group(1).strip(),
+                                                'cn': match.group(2).strip()
+                                            })
+                    except Exception:
+                        pass
+            
+            # 單字題
+            selected_words = []
+            if len(word_pool) >= 3:
+                selected_words = random.sample(word_pool, 3)
+                
+                for i, w in enumerate(selected_words, 7):
+                    st.markdown(f"**{i}.** {w['cn']}（請寫出英文）")
+                    st.text_input(
+                        "單字", 
+                        key=f"quiz_word_{i}_{st.session_state.tab3_quiz_seed}",
+                        placeholder="English word...", 
+                        label_visibility="collapsed"
+                    )
+                    st.write("")
+            
+            # ===== 按鈕區 =====
+            col_btn, col_answer = st.columns([1, 3])
+            
+            with col_btn:
+                if st.button("👁️ 翻看正確答案", use_container_width=True, type="primary"):
+                    st.session_state.tab3_show_answers = True
                     st.rerun()
+            
+            with col_answer:
+                if st.session_state.tab3_show_answers:
+                    with st.expander("📖 正確答案", expanded=True):
+                        st.markdown("**中翻英：**")
+                        for i, q in enumerate(zh_to_en, 1):
+                            st.caption(f"{i}. {q['english']}")
+                            st.caption(f"   *出處：{q['ref']}*")
+                        
+                        st.markdown("**英翻中：**")
+                        for i, q in enumerate(en_to_zh, 4):
+                            st.caption(f"{i}. {q['chinese']}")
+                            st.caption(f"   *出處：{q['ref']}*")
+                        
+                        if selected_words:
+                            st.markdown("**單字：**")
+                            for i, w in enumerate(selected_words, 7):
+                                st.caption(f"{i}. {w['en']}")
+                    
+                    if st.button("🔄 換一批題目", use_container_width=True):
+                        st.session_state.tab3_quiz_seed = random.randint(1, 1000)
+                        st.session_state.tab3_show_answers = False
+                        st.rerun()
 
 # ===================================================================
 # 6. TAB4 ─ AI 控制台 + 資料庫管理（保留完整 UI）
