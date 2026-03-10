@@ -1366,23 +1366,22 @@ with tabs[2]:
             v1_content = data.get('v1_content', '')
             if v1_content:
 try:
-                    lines = v1_content.strip().split('\n')
-                    if lines:
-                        # 1. 這裡定義 reader，注意 delimiter 是 \t
-                        reader = csv.DictReader(lines, delimiter='\t') 
-                        
-                        # 2. 這裡跑迴圈
-                        for row in reader:
-                            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
-                            all_verses.append({
-                                'ref': row.get('Ref. 經文出處', ''),
-                                'english': row.get('English（ESV經文）', ''),
-                                'chinese': row.get('Chinese經文', '')
-                            })
-                except Exception as e:
-                    st.error(f"解析錯誤: {e}") # 暫時顯示錯誤以便偵錯
-                except Exception:
-                    pass  # 靜默忽略解析錯誤
+    lines = v1_content.strip().split('\n')
+    if lines:
+        # 1. 這裡定義 reader，注意 delimiter 是 \t
+        reader = csv.DictReader(lines, delimiter='\t')
+
+        # 2. 這裡跑迴圈
+        for row in reader:
+            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
+            all_verses.append({
+                'ref': row.get('Ref. 經文出處', ''),
+                'english': row.get('English（ESV經文）', ''),
+                'chinese': row.get('Chinese經文', '')
+            })
+
+except Exception as e:
+    st.error(f"解析錯誤: {e}")  # 暫時顯示錯誤以便偵錯
         
         # 需要至少 6 題才開始
         if len(all_verses) < 6:
