@@ -1365,22 +1365,22 @@ with tabs[2]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
-                try:
+try:
                     lines = v1_content.strip().split('\n')
                     if lines:
-                        reader = csv.DictReader(lines)
+                        # 1. 這裡定義 reader，注意 delimiter 是 \t
+                        reader = csv.DictReader(lines, delimiter='\t') 
+                        
+                        # 2. 這裡跑迴圈
                         for row in reader:
+                            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
                             all_verses.append({
-                                # 修改後 (符合你 save_v1_sheet 的標題)
-                                reader = csv.DictReader(lines, delimiter='\t') # 注意你的資料是用 \t 分隔
-                                for row in reader:
-                                   all_verses.append({
-                                     'ref': row.get('Ref. 經文出處', ''),
-                                     'english': row.get('English（ESV經文）', ''),
-                                     'chinese': row.get('Chinese經文', '')
-                                     'english': row.get('English (ESV)', ''),
-                                     'chinese': row.get('Chinese', '')
+                                'ref': row.get('Ref. 經文出處', ''),
+                                'english': row.get('English（ESV經文）', ''),
+                                'chinese': row.get('Chinese經文', '')
                             })
+                except Exception as e:
+                    st.error(f"解析錯誤: {e}") # 暫時顯示錯誤以便偵錯
                 except Exception:
                     pass  # 靜默忽略解析錯誤
         
