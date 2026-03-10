@@ -1327,7 +1327,7 @@ with tabs[1]:
 with tabs[2]:
     import csv
     import random
-    import re  # ← 補上這個！
+    import re
     from io import StringIO
     
     # 初始化 session state
@@ -1365,30 +1365,30 @@ with tabs[2]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
-try:
-    lines = v1_content.strip().split('\n')
-    if lines:
-        # 1. 這裡定義 reader，注意 delimiter 是 \t
-        reader = csv.DictReader(lines, delimiter='\t')
+                try:  # ← 修正縮排：與 if 對齊
+                    lines = v1_content.strip().split('\n')
+                    if lines:
+                        # 1. 這裡定義 reader，注意 delimiter 是 \t
+                        reader = csv.DictReader(lines, delimiter='\t')
 
-        # 2. 這裡跑迴圈
-        for row in reader:
-            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
-            all_verses.append({
-                'ref': row.get('Ref. 經文出處', ''),
-                'english': row.get('English（ESV經文）', ''),
-                'chinese': row.get('Chinese經文', '')
-            })
+                        # 2. 這裡跑迴圈
+                        for row in reader:
+                            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
+                            all_verses.append({
+                                'ref': row.get('Ref. 經文出處', ''),
+                                'english': row.get('English（ESV經文）', ''),
+                                'chinese': row.get('Chinese經文', '')
+                            })
 
-except Exception as e:
-    st.error(f"解析錯誤: {e}")  # 暫時顯示錯誤以便偵錯
+                except Exception as e:  # ← 修正縮排：與 try 對齊
+                    st.error(f"解析錯誤: {e}")
         
-        # 需要至少 6 題才開始
+        # 需要至少 6 題才開始（注意這行的縮排要與 for ref... 同層級）
         if len(all_verses) < 6:
             st.warning("經文資料不足，無法生成題目（至少需要6句經文）")
         else:
             # 隨機選6題，並固定順序
-            selected = random.sample(all_verses, 6)  # 使用 sample 避免重複
+            selected = random.sample(all_verses, 6)
             
             # 分配題目：前3題中翻英，後3題英翻中
             zh_to_en = selected[:3]
