@@ -1082,7 +1082,7 @@ with tabs[0]:
             if vocab_item.get('kr'):
                 display_parts.append(f"<span style='color:#4682B4;'>🇰🇷 {vocab_item['kr']}</span>")
             if vocab_item.get('th'):
-                display_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {vocab_item['th']
+                display_parts.append(f"<span style='color:#9932CC;'>🇹🇭 {vocab_item['th']}</span>")  
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
