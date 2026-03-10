@@ -1317,12 +1317,6 @@ with tabs[1]:
                 jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
                 kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
                 th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
-                
-                # 修正問題3：只有當有英文或中文經文時才加入
-                if en or cn:
-                    # 使用變數組合字串，避免在 f-string 中使用複雜表達式
-                    verse_parts = []
-                    verse_part
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
