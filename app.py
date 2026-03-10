@@ -1267,9 +1267,6 @@ with tabs[1]:
     # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
     all_verses = []
     
-    # 除錯資訊（開發時使用，確認後可註解）
-    # st.write(f"Debug: sentences keys = {list(sentences.keys())[:3] if sentences else 'Empty'}")
-    
     for ref, data in sentences.items():
         # 修正問題1：確保資料為字串，避免 None
         v1_content = data.get('v1_content', '') or ''
@@ -1311,8 +1308,9 @@ with tabs[1]:
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 
                 # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
+                # 避免使用全形括號在 f-string 中，改用變數
                 verse_ref = v1_row.get('Ref. 經文出處', ref)
-                en = v1_row.get('English（ESV經文）', '')  # 注意：全形括號
+                en = v1_row.get('English（ESV經文）', '')  
                 cn = v1_row.get('Chinese經文', '')
                 
                 # 修正問題3：V2 欄位名稱與 TAB1 一致
@@ -1322,7 +1320,9 @@ with tabs[1]:
                 
                 # 修正問題3：只有當有英文或中文經文時才加入
                 if en or cn:
-                    verse_t
+                    # 使用變數組合字串，避免在 f-string 中使用複雜表達式
+                    verse_parts = []
+                    verse_part
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版）
