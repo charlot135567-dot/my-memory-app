@@ -1317,7 +1317,10 @@ with tabs[1]:
                 jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
                 kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
                 th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
-
+        except Exception as e:  # ← 補上這個 except 區塊！
+            st.error(f"解析資料時發生錯誤: {e}")
+            st.exception(e)  
+            
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
