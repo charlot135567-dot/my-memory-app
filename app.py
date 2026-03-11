@@ -862,165 +862,712 @@ st.markdown("""
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
-# ===================================================================
-# 3. TAB1 ─ 書桌 (邏輯嚴格歸位版：精準分流 A/B 模式資料)
-# ===================================================================
-with tabs[0]:
-    import csv, re, datetime as dt
-    from io import StringIO
+import streamlit as st
+import pandas as pd
+import re
+import random
+import base64
+import os
+from datetime import datetime as dt
 
-    # --- 1. CSS 樣式定義 (確保右側黑色卡片樣式) ---
+# ===================================================================
+# TAB1 ─ 聖經學習儀表板 (Bible Learning Dashboard)
+# 資料來源：TAB4 資料庫
+# ===================================================================
+
+def render_tab1():
     st.markdown("""
-        <style>
-        .black-card {
-            background-color: #262730; color: #ffffff; padding: 20px;
-            border-radius: 10px; border-left: 5px solid #f0ad4e;
-            line-height: 1.6; font-family: sans-serif;
-        }
-        .list-item { border-bottom: 1px solid #eeeeee; padding: 12px 0; }
-        .vocab-header { font-size: 1.1em; font-weight: bold; color: #4682B4; }
-        .ref-tag { color: #888888; font-size: 0.85em; }
-        </style>
+    <style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1f1f1f;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+    }
+    .nav-tabs {
+        display: flex;
+        gap: 2rem;
+        border-bottom: 2px solid #e0e0e0;
+        margin-bottom: 2rem;
+        padding-bottom: 0.5rem;
+    }
+    .nav-tab {
+        font-size: 1.1rem;
+        color: #666;
+        cursor: pointer;
+        padding: 0.5rem 0;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+    }
+    .nav-tab.active {
+        color: #d4a574;
+        border-bottom-color: #d4a574;
+        font-weight: 600;
+    }
+    .content-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 4px solid #d4a574;
+    }
+    .verse-ref {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #d4a574;
+        margin-bottom: 0.5rem;
+    }
+    .lang-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.3rem;
+    }
+    .badge-en { background: #e8f4f8; color: #1e5f74; }
+    .badge-cn { background: #fde8e8; color: #9b2c2c; }
+    .badge-jp { background: #fef3e2; color: #975a16; }
+    .badge-kr { background: #e0e7ff; color: #3730a3; }
+    .badge-th { background: #d1fae5; color: #065f46; }
+    .grammar-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    .grammar-num {
+        color: #d4a574;
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+    .snoopy-bg {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        opacity: 0.15;
+        z-index: 0;
+        pointer-events: none;
+    }
+    .stats-bar {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    .stat-item {
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    </style>
     """, unsafe_allow_html=True)
 
-    # --- 2. 初始化與自動更新邏輯 ---
-    for key in ["tab1_v_idx", "tab1_p_idx", "tab1_g_idx", "tab1_verse_idx"]:
-        if key not in st.session_state: st.session_state[key] = 0
-    if "tab1_last_update" not in st.session_state:
-        st.session_state.tab1_last_update = dt.datetime.now()
-
-    # 每小時自動更新索引
-    if (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds() > 3600:
-        st.session_state.tab1_last_update = dt.datetime.now()
-        for k in ["tab1_v_idx", "tab1_p_idx", "tab1_g_idx", "tab1_verse_idx"]:
-            st.session_state[k] += 1
-        st.rerun()
-
-    sentences = st.session_state.get('sentences', {})
+    # ═══════════════════════════════════════════════════════════════
+    # 資料載入與處理函數
+    # ═══════════════════════════════════════════════════════════════
     
-    if not sentences:
-        st.warning("資料庫為空，請先在 TAB4 載入資料")
-    else:
-        # --- 3. 核心解析邏輯 (修正 Key 不匹配問題) ---
-        def parse_csv(content):
-            if not content or not isinstance(content, str): return []
-            f = StringIO(content.strip())
-            reader = csv.DictReader(f, delimiter='\t' if '\t' in content else ',')
-            return [row for row in reader]
+    @st.cache_data(ttl=300)
+    def load_all_data():
+        """從 TAB4 資料庫載入所有資料"""
+        if 'sentences' not in st.session_state:
+            # 模擬資料庫結構，實際使用時從 st.session_state.sentences 讀取
+            return st.session_state.get('sentences', {})
+        return st.session_state.sentences
 
-        # 定義四個嚴格的資料容器
-        v1_syn_ant_list = []  # 1) 單字 (模式A)
-        b_phrase_list = []    # 2) 片語 (模式B)
-        a_verse_list = []     # 3) 金句 (模式A)
-        grammar_display_list = [] # 4) 文法解析 (A/B)
+    def parse_v1_sheet(content):
+        """解析 V1 Sheet (Mode A)"""
+        if not content:
+            return []
+        lines = content.strip().split('\n')
+        data = []
+        for line in lines[1:]:  # 跳過標題
+            cols = line.split('\t')
+            if len(cols) >= 5:
+                data.append({
+                    'ref': cols[0].strip(),
+                    'english': cols[1].strip() if len(cols) > 1 else '',
+                    'chinese': cols[2].strip() if len(cols) > 2 else '',
+                    'syn_ant': cols[3].strip() if len(cols) > 3 else '',
+                    'grammar': cols[4].strip() if len(cols) > 4 else ''
+                })
+        return data
 
-        for ref, data in sentences.items():
-            mode = data.get('mode', 'A')
-            v1_rows = parse_csv(data.get('v1_content', ''))
-            v2_rows = parse_csv(data.get('v2_content', ''))
-            w_rows = parse_csv(data.get('w_sheet', ''))
-            g_rows = parse_csv(data.get('grammar_list', ''))
+    def parse_v2_sheet(content):
+        """解析 V2 Sheet (Mode A)"""
+        if not content:
+            return []
+        lines = content.strip().split('\n')
+        data = []
+        for line in lines[1:]:
+            cols = line.split('\t')
+            if len(cols) >= 7:
+                data.append({
+                    'ref': cols[0].strip(),
+                    'japanese': cols[1].strip() if len(cols) > 1 else '',
+                    'grammar': cols[2].strip() if len(cols) > 2 else '',
+                    'note': cols[3].strip() if len(cols) > 3 else '',
+                    'korean': cols[4].strip() if len(cols) > 4 else '',
+                    'korean_syn_ant': cols[5].strip() if len(cols) > 5 else '',
+                    'thai': cols[6].strip() if len(cols) > 6 else ''
+                })
+        return data
 
-            # 【邏輯 1 & 3 & 4-A】模式 A 專屬抓取
-            if mode == 'A':
-                for i, v1_row in enumerate(v1_rows):
-                    v2_row = v2_rows[i] if i < len(v2_rows) else {}
-                    full_ref = v1_row.get('Ref. 經文出處', ref)
-                    
-                    # 1) 單字 (V1 Syn/Ant + V2)
-                    if v1_row.get('Syn/Ant'):
-                        v1_syn_ant_list.append({
-                            'ref': full_ref, 'content': v1_row.get('Syn/Ant', ''),
-                            'jp': v2_row.get('口語訳', ''), 'kr': v2_row.get('Korean Syn/Ant', ''),
-                            'th': v2_row.get('THSV11 泰文重要片語', '')
-                        })
-                    
-                    # 3) 金句 (V1 English + Chinese + V2)
-                    if v1_row.get('English（ESV經文）'):
-                        a_verse_list.append({
-                            'ref': full_ref, 'en': v1_row.get('English（ESV經文）', ''),
-                            'cn': v1_row.get('Chinese經文', ''), 'jp': v2_row.get('口語訳', ''),
-                            'kr': v2_row.get('Korean Syn/Ant', ''), 'th': v2_row.get('THSV11 泰文重要片語', '')
-                        })
-                    
-                    # 4-A) 文法解析 (V1 Grammar)
-                    if v1_row.get('Grammar'):
-                        grammar_display_list.append({
-                            'ref': full_ref, 'type': 'A', 'body': v1_row.get('Grammar', ''),
-                            'en': v1_row.get('English（ESV經文）', ''), 'cn': v1_row.get('Chinese經文', ''),
-                            'syn_ant': v1_row.get('Syn/Ant', '')
-                        })
+    def parse_w_sheet(content):
+        """解析 W Sheet (Mode B) - 片語專用"""
+        if not content:
+            return []
+        lines = content.strip().split('\n')
+        data = []
+        for line in lines[1:]:
+            cols = line.split('\t')
+            if len(cols) >= 5:
+                data.append({
+                    'no': cols[0].strip(),
+                    'word_phrase': cols[1].strip() if len(cols) > 1 else '',
+                    'synonym': cols[2].strip() if len(cols) > 2 else '',
+                    'antonym': cols[3].strip() if len(cols) > 3 else '',
+                    'example': cols[4].strip() if len(cols) > 4 else ''
+                })
+        return data
 
-            # 【邏輯 2 & 4-B】模式 B 專屬抓取
-            elif mode == 'B':
-                # 2) 片語 (W_Sheet) - 嚴格只從此處抓
-                for w in w_rows:
-                    if w.get('Word/Phrase+Chinese'):
-                        b_phrase_list.append({
-                            'ref': ref, 'word': w.get('Word/Phrase+Chinese', ''),
-                            'syn': w.get('Synonym+中文對照', ''), 'ant': w.get('Antonym+中文對照', ''),
-                            'example': w.get('全句聖經中英對照例句', '')
-                        })
-                # 4-B) 文法解析 (Grammar List)
-                for g in g_rows:
-                    if g.get('Original Sentence＋中文翻譯'):
-                        grammar_display_list.append({
-                            'ref': ref, 'type': 'B',
-                            'orig': g.get('Original Sentence＋中文翻譯', ''),
-                            'rule': g.get('Grammar Rule', ''),
-                            'ana': g.get('Analysis & Example (1️⃣2️⃣3️⃣4️⃣)', '')
-                        })
+    def parse_grammar_list(content):
+        """解析 Grammar List (Mode B)"""
+        if not content:
+            return []
+        lines = content.strip().split('\n')
+        data = []
+        for line in lines[1:]:
+            cols = line.split('\t')
+            if len(cols) >= 3:
+                data.append({
+                    'no': cols[0].strip(),
+                    'sentence': cols[1].strip() if len(cols) > 1 else '',
+                    'analysis': cols[2].strip() if len(cols) > 2 else ''
+                })
+        return data
 
-        # --- 4. 畫面排版渲染 ---
-        col_L, col_R = st.columns([1.7, 1.3])
+    def extract_words_from_syn_ant(syn_ant_text):
+        """從 Syn/Ant 欄位提取單字資料"""
+        words = []
+        if not syn_ant_text:
+            return words
+        
+        # 解析格式：word (中文) / synonym (同義) | antonym (反義)
+        # 或：Crucible (煉鼎) / Furnace (火爐); Test (熬煉/試驗)
+        patterns = re.findall(r'([\w\s]+)\s*\(([^)]+)\)', syn_ant_text)
+        for word, meaning in patterns:
+            words.append({
+                'word': word.strip(),
+                'meaning': meaning.strip(),
+                'synonym': '',
+                'antonym': ''
+            })
+        return words
 
-        with col_L:
-            st.markdown("### 📚 我的書桌")
-            # 顯示單字 (模式A)
-            if v1_syn_ant_list:
-                v = v1_syn_ant_list[st.session_state.tab1_v_idx % len(v1_syn_ant_list)]
-                st.markdown(f"🌍 {v['content']}<br>🇹🇭 {v['th']}", unsafe_allow_html=True)
+    # ═══════════════════════════════════════════════════════════════
+    # 資料聚合邏輯
+    # ═══════════════════════════════════════════════════════════════
+
+    def aggregate_vocabulary():
+        """聚合單字庫 (來源：Mode A V1+V2)"""
+        vocab = {}
+        data = load_all_data()
+        
+        for ref, item in data.items():
+            if item.get('mode') != 'A':
+                continue
+            v1_data = parse_v1_sheet(item.get('v1_content', ''))
+            v2_data = parse_v2_sheet(item.get('v2_content', ''))
             
-            # 顯示片語 (模式B)
-            for p in b_phrase_list[:3]: # 限制顯示數量
-                st.markdown(f"""
-                <div class='list-item'>
-                    <div class='vocab-header'>abc {p['word']}</div>
-                    <div class='ref-tag'>📖 {p['ref']} {p['example']}</div>
+            # 合併 V1 和 V2 資料
+            for i, v1 in enumerate(v1_data):
+                v2 = v2_data[i] if i < len(v2_data) else {}
+                
+                # 從 Syn/Ant 提取單字
+                words = extract_words_from_syn_ant(v1.get('syn_ant', ''))
+                
+                for word_info in words:
+                    word_key = word_info['word'].lower()
+                    if word_key not in vocab:
+                        vocab[word_key] = {
+                            'word': word_info['word'],
+                            'meaning': word_info['meaning'],
+                            'ref': v1.get('ref', ''),
+                            'english': v1.get('english', ''),
+                            'chinese': v1.get('chinese', ''),
+                            'japanese': v2.get('japanese', ''),
+                            'korean': v2.get('korean', ''),
+                            'korean_syn_ant': v2.get('korean_syn_ant', ''),
+                            'thai': v2.get('thai', ''),
+                            'sources': []
+                        }
+                    vocab[word_key]['sources'].append(ref)
+        
+        return list(vocab.values())
+
+    def aggregate_phrases():
+        """聚合片語庫 (來源：Mode B W Sheet)"""
+        phrases = []
+        data = load_all_data()
+        
+        for ref, item in data.items():
+            if item.get('mode') != 'B':
+                continue
+                
+            w_data = parse_w_sheet(item.get('w_sheet', ''))
+            
+            for entry in w_data:
+                if entry.get('word_phrase'):
+                    phrases.append({
+                        'phrase': entry['word_phrase'],
+                        'synonym': entry.get('synonym', ''),
+                        'antonym': entry.get('antonym', ''),
+                        'example': entry.get('example', ''),
+                        'ref': entry.get('no', ref),
+                        'source_ref': ref
+                    })
+        
+        return phrases
+
+    def aggregate_verses():
+        """聚合金句庫 (來源：Mode A V1+V2)"""
+        verses = []
+        data = load_all_data()
+        
+        for ref, item in data.items():
+            if item.get('mode') != 'A':
+                continue
+                
+            v1_data = parse_v1_sheet(item.get('v1_content', ''))
+            v2_data = parse_v2_sheet(item.get('v2_content', ''))
+            
+            for i, v1 in enumerate(v1_data):
+                v2 = v2_data[i] if i < len(v2_data) else {}
+                
+                verses.append({
+                    'ref': v1.get('ref', ''),
+                    'english': v1.get('english', ''),
+                    'chinese': v1.get('chinese', ''),
+                    'japanese': v2.get('japanese', ''),
+                    'korean': v2.get('korean', ''),
+                    'korean_syn_ant': v2.get('korean_syn_ant', ''),
+                    'thai': v2.get('thai', ''),
+                    'source_ref': ref
+                })
+        
+        return verses
+
+    def aggregate_grammar():
+        """聚合文法解析庫 (來源：Mode A Grammar + Mode B Grammar List)"""
+        grammar_items = []
+        data = load_all_data()
+        
+        for ref, item in data.items():
+            mode = item.get('mode', 'A')
+            
+            if mode == 'A':
+                # 從 V1 Sheet Grammar 欄位提取
+                v1_data = parse_v1_sheet(item.get('v1_content', ''))
+                for entry in v1_data:
+                    if entry.get('grammar'):
+                        grammar_items.append({
+                            'ref': entry.get('ref', ''),
+                            'english': entry.get('english', ''),
+                            'chinese': entry.get('chinese', ''),
+                            'grammar': entry.get('grammar', ''),
+                            'mode': 'A',
+                            'source_ref': ref
+                        })
+            
+            elif mode == 'B':
+                # 從 Grammar List Sheet 提取
+                g_data = parse_grammar_list(item.get('grammar_list', ''))
+                for entry in g_data:
+                    if entry.get('sentence') and entry.get('analysis'):
+                        grammar_items.append({
+                            'ref': entry.get('no', ''),
+                            'english': entry.get('sentence', ''),
+                            'chinese': '',  # 從 sentence 欄位可能包含中文
+                            'grammar': entry.get('analysis', ''),
+                            'mode': 'B',
+                            'source_ref': ref
+                        })
+        
+        return grammar_items
+
+    # ═══════════════════════════════════════════════════════════════
+    # UI 渲染函數
+    # ═══════════════════════════════════════════════════════════════
+
+    def render_vocabulary_card(item):
+        """渲染單字卡片"""
+        st.markdown(f"""
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <div style="font-size: 1.4rem; font-weight: bold; color: #2c3e50; margin-bottom: 0.3rem;">
+                        {item['word']}
+                    </div>
+                    <div style="color: #666; font-size: 1rem; margin-bottom: 0.8rem;">
+                        {item['meaning']}
+                    </div>
                 </div>
-                """, unsafe_allow_html=True)
+                <div style="background: #d4a574; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem;">
+                    {item['ref']}
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid #eee; padding-top: 0.8rem; margin-top: 0.5rem;">
+                <div style="margin-bottom: 0.5rem;">
+                    <span class="lang-badge badge-en">🇬🇧 {item['english'][:80]}...</span>
+                </div>
+                <div style="margin-bottom: 0.5rem;">
+                    <span class="lang-badge badge-cn">🇨🇳 {item['chinese'][:60]}...</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem;">
+                    <span class="lang-badge badge-jp">🇯🇵 {item['japanese'][:40]}</span>
+                    <span class="lang-badge badge-kr">🇰🇷 {item['korean'][:40]}</span>
+                    <span class="lang-badge badge-th">🇹🇭 {item['thai'][:40]}</span>
+                </div>
+                {f'<div style="margin-top: 0.5rem; font-size: 0.85rem; color: #888;">🇰🇷 韓文同反義: {item["korean_syn_ant"]}</div>' if item.get('korean_syn_ant') else ''}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        with col_R:
-            # 黑色卡片：金句 + 文法解析 (對照截圖樣式)
-            if a_verse_list and grammar_display_list:
-                ve = a_verse_list[st.session_state.tab1_verse_index % len(a_verse_list)]
-                gr = grammar_display_list[st.session_state.tab1_g_idx % len(grammar_display_list)]
-                
-                # 組合黑色卡片內容
-                card_content = f"""
-                <div class='black-card'>
-                    <span style='color:#f0ad4e; font-weight:bold;'>{ve['ref']}</span><br>
-                    🇬🇧 {ve['en']}<br>🇨🇳 {ve['cn']}<br>🌍 {ve['jp']}<br>
-                    <hr style='border-color:#444;'>
-                    📌 <b>文法解析</b><br>
-                """
-                if gr['type'] == 'A':
-                    card_content += f"{gr['body']}"
-                else:
-                    card_content += f"{gr['ana']}"
-                
-                card_content += "</div>"
-                st.markdown(card_content, unsafe_allow_html=True)
+    def render_phrase_card(item):
+        """渲染片語卡片"""
+        # 解析 Synonym 和 Antonym
+        syn_display = item['synonym'] if item['synonym'] else '無'
+        ant_display = item['antonym'] if item['antonym'] else '無'
+        
+        st.markdown(f"""
+        <div class="content-card" style="border-left-color: #48bb78;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #2c3e50;">
+                    {item['phrase']}
+                </div>
+                <div style="background: #48bb78; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem;">
+                    {item['ref']}
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-bottom: 0.8rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="color: #48bb78; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.3rem;">
+                        ✨ Synonym
+                    </div>
+                    <div style="color: #2d3748; background: #f0fff4; padding: 0.5rem; border-radius: 6px; font-size: 0.95rem;">
+                        {syn_display}
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="color: #f56565; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.3rem;">
+                        ❄️ Antonym
+                    </div>
+                    <div style="color: #2d3748; background: #fff5f5; padding: 0.5rem; border-radius: 6px; font-size: 0.95rem;">
+                        {ant_display}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #f7fafc; padding: 0.8rem; border-radius: 8px; border-left: 3px solid #4299e1;">
+                <div style="font-size: 0.85rem; color: #718096; margin-bottom: 0.3rem;">📖 例句</div>
+                <div style="color: #2d3748; font-size: 0.95rem; line-height: 1.5;">
+                    {item['example']}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # --- 5. 底部 ✅ 資訊欄 (恢復原本消失的資訊) ---
-        st.write("---")
-        footer_col1, footer_col2 = st.columns(2)
-        with footer_col1:
-            # 顯示當前選中的資料源 ID 或 索引資訊
-            cur_ve_ref = a_verse_list[st.session_state.tab1_verse_idx % len(a_verse_list)]['ref'] if a_verse_list else "N/A"
-            st.caption(f"單字:{cur_ve_ref} | 片語:REF_{st.session_state.tab1_p_idx} | 金句:{cur_ve_ref}")
-        with footer_col2:
-            st.caption(f"文法:REF_{st.session_state.tab1_g_idx} | 42分後更新 | A:{len(v1_syn_ant_list)} B:{len(b_phrase_list)} G:{len(grammar_display_list)}")
+    def render_verse_card(item):
+        """渲染金句卡片"""
+        st.markdown(f"""
+        <div class="content-card" style="border-left-color: #ed8936;">
+            <div class="verse-ref">📍 {item['ref']}</div>
+            
+            <div style="margin-bottom: 1rem;">
+                <div class="lang-badge badge-en" style="display: block; margin-bottom: 0.5rem; padding: 0.8rem;">
+                    <strong>🇬🇧 ESV</strong><br/>
+                    <span style="font-size: 1.05rem; color: #2d3748;">{item['english']}</span>
+                </div>
+                <div class="lang-badge badge-cn" style="display: block; margin-bottom: 0.5rem; padding: 0.8rem;">
+                    <strong>🇨🇳 中文</strong><br/>
+                    <span style="font-size: 1.05rem; color: #2d3748;">{item['chinese']}</span>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.8rem; margin-top: 1rem;">
+                <div class="lang-badge badge-jp" style="display: block;">
+                    <strong>🇯🇵 口語訳</strong><br/>
+                    {item['japanese']}
+                </div>
+                <div class="lang-badge badge-kr" style="display: block;">
+                    <strong>🇰🇷 KRF</strong><br/>
+                    {item['korean']}
+                </div>
+                <div class="lang-badge badge-th" style="display: block;">
+                    <strong>🇹🇭 THSV11</strong><br/>
+                    {item['thai']}
+                </div>
+            </div>
+            
+            {f'<div style="margin-top: 0.8rem; padding: 0.5rem; background: #e0e7ff; border-radius: 6px; font-size: 0.9rem;"><strong>🇰🇷 韓文詞彙:</strong> {item["korean_syn_ant"]}</div>' if item.get('korean_syn_ant') else ''}
+        </div>
+        """, unsafe_allow_html=True)
+
+    def render_grammar_card(item):
+        """渲染文法解析卡片"""
+        # 處理文法內容的換行和格式
+        grammar_text = item['grammar']
+        # 將 1️⃣2️⃣3️⃣4️⃣ 轉換為帶樣式的格式
+        grammar_formatted = re.sub(r'([1-4]️⃣)', r'<span class="grammar-num">\1</span>', grammar_text)
+        grammar_formatted = grammar_formatted.replace('\n', '<br/>')
+        
+        # 組合經文顯示
+        verse_display = f"{item['english']}"
+        if item['chinese']:
+            verse_display += f"<br/>{item['chinese']}"
+        
+        st.markdown(f"""
+        <div class="content-card" style="border-left-color: #9f7aea;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                <div class="verse-ref" style="color: #9f7aea;">📝 {item['ref']}</div>
+                <div style="background: {'#d4a574' if item['mode'] == 'A' else '#48bb78'}; 
+                            color: white; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem;">
+                    {'Mode A' if item['mode'] == 'A' else 'Mode B'}
+                </div>
+            </div>
+            
+            <div style="background: #2d3748; color: #e2e8f0; padding: 1rem; border-radius: 8px; 
+                        margin-bottom: 1rem; font-family: 'Courier New', monospace; line-height: 1.6;">
+                {verse_display}
+            </div>
+            
+            <div class="grammar-section">
+                <div style="font-weight: bold; color: #9f7aea; margin-bottom: 0.5rem; font-size: 1rem;">
+                    📐 Grammar Analysis
+                </div>
+                <div style="color: #4a5568;">
+                    {grammar_formatted}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ═══════════════════════════════════════════════════════════════
+    # 主要介面
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 標題區
+    st.markdown('<div class="main-header">📚 聖經語言學習儀表板</div>', unsafe_allow_html=True)
+    
+    # 統計列
+    vocab_data = aggregate_vocabulary()
+    phrase_data = aggregate_phrases()
+    verse_data = aggregate_verses()
+    grammar_data = aggregate_grammar()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("📝 單字庫", len(vocab_data))
+    with col2:
+        st.metric("🔗 片語庫", len(phrase_data))
+    with col3:
+        st.metric("✨ 金句庫", len(verse_data))
+    with col4:
+        st.metric("📐 文法庫", len(grammar_data))
+    
+    st.divider()
+    
+    # 導航標籤
+    tab_names = ["📝 單字 Vocabulary", "🔗 片語 Phrases", "✨ 金句 Verses", "📐 文法 Grammar"]
+    tabs = st.tabs(tab_names)
+    
+    # ═══════════════════════════════════════════════════════════════
+    # TAB 1: 單字 (來源：Mode A V1 Syn/Ant + V2 多語言)
+    # ═══════════════════════════════════════════════════════════════
+    with tabs[0]:
+        st.subheader("單字學習 (來源：V1 Sheet Syn/Ant + V2 Sheet 多語言)")
+        
+        # 搜尋與篩選
+        search_col1, search_col2 = st.columns([3, 1])
+        with search_col1:
+            vocab_search = st.text_input("🔍 搜尋單字", placeholder="輸入英文單字或中文意思...", key="vocab_search")
+        with search_col2:
+            sort_option = st.selectbox("排序", ["參考編號", "字母順序", "隨機"], key="vocab_sort")
+        
+        # 篩選資料
+        filtered_vocab = vocab_data
+        if vocab_search:
+            filtered_vocab = [v for v in vocab_data 
+                           if vocab_search.lower() in v['word'].lower() 
+                           or vocab_search in v['meaning']
+                           or vocab_search in v.get('english', '')
+                           or vocab_search in v.get('chinese', '')]
+        
+        if sort_option == "隨機":
+            random.shuffle(filtered_vocab)
+        elif sort_option == "字母順序":
+            filtered_vocab = sorted(filtered_vocab, key=lambda x: x['word'].lower())
+        
+        # 顯示資料
+        if not filtered_vocab:
+            st.info("暫無單字資料。請在 TAB4 建立 Mode A 資料並填寫 V1/V2 Sheet。")
+        else:
+            st.caption(f"共 {len(filtered_vocab)} 個單字")
+            for item in filtered_vocab[:20]:  # 限制顯示數量避免過長
+                render_vocabulary_card(item)
+            
+            if len(filtered_vocab) > 20:
+                st.info(f"還有 {len(filtered_vocab) - 20} 個單字，請使用搜尋功能查找特定單字。")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # TAB 2: 片語 (來源：Mode B W Sheet)
+    # ═══════════════════════════════════════════════════════════════
+    with tabs[1]:
+        st.subheader("片語學習 (來源：W Sheet - Word/Phrase 欄位)")
+        st.caption("💡 若無片語顯示，請檢查 TAB4 的 Mode B 資料是否正確填入 W Sheet")
+        
+        search_col1, search_col2 = st.columns([3, 1])
+        with search_col1:
+            phrase_search = st.text_input("🔍 搜尋片語", placeholder="輸入片語關鍵字...", key="phrase_search")
+        with search_col2:
+            phrase_sort = st.selectbox("排序", ["參考編號", "字母順序", "隨機"], key="phrase_sort")
+        
+        filtered_phrases = phrase_data
+        if phrase_search:
+            filtered_phrases = [p for p in phrase_data 
+                             if phrase_search.lower() in p['phrase'].lower()
+                             or phrase_search in p.get('example', '')]
+        
+        if phrase_sort == "隨機":
+            random.shuffle(filtered_phrases)
+        
+        if not filtered_phrases:
+            st.warning("""
+            ⚠️ 無片語資料！請確認：
+            1. TAB4 有建立 Mode B (文稿分析) 資料
+            2. W Sheet 已正確填入 Word/Phrase + Chinese 等欄位
+            3. 資料已儲存到本地資料庫
+            """)
+        else:
+            st.caption(f"共 {len(filtered_phrases)} 個片語")
+            for item in filtered_phrases[:15]:
+                render_phrase_card(item)
+    
+    # ═══════════════════════════════════════════════════════════════
+    # TAB 3: 金句 (來源：Mode A V1 English/Chinese + V2 多語言)
+    # ═══════════════════════════════════════════════════════════════
+    with tabs[2]:
+        st.subheader("金句學習 (來源：V1 English/Chinese + V2 口語訳/KRF/THSV11)")
+        
+        search_col1, search_col2 = st.columns([3, 1])
+        with search_col1:
+            verse_search = st.text_input("🔍 搜尋經文", placeholder="輸入經卷、章節或關鍵字...", key="verse_search")
+        with search_col2:
+            book_filter = st.selectbox("經卷篩選", ["全部", "Proverbs", "Psalms", "Hebrews", "其他"], key="book_filter")
+        
+        filtered_verses = verse_data
+        if verse_search:
+            filtered_verses = [v for v in verse_data 
+                            if verse_search.lower() in v['ref'].lower()
+                            or verse_search in v['english']
+                            or verse_search in v['chinese']]
+        
+        if book_filter != "全部":
+            if book_filter == "其他":
+                filtered_verses = [v for v in filtered_verses 
+                                if not any(x in v['ref'] for x in ['Pro', 'Psa', 'Heb'])]
+            else:
+                book_map = {"Proverbs": "Pro", "Psalms": "Psa", "Hebrews": "Heb"}
+                filtered_verses = [v for v in filtered_verses 
+                                if book_map.get(book_filter, '') in v['ref']]
+        
+        if not filtered_verses:
+            st.info("暫無金句資料。請在 TAB4 建立 Mode A 資料並填寫 V1/V2 Sheet。")
+        else:
+            st.caption(f"共 {len(filtered_verses)} 條金句")
+            for item in filtered_verses[:10]:
+                render_verse_card(item)
+    
+    # ═══════════════════════════════════════════════════════════════
+    # TAB 4: 文法解析 (來源：Mode A Grammar + Mode B Grammar List)
+    # ═══════════════════════════════════════════════════════════════
+    with tabs[3]:
+        st.subheader("文法解析 (來源：V1 Grammar 欄位 + Grammar List Sheet)")
+        
+        # 顯示格式說明
+        with st.expander("📋 顯示格式說明", expanded=False):
+            st.markdown("""
+            **顯示格式：**
+            - **經卷經節**：Pro 17:1 (不分開顯示)
+            - **經文**：英文 + 中文對照
+            - **文法分析**：
+              - 1️⃣ [分段解析]
+              - 2️⃣ [詞性辨析]
+              - 3️⃣ [修辭與結構]
+              - 4️⃣ [語意解釋]
+            """)
+        
+        grammar_search = st.text_input("🔍 搜尋文法規則或經文", placeholder="輸入文法術語如 Inversion, Parallelism...", key="grammar_search")
+        
+        filtered_grammar = grammar_data
+        if grammar_search:
+            filtered_grammar = [g for g in grammar_data 
+                             if grammar_search.lower() in g['grammar'].lower()
+                             or grammar_search in g['ref']
+                             or grammar_search in g['english']]
+        
+        if not filtered_grammar:
+            st.warning("""
+            ⚠️ 無文法資料！請確認：
+            1. **Mode A**: V1 Sheet 的 Grammar 欄位已填入分析
+            2. **Mode B**: Grammar List Sheet 的 Original Sentence + Analysis 欄位已填入
+            """)
+        else:
+            st.caption(f"共 {len(filtered_grammar)} 條文法解析")
+            
+            # 分組顯示
+            mode_a_items = [g for g in filtered_grammar if g['mode'] == 'A']
+            mode_b_items = [g for g in filtered_grammar if g['mode'] == 'B']
+            
+            if mode_a_items:
+                st.markdown("### 📖 Mode A - 經文文法分析")
+                for item in mode_a_items[:5]:
+                    render_grammar_card(item)
+            
+            if mode_b_items:
+                st.markdown("### 📝 Mode B - 文稿文法分析")
+                for item in mode_b_items[:5]:
+                    render_grammar_card(item)
+
+    # Snoopy 背景圖 (可選)
+    try:
+        if os.path.exists('Snoopy.jpg'):
+            with open('Snoopy.jpg', "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            st.markdown(f"""
+            <img src="data:image/jpeg;base64,{img_b64}" class="snoopy-bg" style="width: 300px;"/>
+            """, unsafe_allow_html=True)
+    except:
+        pass
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
