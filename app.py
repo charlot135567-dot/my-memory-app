@@ -863,43 +863,37 @@ st.markdown("""
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (精確調校版：右側黑色卡片 + 嚴格資料分流)
+# 3. TAB1 ─ 書桌 (邏輯嚴格歸位版：精準分流 A/B 模式資料)
 # ===================================================================
 with tabs[0]:
     import csv, re, datetime as dt
     from io import StringIO
 
-    # --- 自定義 CSS：打造右側黑色卡片與左側清爽列表 ---
+    # --- 1. CSS 樣式定義 (確保右側黑色卡片樣式) ---
     st.markdown("""
         <style>
         .black-card {
-            background-color: #262730;
-            color: #ffffff;
-            padding: 20px;
-            border-radius: 10px;
-            border-left: 5px solid #f0ad4e;
-            font-family: 'Courier New', Courier, monospace;
+            background-color: #262730; color: #ffffff; padding: 20px;
+            border-radius: 10px; border-left: 5px solid #f0ad4e;
+            line-height: 1.6; font-family: sans-serif;
         }
-        .list-item {
-            border-bottom: 1px solid #eeeeee;
-            padding: 10px 0;
-        }
-        .ref-text { color: #888888; font-size: 0.8em; }
-        .highlight-en { color: #4682B4; font-weight: bold; }
+        .list-item { border-bottom: 1px solid #eeeeee; padding: 12px 0; }
+        .vocab-header { font-size: 1.1em; font-weight: bold; color: #4682B4; }
+        .ref-tag { color: #888888; font-size: 0.85em; }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Session State 初始化 ---
-    for key in ["tab1_vocab_index", "tab1_phrase_index", "tab1_grammar_index", "tab1_verse_index"]:
+    # --- 2. 初始化與自動更新邏輯 ---
+    for key in ["tab1_v_idx", "tab1_p_idx", "tab1_g_idx", "tab1_verse_idx"]:
         if key not in st.session_state: st.session_state[key] = 0
     if "tab1_last_update" not in st.session_state:
         st.session_state.tab1_last_update = dt.datetime.now()
 
-    # 自動輪轉邏輯 (1小時)
+    # 每小時自動更新索引
     if (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds() > 3600:
         st.session_state.tab1_last_update = dt.datetime.now()
-        for key in ["tab1_vocab_index", "tab1_phrase_index", "tab1_grammar_index", "tab1_verse_index"]:
-            st.session_state[key] += 1
+        for k in ["tab1_v_idx", "tab1_p_idx", "tab1_g_idx", "tab1_verse_idx"]:
+            st.session_state[k] += 1
         st.rerun()
 
     sentences = st.session_state.get('sentences', {})
@@ -907,16 +901,18 @@ with tabs[0]:
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
+        # --- 3. 核心解析邏輯 (修正 Key 不匹配問題) ---
         def parse_csv(content):
             if not content or not isinstance(content, str): return []
             f = StringIO(content.strip())
             reader = csv.DictReader(f, delimiter='\t' if '\t' in content else ',')
             return [row for row in reader]
 
-        all_vocab_items = []    # 來源：模式A (V1 Syn/Ant + V2)
-        all_phrase_items = []   # 來源：模式B (W_Sheet)
-        all_verse_items = []    # 來源：模式A (V1 EN/CN + V2)
-        all_grammar_items = []  # 來源：模式A (V1 Grammar) 或 模式B (Grammar List)
+        # 定義四個嚴格的資料容器
+        v1_syn_ant_list = []  # 1) 單字 (模式A)
+        b_phrase_list = []    # 2) 片語 (模式B)
+        a_verse_list = []     # 3) 金句 (模式A)
+        grammar_display_list = [] # 4) 文法解析 (A/B)
 
         for ref, data in sentences.items():
             mode = data.get('mode', 'A')
@@ -925,110 +921,106 @@ with tabs[0]:
             w_rows = parse_csv(data.get('w_sheet', ''))
             g_rows = parse_csv(data.get('grammar_list', ''))
 
-            # 1 & 3: 模式 A 邏輯 (單字與金句)
-            if mode == 'A' and v1_rows:
+            # 【邏輯 1 & 3 & 4-A】模式 A 專屬抓取
+            if mode == 'A':
                 for i, v1_row in enumerate(v1_rows):
                     v2_row = v2_rows[i] if i < len(v2_rows) else {}
                     full_ref = v1_row.get('Ref. 經文出處', ref)
                     
-                    # 單字 (V1 Syn/Ant + V2)
+                    # 1) 單字 (V1 Syn/Ant + V2)
                     if v1_row.get('Syn/Ant'):
-                        all_vocab_items.append({
-                            'ref': full_ref,
-                            'syn_ant': v1_row.get('Syn/Ant', ''),
-                            'jp': v2_row.get('口語訳', ''),
-                            'kr': v2_row.get('Korean Syn/Ant', ''),
+                        v1_syn_ant_list.append({
+                            'ref': full_ref, 'content': v1_row.get('Syn/Ant', ''),
+                            'jp': v2_row.get('口語訳', ''), 'kr': v2_row.get('Korean Syn/Ant', ''),
                             'th': v2_row.get('THSV11 泰文重要片語', '')
                         })
                     
-                    # 金句 (V1 EN/CN + V2)
+                    # 3) 金句 (V1 English + Chinese + V2)
                     if v1_row.get('English（ESV經文）'):
-                        all_verse_items.append({
-                            'ref': full_ref,
-                            'en': v1_row.get('English（ESV經文）', ''),
-                            'cn': v1_row.get('Chinese經文', ''),
-                            'jp': v2_row.get('口語訳', ''),
-                            'kr': v2_row.get('Korean Syn/Ant', ''),
-                            'th': v2_row.get('THSV11 泰文重要片語', '')
+                        a_verse_list.append({
+                            'ref': full_ref, 'en': v1_row.get('English（ESV經文）', ''),
+                            'cn': v1_row.get('Chinese經文', ''), 'jp': v2_row.get('口語訳', ''),
+                            'kr': v2_row.get('Korean Syn/Ant', ''), 'th': v2_row.get('THSV11 泰文重要片語', '')
                         })
-
-                    # 文法 A (V1 Grammar)
+                    
+                    # 4-A) 文法解析 (V1 Grammar)
                     if v1_row.get('Grammar'):
-                        all_grammar_items.append({
-                            'ref': full_ref, 'type': 'A',
-                            'content': v1_row.get('Grammar', ''),
-                            'en': v1_row.get('English（ESV經文）', ''),
-                            'cn': v1_row.get('Chinese經文', ''),
+                        grammar_display_list.append({
+                            'ref': full_ref, 'type': 'A', 'body': v1_row.get('Grammar', ''),
+                            'en': v1_row.get('English（ESV經文）', ''), 'cn': v1_row.get('Chinese經文', ''),
                             'syn_ant': v1_row.get('Syn/Ant', '')
                         })
 
-            # 2 & 4: 模式 B 邏輯 (片語與文法清單)
-            if mode == 'B':
-                # 片語 (W_Sheet)
-                for w_row in w_rows:
-                    if w_row.get('Word/Phrase+Chinese'):
-                        all_phrase_items.append({
-                            'ref': ref,
-                            'word': w_row.get('Word/Phrase+Chinese', ''),
-                            'syn': w_row.get('Synonym+中文對照', ''),
-                            'ant': w_row.get('Antonym+中文對照', ''),
-                            'ex': w_row.get('全句聖經中英對照例句', '')
+            # 【邏輯 2 & 4-B】模式 B 專屬抓取
+            elif mode == 'B':
+                # 2) 片語 (W_Sheet) - 嚴格只從此處抓
+                for w in w_rows:
+                    if w.get('Word/Phrase+Chinese'):
+                        b_phrase_list.append({
+                            'ref': ref, 'word': w.get('Word/Phrase+Chinese', ''),
+                            'syn': w.get('Synonym+中文對照', ''), 'ant': w.get('Antonym+中文對照', ''),
+                            'example': w.get('全句聖經中英對照例句', '')
                         })
-                # 文法 B (Grammar List)
-                for g_row in g_rows:
-                    if g_row.get('Original Sentence＋中文翻譯'):
-                        all_grammar_items.append({
+                # 4-B) 文法解析 (Grammar List)
+                for g in g_rows:
+                    if g.get('Original Sentence＋中文翻譯'):
+                        grammar_display_list.append({
                             'ref': ref, 'type': 'B',
-                            'orig': g_row.get('Original Sentence＋中文翻譯', ''),
-                            'rule': g_row.get('Grammar Rule', ''),
-                            'ana': g_row.get('Analysis & Example (1️⃣2️⃣3️⃣4️⃣)', '')
+                            'orig': g.get('Original Sentence＋中文翻譯', ''),
+                            'rule': g.get('Grammar Rule', ''),
+                            'ana': g.get('Analysis & Example (1️⃣2️⃣3️⃣4️⃣)', '')
                         })
 
-        # --- 畫面排版 ---
-        col_left, col_right = st.columns([1.8, 1.2])
+        # --- 4. 畫面排版渲染 ---
+        col_L, col_R = st.columns([1.7, 1.3])
 
-        with col_left:
-            st.write("### 📚 我的書桌")
-            # 顯示單字列表
-            if all_vocab_items:
-                v_item = all_vocab_items[st.session_state.tab1_vocab_index % len(all_vocab_items)]
-                st.markdown(f"🌍 **{v_item['syn_ant']}**", unsafe_allow_html=True)
-                st.markdown(f"🇹🇭 {v_item['th']}", unsafe_allow_html=True)
+        with col_L:
+            st.markdown("### 📚 我的書桌")
+            # 顯示單字 (模式A)
+            if v1_syn_ant_list:
+                v = v1_syn_ant_list[st.session_state.tab1_v_idx % len(v1_syn_ant_list)]
+                st.markdown(f"🌍 {v['content']}<br>🇹🇭 {v['th']}", unsafe_allow_html=True)
             
             # 顯示片語 (模式B)
-            for p in all_phrase_items[:3]: # 範例顯示前三項
+            for p in b_phrase_list[:3]: # 限制顯示數量
                 st.markdown(f"""
                 <div class='list-item'>
-                    <span class='highlight-en'>abc {p['word']}</span> <br>
-                    <span class='ref-text'>📖 {p['ref']} {p['ex']}</span>
+                    <div class='vocab-header'>abc {p['word']}</div>
+                    <div class='ref-tag'>📖 {p['ref']} {p['example']}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-        with col_right:
-            # 右側黑色卡片：金句 + 文法解析
-            if all_verse_items and all_grammar_items:
-                verse = all_verse_items[st.session_state.tab1_verse_index % len(all_verse_items)]
-                gram = all_grammar_items[st.session_state.tab1_grammar_index % len(all_grammar_items)]
+        with col_R:
+            # 黑色卡片：金句 + 文法解析 (對照截圖樣式)
+            if a_verse_list and grammar_display_list:
+                ve = a_verse_list[st.session_state.tab1_verse_index % len(a_verse_list)]
+                gr = grammar_display_list[st.session_state.tab1_g_idx % len(grammar_display_list)]
                 
-                card_html = f"""
+                # 組合黑色卡片內容
+                card_content = f"""
                 <div class='black-card'>
-                    <div style='color:#f0ad4e; font-weight:bold;'>{verse['ref']}</div>
-                    <div style='font-size:0.9em; margin-bottom:10px;'>
-                        🇬🇧 {verse['en']}<br>🇨🇳 {verse['cn']}<br>🌍 {verse['jp']}
-                    </div>
-                    <hr style='border-color:#555;'>
-                    <div style='font-size:0.85em;'>
+                    <span style='color:#f0ad4e; font-weight:bold;'>{ve['ref']}</span><br>
+                    🇬🇧 {ve['en']}<br>🇨🇳 {ve['cn']}<br>🌍 {ve['jp']}<br>
+                    <hr style='border-color:#444;'>
+                    📌 <b>文法解析</b><br>
                 """
-                if gram['type'] == 'A':
-                    card_html += f"📌 <b>文法解析</b><br>{gram['content']}"
+                if gr['type'] == 'A':
+                    card_content += f"{gr['body']}"
                 else:
-                    card_html += f"📌 <b>分段解析</b><br>{gram['ana']}"
+                    card_content += f"{gr['ana']}"
                 
-                card_html += "</div></div>"
-                st.markdown(card_html, unsafe_allow_html=True)
+                card_content += "</div>"
+                st.markdown(card_content, unsafe_allow_html=True)
 
-    st.write(f"---")
-    st.caption(f"最後更新: {st.session_state.tab1_last_update.strftime('%H:%M:%S')} | A:{len(all_vocab_items)} B:{len(all_phrase_items)} G:{len(all_grammar_items)}")
+        # --- 5. 底部 ✅ 資訊欄 (恢復原本消失的資訊) ---
+        st.write("---")
+        footer_col1, footer_col2 = st.columns(2)
+        with footer_col1:
+            # 顯示當前選中的資料源 ID 或 索引資訊
+            cur_ve_ref = a_verse_list[st.session_state.tab1_verse_idx % len(a_verse_list)]['ref'] if a_verse_list else "N/A"
+            st.caption(f"單字:{cur_ve_ref} | 片語:REF_{st.session_state.tab1_p_idx} | 金句:{cur_ve_ref}")
+        with footer_col2:
+            st.caption(f"文法:REF_{st.session_state.tab1_g_idx} | 42分後更新 | A:{len(v1_syn_ant_list)} B:{len(b_phrase_list)} G:{len(grammar_display_list)}")
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
