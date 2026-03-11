@@ -871,17 +871,16 @@ import os
 from datetime import datetime as dt
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版 - 資料分離修正版)
+# 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應 TAB4 格式)
 # ===================================================================
 with tabs[0]:
-    import csv, random, re, datetime as dt
-    from io import StringIO
+    import random, re, datetime as dt
 
     # --- Session State ---
-    st.session_state.setdefault("tab1_vocab_index", 0)      # 單字輪流索引
-    st.session_state.setdefault("tab1_phrase_index", 15)    # 片語輪流索引（從16開始）
-    st.session_state.setdefault("tab1_grammar_index", 0)    # 文法輪流索引
-    st.session_state.setdefault("tab1_verse_index", 0)      # 金句輪流索引
+    st.session_state.setdefault("tab1_vocab_index", 0)
+    st.session_state.setdefault("tab1_phrase_index", 15)
+    st.session_state.setdefault("tab1_grammar_index", 0)
+    st.session_state.setdefault("tab1_verse_index", 0)
     st.session_state.setdefault("tab1_last_update", dt.datetime.now())
 
     # 檢查是否需要更新（超過1小時）
@@ -897,38 +896,57 @@ with tabs[0]:
     sentences = st.session_state.get('sentences', {})
     
     if not sentences:
-        st.warning("資料庫為空，請先在 TAB4 載入 Notion 資料")
+        st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
-        def parse_csv(content):
-            if not content: 
+        
+        def parse_tab_delimited(content):
+            """解析 TAB4 的 \t 分隔格式（第一行是標題）"""
+            if not content or not content.strip():
                 return []
-            try:
-                reader = csv.DictReader(StringIO(content.strip()))
-                rows = list(reader)
-                return [row for row in rows if any(v.strip() for v in row.values())]
-            except:
+            
+            lines = content.strip().split('\n')
+            if len(lines) < 2:
                 return []
+            
+            # 第一行是標題
+            headers = lines[0].split('\t')
+            headers = [h.strip() for h in headers]
+            
+            rows = []
+            for line in lines[1:]:
+                if not line.strip():
+                    continue
+                values = line.split('\t')
+                # 確保長度一致
+                while len(values) < len(headers):
+                    values.append('')
+                row_dict = {}
+                for i, header in enumerate(headers):
+                    row_dict[header] = values[i].strip() if i < len(values) else ''
+                rows.append(row_dict)
+            
+            return rows
 
         # ============================================================
-        # 關鍵修正：分離模式A和模式B的資料
+        # 收集資料（對應 TAB4 的實際欄位名稱）
         # ============================================================
         
-        # 收集所有模式A資料（有V1的）和模式B資料（有W Sheet但無V1的）
-        all_mode_a = []  # 單字、金句來源
-        all_mode_b = []  # 片語來源
-        all_grammar_sources = []  # 文法來源（A或B都可以）
+        all_mode_a = []
+        all_mode_b = []
+        all_grammar_sources = []
         
         for ref, data in sentences.items():
             v1_content = data.get('v1_content', '')
+            v2_content = data.get('v2_content', '')
             w_content = data.get('w_sheet', '')
             g_content = data.get('grammar_list', '')
             
-            v1_rows = parse_csv(v1_content)
-            v2_rows = parse_csv(data.get('v2_content', ''))
-            w_rows = parse_csv(w_content)
-            g_rows = parse_csv(g_content)
+            v1_rows = parse_tab_delimited(v1_content)
+            v2_rows = parse_tab_delimited(v2_content)
+            w_rows = parse_tab_delimited(w_content)
+            g_rows = parse_tab_delimited(g_content)
             
-            # 模式A：有V1資料 → 用於單字、金句
+            # 模式A：有V1資料
             if v1_rows:
                 all_mode_a.append({
                     'ref': ref,
@@ -936,17 +954,17 @@ with tabs[0]:
                     'v2': v2_rows,
                     'v1_count': len(v1_rows)
                 })
-                # 文法也可以來自V1
+                # 文法來自V1的 Grammar 欄位
                 for i, row in enumerate(v1_rows):
-                    all_grammar_sources.append({
-                        'type': 'A',
-                        'ref': ref,
-                        'row': row,
-                        'index': i,
-                        'total_in_file': len(v1_rows)
-                    })
+                    if row.get('Grammar'):
+                        all_grammar_sources.append({
+                            'type': 'A',
+                            'ref': ref,
+                            'row': row,
+                            'index': i
+                        })
             
-            # 模式B：有W Sheet → 用於片語
+            # 模式B：有W Sheet
             if w_rows:
                 all_mode_b.append({
                     'ref': ref,
@@ -954,117 +972,148 @@ with tabs[0]:
                     'w_count': len(w_rows)
                 })
             
-            # Grammar List（模式B的文法）
+            # Grammar List（模式B）
             if g_rows:
                 for i, row in enumerate(g_rows):
-                    all_grammar_sources.append({
-                        'type': 'B',
-                        'ref': ref,
-                        'row': row,
-                        'index': i,
-                        'total_in_file': len(g_rows)
-                    })
+                    if row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)') or row.get('Original Sentence＋中文翻譯'):
+                        all_grammar_sources.append({
+                            'type': 'B',
+                            'ref': ref,
+                            'row': row,
+                            'index': i
+                        })
         
         # ============================================================
-        # 1) 單字：只從模式A的V1+V2輪流
+        # 1) 單字：從模式A的V1 Syn/Ant + V2 多語言
         # ============================================================
         vocab_display = []
         current_vocab_ref = "N/A"
         
         if all_mode_a:
-            # 輪流選擇哪個模式A檔案
-            file_idx = st.session_state.tab1_vocab_index // max(1, all_mode_a[0]['v1_count']) % len(all_mode_a)
-            vocab_file = all_mode_a[file_idx]
-            
-            # 在該檔案內輪流選擇哪一列
-            row_idx = st.session_state.tab1_vocab_index % vocab_file['v1_count']
-            v1_row = vocab_file['v1'][row_idx]
-            v2_row = vocab_file['v2'][row_idx % len(vocab_file['v2'])] if vocab_file['v2'] else {}
-            
-            current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
-            
-            # 收集多語言單字
-            syn_ant_parts = []
-            v1_syn = v1_row.get('Syn/Ant', '')
-            if v1_syn:
-                entries = [e.strip() for e in re.split(r'[;；]', v1_syn) if e.strip()]
-                syn_ant_parts.extend(entries)
-            
-            # V2 多語言
-            v2_syn = v2_row.get('Syn/Ant (韓/日/中)', '') if v2_row else ''
-            if v2_syn:
-                syn_ant_parts.append(v2_syn)
-            
-            v2_thai = v2_row.get('THSV11 (Key Phrases)', '') if v2_row else ''
-            
-            if syn_ant_parts:
-                vocab_display = syn_ant_parts
-                if v2_thai:
-                    vocab_display.append(f"🇹🇭 {v2_thai}")
+            total_vocab_items = sum(f['v1_count'] for f in all_mode_a)
+            if total_vocab_items > 0:
+                vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
+                
+                # 找到對應的檔案和行
+                cumulative = 0
+                vocab_file = None
+                row_idx = 0
+                for f in all_mode_a:
+                    if cumulative + f['v1_count'] > vocab_idx:
+                        vocab_file = f
+                        row_idx = vocab_idx - cumulative
+                        break
+                    cumulative += f['v1_count']
+                
+                if vocab_file:
+                    v1_row = vocab_file['v1'][row_idx]
+                    v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
+                    
+                    # V1 欄位名稱（根據 TAB4 Prompt）
+                    current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
+                    v1_syn_ant = v1_row.get('Syn/Ant', '')
+                    
+                    # V2 欄位名稱（根據 TAB4 Prompt）
+                    v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
+                    v2_thai = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
+                    
+                    # 解析 Syn/Ant
+                    if v1_syn_ant:
+                        # 分割多個單字項目
+                        entries = [e.strip() for e in re.split(r'[;；/]', v1_syn_ant) if e.strip()]
+                        for entry in entries:
+                            # 格式：Word (中文) / Syn (同義) | Ant (反義)
+                            vocab_display.append(entry)
+                    
+                    # 加入韓文同反義
+                    if v2_korean_syn:
+                        vocab_display.append(f"🇰🇷 {v2_korean_syn}")
+                    
+                    # 加入泰文
+                    if v2_thai:
+                        vocab_display.append(f"🇹🇭 {v2_thai}")
         
         # ============================================================
-        # 2) 片語：只從模式B的W Sheet輪流（第16個開始）
+        # 2) 片語：只從模式B的W Sheet（第16個開始）
         # ============================================================
         w_phrases = []
         current_phrase_ref = "N/A"
-        w_start_display = 0
         
         if all_mode_b:
-            # 輪流選擇哪個模式B檔案
-            file_idx = st.session_state.tab1_phrase_index // max(1, all_mode_b[0]['w_count']) % len(all_mode_b)
-            phrase_file = all_mode_b[file_idx]
-            
-            w_rows = phrase_file['w']
-            w_total = len(w_rows)
-            current_phrase_ref = phrase_file['ref']
-            
-            # 從第16個開始（索引15），每次4個
-            w_start = 15 + (st.session_state.tab1_phrase_index % max(1, w_total - 15))
-            w_start = w_start % w_total  # 確保循環
-            
-            for i in range(4):
-                idx = (w_start + i) % w_total
-                w_phrases.append(w_rows[idx])
-            
-            w_start_display = w_start + 1  # 轉為1-based顯示
+            total_w_items = sum(f['w_count'] for f in all_mode_b)
+            if total_w_items > 0:
+                # 從第16個開始（索引15）
+                start_offset = 15
+                phrase_idx = (st.session_state.tab1_phrase_index + start_offset) % total_w_items
+                
+                # 找到對應的檔案和行
+                cumulative = 0
+                phrase_file = None
+                row_idx = 0
+                for f in all_mode_b:
+                    if cumulative + f['w_count'] > phrase_idx:
+                        phrase_file = f
+                        row_idx = phrase_idx - cumulative
+                        break
+                    cumulative += f['w_count']
+                
+                if phrase_file:
+                    w_rows = phrase_file['w']
+                    current_phrase_ref = phrase_file['ref']
+                    
+                    # 取連續4個
+                    for i in range(4):
+                        idx = (row_idx + i) % len(w_rows)
+                        w_phrases.append(w_rows[idx])
         
         # ============================================================
-        # 3) 金句：只從模式A的V1+V2輪流
+        # 3) 金句：從模式A的V1 + V2 多語言
         # ============================================================
         verse_lines = []
         current_verse_ref = "N/A"
         
         if all_mode_a:
-            # 輪流選擇哪個模式A檔案
-            file_idx = st.session_state.tab1_verse_index // max(1, all_mode_a[0]['v1_count']) % len(all_mode_a)
-            verse_file = all_mode_a[file_idx]
-            
-            # 在該檔案內輪流選擇哪一列
-            row_idx = st.session_state.tab1_verse_index % verse_file['v1_count']
-            v1_verse = verse_file['v1'][row_idx]
-            v2_verse = verse_file['v2'][row_idx % len(verse_file['v2'])] if verse_file['v2'] else {}
-            
-            current_verse_ref = v1_verse.get('Ref.', verse_file['ref'])
-            
-            en_text = v1_verse.get('English (ESV)', '')
-            cn_text = v1_verse.get('Chinese', '')
-            jp_text = v2_verse.get('口語訳 (1955)', '') if v2_verse else ''
-            kr_text = v2_verse.get('KRF', '') if v2_verse else ''
-            th_text = v2_verse.get('THSV11 (Key Phrases)', '') if v2_verse else ''
-            
-            if en_text:
-                verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
-            if jp_text:
-                verse_lines.append(f"🇯🇵 {jp_text}")
-            if kr_text:
-                verse_lines.append(f"🇰🇷 {kr_text}")
-            if th_text:
-                verse_lines.append(f"🇹🇭 {th_text}")
-            if cn_text:
-                verse_lines.append(f"🇨🇳 {cn_text}")
+            total_verse_items = sum(f['v1_count'] for f in all_mode_a)
+            if total_verse_items > 0:
+                verse_idx = st.session_state.tab1_verse_index % total_verse_items
+                
+                cumulative = 0
+                verse_file = None
+                row_idx = 0
+                for f in all_mode_a:
+                    if cumulative + f['v1_count'] > verse_idx:
+                        verse_file = f
+                        row_idx = verse_idx - cumulative
+                        break
+                    cumulative += f['v1_count']
+                
+                if verse_file:
+                    v1_row = verse_file['v1'][row_idx]
+                    v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
+                    
+                    # V1 欄位（根據 TAB4）
+                    current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
+                    en_text = v1_row.get('English（ESV經文）', '')
+                    cn_text = v1_row.get('Chinese經文', '')
+                    
+                    # V2 欄位（根據 TAB4）
+                    jp_text = v2_row.get('口語訳', '') if v2_row else ''
+                    kr_text = v2_row.get('KRF', '') if v2_row else ''
+                    th_text = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
+                    
+                    if en_text:
+                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+                    if jp_text:
+                        verse_lines.append(f"🇯🇵 {jp_text}")
+                    if kr_text:
+                        verse_lines.append(f"🇰🇷 {kr_text}")
+                    if th_text:
+                        verse_lines.append(f"🇹🇭 {th_text}")
+                    if cn_text:
+                        verse_lines.append(f"🇨🇳 {cn_text}")
         
         # ============================================================
-        # 4) 文法：從所有文法來源輪流（A或B）
+        # 4) 文法：從所有來源輪流
         # ============================================================
         grammar_html = "等待資料中..."
         current_grammar_ref = "N/A"
@@ -1078,48 +1127,58 @@ with tabs[0]:
             all_grammar = []
             
             if g_source['type'] == 'A':
-                # 模式A文法（來自V1）
+                # 模式A文法（來自V1 Grammar欄位）
                 g_ref = g_row.get('Ref.', '')
-                g_en = g_row.get('English (ESV)', '')
-                g_cn = g_row.get('Chinese', '')
+                g_en = g_row.get('English（ESV經文）', '')
+                g_cn = g_row.get('Chinese經文', '')
                 g_syn = g_row.get('Syn/Ant', '')
                 g_grammar = g_row.get('Grammar', '')
                 
-                header_parts = [f"<b>{g_ref}</b>"]
+                header_parts = []
+                if g_ref:
+                    header_parts.append(f"<b>{g_ref}</b>")
                 if g_en:
                     header_parts.append(f"🇬🇧 {g_en}")
                 if g_cn:
                     header_parts.append(f"🇨🇳 {g_cn}")
                 if g_syn:
                     header_parts.append(f"🌍 {g_syn}")
-                all_grammar.append("<br>".join(header_parts))
+                
+                if header_parts:
+                    all_grammar.append("<br>".join(header_parts))
                 
                 if g_grammar:
+                    # 格式化文法標記
                     formatted = str(g_grammar)
-                    formatted = formatted.replace('1️⃣[', '<br><br>📌 分段解析</b><br>')
-                    formatted = formatted.replace('2️⃣[', '<br><br>🔤 詞性辨析</b><br>')
-                    formatted = formatted.replace('3️⃣[', '<br><br>📖 修辭與結構</b><br>')
-                    formatted = formatted.replace('4️⃣[', '<br><br>💡 語意解釋</b><br>')
-                    formatted = formatted.replace(']', '')
+                    formatted = formatted.replace('1️⃣', '<br><br><b>📌 分段解析</b><br>')
+                    formatted = formatted.replace('2️⃣', '<br><br><b>🔤 詞性辨析</b><br>')
+                    formatted = formatted.replace('3️⃣', '<br><br><b>📖 修辭與結構</b><br>')
+                    formatted = formatted.replace('4️⃣', '<br><br><b>💡 語意解釋</b><br>')
+                    formatted = formatted.replace('1.', '<br><br><b>📌 分段解析</b><br>')
+                    formatted = formatted.replace('2.', '<br><br><b>🔤 詞性辨析</b><br>')
+                    formatted = formatted.replace('3.', '<br><br><b>📖 修辭與結構</b><br>')
+                    formatted = formatted.replace('4.', '<br><br><b>💡 語意解釋</b><br>')
                     all_grammar.append(formatted)
                     
             else:
                 # 模式B文法（來自Grammar List）
-                orig = g_row.get('Original Sentence (from text)', '')
-                rule = g_row.get('Grammar Rule', '')
-                analysis = g_row.get('Analysis & Example', '')
+                # 欄位名稱根據 TAB4 Prompt
+                orig = g_row.get('Original Sentence＋中文翻譯', '')
+                rule_analysis = g_row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
                 
                 if orig:
                     all_grammar.append(f"📝 <b>{orig}</b>")
-                if rule:
-                    all_grammar.append(f"📌 <b>{rule}</b>")
-                if analysis:
-                    af = str(analysis)
-                    af = af.replace('1️⃣ [', '<br><br>📌 ')
-                    af = af.replace('2️⃣ [', '<br><br>🔤 ')
-                    af = af.replace('3️⃣ [', '<br><br>📖 ')
-                    af = af.replace('4️⃣ [', '<br><br>💡 ')
-                    af = af.replace(']', '</b>')
+                
+                if rule_analysis:
+                    af = str(rule_analysis)
+                    af = af.replace('1️⃣', '<br><br><b>📌 ')
+                    af = af.replace('2️⃣', '<br><br><b>🔤 ')
+                    af = af.replace('3️⃣', '<br><br><b>📖 ')
+                    af = af.replace('4️⃣', '<br><br><b>💡 ')
+                    af = af.replace('1.', '<br><br><b>📌 ')
+                    af = af.replace('2.', '<br><br><b>🔤 ')
+                    af = af.replace('3.', '<br><br><b>📖 ')
+                    af = af.replace('4.', '<br><br><b>💡 ')
                     all_grammar.append(af)
             
             if all_grammar:
@@ -1131,41 +1190,35 @@ with tabs[0]:
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 單字
+            st.subheader("🌍 單字 Vocabulary")
             if vocab_display:
-                st.markdown("🌍 " + " ; ".join([v for v in vocab_display if not v.startswith('🇹🇭')]))
-                thai_items = [v for v in vocab_display if v.startswith('🇹🇭')]
-                for th in thai_items:
-                    st.markdown(th)
+                for v in vocab_display:
+                    st.markdown(f"• {v}")
             else:
-                st.caption("無單字資料（請確認有模式A資料）")
+                st.caption("無單字資料（請確認模式A的V1/V2 Sheet有Syn/Ant欄位）")
             
             st.divider()
 
-            # 片語
+            st.subheader("🔗 片語 Phrases")
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    p = (row.get('Word/Phrase') or row.get('word/phrases') or 
-                         row.get('Word/phrase') or row.get('Word', ''))
-                    c = row.get('Chinese', '')
-                    s = row.get('Synonym', '')
-                    a = row.get('Antonym', '')
-                    bible_ex = (row.get('Bible Example (Full sentence)') or 
-                               row.get('Bible Example', '') or row.get('Example', ''))
+                    # W Sheet 欄位名稱（根據 TAB4 Prompt）
+                    p = row.get('Word/Phrase＋Chinese', '')
+                    s = row.get('Synonym+中文對照', '')
+                    a = row.get('Antonym＋中文對照', '')
+                    bible_ex = row.get('全句聖經中英對照例句', '')
                     
                     if p:
                         parts = [f"🔤 **{p}**"]
-                        if c: 
-                            parts.append(c)
                         if s or a:
                             sa_parts = []
                             if s: 
-                                sa_parts.append(f"✨{s}")
+                                sa_parts.append(f"✨ {s}")
                             if a: 
-                                sa_parts.append(f"❄️{a}")
-                            parts.append("_" + " | ".join(sa_parts) + "_")
+                                sa_parts.append(f"❄️ {a}")
+                            parts.append("<br>_" + " | ".join(sa_parts) + "_")
                         
-                        st.markdown(" ".join(parts))
+                        st.markdown(" ".join(parts), unsafe_allow_html=True)
                         
                         if bible_ex:
                             st.caption(f"📖 {bible_ex}")
@@ -1173,20 +1226,19 @@ with tabs[0]:
                         if i < len(w_phrases) - 1:
                             st.markdown("---")
             else:
-                st.caption("無片語資料（請確認有模式B資料）")
+                st.caption("無片語資料（請確認模式B的W Sheet有資料）")
 
             st.divider()
 
-            # 金句
+            st.subheader("✨ 金句 Verse")
             if verse_lines:
-                st.markdown("📖 " + verse_lines[0])
-                for v in verse_lines[1:]:
+                for v in verse_lines:
                     st.markdown(v)
             else:
-                st.caption("📖 無金句資料（請確認有模式A資料）")
+                st.caption("無金句資料（請確認模式A的V1/V2 Sheet有資料）")
 
         with col_right:
-            # 文法
+            st.subheader("📐 文法 Grammar")
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.6;">
@@ -1200,6 +1252,15 @@ with tabs[0]:
             
             # 顯示統計
             st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
+            
+            # 除錯資訊（開發時使用，確認後可移除）
+            with st.expander("🔧 除錯資訊"):
+                st.write("模式A檔案:", [f['ref'] for f in all_mode_a])
+                st.write("模式B檔案:", [f['ref'] for f in all_mode_b])
+                if all_mode_a and all_mode_a[0]['v1']:
+                    st.write("V1第一筆欄位:", list(all_mode_a[0]['v1'][0].keys()))
+                if all_mode_b and all_mode_b[0]['w']:
+                    st.write("W Sheet第一筆欄位:", list(all_mode_b[0]['w'][0].keys()))
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
