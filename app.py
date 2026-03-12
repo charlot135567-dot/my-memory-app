@@ -881,9 +881,9 @@ with tabs[0]:
     st.session_state.setdefault("tab1_phrase_index", 15)
     st.session_state.setdefault("tab1_grammar_index", 0)
     st.session_state.setdefault("tab1_verse_index", 0)
-    st.session_state.setdefault("tab1_last_update", dt.datetime.now())
-
-    # 檢查是否需要更新（超過1小時）
+    if "tab1_last_update" not in st.session_state:
+        st.session_state.tab1_last_update = dt.datetime.now()
+    
     time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
         st.session_state.tab1_last_update = dt.datetime.now()
