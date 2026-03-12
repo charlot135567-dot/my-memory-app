@@ -1197,7 +1197,7 @@ with tabs[0]:
             if all_grammar:
                 grammar_html = "<hr style='margin:8px 0;'>".join(all_grammar)
         
-# ============================================================
+        # ============================================================
         # 渲染畫面 - 左側欄位 (整合 V1+V2 橫向單字與多語金句)
         # ============================================================
         col_left, col_right = st.columns([0.67, 0.33])
@@ -1256,20 +1256,22 @@ with tabs[0]:
 
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # --- 3) 金句區塊 (追加 口語訳 + THSV11) ---
-            if v1_r:
-                ref = v1_r.get('Ref.', 'Verse')
-                en = v1_r.get('English（ESV經文）', '')
-                cn = v1_r.get('Chinese經文', '')
-                
-                # 從 V2 抓取指定欄位
-                kj_v = v2_r.get('口語訳', '')
-                th_v = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '')
+        # --- 3) 金句區塊 (請直接更新這一段) ---
+            if 'v1_r' in locals() and v1_r: # 確保變數存在
+                 ref = v1_r.get('Ref.', 'Verse')
+                 en = v1_r.get('English（ESV經文）', '')
+                 cn = v1_r.get('Chinese經文', '')
+        
+                 # 從 v2_r 抓取資料 (這是在單字迴圈那裡產生的)
+                 kj_v = v2_r.get('口語訳', '')
+                 krf_v = v2_r.get('KRF', '') # 增加 KRF
+                 th_v = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '')
 
-                st.markdown(f"**{ref}** {en}")
-                if kj_v: st.markdown(f"🇯🇵 {kj_v}")
-                if th_v: st.markdown(f"🇹🇭 {th_v}")
-                st.markdown(f"{cn}")
+                 st.markdown(f"**{ref}** {en}")
+                 if kj_v: st.markdown(f"🇯🇵 {kj_v}")
+                 if krf_v: st.markdown(f"🇰🇷 {krf_v}") # 照截圖增加韓文金句
+                 if th_v: st.markdown(f"🇹🇭 {th_v}")
+                 st.markdown(f"{cn}")
 
         # --- 右側文法區塊 (移除標題，直接顯示卡片) ---#
         with col_right:
