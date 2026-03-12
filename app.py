@@ -1194,77 +1194,82 @@ with tabs[0]:
                 grammar_html = "<hr style='margin:8px 0;'>".join(all_grammar)
         
         # ============================================================
-        # 渲染畫面
+        # 渲染畫面 - 左側欄位 (Vocabulary, Phrases, Verse)
         # ============================================================
         col_left, col_right = st.columns([0.67, 0.33])
-        
         with col_left:
+            # 1) 單字 Vocabulary (對應 V1 Sheet A + V2 Sheet B)
             st.subheader("🌍 單字 Vocabulary")
-            if vocab_display:
-                for v in vocab_display:
-                    st.markdown(f"• {v}")
-            else:
-                st.caption("無單字資料（請確認模式A的V1/V2 Sheet有Syn/Ant欄位）")
+            if all_mode_a:
+                # 定位當前資料行
+                vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
+                cumulative = 0
+                v_file, r_idx = None, 0
+                for f in all_mode_a:
+                    if cumulative + f['v1_count'] > vocab_idx:
+                        v_file, r_idx = f, vocab_idx - cumulative
+                        break
+                    cumulative += f['v1_count']
+                
+                if v_file:
+                    v1_row = v_file['v1'][r_idx]
+                    v2_row = v_file['v2'][r_idx] if r_idx < len(v_file['v2']) else {}
+                    
+                    # A) V1_Sheet 資料：Syn/Ant
+                    syn_ant = v1_row.get('Syn/Ant', '')
+                    if syn_ant:
+                        for item in re.split(r'[;；/|]', syn_ant):
+                            if item.strip(): st.markdown(f"• {item.strip()}")
+                    
+                    # B) V2_Sheet 資料：多國語言與同反義
+                    if v2_row:
+                        ksy = v2_row.get('Korean Syn/Ant', '')
+                        krf = v2_row.get('KRF', '')
+                        kj  = v2_row.get('口語訳', '')
+                        th  = v2_row.get('THSV11 泰文重要片語', '') or v2_row.get('THSV11', '')
+                        
+                        if ksy: st.markdown(f"• 🇰🇷 **韓文同反義**: {ksy}")
+                        if krf: st.markdown(f"• 🇰🇷 **KRF**: {krf}")
+                        if kj:  st.markdown(f"• 🇯🇵 **口語訳**: {kj}")
+                        if th:  st.markdown(f"• 🇹🇭 **泰文片語**: {th}")
             
             st.divider()
 
+            # 2) 片語 Phrases (對應 W_Sheet 4個維度)
             st.subheader("🔗 片語 Phrases")
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    # 嘗試多種可能的欄位名稱
-                    p = (row.get('Word/Phrase') or 
-                         row.get('Word/Phrase＋Chinese') or 
-                         row.get('Word/phrase') or 
-                         row.get('Word', ''))
-                    c = (row.get('Chinese') or 
-                         row.get('Word/Phrase＋Chinese', '').split()[-1] if row.get('Word/Phrase＋Chinese') else '')
-                    s = (row.get('Synonym') or 
-                         row.get('Synonym+中文對照') or 
-                         row.get('Synonyms', ''))
-                    a = (row.get('Antonym') or 
-                         row.get('Antonym＋中文對照') or 
-                         row.get('Antonyms', ''))
-                    bible_ex = (row.get('全句聖經中英對照例句') or 
-                               row.get('Bible Example') or 
-                               row.get('Example', ''))
+                    p_cn = row.get('Word/Phrase＋Chinese', row.get('Word/Phrase', ''))
+                    p_syn = row.get('Synonym+中文對照', '')
+                    p_ant = row.get('Antonym+中文對照', '')
+                    p_ex = row.get('全句聖經中英對照例句', '')
+
+                    st.markdown(f"🔤 **{p_cn}**")
+                    if p_syn: st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;✨ {p_syn}")
+                    if p_ant: st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;❄️ {p_ant}")
+                    if p_ex: st.caption(f"📖 {p_ex}")
                     
-                    if p:
-                        parts = [f"🔤 **{p}**"]
-                        if s or a:
-                            sa_parts = []
-                            if s: 
-                                sa_parts.append(f"✨ {s}")
-                            if a: 
-                                sa_parts.append(f"❄️ {a}")
-                            parts.append("<br>_" + " | ".join(sa_parts) + "_")
-                        
-                        st.markdown(" ".join(parts), unsafe_allow_html=True)
-                        
-                        if bible_ex:
-                            st.caption(f"📖 {bible_ex}")
-                        
-                        if i < len(w_phrases) - 1:
-                            st.markdown("---")
-            else:
-                st.caption("無片語資料（請確認模式B的W Sheet有資料）")
-                # 除錯資訊
-                if all_mode_b:
-                    st.caption(f"找到 {len(all_mode_b)} 個模式B檔案，但無法讀取片語")
-                    if st.checkbox("顯示除錯資訊"):
-                        for mb in all_mode_b[:2]:
-                            st.write(f"檔案: {mb['ref']}")
-                            if mb['w']:
-                                st.write(f"W Sheet 欄位: {list(mb['w'][0].keys())}")
-                                st.write(f"第一筆資料: {mb['w'][0]}")
+                    if i < len(w_phrases) - 1:
+                        st.markdown("<br>", unsafe_allow_html=True)
 
             st.divider()
 
+            # 3) 金句 Verse (整合 V1 經文與 V2 多語系)
             st.subheader("✨ 金句 Verse")
-            if verse_lines:
-                for v in verse_lines:
-                    st.markdown(v)
-            else:
-                st.caption("無金句資料（請確認模式A的V1/V2 Sheet有資料）")
+            if all_mode_a:
+                # 這裡重用上面的 v_file, v1_row, v2_row 以確保單字與經文同步
+                ref = v1_row.get('Ref.', 'Verse')
+                en = v1_row.get('English（ESV經文）', '')
+                cn = v1_row.get('Chinese經文', '')
+                jp = v2_row.get('口語訳', '')
+                kr = v2_row.get('KRF', '')
+                th_v = v2_row.get('THSV11 泰文重要片語', '') or v2_row.get('THSV11', '')
+
+                st.markdown(f"🇬🇧 **{ref}** {en}")
+                if jp: st.markdown(f"🇯🇵 {jp}")
+                if kr: st.markdown(f"🇰🇷 {kr}")
+                if th_v: st.markdown(f"🇹🇭 {th_v}")
+                st.markdown(f"🇨🇳 {cn}")
 
         with col_right:
             st.subheader("📐 文法 Grammar")
