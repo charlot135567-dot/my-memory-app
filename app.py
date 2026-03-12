@@ -1085,7 +1085,11 @@ with tabs[0]:
                 if verse_file:
                     v1_row = verse_file['v1'][row_idx]
                     v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
-                    
+                    # 增加這幾行抓取 V2 欄位
+                    jp_text = v2_row.get('口語訳', '') 
+                    kr_text = v2_row.get('KRF', '') 
+                    th_text = v2_row.get('THSV11 泰文重要片語', '') or v2_row.get('THSV11', '') # 雙重檢查欄位名
+
                     current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
                     en_text = v1_row.get('English（ESV經文）', '')
                     if not en_text:
