@@ -871,7 +871,7 @@ import os
 from datetime import datetime as dt
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應 TAB4 格式)
+# 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應)
 # ===================================================================
 with tabs[0]:
     import random, re, datetime as dt
@@ -928,7 +928,7 @@ with tabs[0]:
             return rows
 
         # ============================================================
-        # 收集資料（對應 TAB4 的實際欄位名稱）
+        # 收集資料
         # ============================================================
         
         all_mode_a = []
@@ -975,7 +975,7 @@ with tabs[0]:
             # Grammar List（模式B）
             if g_rows:
                 for i, row in enumerate(g_rows):
-                    if row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)') or row.get('Original Sentence＋中文翻譯'):
+                    if row.get('Grammar Rule') or row.get('Analysis & Example') or row.get('Original Sentence'):
                         all_grammar_sources.append({
                             'type': 'B',
                             'ref': ref,
@@ -994,7 +994,6 @@ with tabs[0]:
             if total_vocab_items > 0:
                 vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
                 
-                # 找到對應的檔案和行
                 cumulative = 0
                 vocab_file = None
                 row_idx = 0
@@ -1009,20 +1008,19 @@ with tabs[0]:
                     v1_row = vocab_file['v1'][row_idx]
                     v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
                     
-                    # V1 欄位名稱（根據 TAB4 Prompt）
                     current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
                     v1_syn_ant = v1_row.get('Syn/Ant', '')
                     
-                    # V2 欄位名稱（根據 TAB4 Prompt）
+                    # V2 欄位（根據實際資料調整）
                     v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
-                    v2_thai = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
+                    v2_thai = v2_row.get('THSV11', '') if v2_row else ''
+                    if not v2_thai:
+                        v2_thai = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
                     
-                    # 解析 Syn/Ant
+                    # 解析 Syn/Ant - 支援多種分隔符
                     if v1_syn_ant:
-                        # 分割多個單字項目
-                        entries = [e.strip() for e in re.split(r'[;；/]', v1_syn_ant) if e.strip()]
+                        entries = [e.strip() for e in re.split(r'[;；/|]', v1_syn_ant) if e.strip()]
                         for entry in entries:
-                            # 格式：Word (中文) / Syn (同義) | Ant (反義)
                             vocab_display.append(entry)
                     
                     # 加入韓文同反義
@@ -1042,11 +1040,9 @@ with tabs[0]:
         if all_mode_b:
             total_w_items = sum(f['w_count'] for f in all_mode_b)
             if total_w_items > 0:
-                # 從第16個開始（索引15）
                 start_offset = 15
                 phrase_idx = (st.session_state.tab1_phrase_index + start_offset) % total_w_items
                 
-                # 找到對應的檔案和行
                 cumulative = 0
                 phrase_file = None
                 row_idx = 0
@@ -1061,7 +1057,6 @@ with tabs[0]:
                     w_rows = phrase_file['w']
                     current_phrase_ref = phrase_file['ref']
                     
-                    # 取連續4個
                     for i in range(4):
                         idx = (row_idx + i) % len(w_rows)
                         w_phrases.append(w_rows[idx])
@@ -1091,15 +1086,19 @@ with tabs[0]:
                     v1_row = verse_file['v1'][row_idx]
                     v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
                     
-                    # V1 欄位（根據 TAB4）
                     current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
                     en_text = v1_row.get('English（ESV經文）', '')
+                    if not en_text:
+                        en_text = v1_row.get('English (ESV)', '')
                     cn_text = v1_row.get('Chinese經文', '')
+                    if not cn_text:
+                        cn_text = v1_row.get('Chinese', '')
                     
-                    # V2 欄位（根據 TAB4）
                     jp_text = v2_row.get('口語訳', '') if v2_row else ''
                     kr_text = v2_row.get('KRF', '') if v2_row else ''
-                    th_text = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
+                    th_text = v2_row.get('THSV11', '') if v2_row else ''
+                    if not th_text:
+                        th_text = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
                     
                     if en_text:
                         verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
@@ -1127,10 +1126,13 @@ with tabs[0]:
             all_grammar = []
             
             if g_source['type'] == 'A':
-                # 模式A文法（來自V1 Grammar欄位）
                 g_ref = g_row.get('Ref.', '')
                 g_en = g_row.get('English（ESV經文）', '')
+                if not g_en:
+                    g_en = g_row.get('English (ESV)', '')
                 g_cn = g_row.get('Chinese經文', '')
+                if not g_cn:
+                    g_cn = g_row.get('Chinese', '')
                 g_syn = g_row.get('Syn/Ant', '')
                 g_grammar = g_row.get('Grammar', '')
                 
@@ -1148,41 +1150,48 @@ with tabs[0]:
                     all_grammar.append("<br>".join(header_parts))
                 
                 if g_grammar:
-                    # 格式化文法標記
                     formatted = str(g_grammar)
-                    formatted = formatted.replace('1️⃣', '<br><br><b>📌 分段解析</b><br>')
-                    formatted = formatted.replace('2️⃣', '<br><br><b>🔤 詞性辨析</b><br>')
-                    formatted = formatted.replace('3️⃣', '<br><br><b>📖 修辭與結構</b><br>')
-                    formatted = formatted.replace('4️⃣', '<br><br><b>💡 語意解釋</b><br>')
-                    formatted = formatted.replace('1.', '<br><br><b>📌 分段解析</b><br>')
-                    formatted = formatted.replace('2.', '<br><br><b>🔤 詞性辨析</b><br>')
-                    formatted = formatted.replace('3.', '<br><br><b>📖 修辭與結構</b><br>')
-                    formatted = formatted.replace('4.', '<br><br><b>💡 語意解釋</b><br>')
+                    # 縮小間隔的格式化
+                    formatted = formatted.replace('1️⃣', '<br><b>📌</b> ')
+                    formatted = formatted.replace('2️⃣', '<br><b>🔤</b> ')
+                    formatted = formatted.replace('3️⃣', '<br><b>📖</b> ')
+                    formatted = formatted.replace('4️⃣', '<br><b>💡</b> ')
+                    formatted = formatted.replace('1.', '<br><b>📌</b> ')
+                    formatted = formatted.replace('2.', '<br><b>🔤</b> ')
+                    formatted = formatted.replace('3.', '<br><b>📖</b> ')
+                    formatted = formatted.replace('4.', '<br><b>💡</b> ')
+                    formatted = formatted.replace('<br><br>', '<br>')
                     all_grammar.append(formatted)
                     
             else:
-                # 模式B文法（來自Grammar List）
-                # 欄位名稱根據 TAB4 Prompt
-                orig = g_row.get('Original Sentence＋中文翻譯', '')
-                rule_analysis = g_row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
+                orig = g_row.get('Original Sentence', '')
+                if not orig:
+                    orig = g_row.get('Original Sentence＋中文翻譯', '')
+                rule = g_row.get('Grammar Rule', '')
+                analysis = g_row.get('Analysis & Example', '')
+                if not analysis:
+                    analysis = g_row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
                 
                 if orig:
                     all_grammar.append(f"📝 <b>{orig}</b>")
+                if rule and rule != analysis:
+                    all_grammar.append(f"📌 <b>{rule}</b>")
                 
-                if rule_analysis:
-                    af = str(rule_analysis)
-                    af = af.replace('1️⃣', '<br><br><b>📌 ')
-                    af = af.replace('2️⃣', '<br><br><b>🔤 ')
-                    af = af.replace('3️⃣', '<br><br><b>📖 ')
-                    af = af.replace('4️⃣', '<br><br><b>💡 ')
-                    af = af.replace('1.', '<br><br><b>📌 ')
-                    af = af.replace('2.', '<br><br><b>🔤 ')
-                    af = af.replace('3.', '<br><br><b>📖 ')
-                    af = af.replace('4.', '<br><br><b>💡 ')
+                if analysis:
+                    af = str(analysis)
+                    af = af.replace('1️⃣', '<br><b>📌</b> ')
+                    af = af.replace('2️⃣', '<br><b>🔤</b> ')
+                    af = af.replace('3️⃣', '<br><b>📖</b> ')
+                    af = af.replace('4️⃣', '<br><b>💡</b> ')
+                    af = af.replace('1.', '<br><b>📌</b> ')
+                    af = af.replace('2.', '<br><b>🔤</b> ')
+                    af = af.replace('3.', '<br><b>📖</b> ')
+                    af = af.replace('4.', '<br><b>💡</b> ')
+                    af = af.replace('<br><br>', '<br>')
                     all_grammar.append(af)
             
             if all_grammar:
-                grammar_html = "<hr style='margin:10px 0;'>".join(all_grammar)
+                grammar_html = "<hr style='margin:8px 0;'>".join(all_grammar)
         
         # ============================================================
         # 渲染畫面
@@ -1202,11 +1211,22 @@ with tabs[0]:
             st.subheader("🔗 片語 Phrases")
             if w_phrases:
                 for i, row in enumerate(w_phrases):
-                    # W Sheet 欄位名稱（根據 TAB4 Prompt）
-                    p = row.get('Word/Phrase＋Chinese', '')
-                    s = row.get('Synonym+中文對照', '')
-                    a = row.get('Antonym＋中文對照', '')
-                    bible_ex = row.get('全句聖經中英對照例句', '')
+                    # 嘗試多種可能的欄位名稱
+                    p = (row.get('Word/Phrase') or 
+                         row.get('Word/Phrase＋Chinese') or 
+                         row.get('Word/phrase') or 
+                         row.get('Word', ''))
+                    c = (row.get('Chinese') or 
+                         row.get('Word/Phrase＋Chinese', '').split()[-1] if row.get('Word/Phrase＋Chinese') else '')
+                    s = (row.get('Synonym') or 
+                         row.get('Synonym+中文對照') or 
+                         row.get('Synonyms', ''))
+                    a = (row.get('Antonym') or 
+                         row.get('Antonym＋中文對照') or 
+                         row.get('Antonyms', ''))
+                    bible_ex = (row.get('全句聖經中英對照例句') or 
+                               row.get('Bible Example') or 
+                               row.get('Example', ''))
                     
                     if p:
                         parts = [f"🔤 **{p}**"]
@@ -1227,6 +1247,15 @@ with tabs[0]:
                             st.markdown("---")
             else:
                 st.caption("無片語資料（請確認模式B的W Sheet有資料）")
+                # 除錯資訊
+                if all_mode_b:
+                    st.caption(f"找到 {len(all_mode_b)} 個模式B檔案，但無法讀取片語")
+                    if st.checkbox("顯示除錯資訊"):
+                        for mb in all_mode_b[:2]:
+                            st.write(f"檔案: {mb['ref']}")
+                            if mb['w']:
+                                st.write(f"W Sheet 欄位: {list(mb['w'][0].keys())}")
+                                st.write(f"第一筆資料: {mb['w'][0]}")
 
             st.divider()
 
@@ -1241,7 +1270,7 @@ with tabs[0]:
             st.subheader("📐 文法 Grammar")
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
-                            border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.6;">
+                            border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.4;">
                     {grammar_html}
                 </div>
                 """, unsafe_allow_html=True)
@@ -1250,18 +1279,7 @@ with tabs[0]:
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
             
-            # 顯示統計
             st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
-            
-            # 除錯資訊（開發時使用，確認後可移除）
-            with st.expander("🔧 除錯資訊"):
-                st.write("模式A檔案:", [f['ref'] for f in all_mode_a])
-                st.write("模式B檔案:", [f['ref'] for f in all_mode_b])
-                if all_mode_a and all_mode_a[0]['v1']:
-                    st.write("V1第一筆欄位:", list(all_mode_a[0]['v1'][0].keys()))
-                if all_mode_b and all_mode_b[0]['w']:
-                    st.write("W Sheet第一筆欄位:", list(all_mode_b[0]['w'][0].keys()))
-
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
