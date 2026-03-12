@@ -1193,16 +1193,15 @@ with tabs[0]:
             if all_grammar:
                 grammar_html = "<hr style='margin:8px 0;'>".join(all_grammar)
         
-        # ============================================================
-        # 渲染畫面 - 左側欄位 (單字同排顯示 + 金句修復版)
+# ============================================================
+        # 渲染畫面 - 左側欄位 (整合 V1+V2 橫向單字與多語金句)
         # ============================================================
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 初始化變數，確保下方金句區塊能讀取到資料
             v1_r, v2_r = {}, {}
             
-            # --- 1) 單字區塊 (A+B 整合，改為同排顯示) ---
+            # --- 1) 單字區塊 (追加 Korean Syn/Ant 並維持同排顯示) ---
             if all_mode_a:
                 vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
                 cumulative = 0
@@ -1214,32 +1213,26 @@ with tabs[0]:
                     cumulative += f['v1_count']
                 
                 if v1_r:
-                    # (A) 處理 V1: Syn/Ant 同排串接
-                    s_a = v1_r.get('Syn/Ant', '')
                     vocab_line = []
+                    # (A) V1 同反義
+                    s_a = v1_r.get('Syn/Ant', '')
                     if s_a:
                         items = [i.strip() for i in re.split(r'[;；/|]', s_a) if i.strip()]
-                        for item in items:
-                            vocab_line.append(f"• {item}")
+                        for item in items: vocab_line.append(f"• {item}")
                     
-                    # (B) 處理 V2: 四個多語欄位串接 (並入同排)
-                    if v2_r:
-                        kj  = v2_r.get('口語訳', '')
-                        krf = v2_r.get('KRF', '')
-                        ksy = v2_r.get('Korean Syn/Ant', '')
-                        th  = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '')
-                        
-                        if kj:  vocab_line.append(f"• 🇯🇵 {kj}")
-                        if krf: vocab_line.append(f"• 🇰🇷 {krf}")
-                        if ksy: vocab_line.append(f"• 🇰🇷 {ksy}")
-                        if th:  vocab_line.append(f"• 🇹🇭 {th}")
+                    # (B) V2 追加 Korean Syn/Ant 欄位
+                    ksy = v2_r.get('Korean Syn/Ant', '')
+                    if ksy:
+                        ksy_items = [i.strip() for i in re.split(r'[;；/|]', ksy) if i.strip()]
+                        for item in ksy_items: vocab_line.append(f"• 🇰🇷 {item}")
                     
-                    # 一次性顯示所有單字（達成同排效果）
-                    st.markdown(" ".join(vocab_line))
+                    # 將所有單字並排顯示
+                    if vocab_line:
+                        st.markdown(" ".join(vocab_line))
             
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # --- 2) 片語區塊 (W_Sheet: 同排顯示同反義，去除 abc) ---
+            # --- 2) 片語區塊 (去除 abc, 同反義並排) ---
             if w_phrases:
                 for i, row in enumerate(w_phrases):
                     p_raw = row.get('Word/Phrase＋Chinese', row.get('Word/Phrase', ''))
@@ -1259,24 +1252,22 @@ with tabs[0]:
 
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # --- 3) 金句區塊 (V1 2欄位 + V2 3欄位) ---
-            if v1_r: # 確保單字抓到資料後，金句才顯示
+            # --- 3) 金句區塊 (追加 口語訳 + THSV11) ---
+            if v1_r:
                 ref = v1_r.get('Ref.', 'Verse')
                 en = v1_r.get('English（ESV經文）', '')
                 cn = v1_r.get('Chinese經文', '')
                 
-                # 從 V2 抓取對應 3 欄位
+                # 從 V2 抓取指定欄位
                 kj_v = v2_r.get('口語訳', '')
-                kr_v = v2_r.get('KRF', '')
                 th_v = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '')
 
                 st.markdown(f"**{ref}** {en}")
                 if kj_v: st.markdown(f"🇯🇵 {kj_v}")
-                if kr_v: st.markdown(f"🇰🇷 {kr_v}")
                 if th_v: st.markdown(f"🇹🇭 {th_v}")
                 st.markdown(f"{cn}")
 
-        # --- 右側文法區塊 (移除標題，直接顯示卡片) ---
+        # --- 右側文法區塊 (移除標題，直接顯示卡片) ---#
         with col_right:
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
