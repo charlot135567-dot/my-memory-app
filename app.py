@@ -1022,7 +1022,7 @@ with tabs[0]:
 
             # 3) 金句區 (確保還在 col_left 縮排內)
             if v1_r:
-                ref = v1_r.get('Ref.', 'Verse')
+                ref = v1_r.get('Ref.經文出處', 'Verse')
                 en = v1_r.get('English（ESV經文）', v1_r.get('English (ESV)', ''))
                 st.markdown(f"🇬🇧 **{ref}** {en}")
                 
