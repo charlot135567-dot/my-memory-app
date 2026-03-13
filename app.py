@@ -952,7 +952,7 @@ with tabs[0]:
                     row_idx = idx - cum
                     v1_r = f['v1'][row_idx]
                     v2_r = f['v2'][row_idx] if row_idx < len(f['v2']) else {}
-                    current_vocab_ref = v1_r.get('Ref.經文出處', f['ref'])
+                    current_vocab_ref = v1_r.get('Ref.經文出處', f['ref'])  # ✅ 修改 Ref 欄位
                     break
                 cum += f['v1_count']
 
@@ -982,7 +982,7 @@ with tabs[0]:
             
             lines = []
             if g_source['type'] == 'A':
-                header = f"<b>{g_row.get('Ref.', '')}</b><br>🇬🇧 {g_row.get('English（ESV經文）', g_row.get('English (ESV)', ''))}<br>🇨🇳 {g_row.get('Chinese經文', g_row.get('Chinese', ''))}"
+                header = f"<b>{g_row.get('Ref.經文出處', '')}</b><br>🇬🇧 {g_row.get('English（ESV經文）', g_row.get('English (ESV)', ''))}<br>🇨🇳 {g_row.get('Chinese經文', g_row.get('Chinese', ''))}"  # ✅ 修改 Ref 欄位
                 lines.append(header)
                 content = str(g_row.get('Grammar', ''))
             else:
@@ -1037,7 +1037,8 @@ with tabs[0]:
                 # 抓取 V2 資料
                 jp = get_v2_field(v2_r, "口語")
                 kr = get_v2_field(v2_r, "KRF")
-                th = get_v2_field(v2_r, "THSV")
+                th = get_v2_field(v2_r, "THSV11")  # ✅ 修改 THSV 欄位
+
                 cn = v1_r.get('Chinese經文', v1_r.get('Chinese', ''))
 
                 if jp: st.markdown(f"🇯🇵 {jp}")
@@ -1058,6 +1059,7 @@ with tabs[0]:
             m_left = max(0, (3600 - time_diff) / 60)
             st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_vocab_ref}")
             st.caption(f"文法:{current_grammar_ref} | {m_left:.0f}分後更新")
+            
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
