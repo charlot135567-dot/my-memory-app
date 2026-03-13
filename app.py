@@ -983,53 +983,76 @@ with tabs[0]:
                             'index': i
                         })
         
-        # ============================================================
-        # 1) 單字：從模式A的V1 Syn/Ant + V2 多語言
-        # ============================================================
-        vocab_display = []
-        current_vocab_ref = "N/A"
+# ============================================================
+# 1) 單字：從模式A的V1 Syn/Ant + V2 多語言（完整4欄位）
+# ============================================================
+vocab_display = []
+current_vocab_ref = "N/A"
+
+if all_mode_a:
+    total_vocab_items = sum(f['v1_count'] for f in all_mode_a)
+    if total_vocab_items > 0:
+        vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
         
-        if all_mode_a:
-            total_vocab_items = sum(f['v1_count'] for f in all_mode_a)
-            if total_vocab_items > 0:
-                vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
-                
-                cumulative = 0
-                vocab_file = None
-                row_idx = 0
-                for f in all_mode_a:
-                    if cumulative + f['v1_count'] > vocab_idx:
-                        vocab_file = f
-                        row_idx = vocab_idx - cumulative
+        cumulative = 0
+        vocab_file = None
+        row_idx = 0
+        for f in all_mode_a:
+            if cumulative + f['v1_count'] > vocab_idx:
+                vocab_file = f
+                row_idx = vocab_idx - cumulative
+                break
+            cumulative += f['v1_count']
+        
+        if vocab_file:
+            v1_row = vocab_file['v1'][row_idx]
+            v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
+            
+            current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
+            v1_syn_ant = v1_row.get('Syn/Ant', '')
+            
+            # ========================================
+            # V2 四個欄位完整提取
+            # ========================================
+            # 1. 口語訳（Colloquial Translation）
+            v2_spoken = v2_row.get('口語訳', '') if v2_row else ''
+            
+            # 2. KRF（Korean Root/Form）
+            v2_krf = v2_row.get('KRF', '') if v2_row else ''
+            
+            # 3. Korean Syn/Ant（韓文同反義）
+            v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
+            
+            # 4. THSV11 泰文重要片語（嘗試多種可能的欄位名）
+            v2_thai = ''
+            if v2_row:
+                for col_name in ['THSV11', 'THSV11泰文重要片語', '泰文重要片語', 'Thai']:
+                    if col_name in v2_row and v2_row[col_name]:
+                        v2_thai = v2_row[col_name]
                         break
-                    cumulative += f['v1_count']
-                
-                if vocab_file:
-                    v1_row = vocab_file['v1'][row_idx]
-                    v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
-                    
-                    current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
-                    v1_syn_ant = v1_row.get('Syn/Ant', '')
-                    
-                    # V2 欄位（根據實際資料調整）
-                    v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
-                    v2_thai = v2_row.get('THSV11', '') if v2_row else ''
-                    if not v2_thai:
-                        v2_thai = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
-                    
-                    # 解析 Syn/Ant - 支援多種分隔符
-                    if v1_syn_ant:
-                        entries = [e.strip() for e in re.split(r'[;；/|]', v1_syn_ant) if e.strip()]
-                        for entry in entries:
-                            vocab_display.append(entry)
-                    
-                    # 加入韓文同反義
-                    if v2_korean_syn:
-                        vocab_display.append(f"🇰🇷 {v2_korean_syn}")
-                    
-                    # 加入泰文
-                    if v2_thai:
-                        vocab_display.append(f"🇹🇭 {v2_thai}")
+            
+            # ========================================
+            # 組合顯示內容
+            # ========================================
+            
+            # A) V1 Syn/Ant 解析 - 支援多種分隔符
+            if v1_syn_ant:
+                entries = [e.strip() for e in re.split(r'[;；/|]', v1_syn_ant) if e.strip()]
+                for entry in entries:
+                    vocab_display.append(entry)
+            
+            # B) V2 四個欄位加入顯示
+            if v2_spoken:
+                vocab_display.append(f"💬 {v2_spoken}")  # 口語訳
+            
+            if v2_krf:
+                vocab_display.append(f"📝 KRF: {v2_krf}")  # KRF
+            
+            if v2_korean_syn:
+                vocab_display.append(f"🇰🇷 {v2_korean_syn}")  # Korean Syn/Ant
+            
+            if v2_thai:
+                vocab_display.append(f"🇹🇭 {v2_thai}")  # THSV11 泰文
         
         # ============================================================
         # 2) 片語：只從模式B的W Sheet（第16個開始）
