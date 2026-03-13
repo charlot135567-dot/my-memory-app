@@ -1144,6 +1144,29 @@ if all_mode_a:
             v1_row = verse_file['v1'][row_idx]
             v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
             
+            # ========================================
+            # 🔥 強制除錯輸出 - 確認資料結構
+            # ========================================
+            st.write("=== 🔍 DEBUG 開始 ===")
+            st.write(f"row_idx: {row_idx}")
+            st.write(f"v1_row type: {type(v1_row)}")
+            st.write(f"v2_row type: {type(v2_row)}")
+            st.write(f"v2_row is empty dict: {v2_row == {}}")
+            
+            if v2_row:
+                st.write(f"v2_row keys: {list(v2_row.keys())}")
+                # 嘗試讀取各欄位
+                for key in ['口語訳', 'KRF', 'THSV11 泰文重要片語', 'THSV11']:
+                    value = v2_row.get(key, 'KEY_NOT_FOUND')
+                    st.write(f"  [{key}]: {str(value)[:50] if value else 'EMPTY'}")
+            else:
+                st.write("❌ v2_row 是空的！")
+                st.write(f"verse_file['v2'] length: {len(verse_file['v2'])}")
+                st.write(f"verse_file['v1'] length: {len(verse_file['v1'])}")
+            
+            st.write("=== 🔍 DEBUG 結束 ===")
+            # ========================================
+            
             current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
             
             # V1 欄位
@@ -1154,15 +1177,14 @@ if all_mode_a:
             if not cn_text:
                 cn_text = v1_row.get('Chinese', '')
             
-            # V2 欄位（只定義一次，正確的欄位名稱）
+            # V2 欄位
             jp_text = v2_row.get('口語訳', '') if v2_row else ''
             kr_text = v2_row.get('KRF', '') if v2_row else ''
-            # 泰文欄位：優先檢查 'THSV11 泰文重要片語'（注意空格），再檢查 'THSV11'
             th_text = v2_row.get('THSV11 泰文重要片語', '') if v2_row else ''
             if not th_text:
                 th_text = v2_row.get('THSV11', '') if v2_row else ''
             
-            # 組合金句顯示
+            # 顯示結果
             if en_text:
                 verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
             if jp_text:
