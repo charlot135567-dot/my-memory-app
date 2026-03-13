@@ -1938,225 +1938,279 @@ its part of speech and meaning in this sentence must be clearly identified...等
         
         st.divider()
 
-    # ═══════════════════════════════════════════════════════════════
-    # 主要功能區（保留原 UI）
-    # ═══════════════════════════════════════════════════════════════
-    st.markdown("<h6>📝 AI 分析工作流程</h6>", unsafe_allow_html=True)
-    
-    # STEP 1: 輸入區
-    with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
-        raw_input = st.text_area(
-            "原始輸入",
-            height=200,
-            value=st.session_state.get('raw_input_value', ''),
-            placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
-            label_visibility="collapsed",
-            key="raw_input_temp"
+# ═══════════════════════════════════════════════════════════════
+# 主要功能區（保留原 UI）
+# ═══════════════════════════════════════════════════════════════
+st.markdown("<h6>📝 AI 分析工作流程</h6>", unsafe_allow_html=True)
+
+# STEP 1: 輸入區
+with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
+
+    raw_input = st.text_area(
+        "原始輸入",
+        height=200,
+        value=st.session_state.get('raw_input_value', ''),
+        placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
+        label_visibility="collapsed",
+        key="raw_input_temp"
+    )
+
+    if not st.session_state.is_prompt_generated:
+        if st.button("⚡ 產生完整分析指令", use_container_width=True, type="primary"):
+            generate_full_prompt()
+            st.rerun()
+
+
+# STEP 2: Prompt 產生後顯示
+if st.session_state.is_prompt_generated:
+
+    with st.expander("步驟 2：複製 Prompt 到 AI", expanded=False):
+
+        st.caption("複製以下內容，貼到 GPT/Kimi/Gemini 進行分析")
+
+        components.html(
+            f"""
+            <textarea
+                readonly
+                onclick="this.select()"
+                style="
+                    width:100%;
+                    height:250px;
+                    padding:12px;
+                    font-size:14px;
+                    line-height:1.5;
+                    border-radius:8px;
+                    border:1px solid #ccc;
+                    box-sizing:border-box;
+                    background-color:#f8f9fa;
+                "
+            >{st.session_state.get('main_input_value','')}</textarea>
+            """,
+            height=280
         )
-        
-        if not st.session_state.is_prompt_generated:
-            if st.button("⚡ 產生完整分析指令", use_container_width=True, type="primary"):
-                generate_full_prompt()
-                st.rerun()
 
-    # STEP 2: Prompt 產生後顯示
-    if st.session_state.is_prompt_generated:
-        with st.expander("步驟 2：複製 Prompt 到 AI", expanded=False):
-            st.caption("複製以下內容，貼到 GPT/Kimi/Gemini 進行分析")
-            
-            components.html(
-                f"""
-                <textarea
-                    readonly
-                    onclick="this.select()"
-                    style="
-                        width:100%;
-                        height:250px;
-                        padding:12px;
-                        font-size:14px;
-                        line-height:1.5;
-                        border-radius:8px;
-                        border:1px solid #ccc;
-                        box-sizing:border-box;
-                        background-color:#f8f9fa;
-                    "
-                >{st.session_state.get('main_input_value','')}</textarea>
-                """,
-                height=280
-            )
-            
-            cols = st.columns(2)
-            with cols[0]:
-                st.link_button("🌙 開啟 Kimi", "https://kimi.moonshot.cn", use_container_width=True)
-            with cols[1]:
-                st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
+        cols = st.columns(2)
 
-        # STEP 3: 多工作表收集區（改為 Tab 介面）
-        with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
-            
-            if st.session_state.content_mode == "A":
-                sheet_tabs = st.tabs(["V1 Sheet", "V2 Sheet", "其他補充"])
-                
-                with sheet_tabs[0]:
-                    v1_content = st.text_area(
-                        "貼上 V1 Sheet 內容（Markdown 表格格式）",
-                        value=st.session_state.current_entry.get('v1', ''),
-                        height=300,
-                        key="input_v1_tab"
-                    )
-                    st.session_state.current_entry['v1'] = v1_content
-                    if v1_content and "V1 Sheet" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("V1 Sheet")
-                        st.caption("✅ V1 Sheet 已自動暫存")
-                
-                with sheet_tabs[1]:
-                    v2_content = st.text_area(
-                        "貼上 V2 Sheet 內容（Markdown 表格格式）",
-                        value=st.session_state.current_entry.get('v2', ''),
-                        height=300,
-                        key="input_v2_tab"
-                    )
-                    st.session_state.current_entry['v2'] = v2_content
-                    if v2_content and "V2 Sheet" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("V2 Sheet")
-                        st.caption("✅ V2 Sheet 已自動暫存")
-                
-                with sheet_tabs[2]:
-                    other_content = st.text_area(
-                        "其他補充",
-                        value=st.session_state.current_entry.get('other', ''),
-                        height=200,
-                        key="input_other_tab"
-                    )
-                    st.session_state.current_entry['other'] = other_content
-                    if other_content and "其他補充" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("其他補充")
-                        st.caption("✅ 其他補充 已自動暫存")
-            
-            else:  # Mode B
-                sheet_tabs = st.tabs(["W Sheet", "P Sheet", "Grammar List", "其他補充"])
-                
-                with sheet_tabs[0]:
-                    w_content = st.text_area(
-                        "貼上 W Sheet 內容（Markdown 表格格式）",
-                        value=st.session_state.current_entry.get('w_sheet', ''),
-                        height=300,
-                        key="input_w_tab"
-                    )
-                    st.session_state.current_entry['w_sheet'] = w_content
-                    if w_content and "W Sheet" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("W Sheet")
-                        st.caption("✅ W Sheet 已自動暫存")
-                
-                with sheet_tabs[1]:
-                    p_content = st.text_area(
-                        "貼上 P Sheet 內容（Markdown 表格格式）",
-                        value=st.session_state.current_entry.get('p_sheet', ''),
-                        height=300,
-                        key="input_p_tab"
-                    )
-                    st.session_state.current_entry['p_sheet'] = p_content
-                    if p_content and "P Sheet" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("P Sheet")
-                        st.caption("✅ P Sheet 已自動暫存")
-                
-                with sheet_tabs[2]:
-                    g_content = st.text_area(
-                        "貼上 Grammar List 內容（Markdown 表格格式）",
-                        value=st.session_state.current_entry.get('grammar_list', ''),
-                        height=300,
-                        key="input_g_tab"
-                    )
-                    st.session_state.current_entry['grammar_list'] = g_content
-                    if g_content and "Grammar List" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("Grammar List")
-                        st.caption("✅ Grammar List 已自動暫存")
-                
-                with sheet_tabs[3]:
-                    other_content = st.text_area(
-                        "其他補充",
-                        value=st.session_state.current_entry.get('other', ''),
-                        height=200,
-                        key="input_other_b_tab"
-                    )
-                    st.session_state.current_entry['other'] = other_content
-                    if other_content and "其他補充" not in st.session_state.saved_entries:
-                        st.session_state.saved_entries.append("其他補充")
-                        st.caption("✅ 其他補充 已自動暫存")
-            
-            # 顯示暫存狀態
-            if st.session_state.saved_entries:
-                st.write("📋 已暫存工作表：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
+        with cols[0]:
+            st.link_button("🌙 開啟 Kimi", "https://kimi.moonshot.cn", use_container_width=True)
 
-        # STEP 4: 統一儲存區
-        with st.expander("步驟 4：儲存到資料庫", expanded=True):
-            st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
-            
-            if 'uploaded_to_sheets' not in st.session_state:
-                st.session_state.uploaded_to_sheets = False
-            
-            if st.session_state.uploaded_to_sheets:
-                st.success("✅ 此資料已上傳至 Google Sheets")
-                st.info("請點擊下方「🔄 新的分析」開始下一筆資料")
-                
-                if st.button("🔄 新的分析", key="new_analysis_main", use_container_width=True):
-                    keys_to_clear = [
-                        'is_prompt_generated', 'main_input_value', 'original_text',
-                        'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
-                        'current_entry', 'saved_entries', 'ref_no_input', 'uploaded_to_sheets'
-                    ]
-                    for key in keys_to_clear:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    st.rerun()
-            
-            def get_default_ref():
-                v1_content = st.session_state.current_entry.get('v1', '')
-                if v1_content:
-                    lines = v1_content.strip().split('\n')
-                    for line in lines[1:]:
-                        cols = line.split('\t')
-                        if len(cols) > 0 and cols[0].strip():
-                            return cols[0].strip()
-                
-                w_content = st.session_state.current_entry.get('w_sheet', '')
-                if w_content:
-                    lines = w_content.strip().split('\n')
-                    for line in lines[1:]:
-                        cols = line.split('\t')
-                        if len(cols) > 0 and cols[0].strip():
-                            return cols[0].strip()
-                
-                return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
-            
-            st.markdown("**📁 檔名（可手動修改）**")
-            ref_input = st.text_input(
-                "Ref / 檔名", 
-                value=get_default_ref(),
-                key="ref_no_input"
-            )
-            
-            type_select = st.selectbox(
-                "類型",
-                ["Scripture", "Document", "Vocabulary", "Grammar", "Sermon"],
-                index=0 if st.session_state.content_mode == "A" else 1,
-                key="type_select"
-            )
-            
-            btn_cols = st.columns(2)
+        with cols[1]:
+            st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
 
-            if st.button("🔄 新的分析", key="new_analysis_secondary", use_container_width=True):
+
+    # STEP 3: 多工作表收集區
+    with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
+
+        if st.session_state.content_mode == "A":
+
+            sheet_tabs = st.tabs(["V1 Sheet", "V2 Sheet", "其他補充"])
+
+            with sheet_tabs[0]:
+
+                v1_content = st.text_area(
+                    "貼上 V1 Sheet 內容（Markdown 表格格式）",
+                    value=st.session_state.current_entry.get('v1', ''),
+                    height=300,
+                    key="input_v1_tab"
+                )
+
+                st.session_state.current_entry['v1'] = v1_content
+
+                if v1_content and "V1 Sheet" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("V1 Sheet")
+                    st.caption("✅ V1 Sheet 已自動暫存")
+
+
+            with sheet_tabs[1]:
+
+                v2_content = st.text_area(
+                    "貼上 V2 Sheet 內容（Markdown 表格格式）",
+                    value=st.session_state.current_entry.get('v2', ''),
+                    height=300,
+                    key="input_v2_tab"
+                )
+
+                st.session_state.current_entry['v2'] = v2_content
+
+                if v2_content and "V2 Sheet" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("V2 Sheet")
+                    st.caption("✅ V2 Sheet 已自動暫存")
+
+
+            with sheet_tabs[2]:
+
+                other_content = st.text_area(
+                    "其他補充",
+                    value=st.session_state.current_entry.get('other', ''),
+                    height=200,
+                    key="input_other_tab"
+                )
+
+                st.session_state.current_entry['other'] = other_content
+
+                if other_content and "其他補充" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("其他補充")
+                    st.caption("✅ 其他補充 已自動暫存")
+
+
+        else:
+
+            sheet_tabs = st.tabs(["W Sheet", "P Sheet", "Grammar List", "其他補充"])
+
+
+            with sheet_tabs[0]:
+
+                w_content = st.text_area(
+                    "貼上 W Sheet 內容（Markdown 表格格式）",
+                    value=st.session_state.current_entry.get('w_sheet', ''),
+                    height=300,
+                    key="input_w_tab"
+                )
+
+                st.session_state.current_entry['w_sheet'] = w_content
+
+                if w_content and "W Sheet" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("W Sheet")
+                    st.caption("✅ W Sheet 已自動暫存")
+
+
+            with sheet_tabs[1]:
+
+                p_content = st.text_area(
+                    "貼上 P Sheet 內容（Markdown 表格格式）",
+                    value=st.session_state.current_entry.get('p_sheet', ''),
+                    height=300,
+                    key="input_p_tab"
+                )
+
+                st.session_state.current_entry['p_sheet'] = p_content
+
+                if p_content and "P Sheet" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("P Sheet")
+                    st.caption("✅ P Sheet 已自動暫存")
+
+
+            with sheet_tabs[2]:
+
+                g_content = st.text_area(
+                    "貼上 Grammar List 內容（Markdown 表格格式）",
+                    value=st.session_state.current_entry.get('grammar_list', ''),
+                    height=300,
+                    key="input_g_tab"
+                )
+
+                st.session_state.current_entry['grammar_list'] = g_content
+
+                if g_content and "Grammar List" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("Grammar List")
+                    st.caption("✅ Grammar List 已自動暫存")
+
+
+            with sheet_tabs[3]:
+
+                other_content = st.text_area(
+                    "其他補充",
+                    value=st.session_state.current_entry.get('other', ''),
+                    height=200,
+                    key="input_other_b_tab"
+                )
+
+                st.session_state.current_entry['other'] = other_content
+
+                if other_content and "其他補充" not in st.session_state.saved_entries:
+                    st.session_state.saved_entries.append("其他補充")
+                    st.caption("✅ 其他補充 已自動暫存")
+
+
+        if st.session_state.saved_entries:
+            st.write("📋 已暫存工作表：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
+
+
+    # STEP 4: 儲存區
+    with st.expander("步驟 4：儲存到資料庫", expanded=True):
+
+        st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
+
+        if 'uploaded_to_sheets' not in st.session_state:
+            st.session_state.uploaded_to_sheets = False
+
+
+        if st.session_state.uploaded_to_sheets:
+
+            st.success("✅ 此資料已上傳至 Google Sheets")
+            st.info("請點擊下方「🔄 新的分析」開始下一筆資料")
+
+            if st.button("🔄 新的分析", key="new_analysis_main", use_container_width=True):
+
                 keys_to_clear = [
-                    'is_prompt_generated', 'main_input_value', 'original_text',
-                    'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
-                    'current_entry', 'saved_entries', 'ref_no_input'
+                    'is_prompt_generated','main_input_value','original_text',
+                    'content_mode','raw_input_value','ref_number','raw_input_temp',
+                    'current_entry','saved_entries','ref_no_input','uploaded_to_sheets'
                 ]
+
                 for key in keys_to_clear:
                     if key in st.session_state:
                         del st.session_state[key]
+
                 st.rerun()
-                                
-        # --- [1. 資料封裝] ---
+
+
+        def get_default_ref():
+
+            v1_content = st.session_state.current_entry.get('v1', '')
+
+            if v1_content:
+                lines = v1_content.strip().split('\n')
+                for line in lines[1:]:
+                    cols = line.split('\t')
+                    if len(cols) > 0 and cols[0].strip():
+                        return cols[0].strip()
+
+            w_content = st.session_state.current_entry.get('w_sheet', '')
+
+            if w_content:
+                lines = w_content.strip().split('\n')
+                for line in lines[1:]:
+                    cols = line.split('\t')
+                    if len(cols) > 0 and cols[0].strip():
+                        return cols[0].strip()
+
+            return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+
+
+        st.markdown("**📁 檔名（可手動修改）**")
+
+        ref_input = st.text_input(
+            "Ref / 檔名",
+            value=get_default_ref(),
+            key="ref_no_input"
+        )
+
+
+        type_select = st.selectbox(
+            "類型",
+            ["Scripture", "Document", "Vocabulary", "Grammar", "Sermon"],
+            index=0 if st.session_state.content_mode == "A" else 1,
+            key="type_select"
+        )
+
+
+        btn_cols = st.columns(2)
+
+        if st.button("🔄 新的分析", key="new_analysis_secondary", use_container_width=True):
+
+            keys_to_clear = [
+                'is_prompt_generated','main_input_value','original_text',
+                'content_mode','raw_input_value','ref_number','raw_input_temp',
+                'current_entry','saved_entries','ref_no_input'
+            ]
+
+            for key in keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+
+            st.rerun()
+
         full_data_to_save = {
             "ref": ref_input,
             "original": st.session_state.original_text,
@@ -2172,43 +2226,61 @@ its part of speech and meaning in this sentence must be clearly identified...等
             "mode": st.session_state.content_mode,
             "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
         }
-        # --- [2. 儲存按鈕區] ---
-        # 這裡單獨為儲存按鈕建立一列，與上方的「新的分析」按鈕分開，避免混淆
+
+        # 儲存按鈕
         save_btn_cols = st.columns(2)
 
         with save_btn_cols[0]:
+
             if st.button("💾 僅存本地", key="save_local_final", use_container_width=True):
+
                 if not st.session_state.saved_entries:
                     st.error("請先至少暫存一個工作表！")
+
                 else:
                     try:
                         st.session_state.sentences[ref_input] = full_data_to_save
                         save_sentences(st.session_state.sentences)
                         st.success(f"✅ 已存本地：{ref_input}")
                         st.balloons()
+
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{str(e)}")
 
         with save_btn_cols[1]:
+
             gc, sheet_id = get_google_sheets_client()
+
             if gc and sheet_id:
+
                 if st.button("☁️ 存到雲端", key="save_cloud_final", use_container_width=True, type="primary"):
+
                     if not st.session_state.saved_entries:
                         st.error("請先至少暫存一個工作表！")
+
                     else:
+
                         try:
+
                             success, msg = save_to_google_sheets(full_data_to_save)
+
                             if success:
                                 st.session_state.sentences[ref_input] = full_data_to_save
                                 save_sentences(st.session_state.sentences)
+
                                 st.session_state.uploaded_to_sheets = True
+
                                 st.success(f"✅ 已存 Google Sheets：{ref_input}")
                                 st.balloons()
+
                                 st.rerun()
+
                             else:
                                 st.error(f"❌ Google Sheets 失敗：{msg}")
+
                         except Exception as e:
                             st.error(f"❌ 異常錯誤：{str(e)}")
+
             else:
                 st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
 
