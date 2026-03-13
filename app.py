@@ -1004,12 +1004,13 @@ if all_mode_a:
                 break
             cumulative += f['v1_count']
         
-        if vocab_file:
-            v1_row = vocab_file['v1'][row_idx]
-            v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
-            
-            current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
-            v1_syn_ant = v1_row.get('Syn/Ant', '')
+# 在 vocab_file 確認後加入這段除錯
+if vocab_file:
+    st.write("=== DEBUG INFO ===")
+    st.write(f"V1 row keys: {list(v1_row.keys()) if v1_row else 'None'}")
+    st.write(f"V2 row keys: {list(v2_row.keys()) if v2_row else 'None'}")
+    st.write(f"V2 row type: {type(v2_row)}")
+    st.write(f"V2 row content sample: {str(v2_row)[:500] if v2_row else 'Empty'}")
             
             # ========================================
             # V2 四個欄位提取（使用正確的欄位名稱）
