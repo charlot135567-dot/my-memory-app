@@ -2144,72 +2144,6 @@ its part of speech and meaning in this sentence must be clearly identified...等
             )
             
             btn_cols = st.columns(2)
-            
-            with btn_cols[0]:
-                if st.button("💾 僅存本地", use_container_width=True):
-                    if not st.session_state.saved_entries:
-                        st.error("請先至少暫存一個工作表！")
-                    else:
-                        try:
-                            ref = ref_input
-                            full_data = {
-                                "ref": ref,
-                                "original": st.session_state.original_text,
-                                "prompt": st.session_state.main_input_value,
-                                "v1_content": st.session_state.current_entry['v1'],
-                                "v2_content": st.session_state.current_entry['v2'],
-                                "w_sheet": st.session_state.current_entry['w_sheet'],
-                                "p_sheet": st.session_state.current_entry['p_sheet'],
-                                "grammar_list": st.session_state.current_entry['grammar_list'],
-                                "other": st.session_state.current_entry['other'],
-                                "saved_sheets": st.session_state.saved_entries,
-                                "type": type_select,
-                                "mode": st.session_state.content_mode,
-                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                            }
-                            st.session_state.sentences[ref] = full_data
-                            save_sentences(st.session_state.sentences)
-                            st.success(f"✅ 已存本地：{ref}")
-                            st.balloons()
-                        except Exception as e:
-                            st.error(f"❌ 儲存失敗：{str(e)}")
-            
-            with btn_cols[1]:
-                gc, sheet_id = get_google_sheets_client()
-                if gc and sheet_id:
-                    if st.button("☁️ 存到雲端", use_container_width=True, type="primary"):
-                        if not st.session_state.saved_entries:
-                            st.error("請先至少暫存一個工作表！")
-                        else:
-                            try:
-                                full_data = {
-                                    "ref": ref_input,
-                                    "original": st.session_state.original_text,
-                                    "v1_content": st.session_state.current_entry['v1'],
-                                    "v2_content": st.session_state.current_entry['v2'],
-                                    "w_sheet": st.session_state.current_entry['w_sheet'],
-                                    "p_sheet": st.session_state.current_entry['p_sheet'],
-                                    "grammar_list": st.session_state.current_entry['grammar_list'],
-                                    "other": st.session_state.current_entry['other'],
-                                    "saved_sheets": st.session_state.saved_entries,
-                                    "type": type_select,
-                                    "mode": st.session_state.content_mode,
-                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-                                }
-                                success, msg = save_to_google_sheets(full_data)
-                                if success:
-                                    st.session_state.sentences[ref_input] = full_data
-                                    save_sentences(st.session_state.sentences)
-                                    st.session_state.uploaded_to_sheets = True  # 🔥 鎖定重複上傳
-                                    st.success(f"✅ 已存 Google Sheets：{ref_input}")
-                                    st.balloons()
-                                    st.rerun()  # 🔥 重新整理顯示鎖定狀態
-                                else:
-                                    st.error(f"❌ Google Sheets 失敗：{msg}")
-                            except Exception as e:
-                                st.error(f"❌ Google Sheets 失敗：{str(e)}")
-                else:
-                    st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
 
             if st.button("🔄 新的分析", key="new_analysis_secondary", use_container_width=True):
                 keys_to_clear = [
@@ -2221,6 +2155,62 @@ its part of speech and meaning in this sentence must be clearly identified...等
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
+                                
+        # --- [1. 資料封裝] ---
+        full_data_to_save = {
+            "ref": ref_input,
+            "original": st.session_state.original_text,
+            "prompt": st.session_state.main_input_value,
+            "v1_content": st.session_state.current_entry.get('v1', ''),
+            "v2_content": st.session_state.current_entry.get('v2', ''),
+            "w_sheet": st.session_state.current_entry.get('w_sheet', ''),
+            "p_sheet": st.session_state.current_entry.get('p_sheet', ''),
+            "grammar_list": st.session_state.current_entry.get('grammar_list', ''),
+            "other": st.session_state.current_entry.get('other', ''),
+            "saved_sheets": st.session_state.saved_entries,
+            "type": type_select,
+            "mode": st.session_state.content_mode,
+            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        # --- [2. 儲存按鈕區] ---
+        # 這裡單獨為儲存按鈕建立一列，與上方的「新的分析」按鈕分開，避免混淆
+        save_btn_cols = st.columns(2)
+
+        with save_btn_cols[0]:
+            if st.button("💾 僅存本地", key="save_local_final", use_container_width=True):
+                if not st.session_state.saved_entries:
+                    st.error("請先至少暫存一個工作表！")
+                else:
+                    try:
+                        st.session_state.sentences[ref_input] = full_data_to_save
+                        save_sentences(st.session_state.sentences)
+                        st.success(f"✅ 已存本地：{ref_input}")
+                        st.balloons()
+                    except Exception as e:
+                        st.error(f"❌ 儲存失敗：{str(e)}")
+
+        with save_btn_cols[1]:
+            gc, sheet_id = get_google_sheets_client()
+            if gc and sheet_id:
+                if st.button("☁️ 存到雲端", key="save_cloud_final", use_container_width=True, type="primary"):
+                    if not st.session_state.saved_entries:
+                        st.error("請先至少暫存一個工作表！")
+                    else:
+                        try:
+                            success, msg = save_to_google_sheets(full_data_to_save)
+                            if success:
+                                st.session_state.sentences[ref_input] = full_data_to_save
+                                save_sentences(st.session_state.sentences)
+                                st.session_state.uploaded_to_sheets = True
+                                st.success(f"✅ 已存 Google Sheets：{ref_input}")
+                                st.balloons()
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Google Sheets 失敗：{msg}")
+                        except Exception as e:
+                            st.error(f"❌ 異常錯誤：{str(e)}")
+            else:
+                st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
 
     # 儲存狀態顯示區
     st.divider()
