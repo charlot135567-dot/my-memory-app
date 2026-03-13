@@ -1096,59 +1096,60 @@ if vocab_file:
                         idx = (row_idx + i) % len(w_rows)
                         w_phrases.append(w_rows[idx])
         
-        # ============================================================
-        # 3) 金句：從模式A的V1 + V2 多語言
-        # ============================================================
-        verse_lines = []
-        current_verse_ref = "N/A"
-        
-        if all_mode_a:
-            total_verse_items = sum(f['v1_count'] for f in all_mode_a)
-            if total_verse_items > 0:
-                verse_idx = st.session_state.tab1_verse_index % total_verse_items
-                
-                cumulative = 0
-                verse_file = None
-                row_idx = 0
-                for f in all_mode_a:
-                    if cumulative + f['v1_count'] > verse_idx:
-                        verse_file = f
-                        row_idx = verse_idx - cumulative
-                        break
-                    cumulative += f['v1_count']
-                
-                if verse_file:
-                    v1_row = verse_file['v1'][row_idx]
-                    v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
-                    # 增加這幾行抓取 V2 欄位
-                    jp_text = v2_row.get('口語訳', '') 
-                    kr_text = v2_row.get('KRF', '') 
-                    th_text = v2_row.get('THSV11 泰文重要片語', '') or v2_row.get('THSV11', '') # 雙重檢查欄位名
+# ============================================================
+# 3) 金句：從模式A的V1 + V2 多語言
+# ============================================================
+verse_lines = []
+current_verse_ref = "N/A"
 
-                    current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
-                    en_text = v1_row.get('English（ESV經文）', '')
-                    if not en_text:
-                        en_text = v1_row.get('English (ESV)', '')
-                    cn_text = v1_row.get('Chinese經文', '')
-                    if not cn_text:
-                        cn_text = v1_row.get('Chinese', '')
-                    
-                    jp_text = v2_row.get('口語訳', '') if v2_row else ''
-                    kr_text = v2_row.get('KRF', '') if v2_row else ''
-                    th_text = v2_row.get('THSV11', '') if v2_row else ''
-                    if not th_text:
-                        th_text = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
-                    
-                    if en_text:
-                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
-                    if jp_text:
-                        verse_lines.append(f"🇯🇵 {jp_text}")
-                    if kr_text:
-                        verse_lines.append(f"🇰🇷 {kr_text}")
-                    if th_text:
-                        verse_lines.append(f"🇹🇭 {th_text}")
-                    if cn_text:
-                        verse_lines.append(f"🇨🇳 {cn_text}")
+if all_mode_a:
+    total_verse_items = sum(f['v1_count'] for f in all_mode_a)
+    if total_verse_items > 0:
+        verse_idx = st.session_state.tab1_verse_index % total_verse_items
+        
+        cumulative = 0
+        verse_file = None
+        row_idx = 0
+        for f in all_mode_a:
+            if cumulative + f['v1_count'] > verse_idx:
+                verse_file = f
+                row_idx = verse_idx - cumulative
+                break
+            cumulative += f['v1_count']
+        
+        if verse_file:
+            v1_row = verse_file['v1'][row_idx]
+            v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
+            
+            current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
+            
+            # V1 欄位
+            en_text = v1_row.get('English（ESV經文）', '')
+            if not en_text:
+                en_text = v1_row.get('English (ESV)', '')
+            cn_text = v1_row.get('Chinese經文', '')
+            if not cn_text:
+                cn_text = v1_row.get('Chinese', '')
+            
+            # V2 欄位（只定義一次，正確的欄位名稱）
+            jp_text = v2_row.get('口語訳', '') if v2_row else ''
+            kr_text = v2_row.get('KRF', '') if v2_row else ''
+            # 泰文欄位：優先檢查 'THSV11 泰文重要片語'（注意空格），再檢查 'THSV11'
+            th_text = v2_row.get('THSV11 泰文重要片語', '') if v2_row else ''
+            if not th_text:
+                th_text = v2_row.get('THSV11', '') if v2_row else ''
+            
+            # 組合金句顯示
+            if en_text:
+                verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+            if jp_text:
+                verse_lines.append(f"🇯🇵 {jp_text}")
+            if kr_text:
+                verse_lines.append(f"🇰🇷 {kr_text}")
+            if th_text:
+                verse_lines.append(f"🇹🇭 {th_text}")
+            if cn_text:
+                verse_lines.append(f"🇨🇳 {cn_text}")
         
         # ============================================================
         # 4) 文法：從所有來源輪流
