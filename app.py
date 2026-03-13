@@ -912,7 +912,13 @@ with tabs[0]:
                 while len(values) < len(headers): values.append('')
                 rows.append({header: values[i].strip() for i, header in enumerate(headers)})
             return rows
-
+        def normalize_keys(row):
+            result = {}
+            for k, v in row.items():
+                clean_k = k.replace(' ', '') if k else k  # 去除所有空格
+                result[clean_k] = v
+            return result
+    
         # --- 收集資料與分類 ---
         all_mode_a = []
         all_mode_b = []
