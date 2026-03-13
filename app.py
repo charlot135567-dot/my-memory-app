@@ -1351,7 +1351,7 @@ with tabs[2]:
                         for row in reader:
                             # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
                             all_verses.append({
-                                'ref': row.get('Ref. 經文出處', ''),
+                                'ref': row.get('Ref.經文出處', ''),
                                 'english': row.get('English（ESV經文）', ''),
                                 'chinese': row.get('Chinese經文', '')
                             })
