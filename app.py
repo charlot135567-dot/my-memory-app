@@ -952,7 +952,7 @@ with tabs[0]:
                     row_idx = idx - cum
                     v1_r = f['v1'][row_idx]
                     v2_r = f['v2'][row_idx] if row_idx < len(f['v2']) else {}
-                    current_vocab_ref = v1_r.get('Ref.', f['ref'])
+                    current_vocab_ref = v1_r.get('Ref.經文出處', f['ref'])
                     break
                 cum += f['v1_count']
 
