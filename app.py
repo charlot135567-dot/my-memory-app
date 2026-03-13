@@ -1142,29 +1142,23 @@ if all_mode_a:
         
         if verse_file:
             v1_row = verse_file['v1'][row_idx]
-            v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
+            
+            # 🔥 關鍵修改：解析 V2 內容
+            v2_content = verse_file.get('v2_content', '')  # 取得原始 V2 文字
+            v2_parsed = parse_v2_content(v2_content)  # 解析成字典列表
+            
+            # 取得對應的 V2 行
+            v2_row = v2_parsed[row_idx] if row_idx < len(v2_parsed) else {}
             
             # ========================================
-            # 🔥 強制除錯輸出 - 確認資料結構
+            # 🔥 DEBUG 輸出（確認問題解決後可刪除）
             # ========================================
-            st.write("=== 🔍 DEBUG 開始 ===")
-            st.write(f"row_idx: {row_idx}")
-            st.write(f"v1_row type: {type(v1_row)}")
-            st.write(f"v2_row type: {type(v2_row)}")
-            st.write(f"v2_row is empty dict: {v2_row == {}}")
-            
-            if v2_row:
-                st.write(f"v2_row keys: {list(v2_row.keys())}")
-                # 嘗試讀取各欄位
-                for key in ['口語訳', 'KRF', 'THSV11 泰文重要片語', 'THSV11']:
-                    value = v2_row.get(key, 'KEY_NOT_FOUND')
-                    st.write(f"  [{key}]: {str(value)[:50] if value else 'EMPTY'}")
-            else:
-                st.write("❌ v2_row 是空的！")
-                st.write(f"verse_file['v2'] length: {len(verse_file['v2'])}")
-                st.write(f"verse_file['v1'] length: {len(verse_file['v1'])}")
-            
-            st.write("=== 🔍 DEBUG 結束 ===")
+            st.write("=== DEBUG ===")
+            st.write(f"v2_content 前100字: {str(v2_content)[:100]}...")
+            st.write(f"v2_parsed 筆數: {len(v2_parsed)}")
+            st.write(f"當前 row_idx: {row_idx}")
+            st.write(f"v2_row: {v2_row}")
+            st.write("=============")
             # ========================================
             
             current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
@@ -1177,7 +1171,7 @@ if all_mode_a:
             if not cn_text:
                 cn_text = v1_row.get('Chinese', '')
             
-            # V2 欄位
+            # V2 欄位（現在可以正確讀取了！）
             jp_text = v2_row.get('口語訳', '') if v2_row else ''
             kr_text = v2_row.get('KRF', '') if v2_row else ''
             th_text = v2_row.get('THSV11 泰文重要片語', '') if v2_row else ''
