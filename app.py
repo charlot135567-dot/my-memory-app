@@ -1285,7 +1285,7 @@ with tabs[1]:
                 
                 # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
                 # 避免使用全形括號在 f-string 中，改用變數
-                verse_ref = v1_row.get('Ref. 經文出處', ref)
+                verse_ref = v1_row.get('Ref.經文出處', ref)
                 en = v1_row.get('English（ESV經文）', '')  
                 cn = v1_row.get('Chinese經文', '')
                 
