@@ -984,7 +984,7 @@ with tabs[0]:
                         })
         
 # ============================================================
-# 1) 單字：從模式A的V1 Syn/Ant + V2 多語言（完整4欄位）
+# 1) 單字：從模式A的V1 Syn/Ant + V2 多語言
 # ============================================================
 vocab_display = []
 current_vocab_ref = "N/A"
@@ -1004,13 +1004,36 @@ if all_mode_a:
                 break
             cumulative += f['v1_count']
         
-# 在 vocab_file 確認後加入這段除錯
-if vocab_file:
-    st.write("=== DEBUG INFO ===")
-    st.write(f"V1 row keys: {list(v1_row.keys()) if v1_row else 'None'}")
-    st.write(f"V2 row keys: {list(v2_row.keys()) if v2_row else 'None'}")
-    st.write(f"V2 row type: {type(v2_row)}")
-    st.write(f"V2 row content sample: {str(v2_row)[:500] if v2_row else 'Empty'}")
+        if vocab_file:
+            v1_row = vocab_file['v1'][row_idx]
+            v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
+            
+            current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
+            v1_syn_ant = v1_row.get('Syn/Ant', '')
+            
+            # V2 四個欄位（正確欄位名稱）
+            v2_spoken = v2_row.get('口語訳', '') if v2_row else ''
+            v2_krf = v2_row.get('KRF', '') if v2_row else ''
+            v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
+            v2_thai = v2_row.get('THSV11 泰文重要片語', '') if v2_row else ''
+            if not v2_thai:
+                v2_thai = v2_row.get('THSV11', '') if v2_row else ''
+            
+            # V1 Syn/Ant 解析
+            if v1_syn_ant:
+                entries = [e.strip() for e in re.split(r'[;；/|]', v1_syn_ant) if e.strip()]
+                for entry in entries:
+                    vocab_display.append(entry)
+            
+            # V2 欄位加入顯示
+            if v2_spoken:
+                vocab_display.append(f"🇯🇵 {v2_spoken[:100]}{'...' if len(v2_spoken) > 100 else ''}")
+            if v2_krf:
+                vocab_display.append(f"📝 KRF: {v2_krf}")
+            if v2_korean_syn:
+                vocab_display.append(f"🇰🇷 {v2_korean_syn}")
+            if v2_thai:
+                vocab_display.append(f"🇹🇭 {v2_thai}")
             
             # ========================================
             # V2 四個欄位提取（使用正確的欄位名稱）
