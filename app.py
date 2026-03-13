@@ -1012,24 +1012,28 @@ if all_mode_a:
             v1_syn_ant = v1_row.get('Syn/Ant', '')
             
             # ========================================
-            # V2 四個欄位完整提取
+            # V2 四個欄位提取（使用正確的欄位名稱）
             # ========================================
-            # 1. 口語訳（Colloquial Translation）
+            
+            # 1. 口語訳（日語口語翻譯）
             v2_spoken = v2_row.get('口語訳', '') if v2_row else ''
             
-            # 2. KRF（Korean Root/Form）
+            # 2. KRF（韓語羅馬拼音/詞根）
             v2_krf = v2_row.get('KRF', '') if v2_row else ''
             
-            # 3. Korean Syn/Ant（韓文同反義）
+            # 3. Korean Syn/Ant（韓文同反義詞）
             v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
             
-            # 4. THSV11 泰文重要片語（嘗試多種可能的欄位名）
-            v2_thai = ''
-            if v2_row:
-                for col_name in ['THSV11', 'THSV11泰文重要片語', '泰文重要片語', 'Thai']:
-                    if col_name in v2_row and v2_row[col_name]:
-                        v2_thai = v2_row[col_name]
-                        break
+            # 4. THSV11 泰文重要片語（注意：欄位名稱包含空格）
+            v2_thai = v2_row.get('THSV11 泰文重要片語', '') if v2_row else ''
+            
+            # ========================================
+            # 除錯輸出（開發時使用，確認資料有讀取到）
+            # ========================================
+            # st.write(f"Debug - 口語訳: {v2_spoken[:50] if v2_spoken else 'None'}...")
+            # st.write(f"Debug - KRF: {v2_krf[:50] if v2_krf else 'None'}...")
+            # st.write(f"Debug - Korean Syn/Ant: {v2_korean_syn[:50] if v2_korean_syn else 'None'}...")
+            # st.write(f"Debug - THSV11: {v2_thai[:50] if v2_thai else 'None'}...")
             
             # ========================================
             # 組合顯示內容
@@ -1041,18 +1045,25 @@ if all_mode_a:
                 for entry in entries:
                     vocab_display.append(entry)
             
-            # B) V2 四個欄位加入顯示
+            # B) V2 四個欄位加入顯示（依序排列）
+            
+            # 口語訳 - 日語（使用 💬 或 🇯🇵 標記）
             if v2_spoken:
-                vocab_display.append(f"💬 {v2_spoken}")  # 口語訳
+                # 只顯示前100字避免過長，或根據需求調整
+                display_text = v2_spoken[:120] + "..." if len(v2_spoken) > 120 else v2_spoken
+                vocab_display.append(f"🇯🇵 {display_text}")
             
+            # KRF - 韓語羅馬拼音
             if v2_krf:
-                vocab_display.append(f"📝 KRF: {v2_krf}")  # KRF
+                vocab_display.append(f"📝 KRF: {v2_krf}")
             
+            # Korean Syn/Ant - 韓文同反義
             if v2_korean_syn:
-                vocab_display.append(f"🇰🇷 {v2_korean_syn}")  # Korean Syn/Ant
+                vocab_display.append(f"🇰🇷 {v2_korean_syn}")
             
+            # THSV11 - 泰文重要片語
             if v2_thai:
-                vocab_display.append(f"🇹🇭 {v2_thai}")  # THSV11 泰文
+                vocab_display.append(f"🇹🇭 {v2_thai}")# THSV11 泰文
         
         # ============================================================
         # 2) 片語：只從模式B的W Sheet（第16個開始）
