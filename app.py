@@ -1020,25 +1020,33 @@ with tabs[0]:
 
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # 3) 金句區 (橫向多語顯示 - 這裡就是您截圖中的底端部分)
+            # 3) 金句區 (確保還在 col_left 縮排內)
             if v1_r:
                 ref = v1_r.get('Ref.', 'Verse')
                 en = v1_r.get('English（ESV經文）', v1_r.get('English (ESV)', ''))
                 st.markdown(f"🇬🇧 **{ref}** {en}")
                 
-                # 抓取 V2 欄位 (口語訳, KRF, THSV11)
-                kj_v = v2_r.get('口語訳', '')
-                krf_v = v2_r.get('KRF', '') 
-                th_v = v2_r.get('THSV11 泰文重要片語', v2_r.get('THSV11', ''))
-                cn_v = v1_r.get('Chinese經文', v1_r.get('Chinese', ''))
+                # 定義模糊搜尋函數 (放在這裡可確保抓到當下的 v2_r)
+                def get_v2_field(row, keyword):
+                    if not row: return ""
+                    for key in row.keys():
+                        if keyword in str(key): 
+                            return row[key]
+                    return ""
 
-                if kj_v: st.markdown(f"🇯🇵 {kj_v}")
-                if krf_v: st.markdown(f"🇰🇷 {krf_v}")
-                if th_v: st.markdown(f"🇹🇭 {th_v}")
-                if cn_v: st.markdown(f"🇨🇳 {cn_v}")
+                # 抓取 V2 資料
+                jp = get_v2_field(v2_r, "口語")
+                kr = get_v2_field(v2_r, "KRF")
+                th = get_v2_field(v2_r, "THSV")
+                cn = v1_r.get('Chinese經文', v1_r.get('Chinese', ''))
+
+                if jp: st.markdown(f"🇯🇵 {jp}")
+                if kr: st.markdown(f"🇰🇷 {kr}")
+                if th: st.markdown(f"🇹🇭 {th}")
+                if cn: st.markdown(f"🇨🇳 {cn}")
 
         with col_right:
-            # 右側文法卡片
+            # 右側文法卡片 (保持原本內容)
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:450px; font-size:13px; line-height:1.4;">
