@@ -1,27 +1,19 @@
-# ===================================================================
-# 0. 套件 & 全域函式（頂端）
-# ===================================================================
-import streamlit as st
-import pandas as pd
-import os
-import re
-import json
-import base64
-import random
-import csv
-import requests
-import toml
-import io
-from datetime import datetime as dt, timedelta, time  # 增加 time
-import datetime                      # 如果有舊程式碼用到 datetime.xxx 則保留
 
-# 外部 API 與地圖/組件
+
+# ===================================================================
+# 0. 套件 & 全域函式（一定放最頂）
+# ===================================================================
+import streamlit as st  
+import os, datetime as dt, pandas as pd, io, json, re
+import requests
+import base64
 import gspread
 from google.oauth2.service_account import Credentials
-from streamlit_calendar import calendar
-import streamlit.components.v1 as components
 from io import StringIO
+import csv
+import toml
 
+# ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # ---------- 診斷：檢查 secrets ----------
@@ -417,7 +409,7 @@ def load_sentences_from_google_sheets():
                             "grammar_list": "",
                             "other": "",
                             "saved_sheets": ["V1 Sheet"],
-                            "date_added": dt.now().strftime("%Y-%m-%d %H:%M")
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                     # 組合資料（第2欄開始是實際資料）
                     row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
@@ -471,7 +463,7 @@ def load_sentences_from_google_sheets():
                             "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
                             "other": "",
                             "saved_sheets": ["W Sheet"],
-                            "date_added": dt.now().strftime("%Y-%m-%d %H:%M")
+                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                     row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                     all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
@@ -665,7 +657,7 @@ def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
         st.session_state.analysis_history = []
     st.session_state.analysis_history.append({
-        "date": dt.now().strftime("%Y-%m-%d %H:%M"),
+        "date": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
         "result": result
     })
@@ -684,7 +676,7 @@ def to_excel(result: dict) -> bytes:
                 len(result.get("words", [])),
                 len(result.get("phrases", [])),
                 len(result.get("grammar", [])),
-                dt.now().strftime("%Y-%m-%d")
+                dt.date.today().strftime("%Y-%m-%d")
             ]
         })
         stats.to_excel(writer, sheet_name="統計", index=False)
@@ -696,7 +688,7 @@ if 'todo' not in st.session_state:
 if 'favorite_sentences' not in st.session_state:
     st.session_state.favorite_sentences = load_favorites()
 if 'sel_date' not in st.session_state:
-    st.session_state.sel_date = str(dt.now().date())
+    st.session_state.sel_date = str(dt.date.today())
 if 'cal_key' not in st.session_state:
     st.session_state.cal_key = 0
 if 'active_del_id' not in st.session_state:
@@ -715,6 +707,11 @@ if 'sentences' not in st.session_state:
 # ===================================================================
 # 1. 側邊欄（簡化版）
 # ===================================================================
+
+import datetime
+import requests
+import json
+
 # 圖片 URL
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
@@ -731,6 +728,7 @@ IMG_URLS = {
 # ---------- 側邊欄開始 ----------
 with st.sidebar:
     # ===== 每日韓文鼓勵話（輪播）+ Mashimaro（最頂部）=====
+    
     quotes = [
         "당신은 하나님의 소중한 보물입니다 💎",
         "오늘도 당신을 사랑하십니다 ❤️",
@@ -743,7 +741,7 @@ with st.sidebar:
         "사랑은 언제나 승리합니다 💕",
         "당신의 꿈을 응원합니다 🌟",
     ]
-    today_index = dt.now().weekday() % len(quotes)
+    today_index = datetime.date.today().weekday() % len(quotes)
     korean_text = quotes[today_index]
     
     # 顯示韓文
@@ -866,22 +864,31 @@ st.markdown("""
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
+import streamlit as st
+import pandas as pd
+import re
+import random
+import base64
+import os
+from datetime import datetime as dt
+
 # ===================================================================
 # 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應)
 # ===================================================================
 with tabs[0]:
-    
+    import random, re, datetime as dt
+
     # --- Session State ---
     st.session_state.setdefault("tab1_vocab_index", 0)
     st.session_state.setdefault("tab1_phrase_index", 15)
     st.session_state.setdefault("tab1_grammar_index", 0)
     st.session_state.setdefault("tab1_verse_index", 0)
     if "tab1_last_update" not in st.session_state:
-        st.session_state.tab1_last_update = dt.now()
+        st.session_state.tab1_last_update = dt.datetime.now()
     
-    time_diff = (dt.now() - st.session_state.tab1_last_update).total_seconds()
+    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
-        st.session_state.tab1_last_update = dt.now()
+        st.session_state.tab1_last_update = dt.datetime.now()
         st.session_state.tab1_vocab_index += 1
         st.session_state.tab1_phrase_index += 4
         st.session_state.tab1_grammar_index += 1
@@ -1283,21 +1290,30 @@ with tabs[0]:
             
             st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版完整可貼）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
 with tabs[1]:
+    import datetime as dt, re, os, json
+    from streamlit_calendar import calendar
+    from io import StringIO
+    import csv
 
-    # ---------- 全局CSS：壓縮所有間距 ----------
+    # 全局CSS：壓縮所有間距
     st.markdown("""
         <style>
+        /* 壓縮所有元素間距 */
         div[data-testid="stVerticalBlock"] > div {padding: 0px !important; margin: 0px !important;}
         div[data-testid="stVerticalBlock"] > div > div {padding: 0px !important; margin: 0px !important;}
         p {margin: 0px !important; padding: 0px !important; line-height: 1.2 !important;}
         .stMarkdown {margin: 0px !important; padding: 0px !important;}
+        /* 壓縮按鈕 */
         .stButton button {padding: 0px 4px !important; min-height: 24px !important; font-size: 12px !important; margin: 0px !important;}
+        /* 壓縮分隔線 */
         hr {margin: 2px 0 !important; padding: 0 !important;}
+        /* 壓縮expander */
         div[data-testid="stExpander"] {margin: 2px 0 !important;}
         div[data-testid="stExpander"] > div {padding: 0px 8px !important;}
+        /* 壓縮columns間距 */
         div[data-testid="column"] {padding: 0px 2px !important;}
         </style>
     """, unsafe_allow_html=True)
@@ -1340,7 +1356,7 @@ with tabs[1]:
     if "favorite_sentences" not in st.session_state:
         st.session_state.favorite_sentences = load_favorites()
     if "sel_date" not in st.session_state:
-        st.session_state.sel_date = str(dt.now().date())
+        st.session_state.sel_date = str(dt.date.today())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
     if "active_del_id" not in st.session_state:
@@ -1375,15 +1391,16 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 三日清單 ----------
+    # ---------- 3. 三日清單（修正：顯示選中日期的前後一天）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
-        base_date = dt.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
-        base_date = dt.now().date()
+        base_date = dt.date.today()
 
-    dates_to_show = [base_date - timedelta(days=1), base_date, base_date + timedelta(days=1)]
+    # 顯示選中日期及其前後各一天（共3天）
+    dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
     
     has_todo = False
     for d_obj in dates_to_show:
@@ -1397,6 +1414,7 @@ with tabs[1]:
                 title = item.get("title", "") if isinstance(item, dict) else str(item)
                 time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
 
+                # 極緊湊布局
                 c1, c2, c3 = st.columns([0.3, 8, 1.2])
                 
                 with c1:
@@ -1405,6 +1423,7 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
+                    # 使用html壓縮行距
                     st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
 
                 with c3:
@@ -1417,6 +1436,7 @@ with tabs[1]:
                             st.session_state.cal_key += 1
                             st.session_state.active_del_id = None
                             st.rerun()
+                # 每個項目後極小間距
                 st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
     
     if not has_todo:
@@ -1429,7 +1449,7 @@ with tabs[1]:
             with c1:
                 in_date = st.date_input("日期", base_date)
             with c2:
-                in_time = st.time_input("時間", time(9, 0))
+                in_time = st.time_input("時間", dt.time(9, 0))
             in_title = st.text_input("待辦事項（可含 Emoji）")
             
             if st.form_submit_button("💾 儲存"):
@@ -1443,56 +1463,77 @@ with tabs[1]:
                     st.rerun()
 
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
-
-    # ---------- 5. 時段金句 ----------
+    
+    # ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
+    
     sentences = st.session_state.get('sentences', {})
-
+    
+    # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
     all_verses = []
-    for ref in weighted_pool[:10]:
-        data = sentences[ref]
-        v1_content = data.get('v1_content', '')
-        if v1_content:
-            try:
-                cleaned = v1_content.strip()
-                lines = []
-                for line in cleaned.split('\n'):
-                    line = line.strip()
-                    if not line or re.match(r'^[\|\-\s:]+$', line):
+    
+    for ref, data in sentences.items():
+        # 修正問題1：確保資料為字串，避免 None
+        v1_content = data.get('v1_content', '') or ''
+        v2_content = data.get('v2_content', '') or ''
+        
+        if not v1_content:
+            continue
+            
+        try:
+            # 修正問題3：使用與 TAB1 相同的 parse_csv 邏輯處理 Tab 分隔格式
+            def parse_csv_tab(content):
+                if not content or not isinstance(content, str) or not content.strip():
+                    return []
+                lines = content.strip().split('\n')
+                if len(lines) < 1:
+                    return []
+                headers = [h.strip() for h in lines[0].split('\t')]
+                rows = []
+                for line in lines[1:]:
+                    if not line.strip():
                         continue
-                    if line.startswith('|'):
-                        line = line[1:]
-                    if line.endswith('|'):
-                        line = line[:-1]
-                    cells = [c.strip() for c in line.split('|')]
-                    lines.append('\t'.join(cells))
-                if not lines:
-                    continue
-                reader = csv.DictReader(lines, delimiter='\t')
-                for row in reader:
-                    clean_row = {k.strip().replace(' ', ''): v.strip() for k, v in row.items() if k}
-                    verse_ref = (clean_row.get('Ref.經文出處', '') or clean_row.get('Ref.', '') or ref)
-                    english = (clean_row.get('English（ESV經文）', '') or clean_row.get('English(ESV)', '') or clean_row.get('English', ''))
-                    chinese = (clean_row.get('Chinese經文', '') or clean_row.get('Chinese', ''))
-                    if english or chinese:
-                        all_verses.append({'ref': verse_ref, 'english': english, 'chinese': chinese})
-            except Exception as e:
-                st.error(f"解析錯誤: {e}")
-                continue
-
-    if all_verses:
-        verse = random.choice(all_verses)
-        st.markdown(f"**{verse['ref']}**")
-        st.markdown(verse["english"])
-        if verse["chinese"]:
-            st.markdown(verse["chinese"])
-    else:
-        st.caption("尚未載入經文資料")
+                    cells = [c.strip() for c in line.split('\t')]
+                    while len(cells) < len(headers):
+                        cells.append('')
+                    row_dict = {}
+                    for i, header in enumerate(headers):
+                        cell_value = cells[i] if i < len(cells) else ''
+                        cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
+                        row_dict[header] = cell_value
+                    if any(v.strip() for v in row_dict.values()):
+                        rows.append(row_dict)
+                return rows
+            
+            v1_rows = parse_csv_tab(v1_content)
+            v2_rows = parse_csv_tab(v2_content) if v2_content else []
+            
+            # 修正問題3：確保 V1 和 V2 資料列正確對應
+            for i, v1_row in enumerate(v1_rows):
+                v2_row = v2_rows[i] if i < len(v2_rows) else {}
+                
+                # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
+                # 避免使用全形括號在 f-string 中，改用變數
+                verse_ref = v1_row.get('Ref. 經文出處', ref)
+                en = v1_row.get('English（ESV經文）', '')  
+                cn = v1_row.get('Chinese經文', '')
+                
+                # 修正問題3：V2 欄位名稱與 TAB1 一致
+                jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
+                kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
+                th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
+        except Exception as e:  # ← 補上這個 except 區塊！
+            st.error(f"解析資料時發生錯誤: {e}")
+            st.exception(e)  
             
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
+    import csv
+    import random
+    import re
+    from io import StringIO
     
     # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
@@ -1657,7 +1698,8 @@ with tabs[2]:
 # 6. TAB4 ─ AI 控制台 + 資料庫管理（保留完整 UI）
 # ===================================================================
 with tabs[3]:
-    
+    import streamlit.components.v1 as components
+
     # ═══════════════════════════════════════════════════════════════
     # 🔥 關鍵：確保資料已載入（只執行一次）
     # ═══════════════════════════════════════════════════════════════
@@ -1861,7 +1903,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
-        st.session_state.ref_number = f"REF_{dt.now().strftime('%m%d%H%M')}"
+        st.session_state.ref_number = f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
         st.session_state.current_entry = {
             'v1': '', 'v2': '', 'w_sheet': '', 
             'p_sheet': '', 'grammar_list': '', 'other': ''
@@ -1878,7 +1920,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
     with quick_cols[0]:
         with st.expander("➕ 建立空白資料", expanded=False):
             blank_mode = st.selectbox("選擇模式", ["Mode A (經文)", "Mode B (文稿)"], key="blank_mode")
-            blank_ref = st.text_input("參考編號", value=f"BLANK_{dt.now().strftime('%m%d%H%M')}", key="blank_ref")
+            blank_ref = st.text_input("參考編號", value=f"BLANK_{dt.datetime.now().strftime('%m%d%H%M')}", key="blank_ref")
             
             if st.button("🆕 建立空白資料結構", use_container_width=True):
                 if "Mode A" in blank_mode:
@@ -1894,7 +1936,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "saved_sheets": ["V1 Sheet", "V2 Sheet"],
                         "type": "Scripture",
                         "mode": "A",
-                        "date_added": dt.now().strftime("%Y-%m-%d %H:%M"),
+                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
                         "blank_template": True
                     }
                 else:
@@ -1910,7 +1952,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "saved_sheets": ["W Sheet", "P Sheet", "Grammar List"],
                         "type": "Document",
                         "mode": "B",
-                        "date_added": dt.now().strftime("%Y-%m-%d %H:%M"),
+                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
                         "blank_template": True
                     }
                 
@@ -2030,7 +2072,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'v2_content': st.session_state.current_entry['v2'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
-                            'date_added': dt.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
@@ -2042,7 +2084,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'v2_content': st.session_state.current_entry['v2'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
-                            'date_added': dt.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         # 同步到 Google Sheets
@@ -2103,7 +2145,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'grammar_list': st.session_state.current_entry['grammar_list'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
-                            'date_added': dt.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
@@ -2116,7 +2158,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'grammar_list': st.session_state.current_entry['grammar_list'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
-                            'date_added': dt.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         success, msg = save_to_google_sheets(st.session_state.sentences[st.session_state.edit_ref])
@@ -2316,7 +2358,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         if len(cols) > 0 and cols[0].strip():
                             return cols[0].strip()
                 
-                return f"REF_{dt.now().strftime('%m%d%H%M')}"
+                return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
             
             st.markdown("**📁 檔名（可手動修改）**")
             ref_input = st.text_input(
@@ -2354,7 +2396,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                 "saved_sheets": st.session_state.saved_entries,
                                 "type": type_select,
                                 "mode": st.session_state.content_mode,
-                                "date_added": dt.now().strftime("%Y-%m-%d %H:%M")
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                             }
                             st.session_state.sentences[ref] = full_data
                             save_sentences(st.session_state.sentences)
@@ -2383,7 +2425,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                     "saved_sheets": st.session_state.saved_entries,
                                     "type": type_select,
                                     "mode": st.session_state.content_mode,
-                                    "date_added": dt.now().strftime("%Y-%m-%d %H:%M")
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
                                 }
                                 success, msg = save_to_google_sheets(full_data)
                                 if success:
