@@ -1,15 +1,15 @@
 # ===================================================================
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
-import streamlit as st
-import random
-import re
-import datetime as dt
-import json
-import os
-import csv
-from io import StringIO
+import streamlit as st  
+import os, datetime as dt, pandas as pd, io, json, re
+import requests
 import base64
+import gspread
+from google.oauth2.service_account import Credentials
+from io import StringIO
+import csv
+import toml
 
 # ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
@@ -871,12 +871,12 @@ import os
 from datetime import datetime as dt
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版)
+# 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應)
 # ===================================================================
 with tabs[0]:
-    # 修正 BUG 5：移除重複的 import，使用全域已匯入的模組
-    
-    # --- Session State 初始化 ---
+    import random, re, datetime as dt
+
+    # --- Session State ---
     st.session_state.setdefault("tab1_vocab_index", 0)
     st.session_state.setdefault("tab1_phrase_index", 15)
     st.session_state.setdefault("tab1_grammar_index", 0)
@@ -884,7 +884,6 @@ with tabs[0]:
     if "tab1_last_update" not in st.session_state:
         st.session_state.tab1_last_update = dt.datetime.now()
     
-    # 每小時更新索引
     time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
         st.session_state.tab1_last_update = dt.datetime.now()
@@ -899,138 +898,383 @@ with tabs[0]:
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
-        # --- 收集資料與分類 ---
+        
+        def parse_tab_delimited(content):
+            """解析 TAB4 的 \t 分隔格式（第一行是標題）"""
+            if not content or not content.strip():
+                return []
+            
+            lines = content.strip().split('\n')
+            if len(lines) < 2:
+                return []
+            
+            # 第一行是標題
+            headers = lines[0].split('\t')
+            headers = [h.strip() for h in headers]
+            
+            rows = []
+            for line in lines[1:]:
+                if not line.strip():
+                    continue
+                values = line.split('\t')
+                # 確保長度一致
+                while len(values) < len(headers):
+                    values.append('')
+                row_dict = {}
+                for i, header in enumerate(headers):
+                    row_dict[header] = values[i].strip() if i < len(values) else ''
+                rows.append(row_dict)
+            
+            return rows
+
+        # ============================================================
+        # 收集資料
+        # ============================================================
+        
         all_mode_a = []
         all_mode_b = []
         all_grammar_sources = []
         
         for ref, data in sentences.items():
-            v1_rows = parse_tab_delimited(data.get('v1_content', ''))
-            v2_rows = parse_tab_delimited(data.get('v2_content', ''))
-            w_rows = parse_tab_delimited(data.get('w_sheet', ''))
-            g_rows = parse_tab_delimited(data.get('grammar_list', ''))
+            v1_content = data.get('v1_content', '')
+            v2_content = data.get('v2_content', '')
+            w_content = data.get('w_sheet', '')
+            g_content = data.get('grammar_list', '')
             
+            v1_rows = parse_tab_delimited(v1_content)
+            v2_rows = parse_tab_delimited(v2_content)
+            w_rows = parse_tab_delimited(w_content)
+            g_rows = parse_tab_delimited(g_content)
+            
+            # 模式A：有V1資料
             if v1_rows:
-                all_mode_a.append({'ref': ref, 'v1': v1_rows, 'v2': v2_rows, 'v1_count': len(v1_rows)})
+                all_mode_a.append({
+                    'ref': ref,
+                    'v1': v1_rows,
+                    'v2': v2_rows,
+                    'v1_count': len(v1_rows)
+                })
+                # 文法來自V1的 Grammar 欄位
                 for i, row in enumerate(v1_rows):
                     if row.get('Grammar'):
-                        all_grammar_sources.append({'type': 'A', 'ref': ref, 'row': row, 'index': i})
+                        all_grammar_sources.append({
+                            'type': 'A',
+                            'ref': ref,
+                            'row': row,
+                            'index': i
+                        })
             
+            # 模式B：有W Sheet
             if w_rows:
-                all_mode_b.append({'ref': ref, 'w': w_rows, 'w_count': len(w_rows)})
+                all_mode_b.append({
+                    'ref': ref,
+                    'w': w_rows,
+                    'w_count': len(w_rows)
+                })
             
+            # Grammar List（模式B）
             if g_rows:
                 for i, row in enumerate(g_rows):
                     if row.get('Grammar Rule') or row.get('Analysis & Example') or row.get('Original Sentence'):
-                        all_grammar_sources.append({'type': 'B', 'ref': ref, 'row': row, 'index': i})
-
-        # --- 計算當前顯示物件 ---
-        # 1. 單字與金句 (Mode A)
-        total_a_items = sum(f['v1_count'] for f in all_mode_a) if all_mode_a else 0
-        v1_r, v2_r = {}, {}
+                        all_grammar_sources.append({
+                            'type': 'B',
+                            'ref': ref,
+                            'row': row,
+                            'index': i
+                        })
+        
+        # ============================================================
+        # 1) 單字：從模式A的V1 Syn/Ant + V2 多語言
+        # ============================================================
+        vocab_display = []
         current_vocab_ref = "N/A"
         
-        if total_a_items > 0:
-            idx = st.session_state.tab1_vocab_index % total_a_items
-            cum = 0
-            for f in all_mode_a:
-                if cum + f['v1_count'] > idx:
-                    row_idx = idx - cum
-                    v1_r = f['v1'][row_idx]
-                    v2_r = f['v2'][row_idx] if row_idx < len(f['v2']) else {}
-                    current_vocab_ref = v1_r.get('Ref.經文出處', f['ref'])
-                    break
-                cum += f['v1_count']
-
-        # 2. 片語 (Mode B)
+        if all_mode_a:
+            total_vocab_items = sum(f['v1_count'] for f in all_mode_a)
+            if total_vocab_items > 0:
+                vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
+                
+                cumulative = 0
+                vocab_file = None
+                row_idx = 0
+                for f in all_mode_a:
+                    if cumulative + f['v1_count'] > vocab_idx:
+                        vocab_file = f
+                        row_idx = vocab_idx - cumulative
+                        break
+                    cumulative += f['v1_count']
+                
+                if vocab_file:
+                    v1_row = vocab_file['v1'][row_idx]
+                    v2_row = vocab_file['v2'][row_idx] if row_idx < len(vocab_file['v2']) else {}
+                    
+                    current_vocab_ref = v1_row.get('Ref.', vocab_file['ref'])
+                    v1_syn_ant = v1_row.get('Syn/Ant', '')
+                    
+                    # V2 欄位（根據實際資料調整）
+                    v2_korean_syn = v2_row.get('Korean Syn/Ant', '') if v2_row else ''
+                    v2_thai = v2_row.get('THSV11', '') if v2_row else ''
+                    if not v2_thai:
+                        v2_thai = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
+                    
+                    # 解析 Syn/Ant - 支援多種分隔符
+                    if v1_syn_ant:
+                        entries = [e.strip() for e in re.split(r'[;；/|]', v1_syn_ant) if e.strip()]
+                        for entry in entries:
+                            vocab_display.append(entry)
+                    
+                    # 加入韓文同反義
+                    if v2_korean_syn:
+                        vocab_display.append(f"🇰🇷 {v2_korean_syn}")
+                    
+                    # 加入泰文
+                    if v2_thai:
+                        vocab_display.append(f"🇹🇭 {v2_thai}")
+        
+        # ============================================================
+        # 2) 片語：只從模式B的W Sheet（第16個開始）
+        # ============================================================
         w_phrases = []
         current_phrase_ref = "N/A"
-        total_w_items = sum(f['w_count'] for f in all_mode_b) if all_mode_b else 0
-        if total_w_items > 0:
-            p_idx = (st.session_state.tab1_phrase_index + 15) % total_w_items
-            cum = 0
-            for f in all_mode_b:
-                if cum + f['w_count'] > p_idx:
-                    row_i = p_idx - cum
-                    current_phrase_ref = f['ref']
+        
+        if all_mode_b:
+            total_w_items = sum(f['w_count'] for f in all_mode_b)
+            if total_w_items > 0:
+                start_offset = 15
+                phrase_idx = (st.session_state.tab1_phrase_index + start_offset) % total_w_items
+                
+                cumulative = 0
+                phrase_file = None
+                row_idx = 0
+                for f in all_mode_b:
+                    if cumulative + f['w_count'] > phrase_idx:
+                        phrase_file = f
+                        row_idx = phrase_idx - cumulative
+                        break
+                    cumulative += f['w_count']
+                
+                if phrase_file:
+                    w_rows = phrase_file['w']
+                    current_phrase_ref = phrase_file['ref']
+                    
                     for i in range(4):
-                        w_phrases.append(f['w'][(row_i + i) % len(f['w'])])
-                    break
-                cum += f['w_count']
+                        idx = (row_idx + i) % len(w_rows)
+                        w_phrases.append(w_rows[idx])
+        
+        # ============================================================
+        # 3) 金句：從模式A的V1 + V2 多語言
+        # ============================================================
+        verse_lines = []
+        current_verse_ref = "N/A"
+        
+        if all_mode_a:
+            total_verse_items = sum(f['v1_count'] for f in all_mode_a)
+            if total_verse_items > 0:
+                verse_idx = st.session_state.tab1_verse_index % total_verse_items
+                
+                cumulative = 0
+                verse_file = None
+                row_idx = 0
+                for f in all_mode_a:
+                    if cumulative + f['v1_count'] > verse_idx:
+                        verse_file = f
+                        row_idx = verse_idx - cumulative
+                        break
+                    cumulative += f['v1_count']
+                
+                if verse_file:
+                    v1_row = verse_file['v1'][row_idx]
+                    v2_row = verse_file['v2'][row_idx] if row_idx < len(verse_file['v2']) else {}
+                    # 增加這幾行抓取 V2 欄位
+                    jp_text = v2_row.get('口語訳', '') 
+                    kr_text = v2_row.get('KRF', '') 
+                    th_text = v2_row.get('THSV11 泰文重要片語', '') or v2_row.get('THSV11', '') # 雙重檢查欄位名
 
-        # 3. 文法
+                    current_verse_ref = v1_row.get('Ref.', verse_file['ref'])
+                    en_text = v1_row.get('English（ESV經文）', '')
+                    if not en_text:
+                        en_text = v1_row.get('English (ESV)', '')
+                    cn_text = v1_row.get('Chinese經文', '')
+                    if not cn_text:
+                        cn_text = v1_row.get('Chinese', '')
+                    
+                    jp_text = v2_row.get('口語訳', '') if v2_row else ''
+                    kr_text = v2_row.get('KRF', '') if v2_row else ''
+                    th_text = v2_row.get('THSV11', '') if v2_row else ''
+                    if not th_text:
+                        th_text = v2_row.get('THSV11泰文重要片語', '') if v2_row else ''
+                    
+                    if en_text:
+                        verse_lines.append(f"🇬🇧 **{current_verse_ref}** {en_text}")
+                    if jp_text:
+                        verse_lines.append(f"🇯🇵 {jp_text}")
+                    if kr_text:
+                        verse_lines.append(f"🇰🇷 {kr_text}")
+                    if th_text:
+                        verse_lines.append(f"🇹🇭 {th_text}")
+                    if cn_text:
+                        verse_lines.append(f"🇨🇳 {cn_text}")
+        
+        # ============================================================
+        # 4) 文法：從所有來源輪流
+        # ============================================================
         grammar_html = "等待資料中..."
         current_grammar_ref = "N/A"
+        
         if all_grammar_sources:
-            g_source = all_grammar_sources[st.session_state.tab1_grammar_index % len(all_grammar_sources)]
-            current_grammar_ref = f"{g_source['ref']}-{g_source['index']+1}"
+            g_idx = st.session_state.tab1_grammar_index % len(all_grammar_sources)
+            g_source = all_grammar_sources[g_idx]
             g_row = g_source['row']
+            current_grammar_ref = f"{g_source['ref']}-{g_source['index']+1}"
             
-            lines = []
+            all_grammar = []
+            
             if g_source['type'] == 'A':
-                header = f"<b>{g_row.get('Ref.經文出處', '')}</b><br>🇬🇧 {g_row.get('English（ESV經文）', g_row.get('English (ESV)', ''))}<br>🇨🇳 {g_row.get('Chinese經文', g_row.get('Chinese', ''))}"
-                lines.append(header)
-                content = str(g_row.get('Grammar', ''))
+                g_ref = g_row.get('Ref.', '')
+                g_en = g_row.get('English（ESV經文）', '')
+                if not g_en:
+                    g_en = g_row.get('English (ESV)', '')
+                g_cn = g_row.get('Chinese經文', '')
+                if not g_cn:
+                    g_cn = g_row.get('Chinese', '')
+                g_syn = g_row.get('Syn/Ant', '')
+                g_grammar = g_row.get('Grammar', '')
+                
+                header_parts = []
+                if g_ref:
+                    header_parts.append(f"<b>{g_ref}</b>")
+                if g_en:
+                    header_parts.append(f"🇬🇧 {g_en}")
+                if g_cn:
+                    header_parts.append(f"🇨🇳 {g_cn}")
+                if g_syn:
+                    header_parts.append(f"🌍 {g_syn}")
+                
+                if header_parts:
+                    all_grammar.append("<br>".join(header_parts))
+                
+                if g_grammar:
+                    formatted = str(g_grammar)
+                    # 縮小間隔的格式化
+                    formatted = formatted.replace('1️⃣', '<br><b>📌</b> ')
+                    formatted = formatted.replace('2️⃣', '<br><b>🔤</b> ')
+                    formatted = formatted.replace('3️⃣', '<br><b>📖</b> ')
+                    formatted = formatted.replace('4️⃣', '<br><b>💡</b> ')
+                    formatted = formatted.replace('1.', '<br><b>📌</b> ')
+                    formatted = formatted.replace('2.', '<br><b>🔤</b> ')
+                    formatted = formatted.replace('3.', '<br><b>📖</b> ')
+                    formatted = formatted.replace('4.', '<br><b>💡</b> ')
+                    formatted = formatted.replace('<br><br>', '<br>')
+                    all_grammar.append(formatted)
+                    
             else:
-                lines.append(f"📝 <b>{g_row.get('Original Sentence', g_row.get('Original Sentence＋中文翻譯', ''))}</b>")
-                content = str(g_row.get('Analysis & Example', g_row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')))
+                orig = g_row.get('Original Sentence', '')
+                if not orig:
+                    orig = g_row.get('Original Sentence＋中文翻譯', '')
+                rule = g_row.get('Grammar Rule', '')
+                analysis = g_row.get('Analysis & Example', '')
+                if not analysis:
+                    analysis = g_row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', '')
+                
+                if orig:
+                    all_grammar.append(f"📝 <b>{orig}</b>")
+                if rule and rule != analysis:
+                    all_grammar.append(f"📌 <b>{rule}</b>")
+                
+                if analysis:
+                    af = str(analysis)
+                    af = af.replace('1️⃣', '<br><b>📌</b> ')
+                    af = af.replace('2️⃣', '<br><b>🔤</b> ')
+                    af = af.replace('3️⃣', '<br><b>📖</b> ')
+                    af = af.replace('4️⃣', '<br><b>💡</b> ')
+                    af = af.replace('1.', '<br><b>📌</b> ')
+                    af = af.replace('2.', '<br><b>🔤</b> ')
+                    af = af.replace('3.', '<br><b>📖</b> ')
+                    af = af.replace('4.', '<br><b>💡</b> ')
+                    af = af.replace('<br><br>', '<br>')
+                    all_grammar.append(af)
             
-            # HTML 格式化邏輯
-            for old, new in [('1️⃣','<br><b>📌</b> '), ('2️⃣','<br><b>🔤</b> '), ('3️⃣','<br><b>📖</b> '), ('4️⃣','<br><b>💡</b> '), ('1.','<br><b>📌</b> '), ('2.','<br><b>🔤</b> '), ('3.','<br><b>📖</b> '), ('4.','<br><b>💡</b> ')]:
-                content = content.replace(old, new)
-            lines.append(content.replace('<br><br>', '<br>'))
-            grammar_html = "<hr style='margin:8px 0;'>".join(lines)
-
-        # --- UI 渲染 ---
+            if all_grammar:
+                grammar_html = "<hr style='margin:8px 0;'>".join(all_grammar)
+        
+        # ============================================================
+        # 渲染畫面 - 左側欄位 (整合 V1+V2 橫向單字與多語金句)
+        # ============================================================
         col_left, col_right = st.columns([0.67, 0.33])
         
         with col_left:
-            # 1) 單字區 (V1 + V2 Korean並排)
-            if v1_r:
-                v_line = [f"• {i.strip()}" for i in re.split(r'[;；/|]', v1_r.get('Syn/Ant', '')) if i.strip()]
-                v_line += [f"• 🇰🇷 {i.strip()}" for i in re.split(r'[;；/|]', v2_r.get('Korean Syn/Ant', '')) if i.strip()]
-                st.markdown(" ".join(v_line))
+            v1_r, v2_r = {}, {}
+            
+            # --- 1) 單字區塊 (追加 Korean Syn/Ant 並維持同排顯示) ---
+            if all_mode_a:
+                vocab_idx = st.session_state.tab1_vocab_index % total_vocab_items
+                cumulative = 0
+                for f in all_mode_a:
+                    if cumulative + f['v1_count'] > vocab_idx:
+                        v1_r = f['v1'][vocab_idx - cumulative]
+                        v2_r = f['v2'][vocab_idx - cumulative] if (vocab_idx - cumulative) < len(f['v2']) else {}
+                        break
+                    cumulative += f['v1_count']
+                
+                if v1_r:
+                    vocab_line = []
+                    # (A) V1 同反義
+                    s_a = v1_r.get('Syn/Ant', '')
+                    if s_a:
+                        items = [i.strip() for i in re.split(r'[;；/|]', s_a) if i.strip()]
+                        for item in items: vocab_line.append(f"• {item}")
+                    
+                    # (B) V2 追加 Korean Syn/Ant 欄位
+                    ksy = v2_r.get('Korean Syn/Ant', '')
+                    if ksy:
+                        ksy_items = [i.strip() for i in re.split(r'[;；/|]', ksy) if i.strip()]
+                        for item in ksy_items: vocab_line.append(f"• 🇰🇷 {item}")
+                    
+                    # 將所有單字並排顯示
+                    if vocab_line:
+                        st.markdown(" ".join(vocab_line))
             
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # 2) 片語區
-            for i, row in enumerate(w_phrases):
-                p_cn = re.sub(r'^abc\\s*', '', row.get('Word/Phrase＋Chinese', row.get('Word/Phrase', '')), flags=re.IGNORECASE)
-                st.markdown(f"**{p_cn}**")
-                sa = []
-                if row.get('Synonym+中文對照'): sa.append(f"✨ {row.get('Synonym+中文對照')}")
-                if row.get('Antonym+中文對照'): sa.append(f"❄️ {row.get('Antonym+中文對照')}")
-                if sa: st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;{'&nbsp;&nbsp;|&nbsp;&nbsp;'.join(sa)}", unsafe_allow_html=True)
-                if row.get('全句聖經中英對照例句'): st.caption(f"📖 {row.get('全句聖經中英對照例句')}")
-                if i < len(w_phrases)-1: st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
+            # --- 2) 片語區塊 (去除 abc, 同反義並排) ---
+            if w_phrases:
+                for i, row in enumerate(w_phrases):
+                    p_raw = row.get('Word/Phrase＋Chinese', row.get('Word/Phrase', ''))
+                    p_cn = re.sub(r'^abc\s*', '', p_raw, flags=re.IGNORECASE) 
+                    p_syn = row.get('Synonym+中文對照', '')
+                    p_ant = row.get('Antonym+中文對照', '')
+                    p_ex = row.get('全句聖經中英對照例句', '')
+
+                    st.markdown(f"**{p_cn}**")
+                    sa_line = []
+                    if p_syn: sa_line.append(f"✨ {p_syn}")
+                    if p_ant: sa_line.append(f"❄️ {p_ant}")
+                    if sa_line:
+                        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;{'&nbsp;&nbsp;|&nbsp;&nbsp;'.join(sa_line)}", unsafe_allow_html=True)
+                    if p_ex: st.caption(f"📖 {p_ex}")
+                    if i < len(w_phrases) - 1: st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
 
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # 3) 金句區
-            if v1_r:
-                ref = v1_r.get('Ref.經文出處', 'Verse')
-                en = v1_r.get('English（ESV經文）', v1_r.get('English (ESV)', ''))
-                st.markdown(f"🇬🇧 **{ref}** {en}")
-                
-                def get_v2_field(row, keyword):
-                    if not row: return ""
-                    for key in row.keys():
-                        if keyword in str(key): 
-                            return row[key]
-                    return ""
+        # --- 3) 金句區塊 (請直接更新這一段) ---
+            if 'v1_r' in locals() and v1_r: # 確保變數存在
+                 ref = v1_r.get('Ref.', 'Verse')
+                 en = v1_r.get('English（ESV經文）', '')
+                 cn = v1_r.get('Chinese經文', '')
+        
+                 # 從 v2_r 抓取資料 (這是在單字迴圈那裡產生的)
+                 kj_v = v2_r.get('口語訳', '')
+                 krf_v = v2_r.get('KRF', '') # 增加 KRF
+                 th_v = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '')
 
-                jp = get_v2_field(v2_r, "口語")
-                kr = get_v2_field(v2_r, "KRF")
-                th = get_v2_field(v2_r, "THSV11")
-                cn = v1_r.get('Chinese經文', v1_r.get('Chinese', ''))
+                 st.markdown(f"**{ref}** {en}")
+                 if kj_v: st.markdown(f"🇯🇵 {kj_v}")
+                 if krf_v: st.markdown(f"🇰🇷 {krf_v}") # 照截圖增加韓文金句
+                 if th_v: st.markdown(f"🇹🇭 {th_v}")
+                 st.markdown(f"{cn}")
 
-                if jp: st.markdown(f"🇯🇵 {jp}")
-                if kr: st.markdown(f"🇰🇷 {kr}")
-                if th: st.markdown(f"🇹🇭 {th}")
-                if cn: st.markdown(f"🇨🇳 {cn}")
-
+        # --- 右側文法區塊 (移除標題，直接顯示卡片) ---#
         with col_right:
-            # 右側文法卡片
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:450px; font-size:13px; line-height:1.4;">
@@ -1038,28 +1282,36 @@ with tabs[0]:
                 </div>
                 """, unsafe_allow_html=True)
             
-            # 統計與更新資訊
-            m_left = max(0, (3600 - time_diff) / 60)
-            st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_vocab_ref}")
-            st.caption(f"文法:{current_grammar_ref} | {m_left:.0f}分後更新")
+            minutes_left = max(0, (3600 - time_diff) / 60)
+            st.caption(f"單字:{current_vocab_ref} | 片語:{current_phrase_ref} | 金句:{current_verse_ref}")
+            st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
             
+            st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正 BUG 1）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
 with tabs[1]:
+    import datetime as dt, re, os, json
     from streamlit_calendar import calendar
+    from io import StringIO
+    import csv
 
     # 全局CSS：壓縮所有間距
     st.markdown("""
         <style>
+        /* 壓縮所有元素間距 */
         div[data-testid="stVerticalBlock"] > div {padding: 0px !important; margin: 0px !important;}
         div[data-testid="stVerticalBlock"] > div > div {padding: 0px !important; margin: 0px !important;}
         p {margin: 0px !important; padding: 0px !important; line-height: 1.2 !important;}
         .stMarkdown {margin: 0px !important; padding: 0px !important;}
+        /* 壓縮按鈕 */
         .stButton button {padding: 0px 4px !important; min-height: 24px !important; font-size: 12px !important; margin: 0px !important;}
+        /* 壓縮分隔線 */
         hr {margin: 2px 0 !important; padding: 0 !important;}
+        /* 壓縮expander */
         div[data-testid="stExpander"] {margin: 2px 0 !important;}
         div[data-testid="stExpander"] > div {padding: 0px 8px !important;}
+        /* 壓縮columns間距 */
         div[data-testid="column"] {padding: 0px 2px !important;}
         </style>
     """, unsafe_allow_html=True)
@@ -1137,7 +1389,7 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 三日清單 ----------
+    # ---------- 3. 三日清單（修正：顯示選中日期的前後一天）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
@@ -1145,6 +1397,7 @@ with tabs[1]:
     except:
         base_date = dt.date.today()
 
+    # 顯示選中日期及其前後各一天（共3天）
     dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
     
     has_todo = False
@@ -1159,6 +1412,7 @@ with tabs[1]:
                 title = item.get("title", "") if isinstance(item, dict) else str(item)
                 time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
 
+                # 極緊湊布局
                 c1, c2, c3 = st.columns([0.3, 8, 1.2])
                 
                 with c1:
@@ -1167,6 +1421,7 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
+                    # 使用html壓縮行距
                     st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
 
                 with c3:
@@ -1179,6 +1434,7 @@ with tabs[1]:
                             st.session_state.cal_key += 1
                             st.session_state.active_del_id = None
                             st.rerun()
+                # 每個項目後極小間距
                 st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
     
     if not has_todo:
@@ -1206,14 +1462,16 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
     
-    # ---------- 5. 時段金句（修正 BUG 1：補上 all_verses.append 與顯示邏輯）----------
+    # ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
     
     sentences = st.session_state.get('sentences', {})
     
+    # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
     all_verses = []
     
     for ref, data in sentences.items():
+        # 修正問題1：確保資料為字串，避免 None
         v1_content = data.get('v1_content', '') or ''
         v2_content = data.get('v2_content', '') or ''
         
@@ -1221,24 +1479,25 @@ with tabs[1]:
             continue
             
         try:
+            # 修正問題3：使用與 TAB1 相同的 parse_csv 邏輯處理 Tab 分隔格式
             def parse_csv_tab(content):
                 if not content or not isinstance(content, str) or not content.strip():
                     return []
-                lines = content.strip().split('\\n')
+                lines = content.strip().split('\n')
                 if len(lines) < 1:
                     return []
-                headers = [h.strip() for h in lines[0].split('\\t')]
+                headers = [h.strip() for h in lines[0].split('\t')]
                 rows = []
                 for line in lines[1:]:
                     if not line.strip():
                         continue
-                    cells = [c.strip() for c in line.split('\\t')]
+                    cells = [c.strip() for c in line.split('\t')]
                     while len(cells) < len(headers):
                         cells.append('')
                     row_dict = {}
                     for i, header in enumerate(headers):
                         cell_value = cells[i] if i < len(cells) else ''
-                        cell_value = re.sub(r'\\*\\*(.*?)\\*\\*', r'\\1', cell_value)
+                        cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
                         row_dict[header] = cell_value
                     if any(v.strip() for v in row_dict.values()):
                         rows.append(row_dict)
@@ -1247,57 +1506,32 @@ with tabs[1]:
             v1_rows = parse_csv_tab(v1_content)
             v2_rows = parse_csv_tab(v2_content) if v2_content else []
             
+            # 修正問題3：確保 V1 和 V2 資料列正確對應
             for i, v1_row in enumerate(v1_rows):
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 
-                # 修正 BUG 1：補上這段，將資料加入 all_verses
-                verse_ref = v1_row.get('Ref.經文出處', ref)
+                # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
+                # 避免使用全形括號在 f-string 中，改用變數
+                verse_ref = v1_row.get('Ref. 經文出處', ref)
                 en = v1_row.get('English（ESV經文）', '')  
                 cn = v1_row.get('Chinese經文', '')
+                
+                # 修正問題3：V2 欄位名稱與 TAB1 一致
                 jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
                 kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
                 th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
-                
-                # ⭐ 修正 BUG 1：補上 append！
-                all_verses.append({
-                    'ref': verse_ref,
-                    'en': en,
-                    'cn': cn,
-                    'jp': jp,
-                    'kr': kr,
-                    'th': th
-                })
-                
-        except Exception as e:
+        except Exception as e:  # ← 補上這個 except 區塊！
             st.error(f"解析資料時發生錯誤: {e}")
-            st.exception(e)
-    
-    # ⭐ 修正 BUG 1：補上顯示邏輯！
-    if all_verses:
-        # 根據當前時間選擇金句（每4小時輪換）
-        current_hour = dt.datetime.now().hour
-        verse_index = (current_hour // 4) % len(all_verses)
-        current_verse = all_verses[verse_index]
-        
-        st.markdown(f"**{current_verse['ref']}**")
-        if current_verse['en']:
-            st.markdown(f"🇬🇧 {current_verse['en']}")
-        if current_verse['jp']:
-            st.markdown(f"🇯🇵 {current_verse['jp']}")
-        if current_verse['kr']:
-            st.markdown(f"🇰🇷 {current_verse['kr']}")
-        if current_verse['th']:
-            st.markdown(f"🇹🇭 {current_verse['th']}")
-        if current_verse['cn']:
-            st.markdown(f"🇨🇳 {current_verse['cn']}")
-    else:
-        st.info("尚無金句資料，請先在 TAB4 新增資料")
+            st.exception(e)  
             
 # ===================================================================
-# 5. TAB3 ─ 挑戰（修正 BUG 4：處理 Markdown 表格格式）
+# 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
-    # 修正 BUG 5：使用全域已匯入的 random, csv, re，不再重複 import
+    import csv
+    import random
+    import re
+    from io import StringIO
     
     # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
@@ -1334,39 +1568,25 @@ with tabs[2]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
-                try:
-                    lines = v1_content.strip().split('\\n')
+                try:  # ← 修正縮排：與 if 對齊
+                    lines = v1_content.strip().split('\n')
                     if lines:
-                        # 修正 BUG 4：先清理 Markdown 表格符號
-                        cleaned_lines = []
-                        for line in lines:
-                            # 移除行首行尾的 | 符號
-                            line = line.strip()
-                            if line.startswith('|'):
-                                line = line[1:]
-                            if line.endswith('|'):
-                                line = line[:-1]
-                            # 跳過分隔線（---）
-                            if '---' in line and len(line.replace('-', '').replace('|', '').strip()) == 0:
-                                continue
-                            if line.strip():
-                                cleaned_lines.append(line)
-                        
-                        if cleaned_lines:
-                            # 使用 tab 分隔符解析
-                            reader = csv.DictReader(cleaned_lines, delimiter='\\t')
-                            for row in reader:
-                                # 修正 BUG 4：清理欄位值中的 | 符號
-                                clean_row = {k: v.replace('|', '').strip() for k, v in row.items()}
-                                all_verses.append({
-                                    'ref': clean_row.get('Ref.經文出處', ''),
-                                    'english': clean_row.get('English（ESV經文）', ''),
-                                    'chinese': clean_row.get('Chinese經文', '')
-                                })
-                except Exception as e:
+                        # 1. 這裡定義 reader，注意 delimiter 是 \t
+                        reader = csv.DictReader(lines, delimiter='\t')
+
+                        # 2. 這裡跑迴圈
+                        for row in reader:
+                            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
+                            all_verses.append({
+                                'ref': row.get('Ref. 經文出處', ''),
+                                'english': row.get('English（ESV經文）', ''),
+                                'chinese': row.get('Chinese經文', '')
+                            })
+
+                except Exception as e:  # ← 修正縮排：與 try 對齊
                     st.error(f"解析錯誤: {e}")
         
-        # 需要至少 6 題才開始
+        # 需要至少 6 題才開始（注意這行的縮排要與 for ref... 同層級）
         if len(all_verses) < 6:
             st.warning("經文資料不足，無法生成題目（至少需要6句經文）")
         else:
@@ -1384,7 +1604,7 @@ with tabs[2]:
                 st.markdown(f"**{i}.** {q['chinese'][:60]}...")
                 st.text_input(
                     "中翻英", 
-                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",
+                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",  # 加入 seed 避免快取問題
                     placeholder="請翻譯成英文...", 
                     label_visibility="collapsed"
                 )
@@ -1408,29 +1628,16 @@ with tabs[2]:
                 v1_content = data.get('v1_content', '')
                 if v1_content:
                     try:
-                        lines = v1_content.strip().split('\\n')
-                        # 同樣清理 Markdown 符號
-                        cleaned_lines = []
-                        for line in lines:
-                            line = line.strip()
-                            if line.startswith('|'):
-                                line = line[1:]
-                            if line.endswith('|'):
-                                line = line[:-1]
-                            if '---' in line and len(line.replace('-', '').replace('|', '').strip()) == 0:
-                                continue
-                            if line.strip():
-                                cleaned_lines.append(line)
-                        
-                        if cleaned_lines:
-                            reader = csv.DictReader(cleaned_lines, delimiter='\\t')
+                        lines = v1_content.strip().split('\n')
+                        if lines:
+                            reader = csv.DictReader(lines)
                             for row in reader:
-                                clean_row = {k: v.replace('|', '').strip() for k, v in row.items()}
-                                syn_ant = clean_row.get('Syn/Ant', '')
+                                syn_ant = row.get('Syn/Ant', '')
                                 if '/' in syn_ant:
                                     parts = syn_ant.split('/')
                                     for p in parts:
-                                        match = re.match(r'(.+?)\\s*\\((.+?)\\)', p.strip())
+                                        # 解析格式：word (中文)
+                                        match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
                                         if match:
                                             word_pool.append({
                                                 'en': match.group(1).strip(),
@@ -1960,351 +2167,289 @@ its part of speech and meaning in this sentence must be clearly identified...等
         
         st.divider()
 
-# ═══════════════════════════════════════════════════════════════
-# 主要功能區（保留原 UI）
-# ═══════════════════════════════════════════════════════════════
-st.markdown("<h6>📝 AI 分析工作流程</h6>", unsafe_allow_html=True)
-
-# STEP 1: 輸入區
-with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
-
-    raw_input = st.text_area(
-        "原始輸入",
-        height=200,
-        value=st.session_state.get('raw_input_value', ''),
-        placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
-        label_visibility="collapsed",
-        key="raw_input_temp"
-    )
-
-    if not st.session_state.is_prompt_generated:
-        if st.button("⚡ 產生完整分析指令", use_container_width=True, type="primary"):
-            generate_full_prompt()
-            st.rerun()
-
-
-# STEP 2: Prompt 產生後顯示
-if st.session_state.is_prompt_generated:
-
-    with st.expander("步驟 2：複製 Prompt 到 AI", expanded=False):
-
-        st.caption("複製以下內容，貼到 GPT/Kimi/Gemini 進行分析")
-
-        components.html(
-            f"""
-            <textarea
-                readonly
-                onclick="this.select()"
-                style="
-                    width:100%;
-                    height:250px;
-                    padding:12px;
-                    font-size:14px;
-                    line-height:1.5;
-                    border-radius:8px;
-                    border:1px solid #ccc;
-                    box-sizing:border-box;
-                    background-color:#f8f9fa;
-                "
-            >{st.session_state.get('main_input_value','')}</textarea>
-            """,
-            height=280
+    # ═══════════════════════════════════════════════════════════════
+    # 主要功能區（保留原 UI）
+    # ═══════════════════════════════════════════════════════════════
+    st.markdown("<h6>📝 AI 分析工作流程</h6>", unsafe_allow_html=True)
+    
+    # STEP 1: 輸入區
+    with st.expander("步驟 1：輸入經文或文稿", expanded=not st.session_state.is_prompt_generated):
+        raw_input = st.text_area(
+            "原始輸入",
+            height=200,
+            value=st.session_state.get('raw_input_value', ''),
+            placeholder="請在此貼上內容：\n• 經文格式：31:6 可以把濃酒給將亡的人喝...\n• 文稿格式：直接貼上英文講稿",
+            label_visibility="collapsed",
+            key="raw_input_temp"
         )
+        
+        if not st.session_state.is_prompt_generated:
+            if st.button("⚡ 產生完整分析指令", use_container_width=True, type="primary"):
+                generate_full_prompt()
+                st.rerun()
 
-        cols = st.columns(2)
+    # STEP 2: Prompt 產生後顯示
+    if st.session_state.is_prompt_generated:
+        with st.expander("步驟 2：複製 Prompt 到 AI", expanded=False):
+            st.caption("複製以下內容，貼到 GPT/Kimi/Gemini 進行分析")
+            
+            components.html(
+                f"""
+                <textarea
+                    readonly
+                    onclick="this.select()"
+                    style="
+                        width:100%;
+                        height:250px;
+                        padding:12px;
+                        font-size:14px;
+                        line-height:1.5;
+                        border-radius:8px;
+                        border:1px solid #ccc;
+                        box-sizing:border-box;
+                        background-color:#f8f9fa;
+                    "
+                >{st.session_state.get('main_input_value','')}</textarea>
+                """,
+                height=280
+            )
+            
+            cols = st.columns(2)
+            with cols[0]:
+                st.link_button("🌙 開啟 Kimi", "https://kimi.moonshot.cn", use_container_width=True)
+            with cols[1]:
+                st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
 
-        with cols[0]:
-            st.link_button("🌙 開啟 Kimi", "https://kimi.moonshot.cn", use_container_width=True)
+        # STEP 3: 多工作表收集區（改為 Tab 介面）
+        with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
+            
+            if st.session_state.content_mode == "A":
+                sheet_tabs = st.tabs(["V1 Sheet", "V2 Sheet", "其他補充"])
+                
+                with sheet_tabs[0]:
+                    v1_content = st.text_area(
+                        "貼上 V1 Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('v1', ''),
+                        height=300,
+                        key="input_v1_tab"
+                    )
+                    st.session_state.current_entry['v1'] = v1_content
+                    if v1_content and "V1 Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("V1 Sheet")
+                        st.caption("✅ V1 Sheet 已自動暫存")
+                
+                with sheet_tabs[1]:
+                    v2_content = st.text_area(
+                        "貼上 V2 Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('v2', ''),
+                        height=300,
+                        key="input_v2_tab"
+                    )
+                    st.session_state.current_entry['v2'] = v2_content
+                    if v2_content and "V2 Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("V2 Sheet")
+                        st.caption("✅ V2 Sheet 已自動暫存")
+                
+                with sheet_tabs[2]:
+                    other_content = st.text_area(
+                        "其他補充",
+                        value=st.session_state.current_entry.get('other', ''),
+                        height=200,
+                        key="input_other_tab"
+                    )
+                    st.session_state.current_entry['other'] = other_content
+                    if other_content and "其他補充" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("其他補充")
+                        st.caption("✅ 其他補充 已自動暫存")
+            
+            else:  # Mode B
+                sheet_tabs = st.tabs(["W Sheet", "P Sheet", "Grammar List", "其他補充"])
+                
+                with sheet_tabs[0]:
+                    w_content = st.text_area(
+                        "貼上 W Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('w_sheet', ''),
+                        height=300,
+                        key="input_w_tab"
+                    )
+                    st.session_state.current_entry['w_sheet'] = w_content
+                    if w_content and "W Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("W Sheet")
+                        st.caption("✅ W Sheet 已自動暫存")
+                
+                with sheet_tabs[1]:
+                    p_content = st.text_area(
+                        "貼上 P Sheet 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('p_sheet', ''),
+                        height=300,
+                        key="input_p_tab"
+                    )
+                    st.session_state.current_entry['p_sheet'] = p_content
+                    if p_content and "P Sheet" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("P Sheet")
+                        st.caption("✅ P Sheet 已自動暫存")
+                
+                with sheet_tabs[2]:
+                    g_content = st.text_area(
+                        "貼上 Grammar List 內容（Markdown 表格格式）",
+                        value=st.session_state.current_entry.get('grammar_list', ''),
+                        height=300,
+                        key="input_g_tab"
+                    )
+                    st.session_state.current_entry['grammar_list'] = g_content
+                    if g_content and "Grammar List" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("Grammar List")
+                        st.caption("✅ Grammar List 已自動暫存")
+                
+                with sheet_tabs[3]:
+                    other_content = st.text_area(
+                        "其他補充",
+                        value=st.session_state.current_entry.get('other', ''),
+                        height=200,
+                        key="input_other_b_tab"
+                    )
+                    st.session_state.current_entry['other'] = other_content
+                    if other_content and "其他補充" not in st.session_state.saved_entries:
+                        st.session_state.saved_entries.append("其他補充")
+                        st.caption("✅ 其他補充 已自動暫存")
+            
+            # 顯示暫存狀態
+            if st.session_state.saved_entries:
+                st.write("📋 已暫存工作表：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
 
-        with cols[1]:
-            st.link_button("🔍 開啟 Gemini", "https://gemini.google.com", use_container_width=True)
+        # STEP 4: 統一儲存區
+        with st.expander("步驟 4：儲存到資料庫", expanded=True):
+            st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
+            
+            if 'uploaded_to_sheets' not in st.session_state:
+                st.session_state.uploaded_to_sheets = False
+            
+            if st.session_state.uploaded_to_sheets:
+                st.success("✅ 此資料已上傳至 Google Sheets")
+                st.info("請點擊下方「🔄 新的分析」開始下一筆資料")
+                
+                if st.button("🔄 新的分析", key="new_analysis_main", use_container_width=True):
+                    keys_to_clear = [
+                        'is_prompt_generated', 'main_input_value', 'original_text',
+                        'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
+                        'current_entry', 'saved_entries', 'ref_no_input', 'uploaded_to_sheets'
+                    ]
+                    for key in keys_to_clear:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.rerun()
+            
+            def get_default_ref():
+                v1_content = st.session_state.current_entry.get('v1', '')
+                if v1_content:
+                    lines = v1_content.strip().split('\n')
+                    for line in lines[1:]:
+                        cols = line.split('\t')
+                        if len(cols) > 0 and cols[0].strip():
+                            return cols[0].strip()
+                
+                w_content = st.session_state.current_entry.get('w_sheet', '')
+                if w_content:
+                    lines = w_content.strip().split('\n')
+                    for line in lines[1:]:
+                        cols = line.split('\t')
+                        if len(cols) > 0 and cols[0].strip():
+                            return cols[0].strip()
+                
+                return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+            
+            st.markdown("**📁 檔名（可手動修改）**")
+            ref_input = st.text_input(
+                "Ref / 檔名", 
+                value=get_default_ref(),
+                key="ref_no_input"
+            )
+            
+            type_select = st.selectbox(
+                "類型",
+                ["Scripture", "Document", "Vocabulary", "Grammar", "Sermon"],
+                index=0 if st.session_state.content_mode == "A" else 1,
+                key="type_select"
+            )
+            
+            btn_cols = st.columns(2)
+            
+            with btn_cols[0]:
+                if st.button("💾 僅存本地", use_container_width=True):
+                    if not st.session_state.saved_entries:
+                        st.error("請先至少暫存一個工作表！")
+                    else:
+                        try:
+                            ref = ref_input
+                            full_data = {
+                                "ref": ref,
+                                "original": st.session_state.original_text,
+                                "prompt": st.session_state.main_input_value,
+                                "v1_content": st.session_state.current_entry['v1'],
+                                "v2_content": st.session_state.current_entry['v2'],
+                                "w_sheet": st.session_state.current_entry['w_sheet'],
+                                "p_sheet": st.session_state.current_entry['p_sheet'],
+                                "grammar_list": st.session_state.current_entry['grammar_list'],
+                                "other": st.session_state.current_entry['other'],
+                                "saved_sheets": st.session_state.saved_entries,
+                                "type": type_select,
+                                "mode": st.session_state.content_mode,
+                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            }
+                            st.session_state.sentences[ref] = full_data
+                            save_sentences(st.session_state.sentences)
+                            st.success(f"✅ 已存本地：{ref}")
+                            st.balloons()
+                        except Exception as e:
+                            st.error(f"❌ 儲存失敗：{str(e)}")
+            
+            with btn_cols[1]:
+                gc, sheet_id = get_google_sheets_client()
+                if gc and sheet_id:
+                    if st.button("☁️ 存到雲端", use_container_width=True, type="primary"):
+                        if not st.session_state.saved_entries:
+                            st.error("請先至少暫存一個工作表！")
+                        else:
+                            try:
+                                full_data = {
+                                    "ref": ref_input,
+                                    "original": st.session_state.original_text,
+                                    "v1_content": st.session_state.current_entry['v1'],
+                                    "v2_content": st.session_state.current_entry['v2'],
+                                    "w_sheet": st.session_state.current_entry['w_sheet'],
+                                    "p_sheet": st.session_state.current_entry['p_sheet'],
+                                    "grammar_list": st.session_state.current_entry['grammar_list'],
+                                    "other": st.session_state.current_entry['other'],
+                                    "saved_sheets": st.session_state.saved_entries,
+                                    "type": type_select,
+                                    "mode": st.session_state.content_mode,
+                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                }
+                                success, msg = save_to_google_sheets(full_data)
+                                if success:
+                                    st.session_state.sentences[ref_input] = full_data
+                                    save_sentences(st.session_state.sentences)
+                                    st.session_state.uploaded_to_sheets = True  # 🔥 鎖定重複上傳
+                                    st.success(f"✅ 已存 Google Sheets：{ref_input}")
+                                    st.balloons()
+                                    st.rerun()  # 🔥 重新整理顯示鎖定狀態
+                                else:
+                                    st.error(f"❌ Google Sheets 失敗：{msg}")
+                            except Exception as e:
+                                st.error(f"❌ Google Sheets 失敗：{str(e)}")
+                else:
+                    st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
 
-
-    # STEP 3: 多工作表收集區
-    with st.expander("步驟 3：分批貼上 AI 分析結果", expanded=True):
-
-        if st.session_state.content_mode == "A":
-
-            sheet_tabs = st.tabs(["V1 Sheet", "V2 Sheet", "其他補充"])
-
-            with sheet_tabs[0]:
-
-                v1_content = st.text_area(
-                    "貼上 V1 Sheet 內容（Markdown 表格格式）",
-                    value=st.session_state.current_entry.get('v1', ''),
-                    height=300,
-                    key="input_v1_tab"
-                )
-
-                st.session_state.current_entry['v1'] = v1_content
-
-                if v1_content and "V1 Sheet" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("V1 Sheet")
-                    st.caption("✅ V1 Sheet 已自動暫存")
-
-
-            with sheet_tabs[1]:
-
-                v2_content = st.text_area(
-                    "貼上 V2 Sheet 內容（Markdown 表格格式）",
-                    value=st.session_state.current_entry.get('v2', ''),
-                    height=300,
-                    key="input_v2_tab"
-                )
-
-                st.session_state.current_entry['v2'] = v2_content
-
-                if v2_content and "V2 Sheet" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("V2 Sheet")
-                    st.caption("✅ V2 Sheet 已自動暫存")
-
-
-            with sheet_tabs[2]:
-
-                other_content = st.text_area(
-                    "其他補充",
-                    value=st.session_state.current_entry.get('other', ''),
-                    height=200,
-                    key="input_other_tab"
-                )
-
-                st.session_state.current_entry['other'] = other_content
-
-                if other_content and "其他補充" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("其他補充")
-                    st.caption("✅ 其他補充 已自動暫存")
-
-
-        else:
-
-            sheet_tabs = st.tabs(["W Sheet", "P Sheet", "Grammar List", "其他補充"])
-
-
-            with sheet_tabs[0]:
-
-                w_content = st.text_area(
-                    "貼上 W Sheet 內容（Markdown 表格格式）",
-                    value=st.session_state.current_entry.get('w_sheet', ''),
-                    height=300,
-                    key="input_w_tab"
-                )
-
-                st.session_state.current_entry['w_sheet'] = w_content
-
-                if w_content and "W Sheet" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("W Sheet")
-                    st.caption("✅ W Sheet 已自動暫存")
-
-
-            with sheet_tabs[1]:
-
-                p_content = st.text_area(
-                    "貼上 P Sheet 內容（Markdown 表格格式）",
-                    value=st.session_state.current_entry.get('p_sheet', ''),
-                    height=300,
-                    key="input_p_tab"
-                )
-
-                st.session_state.current_entry['p_sheet'] = p_content
-
-                if p_content and "P Sheet" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("P Sheet")
-                    st.caption("✅ P Sheet 已自動暫存")
-
-
-            with sheet_tabs[2]:
-
-                g_content = st.text_area(
-                    "貼上 Grammar List 內容（Markdown 表格格式）",
-                    value=st.session_state.current_entry.get('grammar_list', ''),
-                    height=300,
-                    key="input_g_tab"
-                )
-
-                st.session_state.current_entry['grammar_list'] = g_content
-
-                if g_content and "Grammar List" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("Grammar List")
-                    st.caption("✅ Grammar List 已自動暫存")
-
-
-            with sheet_tabs[3]:
-
-                other_content = st.text_area(
-                    "其他補充",
-                    value=st.session_state.current_entry.get('other', ''),
-                    height=200,
-                    key="input_other_b_tab"
-                )
-
-                st.session_state.current_entry['other'] = other_content
-
-                if other_content and "其他補充" not in st.session_state.saved_entries:
-                    st.session_state.saved_entries.append("其他補充")
-                    st.caption("✅ 其他補充 已自動暫存")
-
-
-        if st.session_state.saved_entries:
-            st.write("📋 已暫存工作表：", " | ".join([f"✅ {s}" for s in st.session_state.saved_entries]))
-
-
-    # STEP 4: 儲存區
-    with st.expander("步驟 4：儲存到資料庫", expanded=True):
-
-        st.caption("確認所有工作表都暫存後，填寫資訊並儲存")
-
-        if 'uploaded_to_sheets' not in st.session_state:
-            st.session_state.uploaded_to_sheets = False
-
-
-        if st.session_state.uploaded_to_sheets:
-
-            st.success("✅ 此資料已上傳至 Google Sheets")
-            st.info("請點擊下方「🔄 新的分析」開始下一筆資料")
-
-            if st.button("🔄 新的分析", key="new_analysis_main", use_container_width=True):
-
+            if st.button("🔄 新的分析", key="new_analysis_secondary", use_container_width=True):
                 keys_to_clear = [
-                    'is_prompt_generated','main_input_value','original_text',
-                    'content_mode','raw_input_value','ref_number','raw_input_temp',
-                    'current_entry','saved_entries','ref_no_input','uploaded_to_sheets'
+                    'is_prompt_generated', 'main_input_value', 'original_text',
+                    'content_mode', 'raw_input_value', 'ref_number', 'raw_input_temp',
+                    'current_entry', 'saved_entries', 'ref_no_input'
                 ]
-
                 for key in keys_to_clear:
                     if key in st.session_state:
                         del st.session_state[key]
-
                 st.rerun()
-
-
-        def get_default_ref():
-
-            v1_content = st.session_state.current_entry.get('v1', '')
-
-            if v1_content:
-                lines = v1_content.strip().split('\n')
-                for line in lines[1:]:
-                    cols = line.split('\t')
-                    if len(cols) > 0 and cols[0].strip():
-                        return cols[0].strip()
-
-            w_content = st.session_state.current_entry.get('w_sheet', '')
-
-            if w_content:
-                lines = w_content.strip().split('\n')
-                for line in lines[1:]:
-                    cols = line.split('\t')
-                    if len(cols) > 0 and cols[0].strip():
-                        return cols[0].strip()
-
-            return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
-
-
-        st.markdown("**📁 檔名（可手動修改）**")
-
-        ref_input = st.text_input(
-            "Ref / 檔名",
-            value=get_default_ref(),
-            key="ref_no_input"
-        )
-
-
-        type_select = st.selectbox(
-            "類型",
-            ["Scripture", "Document", "Vocabulary", "Grammar", "Sermon"],
-            index=0 if st.session_state.content_mode == "A" else 1,
-            key="type_select"
-        )
-
-
-        btn_cols = st.columns(2)
-
-        if st.button("🔄 新的分析", key="new_analysis_secondary", use_container_width=True):
-
-            keys_to_clear = [
-                'is_prompt_generated','main_input_value','original_text',
-                'content_mode','raw_input_value','ref_number','raw_input_temp',
-                'current_entry','saved_entries','ref_no_input'
-            ]
-
-            for key in keys_to_clear:
-                if key in st.session_state:
-                    del st.session_state[key]
-
-            st.rerun()
-
-        full_data_to_save = {
-            "ref": ref_input,
-            "original": st.session_state.original_text,
-            "prompt": st.session_state.main_input_value,
-            "v1_content": st.session_state.current_entry.get('v1', ''),
-            "v2_content": st.session_state.current_entry.get('v2', ''),
-            "w_sheet": st.session_state.current_entry.get('w_sheet', ''),
-            "p_sheet": st.session_state.current_entry.get('p_sheet', ''),
-            "grammar_list": st.session_state.current_entry.get('grammar_list', ''),
-            "other": st.session_state.current_entry.get('other', ''),
-            "saved_sheets": st.session_state.saved_entries,
-            "type": type_select,
-            "mode": st.session_state.content_mode,
-            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-        }
-
-        # 儲存按鈕
-        save_btn_cols = st.columns(2)
-
-        with save_btn_cols[0]:
-
-            if st.button("💾 僅存本地", key="save_local_final", use_container_width=True):
-
-                if not st.session_state.saved_entries:
-                    st.error("請先至少暫存一個工作表！")
-
-                else:
-                    try:
-                        st.session_state.sentences[ref_input] = full_data_to_save
-                        save_sentences(st.session_state.sentences)
-                        st.success(f"✅ 已存本地：{ref_input}")
-                        st.balloons()
-
-                    except Exception as e:
-                        st.error(f"❌ 儲存失敗：{str(e)}")
-
-        with save_btn_cols[1]:
-
-            gc, sheet_id = get_google_sheets_client()
-
-            if gc and sheet_id:
-
-                if st.button("☁️ 存到雲端", key="save_cloud_final", use_container_width=True, type="primary"):
-
-                    if not st.session_state.saved_entries:
-                        st.error("請先至少暫存一個工作表！")
-
-                    else:
-
-                        try:
-
-                            success, msg = save_to_google_sheets(full_data_to_save)
-
-                            if success:
-                                st.session_state.sentences[ref_input] = full_data_to_save
-                                save_sentences(st.session_state.sentences)
-
-                                st.session_state.uploaded_to_sheets = True
-
-                                st.success(f"✅ 已存 Google Sheets：{ref_input}")
-                                st.balloons()
-
-                                st.rerun()
-
-                            else:
-                                st.error(f"❌ Google Sheets 失敗：{msg}")
-
-                        except Exception as e:
-                            st.error(f"❌ 異常錯誤：{str(e)}")
-
-            else:
-                st.button("☁️ 存到雲端", disabled=True, use_container_width=True)
 
     # 儲存狀態顯示區
     st.divider()
@@ -2416,4 +2561,6 @@ if st.session_state.is_prompt_generated:
                     st.markdown(r)
             else:
                 st.info("無符合資料")
+
+
 
