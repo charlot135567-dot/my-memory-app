@@ -1886,7 +1886,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
-        st.session_state.ref_number = f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+        st.session_state.ref_number = f"REF_{dt.now().strftime('%m%d%H%M')}"
         st.session_state.current_entry = {
             'v1': '', 'v2': '', 'w_sheet': '', 
             'p_sheet': '', 'grammar_list': '', 'other': ''
