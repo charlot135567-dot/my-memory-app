@@ -12,7 +12,7 @@ import csv
 import requests
 import toml
 import io
-from datetime import datetime as dt, timedelta  # 增加 timedelta
+from datetime import datetime as dt, timedelta, time  # 增加 time
 import datetime                      # 如果有舊程式碼用到 datetime.xxx 則保留
 
 # 外部 API 與地圖/組件
@@ -1429,7 +1429,7 @@ with tabs[1]:
             with c1:
                 in_date = st.date_input("日期", base_date)
             with c2:
-                in_time = st.time_input("時間", dt.time(9, 0))
+                in_time = st.time_input("時間", time(9, 0))
             in_title = st.text_input("待辦事項（可含 Emoji）")
             
             if st.form_submit_button("💾 儲存"):
