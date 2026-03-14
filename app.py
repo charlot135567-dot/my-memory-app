@@ -879,7 +879,7 @@ with tabs[0]:
     if "tab1_last_update" not in st.session_state:
         st.session_state.tab1_last_update = dt.now()
     
-    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
+    time_diff = (dt.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
         st.session_state.tab1_last_update = dt.now()
         st.session_state.tab1_vocab_index += 1
