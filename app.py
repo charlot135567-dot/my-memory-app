@@ -1919,7 +1919,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "saved_sheets": ["V1 Sheet", "V2 Sheet"],
                         "type": "Scripture",
                         "mode": "A",
-                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "date_added": dt.now().strftime("%Y-%m-%d %H:%M"),
                         "blank_template": True
                     }
                 else:
