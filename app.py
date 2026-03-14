@@ -1458,61 +1458,59 @@ with tabs[1]:
     sentences = st.session_state.get('sentences', {})
     
     # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
-    all_verses = []
-    
-    for ref, data in sentences.items():
-        # 修正問題1：確保資料為字串，避免 None
-        v1_content = data.get('v1_content', '') or ''
-        v2_content = data.get('v2_content', '') or ''
-        
-        if not v1_content:
-            continue
-            
-        try:
-            # 修正問題3：使用與 TAB1 相同的 parse_csv 邏輯處理 Tab 分隔格式
-            def parse_csv_tab(content):
-                if not content or not isinstance(content, str) or not content.strip():
-                    return []
-                lines = content.strip().split('\n')
-                if len(lines) < 1:
-                    return []
-                headers = [h.strip() for h in lines[0].split('\t')]
-                rows = []
-                for line in lines[1:]:
-                    if not line.strip():
+        # 收集所有經文資料
+        all_verses = []
+        for ref in weighted_pool[:10]:
+            data = sentences[ref]
+            v1_content = data.get('v1_content', '')
+            if v1_content:
+                try:
+                    # 清理 Markdown 表格符號
+                    cleaned = v1_content.strip()
+                    lines = []
+                    for line in cleaned.split('\n'):
+                        line = line.strip()
+                        # 跳過空行和分隔線
+                        if not line or re.match(r'^[\|\-\s:]+$', line):
+                            continue
+                        # 移除 Markdown 表格的 | 符號
+                        if line.startswith('|'):
+                            line = line[1:]
+                        if line.endswith('|'):
+                            line = line[:-1]
+                        # 轉換為 tab 分隔
+                        cells = [c.strip() for c in line.split('|')]
+                        lines.append('\t'.join(cells))
+                    
+                    if not lines:
                         continue
-                    cells = [c.strip() for c in line.split('\t')]
-                    while len(cells) < len(headers):
-                        cells.append('')
-                    row_dict = {}
-                    for i, header in enumerate(headers):
-                        cell_value = cells[i] if i < len(cells) else ''
-                        cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
-                        row_dict[header] = cell_value
-                    if any(v.strip() for v in row_dict.values()):
-                        rows.append(row_dict)
-                return rows
-            
-            v1_rows = parse_csv_tab(v1_content)
-            v2_rows = parse_csv_tab(v2_content) if v2_content else []
-            
-            # 修正問題3：確保 V1 和 V2 資料列正確對應
-            for i, v1_row in enumerate(v1_rows):
-                v2_row = v2_rows[i] if i < len(v2_rows) else {}
-                
-                # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
-                # 避免使用全形括號在 f-string 中，改用變數
-                verse_ref = v1_row.get('Ref. 經文出處', ref)
-                en = v1_row.get('English（ESV經文）', '')  
-                cn = v1_row.get('Chinese經文', '')
-                
-                # 修正問題3：V2 欄位名稱與 TAB1 一致
-                jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
-                kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
-                th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
-        except Exception as e:  # ← 補上這個 except 區塊！
-            st.error(f"解析資料時發生錯誤: {e}")
-            st.exception(e)  
+                    
+                    # 使用 tab 分隔解析
+                    reader = csv.DictReader(lines, delimiter='\t')
+                    
+                    for row in reader:
+                        # 清理欄位名稱
+                        clean_row = {k.strip().replace(' ', ''): v.strip() 
+                                    for k, v in row.items() if k}
+                        
+                        # 相容多種欄位名稱
+                        verse_ref = (clean_row.get('Ref.經文出處', '') or 
+                                    clean_row.get('Ref.', '') or ref)
+                        english = (clean_row.get('English（ESV經文）', '') or
+                                  clean_row.get('English(ESV)', '') or
+                                  clean_row.get('English', ''))
+                        chinese = (clean_row.get('Chinese經文', '') or
+                                  clean_row.get('Chinese', ''))
+                        
+                        if english or chinese:
+                            all_verses.append({
+                                'ref': verse_ref,
+                                'english': english,
+                                'chinese': chinese
+                            })
+                except Exception as e:
+                    st.error(f"解析錯誤: {e}")
+                    continue
             
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
