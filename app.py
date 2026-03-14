@@ -1384,7 +1384,7 @@ with tabs[1]:
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
-        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+        base_date = dt.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.now().date()
 
