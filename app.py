@@ -1,25 +1,14 @@
 # ===================================================================
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
-import os
-import re
-import io
-import csv
-import json
-import base64
-import random
+import streamlit as st  
+import os, datetime as dt, pandas as pd, io, json, re
 import requests
-import datetime as dt
-
-from io import StringIO
-
-import pandas as pd
-import streamlit as st
-import streamlit.components.v1 as components
-from streamlit_calendar import calendar
-
+import base64
 import gspread
 from google.oauth2.service_account import Credentials
+from io import StringIO
+import csv
 import toml
 
 # ---------- 頁面設定（必須在第一個 st. 指令前）----------
@@ -716,6 +705,11 @@ if 'sentences' not in st.session_state:
 # ===================================================================
 # 1. 側邊欄（簡化版）
 # ===================================================================
+
+import datetime
+import requests
+import json
+
 # 圖片 URL
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
@@ -728,6 +722,7 @@ IMG_URLS = {
     "M5": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro5.jpg",
     "M6": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro6.jpg"
 }
+
 # ---------- 側邊欄開始 ----------
 with st.sidebar:
     # ===== 每日韓文鼓勵話（輪播）+ Mashimaro（最頂部）=====
@@ -866,10 +861,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+
+import streamlit as st
+import pandas as pd
+import re
+import random
+import base64
+import os
+from datetime import datetime as dt
+
 # ===================================================================
 # 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應)
 # ===================================================================
 with tabs[0]:
+    import random, re, datetime as dt
 
     # --- Session State ---
     st.session_state.setdefault("tab1_vocab_index", 0)
@@ -1286,6 +1291,10 @@ with tabs[0]:
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
 with tabs[1]:
+    import datetime as dt, re, os, json
+    from streamlit_calendar import calendar
+    from io import StringIO
+    import csv
 
     # 全局CSS：壓縮所有間距
     st.markdown("""
@@ -1519,6 +1528,10 @@ with tabs[1]:
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
+    import csv
+    import random
+    import re
+    from io import StringIO
     
     # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
@@ -1683,6 +1696,7 @@ with tabs[2]:
 # 6. TAB4 ─ AI 控制台 + 資料庫管理（保留完整 UI）
 # ===================================================================
 with tabs[3]:
+    import streamlit.components.v1 as components
 
     # ═══════════════════════════════════════════════════════════════
     # 🔥 關鍵：確保資料已載入（只執行一次）
@@ -1911,7 +1925,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                     blank_structure = {
                         "ref": blank_ref,
                         "original": "[空白資料-待填入經文]",
-                        "v1_content": "Ref.經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
+                        "v1_content": "Ref. 經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
                         "v2_content": "Ref.經文出處\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n",
                         "w_sheet": "",
                         "p_sheet": "",
