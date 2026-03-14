@@ -1345,7 +1345,7 @@ with tabs[1]:
     if "favorite_sentences" not in st.session_state:
         st.session_state.favorite_sentences = load_favorites()
     if "sel_date" not in st.session_state:
-        st.session_state.sel_date = str(dt.date.today())
+        st.session_state.sel_date = str(dt.now().date())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
     if "active_del_id" not in st.session_state:
