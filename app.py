@@ -1452,10 +1452,12 @@ with tabs[0]:
 
         st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
 
-        # ---------- 5. 時段金句 ----------
+        # ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
         st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
         sentences = st.session_state.get('sentences', {})
 
+        # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
+        # 收集所有經文資料
         all_verses = []
         for ref in weighted_pool[:10]:
             data = sentences[ref]
@@ -1468,10 +1470,13 @@ with tabs[0]:
                         line = line.strip()
                         if not line or re.match(r'^[\|\-\s:]+$', line):
                             continue
+
                         if line.startswith('|'):
                             line = line[1:]
+
                         if line.endswith('|'):
                             line = line[:-1]
+
                         cells = [c.strip() for c in line.split('|')]
                         lines.append('\t'.join(cells))
 
@@ -1481,13 +1486,16 @@ with tabs[0]:
                     reader = csv.DictReader(lines, delimiter='\t')
 
                     for row in reader:
-                        clean_row = {k.strip().replace(' ', ''): v.strip() for k, v in row.items() if k}
+                        clean_row = {k.strip().replace(' ', ''): v.strip()
+                                     for k, v in row.items() if k}
 
                         verse_ref = (clean_row.get('Ref.經文出處', '') or
                                      clean_row.get('Ref.', '') or ref)
+
                         english = (clean_row.get('English（ESV經文）', '') or
                                    clean_row.get('English(ESV)', '') or
                                    clean_row.get('English', ''))
+
                         chinese = (clean_row.get('Chinese經文', '') or
                                    clean_row.get('Chinese', ''))
 
@@ -1497,6 +1505,7 @@ with tabs[0]:
                                 'english': english,
                                 'chinese': chinese
                             })
+
                 except Exception as e:
                     st.error(f"解析錯誤: {e}")
                     continue
