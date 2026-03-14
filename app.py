@@ -684,7 +684,7 @@ def to_excel(result: dict) -> bytes:
                 len(result.get("words", [])),
                 len(result.get("phrases", [])),
                 len(result.get("grammar", [])),
-                dt.date.today().strftime("%Y-%m-%d")
+                dt.now().strftime("%Y-%m-%d")
             ]
         })
         stats.to_excel(writer, sheet_name="統計", index=False)
@@ -743,7 +743,7 @@ with st.sidebar:
         "사랑은 언제나 승리합니다 💕",
         "당신의 꿈을 응원합니다 🌟",
     ]
-    today_index = datetime.date.today().weekday() % len(quotes)
+    today_index = dt.now().weekday() % len(quotes)
     korean_text = quotes[today_index]
     
     # 顯示韓文
