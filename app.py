@@ -873,9 +873,11 @@ import os
 from datetime import datetime as dt
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位與縮排)
+# 3. TAB1 ─ 書桌 (輪流顯示版)
 # ===================================================================
 with tabs[0]:
+    # 修正 BUG 5：移除重複的 import，使用全域已匯入的模組
+    
     # --- Session State 初始化 ---
     st.session_state.setdefault("tab1_vocab_index", 0)
     st.session_state.setdefault("tab1_phrase_index", 15)
@@ -899,26 +901,6 @@ with tabs[0]:
     if not sentences:
         st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
-        def parse_tab_delimited(content):
-            """解析 TAB4 的 \t 分隔格式"""
-            if not content or not content.strip(): return []
-            lines = content.strip().split('\n')
-            if len(lines) < 2: return []
-            headers = [h.strip() for h in lines[0].split('\t')]
-            rows = []
-            for line in lines[1:]:
-                if not line.strip(): continue
-                values = line.split('\t')
-                while len(values) < len(headers): values.append('')
-                rows.append({header: values[i].strip() for i, header in enumerate(headers)})
-            return rows
-        def normalize_keys(row):
-            result = {}
-            for k, v in row.items():
-                clean_k = k.replace(' ', '') if k else k  # 去除所有空格
-                result[clean_k] = v
-            return result
-    
         # --- 收集資料與分類 ---
         all_mode_a = []
         all_mode_b = []
@@ -958,7 +940,7 @@ with tabs[0]:
                     row_idx = idx - cum
                     v1_r = f['v1'][row_idx]
                     v2_r = f['v2'][row_idx] if row_idx < len(f['v2']) else {}
-                    current_vocab_ref = v1_r.get('Ref.經文出處', f['ref'])  # ✅ 修改 Ref 欄位
+                    current_vocab_ref = v1_r.get('Ref.經文出處', f['ref'])
                     break
                 cum += f['v1_count']
 
@@ -988,7 +970,7 @@ with tabs[0]:
             
             lines = []
             if g_source['type'] == 'A':
-                header = f"<b>{g_row.get('Ref.經文出處', '')}</b><br>🇬🇧 {g_row.get('English（ESV經文）', g_row.get('English (ESV)', ''))}<br>🇨🇳 {g_row.get('Chinese經文', g_row.get('Chinese', ''))}"  # ✅ 修改 Ref 欄位
+                header = f"<b>{g_row.get('Ref.經文出處', '')}</b><br>🇬🇧 {g_row.get('English（ESV經文）', g_row.get('English (ESV)', ''))}<br>🇨🇳 {g_row.get('Chinese經文', g_row.get('Chinese', ''))}"
                 lines.append(header)
                 content = str(g_row.get('Grammar', ''))
             else:
@@ -1015,7 +997,7 @@ with tabs[0]:
 
             # 2) 片語區
             for i, row in enumerate(w_phrases):
-                p_cn = re.sub(r'^abc\s*', '', row.get('Word/Phrase＋Chinese', row.get('Word/Phrase', '')), flags=re.IGNORECASE)
+                p_cn = re.sub(r'^abc\\s*', '', row.get('Word/Phrase＋Chinese', row.get('Word/Phrase', '')), flags=re.IGNORECASE)
                 st.markdown(f"**{p_cn}**")
                 sa = []
                 if row.get('Synonym+中文對照'): sa.append(f"✨ {row.get('Synonym+中文對照')}")
@@ -1026,13 +1008,12 @@ with tabs[0]:
 
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
 
-            # 3) 金句區 (確保還在 col_left 縮排內)
+            # 3) 金句區
             if v1_r:
                 ref = v1_r.get('Ref.經文出處', 'Verse')
                 en = v1_r.get('English（ESV經文）', v1_r.get('English (ESV)', ''))
                 st.markdown(f"🇬🇧 **{ref}** {en}")
                 
-                # 定義模糊搜尋函數 (放在這裡可確保抓到當下的 v2_r)
                 def get_v2_field(row, keyword):
                     if not row: return ""
                     for key in row.keys():
@@ -1040,11 +1021,9 @@ with tabs[0]:
                             return row[key]
                     return ""
 
-                # 抓取 V2 資料
                 jp = get_v2_field(v2_r, "口語")
                 kr = get_v2_field(v2_r, "KRF")
-                th = get_v2_field(v2_r, "THSV11")  # ✅ 修改 THSV 欄位
-
+                th = get_v2_field(v2_r, "THSV11")
                 cn = v1_r.get('Chinese經文', v1_r.get('Chinese', ''))
 
                 if jp: st.markdown(f"🇯🇵 {jp}")
@@ -1053,7 +1032,7 @@ with tabs[0]:
                 if cn: st.markdown(f"🇨🇳 {cn}")
 
         with col_right:
-            # 右側文法卡片 (保持原本內容)
+            # 右側文法卡片
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
                             border-left:4px solid #FF8C00; min-height:450px; font-size:13px; line-height:1.4;">
@@ -1067,30 +1046,22 @@ with tabs[0]:
             st.caption(f"文法:{current_grammar_ref} | {m_left:.0f}分後更新")
             
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
+# 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正 BUG 1）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt, re, os, json
     from streamlit_calendar import calendar
-    from io import StringIO
-    import csv
 
     # 全局CSS：壓縮所有間距
     st.markdown("""
         <style>
-        /* 壓縮所有元素間距 */
         div[data-testid="stVerticalBlock"] > div {padding: 0px !important; margin: 0px !important;}
         div[data-testid="stVerticalBlock"] > div > div {padding: 0px !important; margin: 0px !important;}
         p {margin: 0px !important; padding: 0px !important; line-height: 1.2 !important;}
         .stMarkdown {margin: 0px !important; padding: 0px !important;}
-        /* 壓縮按鈕 */
         .stButton button {padding: 0px 4px !important; min-height: 24px !important; font-size: 12px !important; margin: 0px !important;}
-        /* 壓縮分隔線 */
         hr {margin: 2px 0 !important; padding: 0 !important;}
-        /* 壓縮expander */
         div[data-testid="stExpander"] {margin: 2px 0 !important;}
         div[data-testid="stExpander"] > div {padding: 0px 8px !important;}
-        /* 壓縮columns間距 */
         div[data-testid="column"] {padding: 0px 2px !important;}
         </style>
     """, unsafe_allow_html=True)
@@ -1168,7 +1139,7 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-    # ---------- 3. 三日清單（修正：顯示選中日期的前後一天）----------
+    # ---------- 3. 三日清單 ----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
@@ -1176,7 +1147,6 @@ with tabs[1]:
     except:
         base_date = dt.date.today()
 
-    # 顯示選中日期及其前後各一天（共3天）
     dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
     
     has_todo = False
@@ -1191,7 +1161,6 @@ with tabs[1]:
                 title = item.get("title", "") if isinstance(item, dict) else str(item)
                 time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
 
-                # 極緊湊布局
                 c1, c2, c3 = st.columns([0.3, 8, 1.2])
                 
                 with c1:
@@ -1200,7 +1169,6 @@ with tabs[1]:
                         st.rerun()
 
                 with c2:
-                    # 使用html壓縮行距
                     st.markdown(f'<p style="margin:0;padding:0;line-height:1.2;font-size:13px;">{d_obj.month}/{d_obj.day} {time_str} {title}</p>', unsafe_allow_html=True)
 
                 with c3:
@@ -1213,7 +1181,6 @@ with tabs[1]:
                             st.session_state.cal_key += 1
                             st.session_state.active_del_id = None
                             st.rerun()
-                # 每個項目後極小間距
                 st.markdown('<div style="height:1px;"></div>', unsafe_allow_html=True)
     
     if not has_todo:
@@ -1241,16 +1208,14 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
     
-    # ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
+    # ---------- 5. 時段金句（修正 BUG 1：補上 all_verses.append 與顯示邏輯）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
     
     sentences = st.session_state.get('sentences', {})
     
-    # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
     all_verses = []
     
     for ref, data in sentences.items():
-        # 修正問題1：確保資料為字串，避免 None
         v1_content = data.get('v1_content', '') or ''
         v2_content = data.get('v2_content', '') or ''
         
@@ -1258,25 +1223,24 @@ with tabs[1]:
             continue
             
         try:
-            # 修正問題3：使用與 TAB1 相同的 parse_csv 邏輯處理 Tab 分隔格式
             def parse_csv_tab(content):
                 if not content or not isinstance(content, str) or not content.strip():
                     return []
-                lines = content.strip().split('\n')
+                lines = content.strip().split('\\n')
                 if len(lines) < 1:
                     return []
-                headers = [h.strip() for h in lines[0].split('\t')]
+                headers = [h.strip() for h in lines[0].split('\\t')]
                 rows = []
                 for line in lines[1:]:
                     if not line.strip():
                         continue
-                    cells = [c.strip() for c in line.split('\t')]
+                    cells = [c.strip() for c in line.split('\\t')]
                     while len(cells) < len(headers):
                         cells.append('')
                     row_dict = {}
                     for i, header in enumerate(headers):
                         cell_value = cells[i] if i < len(cells) else ''
-                        cell_value = re.sub(r'\*\*(.*?)\*\*', r'\1', cell_value)
+                        cell_value = re.sub(r'\\*\\*(.*?)\\*\\*', r'\\1', cell_value)
                         row_dict[header] = cell_value
                     if any(v.strip() for v in row_dict.values()):
                         rows.append(row_dict)
@@ -1285,21 +1249,18 @@ with tabs[1]:
             v1_rows = parse_csv_tab(v1_content)
             v2_rows = parse_csv_tab(v2_content) if v2_content else []
             
-            # 修正問題3：確保 V1 和 V2 資料列正確對應
             for i, v1_row in enumerate(v1_rows):
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 
-                # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
+                # 修正 BUG 1：補上這段，將資料加入 all_verses
                 verse_ref = v1_row.get('Ref.經文出處', ref)
                 en = v1_row.get('English（ESV經文）', '')  
                 cn = v1_row.get('Chinese經文', '')
-                
-                # 修正問題3：V2 欄位名稱與 TAB1 一致
                 jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
                 kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
                 th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
                 
-                # ========== BUG 1 修正：補上 all_verses.append ==========
+                # ⭐ 修正 BUG 1：補上 append！
                 all_verses.append({
                     'ref': verse_ref,
                     'en': en,
@@ -1312,45 +1273,33 @@ with tabs[1]:
         except Exception as e:
             st.error(f"解析資料時發生錯誤: {e}")
             st.exception(e)
-            continue  # 發生錯誤時繼續處理下一筆資料
     
-    # ========== BUG 1 修正：補上顯示邏輯 ==========
+    # ⭐ 修正 BUG 1：補上顯示邏輯！
     if all_verses:
-        # 根據當前時間選擇金句（每小時輪替）
+        # 根據當前時間選擇金句（每4小時輪換）
         current_hour = dt.datetime.now().hour
-        verse_index = current_hour % len(all_verses)
-        selected = all_verses[verse_index]
+        verse_index = (current_hour // 4) % len(all_verses)
+        current_verse = all_verses[verse_index]
         
-        # 顯示金句卡片
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 15px; border-radius: 10px; color: white; margin: 10px 0;">
-            <p style="margin: 0 0 8px 0; font-size: 12px; opacity: 0.9;">🕐 {current_hour}:00 時段金句 #{verse_index + 1}</p>
-            <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">{selected['ref']}</p>
-            <p style="margin: 5px 0; font-size: 13px; line-height: 1.4;">🇬🇧 {selected['en'][:150]}{'...' if len(selected['en']) > 150 else ''}</p>
-            <p style="margin: 5px 0; font-size: 13px; line-height: 1.4; opacity: 0.95;">🇨🇳 {selected['cn'][:80]}{'...' if len(selected['cn']) > 80 else ''}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 多語言展開區
-        with st.expander("🌏 多語言對照", expanded=False):
-            if selected['jp']:
-                st.markdown(f"🇯🇵 {selected['jp']}")
-            if selected['kr']:
-                st.markdown(f"🇰🇷 {selected['kr']}")
-            if selected['th']:
-                st.markdown(f"🇹🇭 {selected['th']}")
+        st.markdown(f"**{current_verse['ref']}**")
+        if current_verse['en']:
+            st.markdown(f"🇬🇧 {current_verse['en']}")
+        if current_verse['jp']:
+            st.markdown(f"🇯🇵 {current_verse['jp']}")
+        if current_verse['kr']:
+            st.markdown(f"🇰🇷 {current_verse['kr']}")
+        if current_verse['th']:
+            st.markdown(f"🇹🇭 {current_verse['th']}")
+        if current_verse['cn']:
+            st.markdown(f"🇨🇳 {current_verse['cn']}")
     else:
-        st.info("📭 尚無時段金句資料，請先在 TAB4 新增經文資料")
+        st.info("尚無金句資料，請先在 TAB4 新增資料")
             
 # ===================================================================
-# 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
+# 5. TAB3 ─ 挑戰（修正 BUG 4：處理 Markdown 表格格式）
 # ===================================================================
 with tabs[2]:
-    import csv
-    import random
-    import re
-    from io import StringIO
+    # 修正 BUG 5：使用全域已匯入的 random, csv, re，不再重複 import
     
     # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
@@ -1387,25 +1336,39 @@ with tabs[2]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
-                try:  # ← 修正縮排：與 if 對齊
-                    lines = v1_content.strip().split('\n')
+                try:
+                    lines = v1_content.strip().split('\\n')
                     if lines:
-                        # 1. 這裡定義 reader，注意 delimiter 是 \t
-                        reader = csv.DictReader(lines, delimiter='\t')
-
-                        # 2. 這裡跑迴圈
-                        for row in reader:
-                            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
-                            all_verses.append({
-                                'ref': row.get('Ref.經文出處', ''),
-                                'english': row.get('English（ESV經文）', ''),
-                                'chinese': row.get('Chinese經文', '')
-                            })
-
-                except Exception as e:  # ← 修正縮排：與 try 對齊
+                        # 修正 BUG 4：先清理 Markdown 表格符號
+                        cleaned_lines = []
+                        for line in lines:
+                            # 移除行首行尾的 | 符號
+                            line = line.strip()
+                            if line.startswith('|'):
+                                line = line[1:]
+                            if line.endswith('|'):
+                                line = line[:-1]
+                            # 跳過分隔線（---）
+                            if '---' in line and len(line.replace('-', '').replace('|', '').strip()) == 0:
+                                continue
+                            if line.strip():
+                                cleaned_lines.append(line)
+                        
+                        if cleaned_lines:
+                            # 使用 tab 分隔符解析
+                            reader = csv.DictReader(cleaned_lines, delimiter='\\t')
+                            for row in reader:
+                                # 修正 BUG 4：清理欄位值中的 | 符號
+                                clean_row = {k: v.replace('|', '').strip() for k, v in row.items()}
+                                all_verses.append({
+                                    'ref': clean_row.get('Ref.經文出處', ''),
+                                    'english': clean_row.get('English（ESV經文）', ''),
+                                    'chinese': clean_row.get('Chinese經文', '')
+                                })
+                except Exception as e:
                     st.error(f"解析錯誤: {e}")
         
-        # 需要至少 6 題才開始（注意這行的縮排要與 for ref... 同層級）
+        # 需要至少 6 題才開始
         if len(all_verses) < 6:
             st.warning("經文資料不足，無法生成題目（至少需要6句經文）")
         else:
@@ -1423,7 +1386,7 @@ with tabs[2]:
                 st.markdown(f"**{i}.** {q['chinese'][:60]}...")
                 st.text_input(
                     "中翻英", 
-                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",  # 加入 seed 避免快取問題
+                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",
                     placeholder="請翻譯成英文...", 
                     label_visibility="collapsed"
                 )
@@ -1447,16 +1410,29 @@ with tabs[2]:
                 v1_content = data.get('v1_content', '')
                 if v1_content:
                     try:
-                        lines = v1_content.strip().split('\n')
-                        if lines:
-                            reader = csv.DictReader(lines)
+                        lines = v1_content.strip().split('\\n')
+                        # 同樣清理 Markdown 符號
+                        cleaned_lines = []
+                        for line in lines:
+                            line = line.strip()
+                            if line.startswith('|'):
+                                line = line[1:]
+                            if line.endswith('|'):
+                                line = line[:-1]
+                            if '---' in line and len(line.replace('-', '').replace('|', '').strip()) == 0:
+                                continue
+                            if line.strip():
+                                cleaned_lines.append(line)
+                        
+                        if cleaned_lines:
+                            reader = csv.DictReader(cleaned_lines, delimiter='\\t')
                             for row in reader:
-                                syn_ant = row.get('Syn/Ant', '')
+                                clean_row = {k: v.replace('|', '').strip() for k, v in row.items()}
+                                syn_ant = clean_row.get('Syn/Ant', '')
                                 if '/' in syn_ant:
                                     parts = syn_ant.split('/')
                                     for p in parts:
-                                        # 解析格式：word (中文)
-                                        match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
+                                        match = re.match(r'(.+?)\\s*\\((.+?)\\)', p.strip())
                                         if match:
                                             word_pool.append({
                                                 'en': match.group(1).strip(),
