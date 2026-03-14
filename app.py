@@ -1935,7 +1935,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "saved_sheets": ["W Sheet", "P Sheet", "Grammar List"],
                         "type": "Document",
                         "mode": "B",
-                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "date_added": dt.now().strftime("%Y-%m-%d %H:%M"),
                         "blank_template": True
                     }
                 
