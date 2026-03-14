@@ -1453,64 +1453,64 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
     
-    # ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
-    st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
-    sentences = st.session_state.get('sentences', {})
-    
-    # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
-        # 收集所有經文資料
-        all_verses = []
-        for ref in weighted_pool[:10]:
-            data = sentences[ref]
-            v1_content = data.get('v1_content', '')
-            if v1_content:
-                try:
-                    # 清理 Markdown 表格符號
-                    cleaned = v1_content.strip()
-                    lines = []
-                    for line in cleaned.split('\n'):
-                        line = line.strip()
-                        # 跳過空行和分隔線
-                        if not line or re.match(r'^[\|\-\s:]+$', line):
-                            continue
-                        # 移除 Markdown 表格的 | 符號
-                        if line.startswith('|'):
-                            line = line[1:]
-                        if line.endswith('|'):
-                            line = line[:-1]
-                        # 轉換為 tab 分隔
-                        cells = [c.strip() for c in line.split('|')]
-                        lines.append('\t'.join(cells))
-                    
-                    if not lines:
-                        continue
-                    
-                    # 使用 tab 分隔解析
-                    reader = csv.DictReader(lines, delimiter='\t')
-                    
-                    for row in reader:
-                        # 清理欄位名稱
-                        clean_row = {k.strip().replace(' ', ''): v.strip() 
-                                    for k, v in row.items() if k}
-                        
-                        # 相容多種欄位名稱
-                        verse_ref = (clean_row.get('Ref.經文出處', '') or 
-                                    clean_row.get('Ref.', '') or ref)
-                        english = (clean_row.get('English（ESV經文）', '') or
-                                  clean_row.get('English(ESV)', '') or
-                                  clean_row.get('English', ''))
-                        chinese = (clean_row.get('Chinese經文', '') or
-                                  clean_row.get('Chinese', ''))
-                        
-                        if english or chinese:
-                            all_verses.append({
-                                'ref': verse_ref,
-                                'english': english,
-                                'chinese': chinese
-                            })
-                except Exception as e:
-                    st.error(f"解析錯誤: {e}")
+# ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
+st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
+sentences = st.session_state.get('sentences', {})
+
+# 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
+# 收集所有經文資料
+all_verses = []
+for ref in weighted_pool[:10]:
+    data = sentences[ref]
+    v1_content = data.get('v1_content', '')
+    if v1_content:
+        try:
+            # 清理 Markdown 表格符號
+            cleaned = v1_content.strip()
+            lines = []
+            for line in cleaned.split('\n'):
+                line = line.strip()
+                # 跳過空行和分隔線
+                if not line or re.match(r'^[\|\-\s:]+$', line):
                     continue
+                # 移除 Markdown 表格的 | 符號
+                if line.startswith('|'):
+                    line = line[1:]
+                if line.endswith('|'):
+                    line = line[:-1]
+                # 轉換為 tab 分隔
+                cells = [c.strip() for c in line.split('|')]
+                lines.append('\t'.join(cells))
+
+            if not lines:
+                continue
+
+            # 使用 tab 分隔解析
+            reader = csv.DictReader(lines, delimiter='\t')
+
+            for row in reader:
+                # 清理欄位名稱
+                clean_row = {k.strip().replace(' ', ''): v.strip()
+                             for k, v in row.items() if k}
+
+                # 相容多種欄位名稱
+                verse_ref = (clean_row.get('Ref.經文出處', '') or
+                             clean_row.get('Ref.', '') or ref)
+                english = (clean_row.get('English（ESV經文）', '') or
+                           clean_row.get('English(ESV)', '') or
+                           clean_row.get('English', ''))
+                chinese = (clean_row.get('Chinese經文', '') or
+                           clean_row.get('Chinese', ''))
+
+                if english or chinese:
+                    all_verses.append({
+                        'ref': verse_ref,
+                        'english': english,
+                        'chinese': chinese
+                    })
+        except Exception as e:
+            st.error(f"解析錯誤: {e}")
+            continue
             
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
