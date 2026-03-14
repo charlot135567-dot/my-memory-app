@@ -21,7 +21,7 @@ from google.oauth2.service_account import Credentials
 from streamlit_calendar import calendar
 import streamlit.components.v1 as components
 from io import StringIO
-------------------------------------------------------------------------
+
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # ---------- 診斷：檢查 secrets ----------
