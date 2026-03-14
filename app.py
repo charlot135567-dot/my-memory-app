@@ -1386,7 +1386,7 @@ with tabs[1]:
     try:
         base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
-        base_date = dt.date.today()
+        base_date = dt.now().date()
 
     # 顯示選中日期及其前後各一天（共3天）
     dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
