@@ -1903,7 +1903,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
     with quick_cols[0]:
         with st.expander("➕ 建立空白資料", expanded=False):
             blank_mode = st.selectbox("選擇模式", ["Mode A (經文)", "Mode B (文稿)"], key="blank_mode")
-            blank_ref = st.text_input("參考編號", value=f"BLANK_{dt.datetime.now().strftime('%m%d%H%M')}", key="blank_ref")
+            blank_ref = st.text_input("參考編號", value=f"BLANK_{dt.now().strftime('%m%d%H%M')}", key="blank_ref")
             
             if st.button("🆕 建立空白資料結構", use_container_width=True):
                 if "Mode A" in blank_mode:
