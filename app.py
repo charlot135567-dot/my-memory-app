@@ -1,17 +1,15 @@
 # ===================================================================
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
-import streamlit as st  
-import os, pandas as pd, io, json, re
-import requests
-import datetime as dt  # 統一使用這個
-import base64
-import gspread
-from google.oauth2.service_account import Credentials
-from io import StringIO
-import csv
-import toml
+import streamlit as st
 import random
+import re
+import datetime as dt
+import json
+import os
+import csv
+from io import StringIO
+import base64
 
 # ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
