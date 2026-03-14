@@ -12,7 +12,7 @@ import csv
 import requests
 import toml
 import io
-from datetime import datetime as dt  # 建議統一使用一種別名
+from datetime import datetime as dt, timedelta  # 增加 timedelta
 import datetime                      # 如果有舊程式碼用到 datetime.xxx 則保留
 
 # 外部 API 與地圖/組件
@@ -1383,7 +1383,7 @@ with tabs[1]:
     except:
         base_date = dt.now().date()
 
-    dates_to_show = [base_date - dt.timedelta(days=1), base_date, base_date + dt.timedelta(days=1)]
+    dates_to_show = [base_date - timedelta(days=1), base_date, base_date + timedelta(days=1)]
     
     has_todo = False
     for d_obj in dates_to_show:
