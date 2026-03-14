@@ -2,14 +2,16 @@
 # 0. 套件 & 全域函式（一定放最頂）
 # ===================================================================
 import streamlit as st  
-import os, datetime as dt, pandas as pd, io, json, re
+import os, pandas as pd, io, json, re
 import requests
+import datetime as dt  # 統一使用這個
 import base64
 import gspread
 from google.oauth2.service_account import Credentials
 from io import StringIO
 import csv
 import toml
+import random
 
 # ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
@@ -874,8 +876,6 @@ from datetime import datetime as dt
 # 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位與縮排)
 # ===================================================================
 with tabs[0]:
-    import random, re, datetime as dt
-
     # --- Session State 初始化 ---
     st.session_state.setdefault("tab1_vocab_index", 0)
     st.session_state.setdefault("tab1_phrase_index", 15)
@@ -1290,7 +1290,6 @@ with tabs[1]:
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 
                 # 修正問題3：使用正確的欄位名稱（與 TAB1 一致）
-                # 避免使用全形括號在 f-string 中，改用變數
                 verse_ref = v1_row.get('Ref.經文出處', ref)
                 en = v1_row.get('English（ESV經文）', '')  
                 cn = v1_row.get('Chinese經文', '')
@@ -1299,9 +1298,50 @@ with tabs[1]:
                 jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
                 kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
                 th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
-        except Exception as e:  # ← 補上這個 except 區塊！
+                
+                # ========== BUG 1 修正：補上 all_verses.append ==========
+                all_verses.append({
+                    'ref': verse_ref,
+                    'en': en,
+                    'cn': cn,
+                    'jp': jp,
+                    'kr': kr,
+                    'th': th
+                })
+                
+        except Exception as e:
             st.error(f"解析資料時發生錯誤: {e}")
-            st.exception(e)  
+            st.exception(e)
+            continue  # 發生錯誤時繼續處理下一筆資料
+    
+    # ========== BUG 1 修正：補上顯示邏輯 ==========
+    if all_verses:
+        # 根據當前時間選擇金句（每小時輪替）
+        current_hour = dt.datetime.now().hour
+        verse_index = current_hour % len(all_verses)
+        selected = all_verses[verse_index]
+        
+        # 顯示金句卡片
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    padding: 15px; border-radius: 10px; color: white; margin: 10px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; opacity: 0.9;">🕐 {current_hour}:00 時段金句 #{verse_index + 1}</p>
+            <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">{selected['ref']}</p>
+            <p style="margin: 5px 0; font-size: 13px; line-height: 1.4;">🇬🇧 {selected['en'][:150]}{'...' if len(selected['en']) > 150 else ''}</p>
+            <p style="margin: 5px 0; font-size: 13px; line-height: 1.4; opacity: 0.95;">🇨🇳 {selected['cn'][:80]}{'...' if len(selected['cn']) > 80 else ''}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 多語言展開區
+        with st.expander("🌏 多語言對照", expanded=False):
+            if selected['jp']:
+                st.markdown(f"🇯🇵 {selected['jp']}")
+            if selected['kr']:
+                st.markdown(f"🇰🇷 {selected['kr']}")
+            if selected['th']:
+                st.markdown(f"🇹🇭 {selected['th']}")
+    else:
+        st.info("📭 尚無時段金句資料，請先在 TAB4 新增經文資料")
             
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
