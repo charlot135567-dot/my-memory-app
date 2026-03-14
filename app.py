@@ -2341,7 +2341,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         if len(cols) > 0 and cols[0].strip():
                             return cols[0].strip()
                 
-                return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+                return f"REF_{dt.now().strftime('%m%d%H%M')}"
             
             st.markdown("**📁 檔名（可手動修改）**")
             ref_input = st.text_input(
