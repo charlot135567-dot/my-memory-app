@@ -1,17 +1,27 @@
 # ===================================================================
-# 0. 套件 & 全域函式（一定放最頂）
+# 0. 套件 & 全域函式（頂端）
 # ===================================================================
-import streamlit as st  
-import os, datetime as dt, pandas as pd, io, json, re
-import requests
+import streamlit as st
+import pandas as pd
+import os
+import re
+import json
 import base64
+import random
+import csv
+import requests
+import toml
+import io
+from datetime import datetime as dt  # 建議統一使用一種別名
+import datetime                      # 如果有舊程式碼用到 datetime.xxx 則保留
+
+# 外部 API 與地圖/組件
 import gspread
 from google.oauth2.service_account import Credentials
+from streamlit_calendar import calendar
+import streamlit.components.v1 as components
 from io import StringIO
-import csv
-import toml
-
-# ---------- 頁面設定（必須在第一個 st. 指令前）----------
+------------------------------------------------------------------------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # ---------- 診斷：檢查 secrets ----------
@@ -705,11 +715,6 @@ if 'sentences' not in st.session_state:
 # ===================================================================
 # 1. 側邊欄（簡化版）
 # ===================================================================
-
-import datetime
-import requests
-import json
-
 # 圖片 URL
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
@@ -726,7 +731,6 @@ IMG_URLS = {
 # ---------- 側邊欄開始 ----------
 with st.sidebar:
     # ===== 每日韓文鼓勵話（輪播）+ Mashimaro（最頂部）=====
-    
     quotes = [
         "당신은 하나님의 소중한 보물입니다 💎",
         "오늘도 당신을 사랑하십니다 ❤️",
@@ -862,20 +866,11 @@ st.markdown("""
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
-import streamlit as st
-import pandas as pd
-import re
-import random
-import base64
-import os
-from datetime import datetime as dt
-
 # ===================================================================
 # 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應)
 # ===================================================================
 with tabs[0]:
-    import random, re, datetime as dt
-
+    
     # --- Session State ---
     st.session_state.setdefault("tab1_vocab_index", 0)
     st.session_state.setdefault("tab1_phrase_index", 15)
@@ -1291,11 +1286,7 @@ with tabs[0]:
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt, re, os, json
-    from streamlit_calendar import calendar
-    from io import StringIO
-    import csv
-
+    
     # 全局CSS：壓縮所有間距
     st.markdown("""
         <style>
@@ -1464,7 +1455,6 @@ with tabs[1]:
     
     # ---------- 5. 時段金句（修正：欄位名稱對應 V1/V2 正確欄位）----------
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📖 今日時段金句</p>', unsafe_allow_html=True)
-    
     sentences = st.session_state.get('sentences', {})
     
     # 修正問題2 & 3：確保資料來源邏輯正確（V1 + V2）
@@ -1528,10 +1518,6 @@ with tabs[1]:
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
-    import csv
-    import random
-    import re
-    from io import StringIO
     
     # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
@@ -1696,8 +1682,7 @@ with tabs[2]:
 # 6. TAB4 ─ AI 控制台 + 資料庫管理（保留完整 UI）
 # ===================================================================
 with tabs[3]:
-    import streamlit.components.v1 as components
-
+    
     # ═══════════════════════════════════════════════════════════════
     # 🔥 關鍵：確保資料已載入（只執行一次）
     # ═══════════════════════════════════════════════════════════════
