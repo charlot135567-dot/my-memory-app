@@ -2128,7 +2128,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'grammar_list': st.session_state.current_entry['grammar_list'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
-                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': dt.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
