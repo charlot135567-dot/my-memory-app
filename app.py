@@ -415,7 +415,7 @@ def load_sentences_from_google_sheets():
                             "grammar_list": "",
                             "other": "",
                             "saved_sheets": ["V1 Sheet"],
-                            "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                     # 組合資料（第2欄開始是實際資料）
                     row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
@@ -663,7 +663,7 @@ def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
         st.session_state.analysis_history = []
     st.session_state.analysis_history.append({
-        "date": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
         "result": result
     })
@@ -879,11 +879,11 @@ with tabs[0]:
     st.session_state.setdefault("tab1_grammar_index", 0)
     st.session_state.setdefault("tab1_verse_index", 0)
     if "tab1_last_update" not in st.session_state:
-        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_last_update = datetime.now()
     
-    time_diff = (dt.datetime.now() - st.session_state.tab1_last_update).total_seconds()
+    time_diff = (datetime.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
-        st.session_state.tab1_last_update = dt.datetime.now()
+        st.session_state.tab1_last_update = datetime.now()
         st.session_state.tab1_vocab_index += 1
         st.session_state.tab1_phrase_index += 4
         st.session_state.tab1_grammar_index += 1
@@ -1386,7 +1386,7 @@ with tabs[1]:
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
-        base_date = dt.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+        base_date = datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = dt.date.today()
 
@@ -1891,7 +1891,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
         st.session_state.original_text = raw_text
         st.session_state.main_input_value = full_prompt
         st.session_state.is_prompt_generated = True
-        st.session_state.ref_number = f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+        st.session_state.ref_number = f"REF_{datetime.now().strftime('%m%d%H%M')}"
         st.session_state.current_entry = {
             'v1': '', 'v2': '', 'w_sheet': '', 
             'p_sheet': '', 'grammar_list': '', 'other': ''
@@ -1908,7 +1908,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
     with quick_cols[0]:
         with st.expander("➕ 建立空白資料", expanded=False):
             blank_mode = st.selectbox("選擇模式", ["Mode A (經文)", "Mode B (文稿)"], key="blank_mode")
-            blank_ref = st.text_input("參考編號", value=f"BLANK_{dt.datetime.now().strftime('%m%d%H%M')}", key="blank_ref")
+            blank_ref = st.text_input("參考編號", value=f"BLANK_{datetime.now().strftime('%m%d%H%M')}", key="blank_ref")
             
             if st.button("🆕 建立空白資料結構", use_container_width=True):
                 if "Mode A" in blank_mode:
@@ -1924,7 +1924,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "saved_sheets": ["V1 Sheet", "V2 Sheet"],
                         "type": "Scripture",
                         "mode": "A",
-                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "date_added": datetime.now().strftime("%Y-%m-%d %H:%M"),
                         "blank_template": True
                     }
                 else:
@@ -1940,7 +1940,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         "saved_sheets": ["W Sheet", "P Sheet", "Grammar List"],
                         "type": "Document",
                         "mode": "B",
-                        "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "date_added": datetime.now().strftime("%Y-%m-%d %H:%M"),
                         "blank_template": True
                     }
                 
@@ -2060,7 +2060,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'v2_content': st.session_state.current_entry['v2'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
-                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
@@ -2072,7 +2072,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'v2_content': st.session_state.current_entry['v2'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['V1 Sheet', 'V2 Sheet'] if st.session_state.current_entry['v1'] else [],
-                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         # 同步到 Google Sheets
@@ -2133,7 +2133,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'grammar_list': st.session_state.current_entry['grammar_list'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
-                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         st.success("✅ 已更新本地資料！")
@@ -2146,7 +2146,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                             'grammar_list': st.session_state.current_entry['grammar_list'],
                             'other': st.session_state.current_entry['other'],
                             'saved_sheets': ['W Sheet', 'P Sheet', 'Grammar List'],
-                            'date_added': dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                            'date_added': datetime.now().strftime("%Y-%m-%d %H:%M")
                         })
                         save_sentences(st.session_state.sentences)
                         success, msg = save_to_google_sheets(st.session_state.sentences[st.session_state.edit_ref])
@@ -2346,7 +2346,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                         if len(cols) > 0 and cols[0].strip():
                             return cols[0].strip()
                 
-                return f"REF_{dt.datetime.now().strftime('%m%d%H%M')}"
+                return f"REF_{datetime.now().strftime('%m%d%H%M')}"
             
             st.markdown("**📁 檔名（可手動修改）**")
             ref_input = st.text_input(
@@ -2384,7 +2384,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                 "saved_sheets": st.session_state.saved_entries,
                                 "type": type_select,
                                 "mode": st.session_state.content_mode,
-                                "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
                             }
                             st.session_state.sentences[ref] = full_data
                             save_sentences(st.session_state.sentences)
@@ -2413,7 +2413,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                     "saved_sheets": st.session_state.saved_entries,
                                     "type": type_select,
                                     "mode": st.session_state.content_mode,
-                                    "date_added": dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                    "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
                                 }
                                 success, msg = save_to_google_sheets(full_data)
                                 if success:
