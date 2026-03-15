@@ -1391,7 +1391,7 @@ with tabs[1]:
         base_date = datetime.date.today()
 
     # 顯示選中日期及其前後各一天（共3天）
-    dates_to_show = [base_date - [datetime.timedelta(days=1), base_date, base_date + datetime.timedelta(days=1)]
+    dates_to_show = [base_date - datetime.timedelta(days=1), base_date, base_date + datetime.timedelta(days=1)]
     
     has_todo = False
     for d_obj in dates_to_show:
