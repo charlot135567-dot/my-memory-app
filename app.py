@@ -11,7 +11,6 @@ import os
 import json
 import base64
 import datetime          # 側邊欄用
-from datetime import datetime as dt
 import requests          # 側邊欄用
 import random
 import re
