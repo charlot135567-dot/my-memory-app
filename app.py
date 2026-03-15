@@ -469,7 +469,7 @@ def load_sentences_from_google_sheets():
                             "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
                             "other": "",
                             "saved_sheets": ["W Sheet"],
-                            "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
+                            "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                     row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                     all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
