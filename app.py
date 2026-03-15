@@ -663,7 +663,7 @@ def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
         st.session_state.analysis_history = []
     st.session_state.analysis_history.append({
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "input_preview": input_text[:50] + "..." if len(input_text) > 50 else input_text,
         "result": result
     })
