@@ -10,8 +10,8 @@ from io import StringIO
 import os
 import json
 import base64
-import datetime          # 側邊欄用
-import requests          # 側邊欄用
+import datetime as dt    # ← 修正：加 as dt
+import requests
 import random
 import re
 
