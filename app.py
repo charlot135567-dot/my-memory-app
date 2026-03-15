@@ -10,12 +10,12 @@ from io import StringIO
 import os
 import json
 import base64
-import datetime            # ← 不加 as dt！保持原名
+import datetime
 import requests
 import random
 import re
 
-# --- Google Sheets 認證（新增）---
+# --- Google Sheets 認證 ---
 from google.oauth2.service_account import Credentials
 import gspread
 
