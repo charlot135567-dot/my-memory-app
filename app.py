@@ -1,15 +1,20 @@
 # ===================================================================
-# 0. 套件 & 全域函式（一定放最頂）
+# 0. 套件（統一最頂）
 # ===================================================================
-import streamlit as st  
-import os, datetime as dt, pandas as pd, io, json, re
-import requests
-import base64
-import gspread
-from google.oauth2.service_account import Credentials
-from io import StringIO
+import streamlit as st
+import streamlit.components.v1 as components
+from streamlit_calendar import calendar
+import pandas as pd
 import csv
-import toml
+from io import StringIO
+import os
+import json
+import base64
+import datetime          # 側邊欄用
+from datetime import datetime as dt
+import requests          # 側邊欄用
+import random
+import re
 
 # ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
@@ -705,11 +710,6 @@ if 'sentences' not in st.session_state:
 # ===================================================================
 # 1. 側邊欄（簡化版）
 # ===================================================================
-
-import datetime
-import requests
-import json
-
 # 圖片 URL
 IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
@@ -841,7 +841,10 @@ except:
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
-# 這些變數只有 TAB2 會用到，但為了避免後續 TAB 引用出錯，先給空值
+st.set_page_config(page_title="我的App", layout="wide")
+tabs = st.tabs(["書桌", "月曆", "挑戰", "AI控制台"])
+
+# 全域 Session 初值（只留真的全域會用到的）
 if 'analysis_history' not in st.session_state:
     st.session_state.analysis_history = []
 
@@ -862,20 +865,11 @@ st.markdown("""
 
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
-import streamlit as st
-import pandas as pd
-import re
-import random
-import base64
-import os
-from datetime import datetime as dt
-
 # ===================================================================
 # 3. TAB1 ─ 書桌 (輪流顯示版 - 修正欄位對應)
 # ===================================================================
 with tabs[0]:
-    import random, re, datetime as dt
-
+    st.header("書桌")
     # --- Session State ---
     st.session_state.setdefault("tab1_vocab_index", 0)
     st.session_state.setdefault("tab1_phrase_index", 15)
@@ -1291,11 +1285,7 @@ with tabs[0]:
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
 with tabs[1]:
-    import datetime as dt, re, os, json
-    from streamlit_calendar import calendar
-    from io import StringIO
-    import csv
-
+    st.header("月曆")
     # 全局CSS：壓縮所有間距
     st.markdown("""
         <style>
@@ -1528,10 +1518,7 @@ with tabs[1]:
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
 with tabs[2]:
-    import csv
-    import random
-    import re
-    from io import StringIO
+    st.header("挑戰")
     
     # 初始化 session state
     if 'tab3_quiz_seed' not in st.session_state:
@@ -1696,7 +1683,7 @@ with tabs[2]:
 # 6. TAB4 ─ AI 控制台 + 資料庫管理（保留完整 UI）
 # ===================================================================
 with tabs[3]:
-    import streamlit.components.v1 as components
+    st.header("AI 控制台")
 
     # ═══════════════════════════════════════════════════════════════
     # 🔥 關鍵：確保資料已載入（只執行一次）
