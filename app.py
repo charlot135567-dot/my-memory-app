@@ -10,10 +10,14 @@ from io import StringIO
 import os
 import json
 import base64
-import datetime as dt    # ← 修正：加 as dt
+import datetime as dt                    # ← 給 dt 用
 import requests
 import random
 import re
+
+# --- Google Sheets 認證（新增！）---
+from google.oauth2.service_account import Credentials   # ← 加這行！
+import gspread                                          # ← 加這行！
 
 # ---------- 頁面設定（必須在第一個 st. 指令前）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
