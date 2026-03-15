@@ -726,7 +726,7 @@ st.markdown("""
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (修正 V2 欄位對應版)
+# 3. TAB1 ─ 書桌 (除錯版)
 # ===================================================================
 with tabs[0]:
     # --- Session State ---
@@ -735,8 +735,39 @@ with tabs[0]:
     
     sentences = st.session_state.get('sentences', {})
     
+    # ========== 🔍 除錯區塊（放在這裡，有資料後才執行）==========
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔍 TAB1 資料診斷")
+    
+    # 先檢查有沒有資料
     if not sentences:
+        st.sidebar.error("❌ sentences 是空的！")
         st.warning("資料庫為空，請先在 TAB4 載入資料")
+    else:
+        st.sidebar.success(f"✅ 有 {len(sentences)} 筆資料")
+        
+        # 檢查第一筆資料的結構
+        first_ref = list(sentences.keys())[0]
+        first_data = sentences[first_ref]
+        st.sidebar.write(f"第一筆：{first_ref}")
+        st.sidebar.write(f"模式：{first_data.get('mode', 'N/A')}")
+        st.sidebar.write(f"有 v1_content：{'✅' if first_data.get('v1_content') else '❌'}")
+        st.sidebar.write(f"有 v2_content：{'✅' if first_data.get('v2_content') else '❌'}")
+        st.sidebar.write(f"有 w_sheet：{'✅' if first_data.get('w_sheet') else '❌'}")
+        
+        # 如果有 V1，顯示前 100 字
+        v1_preview = first_data.get('v1_content', '')[:100]
+        st.sidebar.text_area("V1 預覽", v1_preview, height=80)
+        
+        # 如果有 V2，顯示前 100 字
+        v2_preview = first_data.get('v2_content', '')[:100]
+        st.sidebar.text_area("V2 預覽", v2_preview, height=80)
+    
+    st.sidebar.markdown("---")
+    # ============================================================
+    
+    if not sentences:
+        st.stop()  # 沒資料就停止
     else:
         
         def parse_tab_delimited(content):
@@ -745,7 +776,7 @@ with tabs[0]:
                 return [], []
             
             lines = content.strip().split('\n')
-            if len(lines) < 1:
+            if len(lines) < 2:
                 return [], []
             
             headers = [h.strip() for h in lines[0].split('\t')]
@@ -762,12 +793,12 @@ with tabs[0]:
             return headers, rows
 
         # ============================================================
-        # 收集資料
+        # 收集資料（這裡才定義 all_vocab_sources）
         # ============================================================
         
         all_vocab_sources = []  # (v1_row, v2_row, ref)
-        all_phrase_sources = []  # w_rows list
-        all_grammar_sources = []  # grammar rows
+        all_phrase_sources = []
+        all_grammar_sources = []
         
         for ref, data in sentences.items():
             v1_content = data.get('v1_content', '')
@@ -780,27 +811,59 @@ with tabs[0]:
             w_headers, w_rows = parse_tab_delimited(w_content)
             g_headers, g_rows = parse_tab_delimited(g_content)
             
+            # ========== 🔍 第二層除錯 ==========
+            if ref == first_ref:  # 只顯示第一筆的詳細資訊
+                st.sidebar.subheader("🔍 解析結果")
+                st.sidebar.write(f"V1 欄位：{v1_headers}")
+                st.sidebar.write(f"V1 資料列數：{len(v1_rows)}")
+                st.sidebar.write(f"V2 欄位：{v2_headers}")
+                st.sidebar.write(f"V2 資料列數：{len(v2_rows)}")
+                
+                if v1_rows:
+                    st.sidebar.write("V1 第一列欄位：", list(v1_rows[0].keys()))
+                if v2_rows:
+                    st.sidebar.write("V2 第一列欄位：", list(v2_rows[0].keys()))
+                    st.sidebar.write("V2 第一列內容：", v2_rows[0])
+            # ===================================
+            
             # 模式A：V1 + V2 配對
             for i, v1_row in enumerate(v1_rows):
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 all_vocab_sources.append((v1_row, v2_row, ref))
                 
-                # 文法來自 V1 Grammar 欄位
                 if v1_row.get('Grammar'):
                     all_grammar_sources.append({
                         'type': 'A', 'ref': ref, 'row': v1_row, 'v2_row': v2_row, 'index': i
                     })
             
-            # 模式B：W Sheet 片語
             if w_rows:
                 all_phrase_sources.append({'ref': ref, 'rows': w_rows})
             
-            # Grammar List
             for i, row in enumerate(g_rows):
                 if row.get('Grammar Rule') or row.get('Analysis & Example'):
                     all_grammar_sources.append({
                         'type': 'B', 'ref': ref, 'row': row, 'index': i
                     })
+        
+        # ========== 🔍 第三層除錯 ==========
+        st.sidebar.subheader("🔍 資料彙整結果")
+        st.sidebar.write(f"all_vocab_sources 數量：{len(all_vocab_sources)}")
+        st.sidebar.write(f"all_phrase_sources 數量：{len(all_phrase_sources)}")
+        st.sidebar.write(f"all_grammar_sources 數量：{len(all_grammar_sources)}")
+        
+        if all_vocab_sources:
+            sample_v1, sample_v2, ref = all_vocab_sources[0]
+            st.sidebar.write("---")
+            st.sidebar.write("第一筆 vocab_source：")
+            st.sidebar.write("V1 欄位：", list(sample_v1.keys()))
+            st.sidebar.write("V2 是 dict：", isinstance(sample_v2, dict))
+            if isinstance(sample_v2, dict):
+                st.sidebar.write("V2 欄位：", list(sample_v2.keys()))
+                st.sidebar.write("V2['口語訳']：", sample_v2.get('口語訳', '❌ 無此欄位'))
+                st.sidebar.write("V2['KRF']：", sample_v2.get('KRF', '❌ 無此欄位'))
+                st.sidebar.write("V2['THSV11']：", sample_v2.get('THSV11', '❌ 無此欄位'))
+                st.sidebar.write("V2['THSV11 泰文重要片語']：", sample_v2.get('THSV11 泰文重要片語', '❌ 無此欄位'))
+        # ===================================
         
         # ============================================================
         # 根據索引取得當前資料
@@ -808,7 +871,7 @@ with tabs[0]:
         
         idx = st.session_state.tab1_idx
         
-        # --- 單字 & 金句（同一來源）---
+        # --- 單字 & 金句 ---
         vocab_html = ""
         verse_html = ""
         current_ref = "N/A"
@@ -818,7 +881,7 @@ with tabs[0]:
             v1_row, v2_row, ref = all_vocab_sources[v_idx]
             current_ref = v1_row.get('Ref.', v1_row.get('Ref. 經文出處', ref))
             
-            # 單字：從 V1 Syn/Ant + V2 Korean Syn/Ant
+            # 單字
             vocab_parts = []
             syn_ant = v1_row.get('Syn/Ant', '')
             if syn_ant:
@@ -826,25 +889,29 @@ with tabs[0]:
                     if entry.strip():
                         vocab_parts.append(f"• {entry.strip()}")
             
-            # V2 欄位（使用正確的欄位名）
+            # V2 欄位（多個可能名稱）
             korean_syn = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
             if korean_syn:
                 for entry in re.split(r'[;；/|]', korean_syn):
                     if entry.strip():
                         vocab_parts.append(f"• 🇰🇷 {entry.strip()}")
             
-            thai = v2_row.get('THSV11 泰文重要片語', v2_row.get('THSV11', '')) if isinstance(v2_row, dict) else ''
+            thai = ''
+            if isinstance(v2_row, dict):
+                thai = v2_row.get('THSV11 泰文重要片語', v2_row.get('THSV11', ''))
             if thai:
                 vocab_parts.append(f"• 🇹🇭 {thai}")
             
-            vocab_html = " ".join(vocab_parts) if vocab_parts else "無單字資料"
+            vocab_html = " ".join(vocab_parts) if vocab_parts else "無單字"
             
-            # 金句：V1 + V2 多語言
+            # 金句
             en = v1_row.get('English（ESV經文）', v1_row.get('English (ESV)', ''))
             cn = v1_row.get('Chinese經文', v1_row.get('Chinese', ''))
             jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
             kr = v2_row.get('KRF', '') if isinstance(v2_row, dict) else ''
-            th = v2_row.get('THSV11 泰文重要片語', v2_row.get('THSV11', '')) if isinstance(v2_row, dict) else ''
+            th = ''
+            if isinstance(v2_row, dict):
+                th = v2_row.get('THSV11 泰文重要片語', v2_row.get('THSV11', ''))
             
             verse_lines = [f"**{current_ref}** {en}"]
             if jp: verse_lines.append(f"🇯🇵 {jp}")
@@ -856,10 +923,9 @@ with tabs[0]:
             vocab_html = "無單字資料"
             verse_html = "無金句資料"
         
-        # --- 片語（4個一組）---
+        # --- 片語 ---
         phrase_html = ""
         if all_phrase_sources:
-            # 扁平化所有片語
             all_phrases = []
             for source in all_phrase_sources:
                 for row in source['rows']:
@@ -920,8 +986,6 @@ with tabs[0]:
                     fmt = str(grammar)
                     fmt = fmt.replace('1️⃣', '<br><b>📌</b> ').replace('2️⃣', '<br><b>🔤</b> ')
                     fmt = fmt.replace('3️⃣', '<br><b>📖</b> ').replace('4️⃣', '<br><b>💡</b> ')
-                    fmt = fmt.replace('1.', '<br><b>📌</b> ').replace('2.', '<br><b>🔤</b> ')
-                    fmt = fmt.replace('3.', '<br><b>📖</b> ').replace('4.', '<br><b>💡</b> ')
                     parts.append(fmt)
             else:
                 orig = g_row.get('Original Sentence', g_row.get('Original Sentence＋中文翻譯', ''))
