@@ -18,8 +18,9 @@ import re
 # --- Google Sheets 認證 ---
 from google.oauth2.service_account import Credentials
 import gspread
+import io
 
-# ---------- 頁面設定（必須在第一個 st. 指令前）----------
+# ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
 # ---------- 診斷：檢查 secrets ----------
@@ -522,141 +523,6 @@ def load_sentences_from_google_sheets():
     
     st.sidebar.success(f"✅ 共載入 {len(all_data)} 筆資料")
     return all_data
-    
-# ---------- 從 Google Sheets 載入（欄位對齊版）----------
-def load_from_google_sheets():
-    """從 5 個工作表載入所有資料"""
-    gc, sheet_id = get_google_sheets_client()
-    
-    if not gc or not sheet_id:
-        return {}
-    
-    all_data = {}
-    try:
-        sh = gc.open_by_key(sheet_id)
-        
-        # V1_Sheet - 按檔名分組
-        try:
-            ws = sh.worksheet("V1_Sheet")
-            rows = ws.get_all_values()
-            if len(rows) > 1:
-                for row in rows[1:]:
-                    if len(row) >= 6:
-                        group_ref = row[0]
-                        verse_ref = row[1]
-                        
-                        if group_ref not in all_data:
-                            all_data[group_ref] = {
-                                "ref": group_ref,
-                                "mode": "A",
-                                "type": "Scripture",
-                                "v1_content": "Ref. 經文出處\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n",
-                                "v2_content": "",
-                                "w_sheet": "", "p_sheet": "", "grammar_list": "", "other": "",
-                                "saved_sheets": ["V1 Sheet"],
-                                "date_added": ""
-                            }
-                        row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
-                        all_data[group_ref]["v1_content"] += "\t".join(row_data) + "\n"
-        except gspread.WorksheetNotFound:
-            pass
-        
-        # V2_Sheet - 按檔名分組
-        try:
-            ws = sh.worksheet("V2_Sheet")
-            rows = ws.get_all_values()
-            if len(rows) > 1:
-                for row in rows[1:]:
-                    if len(row) >= 8:
-                        group_ref = row[0]
-                        
-                        if group_ref in all_data:
-                            row_data = row[1:8] if len(row) >= 8 else row[1:] + [''] * (8 - len(row))
-                            all_data[group_ref]["v2_content"] += "\t".join(row_data) + "\n"
-                            if "V2 Sheet" not in all_data[group_ref]["saved_sheets"]:
-                                all_data[group_ref]["saved_sheets"].append("V2 Sheet")
-        except gspread.WorksheetNotFound:
-            pass
-        except Exception as e:
-            st.warning(f"讀取 V2_Sheet 時發生錯誤: {e}")
-        
-        # W_Sheet - 按檔名分組
-        try:
-            ws = sh.worksheet("W_Sheet")
-            rows = ws.get_all_values()
-            # 🔥 這裡保留你的 Debug 訊息
-            st.write(f"W_Sheet 總行數: {len(rows)}") 
-            
-            if len(rows) > 1:
-                # 🔥 這裡也可以 Debug 第一行資料
-                st.write(f"W_Sheet 第一行內容: {rows[1]}") 
-                
-                for row in rows[1:]:
-                    if len(row) >= 6:
-                        group_ref = row[0]
-                        
-                        if group_ref not in all_data:
-                            all_data[group_ref] = {
-                                "ref": group_ref,
-                                "mode": "B",
-                                "type": "Document",
-                                "v1_content": "",
-                                "v2_content": "",
-                                "w_sheet": "No經卷範圍\tWord/Phrase+Chinese\tSynonym+中文對照\tAntonym+中文對照\t全句聖經中英對照例句\n",
-                                "p_sheet": "",
-                                "grammar_list": "No經卷範圍\tOriginal Sentence＋中文翻譯\tGrammar Rule\tAnalysis & Example\n",
-                                "other": "",
-                                "saved_sheets": ["W Sheet"],
-                                "date_added": ""
-                            }
-                        row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
-                        all_data[group_ref]["w_sheet"] += "\t".join(row_data) + "\n"
-                    else:
-                        # 🔥 捕捉欄位不足的行，這就是為什麼 UI 沒顯示的原因！
-                        st.warning(f"跳過欄位不足的行: {len(row)} 欄, 內容: {row[:3]}...")
-        except Exception as e:
-            st.error(f"讀取 W_Sheet 時發生錯誤: {e}")
-            rows = []
-        
-        # P_Sheet - 按檔名分組
-        try:
-            ws = sh.worksheet("P_Sheet")
-            rows = ws.get_all_values()
-            if len(rows) > 1:
-                for row in rows[1:]:
-                    if len(row) >= 4:
-                        group_ref = row[0]
-                        
-                        if group_ref in all_data and all_data[group_ref]["mode"] == "B":
-                            row_data = row[1:4] if len(row) >= 4 else row[1:] + [''] * (4 - len(row))
-                            all_data[group_ref]["p_sheet"] += "\t".join(row_data) + "\n"
-                            if "P Sheet" not in all_data[group_ref]["saved_sheets"]:
-                                all_data[group_ref]["saved_sheets"].append("P Sheet")
-        except gspread.WorksheetNotFound:
-            pass
-        
-        # Grammar_List - 按檔名分組
-        try:
-            ws = sh.worksheet("Grammar_List")
-            rows = ws.get_all_values()
-            if len(rows) > 1:
-                for row in rows[1:]:
-                    if len(row) >= 5:
-                        group_ref = row[0]
-                        
-                        if group_ref in all_data and all_data[group_ref]["mode"] == "B":
-                            row_data = row[1:5] if len(row) >= 5 else row[1:] + [''] * (5 - len(row))
-                            all_data[group_ref]["grammar_list"] += "\t".join(row_data) + "\n"
-                            if "Grammar List" not in all_data[group_ref]["saved_sheets"]:
-                                all_data[group_ref]["saved_sheets"].append("Grammar List")
-        except gspread.WorksheetNotFound:
-            pass
-            
-    except Exception as e:
-        st.error(f"載入 Google Sheets 時發生錯誤: {str(e)}")
-        return {}
-    
-    return all_data
 
 # ---------- 全域工具函式 ----------
 def save_analysis_result(result, input_text):
@@ -689,6 +555,7 @@ def to_excel(result: dict) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
+# ---------- Session State 初始化 ----------
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
 if 'favorite_sentences' not in st.session_state:
@@ -701,12 +568,8 @@ if 'active_del_id' not in st.session_state:
     st.session_state.active_del_id = None
 if 'active_fav_del' not in st.session_state:
     st.session_state.active_fav_del = None
-
-# ← 加入這行
 if 'notes' not in st.session_state:
     st.session_state.notes = {}
-
-# ← 加入這行（關鍵修正！）
 if 'sentences' not in st.session_state:
     st.session_state.sentences = load_sentences()
 
@@ -844,13 +707,6 @@ except:
 # ===================================================================
 # 2. 頁面配置 & Session 初值（只留全域會用到的）
 # ===================================================================
-st.set_page_config(page_title="我的App", layout="wide")
-tabs = st.tabs(["書桌", "月曆", "挑戰", "AI控制台"])
-
-# 全域 Session 初值（只留真的全域會用到的）
-if 'analysis_history' not in st.session_state:
-    st.session_state.analysis_history = []
-
 # CSS
 st.markdown("""
 <style>
@@ -866,6 +722,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# 只定義一次 tabs
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
@@ -1262,7 +1119,7 @@ with tabs[0]:
                  # 從 v2_r 抓取資料 (這是在單字迴圈那裡產生的)
                  kj_v = v2_r.get('口語訳', '')
                  krf_v = v2_r.get('KRF', '') # 增加 KRF
-                 th_v = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '')
+                 th_v = v2_r.get('THSV11 泰文重要片語', '') or v2_r.get('THSV11', '') # 雙重檢查欄位名
 
                  st.markdown(f"**{ref}** {en}")
                  if kj_v: st.markdown(f"🇯🇵 {kj_v}")
@@ -1284,6 +1141,7 @@ with tabs[0]:
             st.caption(f"文法:{current_grammar_ref} | {minutes_left:.0f}分後更新")
             
             st.caption(f"資料統計: 模式A={len(all_mode_a)}個, 模式B={len(all_mode_b)}個, 文法源={len(all_grammar_sources)}個")
+
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 時段金句 + 收藏金句（修正版）
 # ===================================================================
@@ -1309,45 +1167,13 @@ with tabs[1]:
         </style>
     """, unsafe_allow_html=True)
 
-    # ---------- 0. 檔案設定 ----------
-    DATA_DIR = "data"
-    os.makedirs(DATA_DIR, exist_ok=True)
-    TODO_FILE = os.path.join(DATA_DIR, "todos.json")
-    FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
-
-    def load_todos():
-        if os.path.exists(TODO_FILE):
-            try:
-                with open(TODO_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return {}
-
-    def save_todos():
-        with open(TODO_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
-
-    def load_favorites():
-        if os.path.exists(FAVORITE_FILE):
-            try:
-                with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                pass
-        return []
-
-    def save_favorites():
-        with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
-
     # ---------- 1. Session State ----------
     if "todo" not in st.session_state:
         st.session_state.todo = load_todos()
     if "favorite_sentences" not in st.session_state:
         st.session_state.favorite_sentences = load_favorites()
     if "sel_date" not in st.session_state:
-        st.session_state.sel_date = str(dt.date.today())
+        st.session_state.sel_date = str(datetime.date.today())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
     if "active_del_id" not in st.session_state:
@@ -1386,7 +1212,7 @@ with tabs[1]:
     st.markdown('<p style="margin:0;padding:0;font-size:14px;font-weight:bold;">📋 待辦事項</p>', unsafe_allow_html=True)
 
     try:
-        base_date = datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+        base_date = datetime.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
     except:
         base_date = datetime.date.today()
 
@@ -1513,10 +1339,20 @@ with tabs[1]:
                 jp = v2_row.get('口語訳', '') if isinstance(v2_row, dict) else ''
                 kr = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
                 th = v2_row.get('THSV11 泰文重要片語', '') if isinstance(v2_row, dict) else ''
-        except Exception as e:  # ← 補上這個 except 區塊！
+                
+                # 加入列表
+                all_verses.append({
+                    'ref': verse_ref,
+                    'en': en,
+                    'cn': cn,
+                    'jp': jp,
+                    'kr': kr,
+                    'th': th
+                })
+        except Exception as e:
             st.error(f"解析資料時發生錯誤: {e}")
-            st.exception(e)  
-            
+            st.exception(e)
+
 # ===================================================================
 # 5. TAB3 ─ 挑戰（簡化版：直接給題目，最後給答案）
 # ===================================================================
@@ -1558,25 +1394,20 @@ with tabs[2]:
             data = sentences[ref]
             v1_content = data.get('v1_content', '')
             if v1_content:
-                try:  # ← 修正縮排：與 if 對齊
+                try:
                     lines = v1_content.strip().split('\n')
                     if lines:
-                        # 1. 這裡定義 reader，注意 delimiter 是 \t
                         reader = csv.DictReader(lines, delimiter='\t')
-
-                        # 2. 這裡跑迴圈
                         for row in reader:
-                            # 3. 這裡才進行 append，且 Key 要跟 TAB4 存入的一致
                             all_verses.append({
                                 'ref': row.get('Ref. 經文出處', ''),
                                 'english': row.get('English（ESV經文）', ''),
                                 'chinese': row.get('Chinese經文', '')
                             })
-
-                except Exception as e:  # ← 修正縮排：與 try 對齊
+                except Exception as e:
                     st.error(f"解析錯誤: {e}")
         
-        # 需要至少 6 題才開始（注意這行的縮排要與 for ref... 同層級）
+        # 需要至少 6 題才開始
         if len(all_verses) < 6:
             st.warning("經文資料不足，無法生成題目（至少需要6句經文）")
         else:
@@ -1594,7 +1425,7 @@ with tabs[2]:
                 st.markdown(f"**{i}.** {q['chinese'][:60]}...")
                 st.text_input(
                     "中翻英", 
-                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",  # 加入 seed 避免快取問題
+                    key=f"quiz_zh_en_{i}_{st.session_state.tab3_quiz_seed}",
                     placeholder="請翻譯成英文...", 
                     label_visibility="collapsed"
                 )
@@ -1620,13 +1451,12 @@ with tabs[2]:
                     try:
                         lines = v1_content.strip().split('\n')
                         if lines:
-                            reader = csv.DictReader(lines)
+                            reader = csv.DictReader(lines, delimiter='\t')
                             for row in reader:
                                 syn_ant = row.get('Syn/Ant', '')
                                 if '/' in syn_ant:
                                     parts = syn_ant.split('/')
                                     for p in parts:
-                                        # 解析格式：word (中文)
                                         match = re.match(r'(.+?)\s*\((.+?)\)', p.strip())
                                         if match:
                                             word_pool.append({
@@ -1695,35 +1525,6 @@ with tabs[3]:
         with st.spinner("🔄 正在載入資料..."):
             st.session_state.sentences = load_sentences()
             st.success(f"✅ 已載入 {len(st.session_state.sentences)} 筆資料")
-
-    # 背景圖片套用
-    try:
-        selected_img_file = bg_options.get(st.session_state.get('selected_bg', '🐶 Snoopy'), 'Snoopy.jpg')
-        current_bg_size = st.session_state.get('bg_size', 15)
-        current_bg_bottom = st.session_state.get('bg_bottom', 30)
-        
-        if os.path.exists(selected_img_file):
-            with open(selected_img_file, "rb") as f:
-                img_b64 = base64.b64encode(f.read()).decode()
-            st.markdown(f"""
-            <style>
-            .stApp {{
-                background-image: url("data:image/jpeg;base64,{img_b64}");
-                background-size: {current_bg_size}% auto;
-                background-position: center bottom {current_bg_bottom}px;
-                background-attachment: fixed;
-                background-repeat: no-repeat;
-                z-index: 0;
-            }}
-            .main .block-container {{
-                position: relative;
-                z-index: 1;
-                padding-bottom: {current_bg_bottom + 100}px;
-            }}
-            </style>
-            """, unsafe_allow_html=True)
-    except:
-        pass
 
     # Session State 初始化
     if 'search_results' not in st.session_state:
