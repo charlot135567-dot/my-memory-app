@@ -726,62 +726,60 @@ st.markdown("""
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (除錯版)
+# 3. TAB1 ─ 書桌 (修正 V2 無標題列問題)
 # ===================================================================
 with tabs[0]:
-    # --- Session State ---
     if "tab1_idx" not in st.session_state:
         st.session_state.tab1_idx = 0
     
     sentences = st.session_state.get('sentences', {})
     
-    # ========== 🔍 除錯區塊（放在這裡，有資料後才執行）==========
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔍 TAB1 資料診斷")
-    
-    # 先檢查有沒有資料
     if not sentences:
-        st.sidebar.error("❌ sentences 是空的！")
         st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
-        st.sidebar.success(f"✅ 有 {len(sentences)} 筆資料")
         
-        # 檢查第一筆資料的結構
-        first_ref = list(sentences.keys())[0]
-        first_data = sentences[first_ref]
-        st.sidebar.write(f"第一筆：{first_ref}")
-        st.sidebar.write(f"模式：{first_data.get('mode', 'N/A')}")
-        st.sidebar.write(f"有 v1_content：{'✅' if first_data.get('v1_content') else '❌'}")
-        st.sidebar.write(f"有 v2_content：{'✅' if first_data.get('v2_content') else '❌'}")
-        st.sidebar.write(f"有 w_sheet：{'✅' if first_data.get('w_sheet') else '❌'}")
-        
-        # 如果有 V1，顯示前 100 字
-        v1_preview = first_data.get('v1_content', '')[:100]
-        st.sidebar.text_area("V1 預覽", v1_preview, height=80)
-        
-        # 如果有 V2，顯示前 100 字
-        v2_preview = first_data.get('v2_content', '')[:100]
-        st.sidebar.text_area("V2 預覽", v2_preview, height=80)
-    
-    st.sidebar.markdown("---")
-    # ============================================================
-    
-    if not sentences:
-        st.stop()  # 沒資料就停止
-    else:
-        
-        def parse_tab_delimited(content):
-            """解析 TAB 分隔格式"""
+        # ========== 修正的解析函數 ==========
+        def parse_tab_delimited(content, default_headers=None):
+            """
+            解析 TAB 分隔格式
+            - 如果有標題列（第一行看起來像欄位名），使用它
+            - 如果沒有，使用 default_headers
+            """
             if not content or not content.strip():
                 return [], []
             
             lines = content.strip().split('\n')
-            if len(lines) < 2:
+            if len(lines) < 1:
                 return [], []
             
-            headers = [h.strip() for h in lines[0].split('\t')]
+            # 檢查第一行是否像「標題列」
+            first_line = lines[0]
+            first_cells = first_line.split('\t')
+            
+            # 標題列的特徵：短、不含大量HTML/特殊符號、看起來像欄位名
+            looks_like_header = True
+            for cell in first_cells:
+                # 如果任何一個儲存格太長（>50字）、包含<br>、或包含大量中文內容，就不是標題
+                if len(cell) > 50 or '<br>' in cell or '•' in cell or '1️⃣' in cell or 'だから' in cell or '그러므로' in cell:
+                    looks_like_header = False
+                    break
+            
+            if looks_like_header and not default_headers:
+                # 使用第一行作為標題
+                headers = [h.strip() for h in first_cells]
+                data_lines = lines[1:]
+            elif default_headers:
+                # 使用預設標題，第一行也是資料
+                headers = default_headers
+                data_lines = lines
+            else:
+                # 無法判斷，用欄位編號
+                headers = [f"Col_{i}" for i in range(len(first_cells))]
+                data_lines = lines[1:] if looks_like_header else lines
+            
+            # 解析資料列
             rows = []
-            for line in lines[1:]:
+            for line in data_lines:
                 if not line.strip():
                     continue
                 cells = [c.strip() for c in line.split('\t')]
@@ -792,11 +790,14 @@ with tabs[0]:
             
             return headers, rows
 
+        # V2 的預設欄位名稱（根據你的 Google Sheets 實際欄位）
+        V2_DEFAULT_HEADERS = ['Ref. 經文出處', '口語訳', 'Grammar', 'Note', 'KRF', 'Korean Syn/Ant', 'THSV11 泰文重要片語']
+
         # ============================================================
-        # 收集資料（這裡才定義 all_vocab_sources）
+        # 收集資料
         # ============================================================
         
-        all_vocab_sources = []  # (v1_row, v2_row, ref)
+        all_vocab_sources = []
         all_phrase_sources = []
         all_grammar_sources = []
         
@@ -806,27 +807,16 @@ with tabs[0]:
             w_content = data.get('w_sheet', '')
             g_content = data.get('grammar_list', '')
             
+            # V1 有正常標題列
             v1_headers, v1_rows = parse_tab_delimited(v1_content)
-            v2_headers, v2_rows = parse_tab_delimited(v2_content)
+            
+            # V2 可能沒有標題列，使用預設欄位名
+            v2_headers, v2_rows = parse_tab_delimited(v2_content, default_headers=V2_DEFAULT_HEADERS)
+            
             w_headers, w_rows = parse_tab_delimited(w_content)
             g_headers, g_rows = parse_tab_delimited(g_content)
             
-            # ========== 🔍 第二層除錯 ==========
-            if ref == first_ref:  # 只顯示第一筆的詳細資訊
-                st.sidebar.subheader("🔍 解析結果")
-                st.sidebar.write(f"V1 欄位：{v1_headers}")
-                st.sidebar.write(f"V1 資料列數：{len(v1_rows)}")
-                st.sidebar.write(f"V2 欄位：{v2_headers}")
-                st.sidebar.write(f"V2 資料列數：{len(v2_rows)}")
-                
-                if v1_rows:
-                    st.sidebar.write("V1 第一列欄位：", list(v1_rows[0].keys()))
-                if v2_rows:
-                    st.sidebar.write("V2 第一列欄位：", list(v2_rows[0].keys()))
-                    st.sidebar.write("V2 第一列內容：", v2_rows[0])
-            # ===================================
-            
-            # 模式A：V1 + V2 配對
+            # 配對 V1 和 V2
             for i, v1_row in enumerate(v1_rows):
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 all_vocab_sources.append((v1_row, v2_row, ref))
@@ -844,26 +834,6 @@ with tabs[0]:
                     all_grammar_sources.append({
                         'type': 'B', 'ref': ref, 'row': row, 'index': i
                     })
-        
-        # ========== 🔍 第三層除錯 ==========
-        st.sidebar.subheader("🔍 資料彙整結果")
-        st.sidebar.write(f"all_vocab_sources 數量：{len(all_vocab_sources)}")
-        st.sidebar.write(f"all_phrase_sources 數量：{len(all_phrase_sources)}")
-        st.sidebar.write(f"all_grammar_sources 數量：{len(all_grammar_sources)}")
-        
-        if all_vocab_sources:
-            sample_v1, sample_v2, ref = all_vocab_sources[0]
-            st.sidebar.write("---")
-            st.sidebar.write("第一筆 vocab_source：")
-            st.sidebar.write("V1 欄位：", list(sample_v1.keys()))
-            st.sidebar.write("V2 是 dict：", isinstance(sample_v2, dict))
-            if isinstance(sample_v2, dict):
-                st.sidebar.write("V2 欄位：", list(sample_v2.keys()))
-                st.sidebar.write("V2['口語訳']：", sample_v2.get('口語訳', '❌ 無此欄位'))
-                st.sidebar.write("V2['KRF']：", sample_v2.get('KRF', '❌ 無此欄位'))
-                st.sidebar.write("V2['THSV11']：", sample_v2.get('THSV11', '❌ 無此欄位'))
-                st.sidebar.write("V2['THSV11 泰文重要片語']：", sample_v2.get('THSV11 泰文重要片語', '❌ 無此欄位'))
-        # ===================================
         
         # ============================================================
         # 根據索引取得當前資料
@@ -889,7 +859,7 @@ with tabs[0]:
                     if entry.strip():
                         vocab_parts.append(f"• {entry.strip()}")
             
-            # V2 欄位（多個可能名稱）
+            # V2 欄位（現在應該能抓到了！）
             korean_syn = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
             if korean_syn:
                 for entry in re.split(r'[;；/|]', korean_syn):
