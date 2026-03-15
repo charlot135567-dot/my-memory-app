@@ -1561,8 +1561,33 @@ with tabs[3]:
         if text.startswith("{"):
             return "json"
         
-        has_chinese = re.search(r'[\u4e00-\u9fa5]', text)
-        return "scripture" if has_chinese else "document"
+        # 特徵 1：經文格式（章:節 + 空格 + 中文開頭）
+        scripture_pattern = r'\d+\s*[:：]\s*\d+\s+[\u4e00-\u9fa5]'
+        scripture_matches = len(re.findall(scripture_pattern, text[:1000]))
+        
+        # 特徵 2：計算有效字符（排除時間戳雜訊）
+        lines = text.split('\n')
+        content_lines = []
+        for line in lines:
+            # 跳過純時間戳行（如 "0:08", "8 秒", "1 分鐘 4 秒"）
+            if re.match(r'^\s*\d+[:：]\d+\s*$', line):
+                continue
+            if re.match(r'^\s*\d+\s*[秒分鐘小時]\s*$', line):
+                continue
+            content_lines.append(line)
+        
+        clean_text = '\n'.join(content_lines)
+        
+        chinese_count = len(re.findall(r'[\u4e00-\u9fa5]', clean_text))
+        english_word_count = len(re.findall(r'\b[a-zA-Z]{2,}\b', clean_text))
+        
+        # 決策邏輯
+        if scripture_matches >= 2:
+            return "scripture"
+        elif chinese_count > english_word_count * 3:
+            return "scripture"
+        else:
+            return "document"
 
     # 產生完整指令
     def generate_full_prompt():
