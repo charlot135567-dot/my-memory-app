@@ -415,7 +415,7 @@ def load_sentences_from_google_sheets():
                             "grammar_list": "",
                             "other": "",
                             "saved_sheets": ["V1 Sheet"],
-                            "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
+                            "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
                     # 組合資料（第2欄開始是實際資料）
                     row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
