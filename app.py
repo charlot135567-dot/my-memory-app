@@ -2413,7 +2413,7 @@ its part of speech and meaning in this sentence must be clearly identified...等
                                     "saved_sheets": st.session_state.saved_entries,
                                     "type": type_select,
                                     "mode": st.session_state.content_mode,
-                                    "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
+                                    "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                                 }
                                 success, msg = save_to_google_sheets(full_data)
                                 if success:
