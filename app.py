@@ -879,11 +879,11 @@ with tabs[0]:
     st.session_state.setdefault("tab1_grammar_index", 0)
     st.session_state.setdefault("tab1_verse_index", 0)
     if "tab1_last_update" not in st.session_state:
-        st.session_state.tab1_last_update = datetime.datetime.datetime.now()
+        st.session_state.tab1_last_update = datetime.datetime.now()
     
     time_diff = (datetime.datetime.now() - st.session_state.tab1_last_update).total_seconds()
     if time_diff > 3600:
-        st.session_state.tab1_last_update = datetime.datetime.datetime.now()
+        st.session_state.tab1_last_update = datetime.datetime.now()
         st.session_state.tab1_vocab_index += 1
         st.session_state.tab1_phrase_index += 4
         st.session_state.tab1_grammar_index += 1
