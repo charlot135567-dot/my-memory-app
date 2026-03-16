@@ -1388,8 +1388,6 @@ with tabs[2]:
             zh_to_en = selected[:3]   # 中→英
             en_to_zh = selected[3:6]  # 英→中
 
-            st.subheader("📝 翻譯挑戰（先寫答案，再點開對照）")
-
             # ===== 中翻英（題目 1-3）：折疊標題=中文，內容=英文+輸入框 =====
             for i, q in enumerate(zh_to_en, 1):
                 # 輸入框（寫答案）
