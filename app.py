@@ -1260,31 +1260,91 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-    # ---------- 我的金句（7句手動輸入 + 收藏）----------
-    st.markdown('<p style="font-size:14px;font-weight:bold;">💎 我的金句</p>', unsafe_allow_html=True)
+# ---------- 8句 Google Sheet 經文 + 7句手動金句（早中晚輪播）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">💎 每日金句（8句經文 + 7句自訂）</p>', unsafe_allow_html=True)
 
-    # 合併手動金句和收藏
-    all_verses = [v for v in st.session_state.custom_verses if v.strip()] + st.session_state.favorite_sentences
+    # 從 Google Sheet 載入經文（8句）
+    sentences = st.session_state.get('sentences', {})
+    sheet_verses = []
+
+    for ref, data in sentences.items():
+        v1_content = data.get('v1_content', '') or ''
+        if not v1_content:
+            continue
+        try:
+            lines = v1_content.strip().split('\n')
+            if len(lines) < 2:
+                continue
+            headers = [h.strip() for h in lines[0].split('\t')]
+            for line in lines[1:]:
+                if not line.strip():
+                    continue
+                cells = [c.strip() for c in line.split('\t')]
+                while len(cells) < len(headers):
+                    cells.append('')
+                row = {headers[i]: cells[i] for i in range(len(headers))}
+                verse_ref = row.get('Ref.', row.get('Ref. 經文出處', ref))
+                en = row.get('English（ESV經文）', row.get('English (ESV)', ''))
+                cn = row.get('Chinese經文', row.get('Chinese', ''))
+                if en and cn:
+                    sheet_verses.append({'ref': verse_ref, 'en': en, 'cn': cn})
+        except:
+            pass
+
+    # 只取前8句
+    sheet_verses = sheet_verses[:8]
+
+    # 7句手動金句
+    if "custom_verses" not in st.session_state:
+        st.session_state.custom_verses = [""] * 7
+    custom_verses = [v for v in st.session_state.custom_verses if v.strip()]
+
+    # 合併：8句 Sheet + 7句手動
+    all_verses = sheet_verses + [{'ref': f'自訂{i+1}', 'en': v, 'cn': v} for i, v in enumerate(custom_verses)]
 
     if all_verses:
-        col1, col2, col3 = st.columns([1, 8, 1])
+        total = len(all_verses)
+        start_idx = st.session_state.verse_start_idx % total
+
+        # 顯示當前金句（展開式）
+        current_v = all_verses[start_idx]
+
+        with st.expander(f"📖 **{current_v['ref']}**  {current_v['en']}", expanded=False):
+            st.markdown(f"🇨🇳 **{current_v['cn']}**")
+
+            # 收藏按鈕
+            fav_text = f"{current_v['ref']} {current_v['en']}"
+            if st.button("⭐ 收藏", key="fav_current"):
+                if fav_text not in st.session_state.favorite_sentences:
+                    st.session_state.favorite_sentences.append(fav_text)
+                    save_favorites()
+                    st.toast("已收藏！")
+
+        st.caption(f"第 {start_idx + 1} / {total} 句（◀ ▶ 切換）")
+
+        # 切換按鈕
+        col1, col2, col3 = st.columns([1, 6, 1])
         with col1:
             if st.button("◀", key="prev_verse"):
-                st.session_state.verse_start_idx = (st.session_state.verse_start_idx - 1) % len(all_verses)
+                st.session_state.verse_start_idx = (st.session_state.verse_start_idx - 1) % total
                 st.rerun()
-
-        with col2:
-            idx = st.session_state.verse_start_idx % len(all_verses)
-            st.info(f"📖 {all_verses[idx]}")
-
         with col3:
             if st.button("▶", key="next_verse"):
-                st.session_state.verse_start_idx = (st.session_state.verse_start_idx + 1) % len(all_verses)
+                st.session_state.verse_start_idx = (st.session_state.verse_start_idx + 1) % total
                 st.rerun()
 
-        st.caption(f"顯示第 {st.session_state.verse_start_idx + 1} / {len(all_verses)} 句")
+        # 早中晚提示
+        hour = datetime.datetime.now().hour
+        if 5 <= hour < 11:
+            time_msg = "🌅 早安"
+        elif 11 <= hour < 17:
+            time_msg = "☀️ 午安"
+        else:
+            time_msg = "🌙 晚安"
+        st.caption(f"{time_msg}，按時段輪播金句")
+
     else:
-        st.info("📖 尚無金句，請在下方新增或從待辦收藏")
+        st.info("📖 尚無金句，請在下方新增自訂金句")
 
     # 手動輸入金句區（7句空位）
     with st.expander("✏️ 編輯我的7句金句", expanded=False):
@@ -1296,8 +1356,6 @@ with tabs[1]:
             st.session_state.custom_verses = updated
             st.success("已儲存！")
             st.rerun()
-
-    st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
     # ---------- 我的收藏（獨立區塊）----------
     st.markdown('<p style="font-size:14px;font-weight:bold;">❤️ 我的收藏</p>', unsafe_allow_html=True)
