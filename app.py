@@ -797,7 +797,7 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（側邊欄導航版：極致壓縮間距）
+# 3. TAB1 ─ 書桌（側邊欄導航版：左右配置 + 極致壓縮間距）
 # ===================================================================
 with tabs[0]:
     if "tab1_idx" not in st.session_state:
@@ -1027,7 +1027,7 @@ with tabs[0]:
             grammar_html = "".join(parts) if parts else "無文法資料"
         
         # ============================================================
-        # 渲染（極致壓縮）
+        # 渲染：左右配置（左側單字/片語/金句，右側文法）
         # ============================================================
         
         # 取得字體設定
@@ -1040,42 +1040,45 @@ with tabs[0]:
         elif font_option == "等寬":
             font_class = "tab1-font-mono"
         
-        # 單字區塊
-        st.markdown(f"""
-        <div class="{font_class} tab1-content vocab-section">
-            {vocab_html}
-        </div>
-        """, unsafe_allow_html=True)
+        # 左右分欄：左68% 右32%
+        col_left, col_right = st.columns([0.68, 0.32])
         
-        st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
+        with col_left:
+            # 單字區塊（上）
+            st.markdown(f"""
+            <div class="{font_class} tab1-content vocab-section">
+                {vocab_html}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
+            
+            # 片語區塊（中）
+            st.markdown(f"""
+            <div class="{font_class} tab1-content phrase-section">
+                {phrase_html if phrase_html else "無片語資料"}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
+            
+            # 金句區塊（下）
+            st.markdown(f"""
+            <div class="{font_class} tab1-content verse-section">
+                {verse_html}
+            </div>
+            """, unsafe_allow_html=True)
         
-        # 片語區塊
-        st.markdown(f"""
-        <div class="{font_class} tab1-content phrase-section">
-            {phrase_html if phrase_html else "無片語資料"}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
-        
-        # 金句區塊
-        st.markdown(f"""
-        <div class="{font_class} tab1-content verse-section">
-            {verse_html}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
-        
-        # 文法區塊（全寬）
-        st.markdown(f"""
-        <div class="{font_class}" style="background-color:#f5f5f5;color:#1a1a1a;padding:8px;border-radius:8px;
-                    border-left:4px solid #FF8C00;font-size:13px;line-height:1.0;border:1px solid #ddd;">
-            {grammar_html}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
+        with col_right:
+            # 文法區塊（右側）
+            st.markdown(f"""
+            <div class="{font_class}" style="background-color:#f5f5f5;color:#1a1a1a;padding:8px;border-radius:8px;
+                        border-left:4px solid #FF8C00;font-size:13px;line-height:1.0;border:1px solid #ddd;min-height:400px;">
+                {grammar_html}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14句金句 + 收藏金句（完整版）
@@ -1272,17 +1275,15 @@ with tabs[1]:
             idx = (start_idx + i) % total
             v = all_verses[idx]
             
-            # 優化：標題顯示整句英文，展開後只顯示中文和其他語言
-            display_title = f"**{v['ref']}** {v['en'][:80]}{'...' if len(v['en']) > 80 else ''}"
+            # 優化：展開前顯示完整英文經文，不再截斷
+            # 使用經文出處 + 完整英文作為標題
+            display_title = f"**{v['ref']}**  {v['en']}"
             
             with st.expander(display_title, expanded=False):
-                # 完整英文（如果標題截斷了）
-                if len(v['en']) > 80:
-                    st.markdown(f"🇬🇧 **{v['en']}**")
-                
+                # 展開後內容：中文翻譯（主要）+ 其他語言
                 st.markdown("---")
                 
-                # 中文翻譯（重點）
+                # 中文翻譯（重點顯示）
                 if v['cn']:
                     st.markdown(f"🇨🇳 **{v['cn']}**")
                 
