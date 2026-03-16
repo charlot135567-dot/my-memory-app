@@ -1392,10 +1392,9 @@ with tabs[2]:
             for i, q in enumerate(zh_to_en, 1):
                 # 輸入框（寫答案）
                 user_answer = st.text_area(
-                    "您的英文翻譯", 
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入英文翻譯...",
-                    label_visibility="visible",
+                    label_visibility="collapsed",  # ← 改這裡
                     height=80
                 )
 
@@ -1410,10 +1409,9 @@ with tabs[2]:
             for i, q in enumerate(en_to_zh, 4):
                 # 輸入框（寫答案）
                 user_answer = st.text_area(
-                    "您的中文翻譯", 
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入中文翻譯...",
-                    label_visibility="visible",
+                    label_visibility="collapsed",  # ← 改這裡
                     height=80
                 )
 
