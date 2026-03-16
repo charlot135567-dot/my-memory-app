@@ -574,7 +574,7 @@ if 'sentences' not in st.session_state:
     st.session_state.sentences = load_sentences()
 
 # ===================================================================
-# 1. 側邊欄（簡化版）
+# 1. 側邊欄（簡化版 + 書桌導航控制）
 # ===================================================================
 # 圖片 URL
 IMG_URLS = {
@@ -614,6 +614,9 @@ with st.sidebar:
     st.image(IMG_URLS["M3"], width=250)
     st.divider()
 
+    # ===== 書桌導航控制（取代原有的4個連結）=====
+    st.markdown("### 📚 書桌控制")
+    
     # 字體選擇器
     font_option = st.selectbox(
         "字體樣式",
@@ -643,6 +646,8 @@ with st.sidebar:
             key="next_btn_sidebar",
             on_click=lambda: setattr(st.session_state, 'tab1_idx', st.session_state.get('tab1_idx', 0) + 1)
         )
+    
+    st.divider()
     
     # ===== 底部背景設定 =====
     st.markdown("### 🖼️ 底部背景設定")
@@ -739,6 +744,52 @@ st.markdown("""
 }
 .fc-daygrid-day-frame:hover {background-color: #FFF3CD !important; cursor: pointer; transform: scale(1.03); transition: .2s}
 .fc-daygrid-day-frame:active {transform: scale(0.98); background-color: #FFE69C !important}
+
+/* TAB1 極致壓縮間距 */
+.tab1-font-system { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "微軟正黑體", sans-serif; }
+.tab1-font-rounded { font-family: "PingFang TC", "Hiragino Sans GB", "Microsoft YaHei", "文泉驛正黑", sans-serif; }
+.tab1-font-serif { font-family: "Noto Serif CJK TC", "Source Han Serif TC", "Microsoft JhengHei", serif; }
+.tab1-font-mono { font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace; }
+
+.tab1-content {
+    font-size: 14px;
+    line-height: 1.0;
+    color: #333;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 強制白色背景避免手機深色主題 */
+.vocab-section {
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    padding: 4px !important;
+    border-radius: 4px;
+}
+.phrase-section {
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    padding: 4px !important;
+    border-radius: 4px;
+}
+.verse-section {
+    background-color: #f8f9fa !important;
+    margin: 0 !important;
+    padding: 6px !important;
+    border-radius: 6px;
+    border-left: 3px solid #FF8C00;
+}
+
+/* 覆蓋Streamlit元素間距 */
+div[data-testid="stMarkdownContainer"] > div {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+div[data-testid="stMarkdownContainer"] p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -746,7 +797,7 @@ st.markdown("""
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (修正版：統一字體、最小間距、導航按鈕左移、手機背景修正)
+# 3. TAB1 ─ 書桌（側邊欄導航版：極致壓縮間距）
 # ===================================================================
 with tabs[0]:
     if "tab1_idx" not in st.session_state:
@@ -894,7 +945,7 @@ with tabs[0]:
             vocab_html = "無單字資料"
             verse_html = "無金句資料"
         
-        # --- 片語 (修正：最小間距) ---
+        # --- 片語（極致壓縮：行高1.0，無間距）---
         phrase_html = ""
         if all_phrase_sources:
             all_phrases = []
@@ -916,23 +967,23 @@ with tabs[0]:
                     ant = row.get('Antonym＋中文對照', row.get('Antonym+中文對照', ''))
                     ex = row.get('全句聖經中英對照例句', '')
                     
-                    # 修正：最小間距，margin-bottom 設為 0px，行高 1.1
-                    p_html = f"<div style='margin-bottom: 0px; line-height: 1.1;'>"
-                    p_html += f"<b style='font-size: 15px;'>{word}</b>"
+                    # 極致壓縮：行高1.0，無margin，無padding
+                    p_html = f"<div style='margin:0;padding:0;line-height:1.0;'>"
+                    p_html += f"<b style='font-size:15px;'>{word}</b>"
                     sa_parts = []
-                    if syn: sa_parts.append(f"✨ {syn}")
-                    if ant: sa_parts.append(f"❄️ {ant}")
+                    if syn: sa_parts.append(f"✨{syn}")
+                    if ant: sa_parts.append(f"❄️{ant}")
                     if sa_parts:
-                        p_html += f"<br><span style='font-size: 13px; color: #555; line-height: 1.1;'>&nbsp;&nbsp;{' | '.join(sa_parts)}</span>"
+                        p_html += f"<br><span style='font-size:13px;color:#555;line-height:1.0;'>&nbsp;{'|'.join(sa_parts)}</span>"
                     if ex:
-                        p_html += f"<br><span style='font-size: 12px; color: #666; line-height: 1.1;'>📖 {ex}</span>"
+                        p_html += f"<br><span style='font-size:12px;color:#666;line-height:1.0;'>📖{ex}</span>"
                     p_html += "</div>"
                     
                     phrase_parts.append(p_html)
                 
                 phrase_html = "".join(phrase_parts)
         
-        # --- 文法 (修正：最小行距) ---
+        # --- 文法（極致壓縮行距）---
         grammar_html = "等待資料中..."
         g_ref = "N/A"
         
@@ -950,191 +1001,81 @@ with tabs[0]:
                 cn = g_row.get('Chinese經文', g_row.get('Chinese', ''))
                 grammar = g_row.get('Grammar', '')
                 
-                # 修正：最小行距，margin-bottom 改為 0px
-                if ref: parts.append(f"<div style='margin-bottom: 0px;'><b>{ref}</b></div>")
-                if en: parts.append(f"<div style='margin-bottom: 0px;'>🇬🇧 {en}</div>")
-                if cn: parts.append(f"<div style='margin-bottom: 0px;'>🇨🇳 {cn}</div>")
+                # 極致壓縮：無margin，無padding，行高1.0
+                if ref: parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'><b>{ref}</b></div>")
+                if en: parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'>🇬🇧{en}</div>")
+                if cn: parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'>🇨🇳{cn}</div>")
                 
                 if grammar:
                     fmt = str(grammar)
-                    fmt = fmt.replace('1️⃣', '<br><b>📌</b> ').replace('2️⃣', '<br><b>🔤</b> ')
-                    fmt = fmt.replace('3️⃣', '<br><b>📖</b> ').replace('4️⃣', '<br><b>💡</b> ')
-                    parts.append(f"<div style='margin-top: 2px;'>{fmt}</div>")
+                    fmt = fmt.replace('1️⃣', '<br><b>📌</b>').replace('2️⃣', '<br><b>🔤</b>')
+                    fmt = fmt.replace('3️⃣', '<br><b>📖</b>').replace('4️⃣', '<br><b>💡</b>')
+                    parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'>{fmt}</div>")
             else:
                 orig = g_row.get('Original Sentence', g_row.get('Original Sentence＋中文翻譯', ''))
                 rule = g_row.get('Grammar Rule', '')
                 analysis = g_row.get('Analysis & Example', g_row.get('Grammar Rule＋Analysis & Example (1️⃣2️⃣3️⃣...5️⃣)', ''))
                 
-                if orig: parts.append(f"<div style='margin-bottom: 0px;'>📝 <b>{orig}</b></div>")
-                if rule: parts.append(f"<div style='margin-bottom: 0px;'>📌 <b>{rule}</b></div>")
+                if orig: parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'>📝<b>{orig}</b></div>")
+                if rule: parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'>📌<b>{rule}</b></div>")
                 if analysis:
                     fmt = str(analysis)
-                    fmt = fmt.replace('1️⃣', '<br><b>📌</b> ').replace('2️⃣', '<br><b>🔤</b> ')
-                    fmt = fmt.replace('3️⃣', '<br><b>📖</b> ').replace('4️⃣', '<br><b>💡</b> ')
-                    parts.append(f"<div style='margin-top: 2px;'>{fmt}</div>")
+                    fmt = fmt.replace('1️⃣', '<br><b>📌</b>').replace('2️⃣', '<br><b>🔤</b>')
+                    fmt = fmt.replace('3️⃣', '<br><b>📖</b>').replace('4️⃣', '<br><b>💡</b>')
+                    parts.append(f"<div style='margin:0;padding:0;line-height:1.0;'>{fmt}</div>")
             
             grammar_html = "".join(parts) if parts else "無文法資料"
         
         # ============================================================
-        # 渲染 - 統一字體和最小間距
+        # 渲染（極致壓縮）
         # ============================================================
         
-        # 提供多種字體選擇 + 手機背景修正
-        st.markdown("""
-        <style>
-        /* 選項1: 系統預設 (推薦，最清晰) */
-        .tab1-font-system {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "微軟正黑體", sans-serif;
-        }
-        /* 選項2: 圓體 (更柔和) */
-        .tab1-font-rounded {
-            font-family: "PingFang TC", "Hiragino Sans GB", "Microsoft YaHei", "文泉驛正黑", sans-serif;
-        }
-        /* 選項3: 明體/襯線 (傳統閱讀感) */
-        .tab1-font-serif {
-            font-family: "Noto Serif CJK TC", "Source Han Serif TC", "Microsoft JhengHei", serif;
-        }
-        /* 選項4: 等寬 (程式碼感) */
-        .tab1-font-mono {
-            font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
-        }
+        # 取得字體設定
+        font_class = "tab1-font-system"
+        font_option = st.session_state.get('font_selector', '系統預設')
+        if font_option == "圓體":
+            font_class = "tab1-font-rounded"
+        elif font_option == "明體":
+            font_class = "tab1-font-serif"
+        elif font_option == "等寬":
+            font_class = "tab1-font-mono"
         
-        .tab1-content {
-            font-size: 14px;
-            line-height: 1.5;
-            color: #333;
-        }
-        .tab1-content b {
-            font-size: 15px;
-            color: #1a1a1a;
-        }
-        /* 修正：強制白色背景避免手機深色主題問題 */
-        .vocab-section {
-            margin-bottom: 6px;
-            background-color: #ffffff !important;
-            padding: 6px;
-            border-radius: 4px;
-        }
-        .phrase-section {
-            margin-bottom: 6px;
-            background-color: #ffffff !important;
-            padding: 6px;
-            border-radius: 4px;
-        }
-        .verse-section {
-            margin-bottom: 6px;
-            padding: 8px;
-            background-color: #f8f9fa !important;
-            border-radius: 6px;
-            border-left: 3px solid #FF8C00;
-        }
-        /* 強制按鈕顯示 */
-        .stButton button {
-            min-height: 36px !important;
-            font-size: 13px !important;
-            padding: 4px 8px !important;
-        }
-        /* 導航容器 */
-        .nav-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        /* 字體選擇器縮小 */
-        .stSelectbox > div > div {
-            min-height: 36px !important;
-        }
-        </style>
+        # 單字區塊
+        st.markdown(f"""
+        <div class="{font_class} tab1-content vocab-section">
+            {vocab_html}
+        </div>
         """, unsafe_allow_html=True)
         
-        # ============================================================
-        # 主要佈局：左側控制區 + 右側文法解析 (25% / 75%)
-        # ============================================================
-        left_col, right_col = st.columns([0.25, 0.75])
+        st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
         
-        with left_col:
-            # 字體選擇器
-            font_option = st.selectbox(
-                "字體",
-                ["系統預設", "圓體", "明體", "等寬"],
-                index=0,
-                key="font_selector",
-                label_visibility="collapsed"
-            )
-            
-            # 頁碼顯示
-            st.markdown(f"<div style='text-align: center; padding: 6px 0; color: #666; font-size: 12px; font-weight: bold;'>"
-                       f"第 {idx + 1} 組</div>", unsafe_allow_html=True)
-            
-            # 導航按鈕
-            st.button(
-                "⬅️ 上頁", 
-                use_container_width=True, 
-                key="prev_btn",
-                on_click=lambda: setattr(st.session_state, 'tab1_idx', max(0, st.session_state.tab1_idx - 1))
-            )
-            st.button(
-                "下頁 ➡️", 
-                use_container_width=True, 
-                key="next_btn",
-                on_click=lambda: setattr(st.session_state, 'tab1_idx', st.session_state.tab1_idx + 1)
-            )
-            
-            # 統計資訊
-            st.caption(f"📊 單字: {len(all_vocab_sources)} | 片語: {len(all_phrase_sources)} | 文法: {len(all_grammar_sources)}")
+        # 片語區塊
+        st.markdown(f"""
+        <div class="{font_class} tab1-content phrase-section">
+            {phrase_html if phrase_html else "無片語資料"}
+        </div>
+        """, unsafe_allow_html=True)
         
-        with right_col:
-            # 設定字體類別
-            font_class = "tab1-font-system"
-            if font_option == "圓體":
-                font_class = "tab1-font-rounded"
-            elif font_option == "明體":
-                font_class = "tab1-font-serif"
-            elif font_option == "等寬":
-                font_class = "tab1-font-mono"
-            
-            # 單字區塊 (修正：強制白色背景)
-            st.markdown(f"""
-            <div class="{font_class} tab1-content vocab-section">
-                <div style="font-size: 14px; line-height: 1.5;">
-                    {vocab_html}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("<hr style='margin:4px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
-            
-            # 片語區塊 (修正：最小間距 + 強制白色背景)
-            st.markdown(f"""
-            <div class="{font_class} tab1-content phrase-section">
-                <div style="font-size: 14px; line-height: 1.1;">
-                    {phrase_html if phrase_html else "無片語資料"}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("<hr style='margin:4px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
-            
-            # 金句區塊
-            st.markdown(f"""
-            <div class="{font_class} tab1-content verse-section">
-                <div style="font-size: 14px; line-height: 1.6;">
-                    {verse_html}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("<hr style='margin:4px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
-            
-            # 文法區塊 - 淺色背景確保可見性
-            st.markdown(f"""
-                <div class="{font_class}" style="background-color:#f5f5f5; color:#1a1a1a; padding:10px; border-radius:8px; 
-                            border-left:4px solid #FF8C00; font-size:13px; line-height:1.3; border:1px solid #ddd;">
-                    {grammar_html}
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
+        st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
+        
+        # 金句區塊
+        st.markdown(f"""
+        <div class="{font_class} tab1-content verse-section">
+            {verse_html}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin:2px 0;border-color:#e0e0e0;'>", unsafe_allow_html=True)
+        
+        # 文法區塊（全寬）
+        st.markdown(f"""
+        <div class="{font_class}" style="background-color:#f5f5f5;color:#1a1a1a;padding:8px;border-radius:8px;
+                    border-left:4px solid #FF8C00;font-size:13px;line-height:1.0;border:1px solid #ddd;">
+            {grammar_html}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14句金句 + 收藏金句（完整版）
