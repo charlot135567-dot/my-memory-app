@@ -1081,7 +1081,7 @@ with tabs[0]:
             st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
 
 # ===================================================================
-# 4. TAB2 ─ 月曆待辦 + 8句金句 + 7句手動金句 + 我的金句收藏（完整版）
+# 4. TAB2 ─ 月曆待辦 + 7句手動金句 + 我的收藏（無預設金句版）
 # ===================================================================
 with tabs[1]:
     # CSS
@@ -1100,16 +1100,16 @@ with tabs[1]:
         st.session_state.todo = load_todos()
     if "favorite_sentences" not in st.session_state:
         st.session_state.favorite_sentences = load_favorites()
-    if "my_quotes" not in st.session_state:  # 手動輸入的金句
-        st.session_state.my_quotes = load_my_quotes() if 'load_my_quotes' in globals() else []
     if "sel_date" not in st.session_state:
         st.session_state.sel_date = str(datetime.date.today())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
     if "verse_start_idx" not in st.session_state:
         st.session_state.verse_start_idx = 0
-    if "event_clicked" not in st.session_state:  # 月曆點擊事件
+    if "event_clicked" not in st.session_state:
         st.session_state.event_clicked = None
+    if "custom_verses" not in st.session_state:
+        st.session_state.custom_verses = [""] * 7
 
     # ---------- 月曆（支援 eventClick 點擊刪除）----------
     def build_events():
@@ -1118,20 +1118,14 @@ with tabs[1]:
             if isinstance(items, list):
                 for idx, t in enumerate(items):
                     title = t.get("title", "")
-                    # 超過5字顯示省略號
                     display_title = title[:5] + "..." if len(title) > 5 else title
                     ev.append({
-                        "id": f"{d}_{idx}",  # 唯一ID用於刪除
+                        "id": f"{d}_{idx}",
                         "title": display_title,
                         "start": f"{d}T{t.get('time','00:00:00')}",
                         "backgroundColor": "#FFE4E1",
                         "borderColor": "#FFE4E1",
-                        "textColor": "#333",
-                        "extendedProps": {  # 額外屬性存完整資訊
-                            "full_title": title,
-                            "date": d,
-                            "idx": idx
-                        }
+                        "textColor": "#333"
                     })
         return ev
 
@@ -1141,8 +1135,7 @@ with tabs[1]:
             "initialView": "dayGridMonth",
             "displayEventTime": False,
             "height": "auto",
-            "eventClick": True,  # 啟用事件點擊
-            "editable": False
+            "eventClick": True
         }
 
         state = calendar(
@@ -1151,12 +1144,10 @@ with tabs[1]:
             key=f"cal_{st.session_state.cal_key}"
         )
 
-        # 處理日期點擊
         if state.get("dateClick"):
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
-        # 處理事件點擊（刪除待辦）
         if state.get("eventClick"):
             event_info = state["eventClick"]["event"]
             event_id = event_info.get("id", "")
@@ -1165,7 +1156,6 @@ with tabs[1]:
                 try:
                     idx = int(idx_str)
                     if date_str in st.session_state.todo and 0 <= idx < len(st.session_state.todo[date_str]):
-                        # 顯示確認刪除對話框
                         item = st.session_state.todo[date_str][idx]
                         st.session_state.event_clicked = {
                             "date": date_str,
@@ -1175,7 +1165,6 @@ with tabs[1]:
                 except:
                     pass
 
-        # 刪除確認對話框
         if st.session_state.event_clicked:
             ev = st.session_state.event_clicked
             st.warning(f"確定要刪除 {ev['date']} 的「{ev['title'][:10]}...」嗎？")
@@ -1200,12 +1189,12 @@ with tabs[1]:
     st.markdown('<p style="font-size:14px;font-weight:bold;">📋 待辦事項（長內容）</p>', unsafe_allow_html=True)
 
     selected_date = st.session_state.sel_date
-    long_todos = []  # 超過5字的待辦
+    long_todos = []
 
     if selected_date in st.session_state.todo and st.session_state.todo[selected_date]:
         for idx, item in enumerate(st.session_state.todo[selected_date]):
             title = item.get("title", "") if isinstance(item, dict) else str(item)
-            if len(title) > 5:  # 只顯示超過5字的
+            if len(title) > 5:
                 long_todos.append((idx, item, title))
 
     if long_todos:
@@ -1271,59 +1260,60 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-    # ---------- 8句預設金句 + 7句手動金句 ----------
-    st.markdown('<p style="font-size:14px;font-weight:bold;">💎 每日金句（8句預設 + 7句自訂）</p>', unsafe_allow_html=True)
+    # ---------- 我的金句（7句手動輸入 + 收藏）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">💎 我的金句</p>', unsafe_allow_html=True)
 
-    # 8句預設金句（減少自原本的14句）
-    default_verses = [
-        "約翰福音 3:16 - 神愛世人，甚至將他的獨生子賜給他們。",
-        "詩篇 23:1 - 耶和華是我的牧者，我必不至缺乏。",
-        "箴言 3:5-6 - 你要專心仰賴耶和華，不可倚靠自己的聰明。",
-        "馬太福音 11:28 - 凡勞苦擔重擔的人，可以到我這裡來。",
-        "羅馬書 8:28 - 萬事都互相效力，叫愛神的人得益處。",
-        "腓立比書 4:13 - 我靠著那加給我力量的，凡事都能做。",
-        "約書亞記 1:9 - 我豈沒有吩咐你嗎？你當剛強壯膽！",
-        "以賽亞書 40:31 - 但那等候耶和華的必重新得力。"
-    ]
+    # 合併手動金句和收藏
+    all_verses = [v for v in st.session_state.custom_verses if v.strip()] + st.session_state.favorite_sentences
 
-    # 載入或初始化手動金句（7句空位）
-    if "custom_verses" not in st.session_state:
-        st.session_state.custom_verses = [""] * 7
+    if all_verses:
+        col1, col2, col3 = st.columns([1, 8, 1])
+        with col1:
+            if st.button("◀", key="prev_verse"):
+                st.session_state.verse_start_idx = (st.session_state.verse_start_idx - 1) % len(all_verses)
+                st.rerun()
 
-    # 合併顯示：8預設 + 7手動
-    all_verses = default_verses + [v for v in st.session_state.custom_verses if v]  # 只顯示有內容的手動金句
-
-    # 輪播控制
-    col1, col2, col3 = st.columns([1, 8, 1])
-    with col1:
-        if st.button("◀", key="prev_verse"):
-            st.session_state.verse_start_idx = (st.session_state.verse_start_idx - 1) % len(all_verses)
-            st.rerun()
-
-    with col2:
-        if all_verses:
+        with col2:
             idx = st.session_state.verse_start_idx % len(all_verses)
             st.info(f"📖 {all_verses[idx]}")
-        else:
-            st.info("📖 暫無金句")
 
-    with col3:
-        if st.button("▶", key="next_verse"):
-            st.session_state.verse_start_idx = (st.session_state.verse_start_idx + 1) % len(all_verses)
-            st.rerun()
+        with col3:
+            if st.button("▶", key="next_verse"):
+                st.session_state.verse_start_idx = (st.session_state.verse_start_idx + 1) % len(all_verses)
+                st.rerun()
 
-    st.caption(f"顯示第 {st.session_state.verse_start_idx + 1} / {len(all_verses)} 句")
+        st.caption(f"顯示第 {st.session_state.verse_start_idx + 1} / {len(all_verses)} 句")
+    else:
+        st.info("📖 尚無金句，請在下方新增或從待辦收藏")
 
     # 手動輸入金句區（7句空位）
     with st.expander("✏️ 編輯我的7句金句", expanded=False):
-        updated = []
         for i in range(7):
-            v = st.text_input(f"金句 {i+1}", value=st.session_state.custom_verses[i], key=f"custom_{i}")
-            updated.append(v)
+            st.text_input(f"金句 {i+1}", value=st.session_state.custom_verses[i], key=f"custom_{i}")
 
         if st.button("💾 儲存我的金句", key="save_custom"):
+            updated = [st.session_state[f"custom_{i}"] for i in range(7)]
             st.session_state.custom_verses = updated
-        <response clipped><NOTE>Result is longer than **10000 characters**, will be **truncated**.</NOTE>
+            st.success("已儲存！")
+            st.rerun()
+
+    st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
+
+    # ---------- 我的收藏（獨立區塊）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">❤️ 我的收藏</p>', unsafe_allow_html=True)
+
+    if st.session_state.favorite_sentences:
+        for i, fav in enumerate(st.session_state.favorite_sentences):
+            c1, c2 = st.columns([8, 1.5])
+            with c1:
+                st.markdown(f'<p style="line-height:1.3;font-size:13px;">• {fav}</p>', unsafe_allow_html=True)
+            with c2:
+                if st.button("🗑️", key=f"del_fav_{i}"):
+                    st.session_state.favorite_sentences.pop(i)
+                    save_favorites()
+                    st.rerun()
+    else:
+        st.caption("尚無收藏，點擊待辦事項的 ⭐ 加入")
 
 # ===================================================================
 # 5. TAB3 ─ 挑戰（折疊欄位標題=題目，展開=答案+輸入框）
