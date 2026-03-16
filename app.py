@@ -726,7 +726,7 @@ st.markdown("""
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (修正 V2 無標題列問題)
+# 3. TAB1 ─ 書桌 (修正版：統一字體、間距，確保按鈕顯示)
 # ===================================================================
 with tabs[0]:
     if "tab1_idx" not in st.session_state:
@@ -738,13 +738,8 @@ with tabs[0]:
         st.warning("資料庫為空，請先在 TAB4 載入資料")
     else:
         
-        # ========== 修正的解析函數 ==========
+        # ========== 解析函數 ==========
         def parse_tab_delimited(content, default_headers=None):
-            """
-            解析 TAB 分隔格式
-            - 如果有標題列（第一行看起來像欄位名），使用它
-            - 如果沒有，使用 default_headers
-            """
             if not content or not content.strip():
                 return [], []
             
@@ -752,32 +747,25 @@ with tabs[0]:
             if len(lines) < 1:
                 return [], []
             
-            # 檢查第一行是否像「標題列」
             first_line = lines[0]
             first_cells = first_line.split('\t')
             
-            # 標題列的特徵：短、不含大量HTML/特殊符號、看起來像欄位名
             looks_like_header = True
             for cell in first_cells:
-                # 如果任何一個儲存格太長（>50字）、包含<br>、或包含大量中文內容，就不是標題
                 if len(cell) > 50 or '<br>' in cell or '•' in cell or '1️⃣' in cell or 'だから' in cell or '그러므로' in cell:
                     looks_like_header = False
                     break
             
             if looks_like_header and not default_headers:
-                # 使用第一行作為標題
                 headers = [h.strip() for h in first_cells]
                 data_lines = lines[1:]
             elif default_headers:
-                # 使用預設標題，第一行也是資料
                 headers = default_headers
                 data_lines = lines
             else:
-                # 無法判斷，用欄位編號
                 headers = [f"Col_{i}" for i in range(len(first_cells))]
                 data_lines = lines[1:] if looks_like_header else lines
             
-            # 解析資料列
             rows = []
             for line in data_lines:
                 if not line.strip():
@@ -790,7 +778,6 @@ with tabs[0]:
             
             return headers, rows
 
-        # V2 的預設欄位名稱（根據你的 Google Sheets 實際欄位）
         V2_DEFAULT_HEADERS = ['Ref. 經文出處', '口語訳', 'Grammar', 'Note', 'KRF', 'Korean Syn/Ant', 'THSV11 泰文重要片語']
 
         # ============================================================
@@ -807,16 +794,11 @@ with tabs[0]:
             w_content = data.get('w_sheet', '')
             g_content = data.get('grammar_list', '')
             
-            # V1 有正常標題列
             v1_headers, v1_rows = parse_tab_delimited(v1_content)
-            
-            # V2 可能沒有標題列，使用預設欄位名
             v2_headers, v2_rows = parse_tab_delimited(v2_content, default_headers=V2_DEFAULT_HEADERS)
-            
             w_headers, w_rows = parse_tab_delimited(w_content)
             g_headers, g_rows = parse_tab_delimited(g_content)
             
-            # 配對 V1 和 V2
             for i, v1_row in enumerate(v1_rows):
                 v2_row = v2_rows[i] if i < len(v2_rows) else {}
                 all_vocab_sources.append((v1_row, v2_row, ref))
@@ -859,7 +841,6 @@ with tabs[0]:
                     if entry.strip():
                         vocab_parts.append(f"• {entry.strip()}")
             
-            # V2 欄位（現在應該能抓到了！）
             korean_syn = v2_row.get('Korean Syn/Ant', '') if isinstance(v2_row, dict) else ''
             if korean_syn:
                 for entry in re.split(r'[;；/|]', korean_syn):
@@ -883,7 +864,7 @@ with tabs[0]:
             if isinstance(v2_row, dict):
                 th = v2_row.get('THSV11 泰文重要片語', v2_row.get('THSV11', ''))
             
-            verse_lines = [f"**{current_ref}** {en}"]
+            verse_lines = [f"<b>{current_ref}</b> {en}"]
             if jp: verse_lines.append(f"🇯🇵 {jp}")
             if kr: verse_lines.append(f"🇰🇷 {kr}")
             if th: verse_lines.append(f"🇹🇭 {th}")
@@ -915,18 +896,21 @@ with tabs[0]:
                     ant = row.get('Antonym＋中文對照', row.get('Antonym+中文對照', ''))
                     ex = row.get('全句聖經中英對照例句', '')
                     
-                    p_html = f"**{word}**<br>"
+                    # 修正：減少片語間距，使用統一字體大小
+                    p_html = f"<div style='margin-bottom: 8px;'><b style='font-size: 16px;'>{word}</b><br>"
                     sa_parts = []
                     if syn: sa_parts.append(f"✨ {syn}")
                     if ant: sa_parts.append(f"❄️ {ant}")
                     if sa_parts:
-                        p_html += f"&nbsp;&nbsp;{' | '.join(sa_parts)}<br>"
+                        p_html += f"<span style='font-size: 14px; color: #555;'>&nbsp;&nbsp;{' | '.join(sa_parts)}</span><br>"
                     if ex:
-                        p_html += f"<small>📖 {ex}</small>"
+                        p_html += f"<span style='font-size: 13px; color: #666;'>📖 {ex}</span></div>"
+                    else:
+                        p_html += "</div>"
                     
                     phrase_parts.append(p_html)
                 
-                phrase_html = "<br><br>".join(phrase_parts)
+                phrase_html = "".join(phrase_parts)
         
         # --- 文法 ---
         grammar_html = "等待資料中..."
@@ -973,38 +957,104 @@ with tabs[0]:
             grammar_html = "<hr style='margin:8px 0;'>".join(parts) if parts else "無文法資料"
         
         # ============================================================
-        # 渲染
+        # 渲染 - 統一字體和間距
         # ============================================================
-        col_left, col_right = st.columns([0.67, 0.33])
+        
+        # 統一的樣式定義
+        st.markdown("""
+        <style>
+        .tab1-content {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "微軟正黑體", sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .tab1-content b {
+            font-size: 16px;
+            color: #1a1a1a;
+        }
+        .vocab-section {
+            margin-bottom: 12px;
+        }
+        .phrase-section {
+            margin-bottom: 12px;
+        }
+        .verse-section {
+            margin-bottom: 12px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #FF8C00;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        col_left, col_right = st.columns([0.68, 0.32])
         
         with col_left:
-            st.markdown(vocab_html)
-            st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-            st.markdown(phrase_html if phrase_html else "無片語資料", unsafe_allow_html=True)
-            st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-            st.markdown(verse_html, unsafe_allow_html=True)
+            # 單字區塊
+            st.markdown(f"""
+            <div class="tab1-content vocab-section">
+                <div style="font-size: 15px; line-height: 1.8;">
+                    {vocab_html}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<hr style='margin:12px 0; border-color: #ddd;'>", unsafe_allow_html=True)
+            
+            # 片語區塊 - 統一字體，減少間距
+            st.markdown(f"""
+            <div class="tab1-content phrase-section">
+                <div style="font-size: 15px; line-height: 1.6;">
+                    {phrase_html if phrase_html else "無片語資料"}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<hr style='margin:12px 0; border-color: #ddd;'>", unsafe_allow_html=True)
+            
+            # 金句區塊
+            st.markdown(f"""
+            <div class="tab1-content verse-section">
+                <div style="font-size: 15px; line-height: 1.7;">
+                    {verse_html}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col_right:
+            # 文法區塊
             st.markdown(f"""
                 <div style="background-color:#1E1E1E; color:#FFFFFF; padding:12px; border-radius:8px; 
-                            border-left:4px solid #FF8C00; min-height:450px; font-size:13px; line-height:1.4;">
+                            border-left:4px solid #FF8C00; min-height:400px; font-size:14px; line-height:1.5;">
                     {grammar_html}
                 </div>
                 """, unsafe_allow_html=True)
             
             st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
             
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("⬅️ 上一条", use_container_width=True):
+            # ============================================================
+            # 導航按鈕 - 確保在電腦版也能顯示
+            # ============================================================
+            nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
+            
+            with nav_col1:
+                if st.button("⬅️ 上一頁", use_container_width=True, key="prev_btn"):
                     st.session_state.tab1_idx = max(0, idx - 1)
                     st.rerun()
-            with c2:
-                if st.button("下一条 ➡️", use_container_width=True):
+            
+            with nav_col2:
+                st.markdown(f"<div style='text-align: center; padding: 8px; color: #666; font-size: 13px;'>"
+                           f"第 {idx + 1} 組</div>", unsafe_allow_html=True)
+            
+            with nav_col3:
+                if st.button("下一頁 ➡️", use_container_width=True, key="next_btn"):
                     st.session_state.tab1_idx = idx + 1
                     st.rerun()
             
-            st.caption(f"單字/金句: {len(all_vocab_sources)} | 片語組: {len(all_phrase_sources)} | 文法: {len(all_grammar_sources)}")
+            # 統計資訊
+            st.caption(f"📊 單字/金句: {len(all_vocab_sources)} | 片語組: {len(all_phrase_sources)} | 文法: {len(all_grammar_sources)}")
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 14句金句 + 收藏金句（完整版）
