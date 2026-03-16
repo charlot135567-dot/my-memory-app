@@ -726,7 +726,7 @@ st.markdown("""
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌 (修正版：統一字體、最小間距、移除文法單字、確保按鈕顯示)
+# 3. TAB1 ─ 書桌 (修正版：統一字體、最小間距、移除文法單字、確保按鈕顯示、導航按鈕上移、手機可見性修正)
 # ===================================================================
 with tabs[0]:
     if "tab1_idx" not in st.session_state:
@@ -874,7 +874,7 @@ with tabs[0]:
             vocab_html = "無單字資料"
             verse_html = "無金句資料"
         
-        # --- 片語 ---
+        # --- 片語 (修正：最小間距) ---
         phrase_html = ""
         if all_phrase_sources:
             all_phrases = []
@@ -896,16 +896,16 @@ with tabs[0]:
                     ant = row.get('Antonym＋中文對照', row.get('Antonym+中文對照', ''))
                     ex = row.get('全句聖經中英對照例句', '')
                     
-                    # 修正：最小間距，使用 div 包裝，margin-bottom 設為 4px
-                    p_html = f"<div style='margin-bottom: 4px; line-height: 1.4;'>"
+                    # 修正：最小間距，margin-bottom 設為 0px
+                    p_html = f"<div style='margin-bottom: 0px; line-height: 1.3;'>"
                     p_html += f"<b style='font-size: 15px;'>{word}</b>"
                     sa_parts = []
                     if syn: sa_parts.append(f"✨ {syn}")
                     if ant: sa_parts.append(f"❄️ {ant}")
                     if sa_parts:
-                        p_html += f"<br><span style='font-size: 13px; color: #555; line-height: 1.3;'>&nbsp;&nbsp;{' | '.join(sa_parts)}</span>"
+                        p_html += f"<br><span style='font-size: 13px; color: #555; line-height: 1.2;'>&nbsp;&nbsp;{' | '.join(sa_parts)}</span>"
                     if ex:
-                        p_html += f"<br><span style='font-size: 12px; color: #666; line-height: 1.3;'>📖 {ex}</span>"
+                        p_html += f"<br><span style='font-size: 12px; color: #666; line-height: 1.2;'>📖 {ex}</span>"
                     p_html += "</div>"
                     
                     phrase_parts.append(p_html)
@@ -928,10 +928,8 @@ with tabs[0]:
                 ref = g_row.get('Ref.', '')
                 en = g_row.get('English（ESV經文）', g_row.get('English (ESV)', ''))
                 cn = g_row.get('Chinese經文', g_row.get('Chinese', ''))
-                # 移除 Syn/Ant，因為單字欄位已顯示
                 grammar = g_row.get('Grammar', '')
                 
-                # 修正：最小標題間距，使用 div 包裝
                 if ref: parts.append(f"<div style='margin-bottom: 2px;'><b>{ref}</b></div>")
                 if en: parts.append(f"<div style='margin-bottom: 2px;'>🇬🇧 {en}</div>")
                 if cn: parts.append(f"<div style='margin-bottom: 2px;'>🇨🇳 {cn}</div>")
@@ -1007,17 +1005,50 @@ with tabs[0]:
             min-height: 40px !important;
             font-size: 14px !important;
         }
+        /* 導航按鈕容器樣式 */
+        .nav-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
         </style>
         """, unsafe_allow_html=True)
         
-        # 字體選擇器 (放在頂部)
-        font_option = st.selectbox(
-            "選擇字體樣式",
-            ["系統預設 (清晰)", "圓體 (柔和)", "明體/襯線 (傳統)", "等寬 (程式感)"],
-            index=0,
-            key="font_selector"
-        )
+        # ============================================================
+        # 頂部導航列：字體選擇器 + 導航按鈕
+        # ============================================================
+        nav_col1, nav_col2, nav_col3, nav_col4 = st.columns([2, 1, 0.8, 0.8])
         
+        with nav_col1:
+            font_option = st.selectbox(
+                "選擇字體樣式",
+                ["系統預設 (清晰)", "圓體 (柔和)", "明體/襯線 (傳統)", "等寬 (程式感)"],
+                index=0,
+                key="font_selector",
+                label_visibility="collapsed"
+            )
+        
+        with nav_col2:
+            st.markdown(f"<div style='text-align: center; padding: 8px 0; color: #666; font-size: 14px; font-weight: bold;'>"
+                       f"第 {idx + 1} 組</div>", unsafe_allow_html=True)
+        
+        with nav_col3:
+            st.button(
+                "⬅️ 上頁", 
+                use_container_width=True, 
+                key="prev_btn",
+                on_click=lambda: setattr(st.session_state, 'tab1_idx', max(0, st.session_state.tab1_idx - 1))
+            )
+        
+        with nav_col4:
+            st.button(
+                "下頁 ➡️", 
+                use_container_width=True, 
+                key="next_btn",
+                on_click=lambda: setattr(st.session_state, 'tab1_idx', st.session_state.tab1_idx + 1)
+            )
+        
+        # 設定字體類別
         font_class = "tab1-font-system"
         if font_option == "圓體 (柔和)":
             font_class = "tab1-font-rounded"
@@ -1038,18 +1069,18 @@ with tabs[0]:
             </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<hr style='margin:8px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:6px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
             
-            # 片語區塊 - 最小間距
+            # 片語區塊 - 最小間距 (修正：組間無間距)
             st.markdown(f"""
             <div class="{font_class} tab1-content phrase-section">
-                <div style="font-size: 14px; line-height: 1.4;">
+                <div style="font-size: 14px; line-height: 1.3;">
                     {phrase_html if phrase_html else "無片語資料"}
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<hr style='margin:8px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:6px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
             
             # 金句區塊
             st.markdown(f"""
@@ -1061,42 +1092,15 @@ with tabs[0]:
             """, unsafe_allow_html=True)
         
         with col_right:
-            # 文法區塊 - 深色背景
+            # 文法區塊 - 修正：改為淺色背景確保手機可見性
             st.markdown(f"""
-                <div class="{font_class}" style="background-color:#1E1E1E; color:#FFFFFF; padding:10px; border-radius:8px; 
-                            border-left:4px solid #FF8C00; min-height:350px; font-size:13px; line-height:1.4;">
+                <div class="{font_class}" style="background-color:#f5f5f5; color:#1a1a1a; padding:10px; border-radius:8px; 
+                            border-left:4px solid #FF8C00; min-height:350px; font-size:13px; line-height:1.4; border:1px solid #ddd;">
                     {grammar_html}
                 </div>
                 """, unsafe_allow_html=True)
             
             st.caption(f"Ref: {current_ref} | Grammar: {g_ref} | Index: {idx}")
-            
-            # ============================================================
-            # 導航按鈕 - 使用容器確保顯示
-            # ============================================================
-            button_container = st.container()
-            with button_container:
-                nav_col1, nav_col2, nav_col3 = st.columns([1, 1.5, 1])
-                
-                with nav_col1:
-                    st.button(
-                        "⬅️ 上一頁", 
-                        use_container_width=True, 
-                        key="prev_btn",
-                        on_click=lambda: setattr(st.session_state, 'tab1_idx', max(0, st.session_state.tab1_idx - 1))
-                    )
-                
-                with nav_col2:
-                    st.markdown(f"<div style='text-align: center; padding: 10px 0; color: #666; font-size: 13px; font-weight: bold;'>"
-                               f"第 {idx + 1} 組</div>", unsafe_allow_html=True)
-                
-                with nav_col3:
-                    st.button(
-                        "下一頁 ➡️", 
-                        use_container_width=True, 
-                        key="next_btn",
-                        on_click=lambda: setattr(st.session_state, 'tab1_idx', st.session_state.tab1_idx + 1)
-                    )
             
             # 統計資訊
             st.caption(f"📊 單字/金句: {len(all_vocab_sources)} | 片語組: {len(all_phrase_sources)} | 文法: {len(all_grammar_sources)}")
