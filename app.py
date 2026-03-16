@@ -1335,22 +1335,22 @@ with tabs[1]:
         st.caption("尚無收藏")
 
 # ===================================================================
-# 5. TAB3 ─ 挑戰（題目顯示在外，答案在折疊內版）
+# 5. TAB3 ─ 挑戰（折疊欄位標題=題目，展開=答案）
 # ===================================================================
 with tabs[2]:
-    
+
     if 'tab3_seed' not in st.session_state:
         st.session_state.tab3_seed = random.randint(1, 1000)
-    
+
     sentences = st.session_state.get('sentences', {})
-    
+
     if not sentences:
         st.warning("資料庫為空")
     else:
-        # 收集資料
+        # 收集資料（保持原有邏輯）
         sorted_refs = sorted(sentences.keys(), key=lambda x: sentences[x].get('date_added', ''), reverse=True)
         total = len(sorted_refs)
-        
+
         # 加權池
         new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
         mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
@@ -1358,9 +1358,9 @@ with tabs[2]:
         weighted_pool = (new_refs * 6) + (mid_refs * 3) + (old_refs * 1)
         if not weighted_pool:
             weighted_pool = sorted_refs
-        
+
         random.seed(st.session_state.tab3_seed)
-        
+
         # 收集經文
         all_verses = []
         for ref in weighted_pool[:15]:
@@ -1379,7 +1379,7 @@ with tabs[2]:
                             })
                 except:
                     pass
-        
+
         # 收集單字
         word_pool = []
         for ref in weighted_pool[:8]:
@@ -1399,86 +1399,43 @@ with tabs[2]:
                                         word_pool.append({'en': m.group(1).strip(), 'cn': m.group(2).strip()})
                 except:
                     pass
-        
+
         if len(all_verses) < 6:
             st.warning("經文資料不足")
         else:
             # 選題
             selected = random.sample(all_verses, 6)
-            zh_to_en = selected[:3]
-            en_to_zh = selected[3:6]
+            zh_to_en = selected[:3]   # 中→英
+            en_to_zh = selected[3:6]  # 英→中
             selected_words = random.sample(word_pool, min(3, len(word_pool))) if len(word_pool) >= 3 else []
-            
-            st.subheader("📝 翻譯挑戰")
-            
-            # ===== 中翻英（題目 1-3）=====
+
+            st.subheader("📝 翻譯挑戰（點開查看答案）")
+
+            # ===== 中翻英（題目 1-3）：折疊標題=中文，內容=英文 =====
             for i, q in enumerate(zh_to_en, 1):
-                # 題目直接顯示（不再放在折疊標題）
-                st.markdown(f"**題目 {i}：**")
-                st.markdown(f"🇨🇳 {q['cn']}")
-                
-                # 輸入框
-                user_answer = st.text_area(
-                    "您的翻譯", 
-                    key=f"q_{i}_{st.session_state.tab3_seed}",
-                    placeholder="請輸入英文翻譯...",
-                    label_visibility="collapsed",
-                    height=60
-                )
-                
-                # 答案放在折疊內（點擊後才顯示）
-                with st.expander("✅ 查看正確答案", expanded=False):
-                    st.markdown(f"🇬🇧 **{q['en']}**")
+                with st.expander(f"🇨🇳 {q['cn']}", expanded=False):
+                    st.markdown(f"**🇬🇧 {q['en']}**")
                     st.caption(f"📖 {q['ref']}")
-                
-                st.markdown("---")
-            
-            # ===== 英翻中（題目 4-6）=====
+
+            st.markdown("---")
+
+            # ===== 英翻中（題目 4-6）：折疊標題=英文，內容=中文 =====
             for i, q in enumerate(en_to_zh, 4):
-                # 題目直接顯示
-                st.markdown(f"**題目 {i}：**")
-                st.markdown(f"🇬🇧 {q['en']}")
-                
-                # 輸入框
-                user_answer = st.text_area(
-                    "您的翻譯", 
-                    key=f"q_{i}_{st.session_state.tab3_seed}",
-                    placeholder="請輸入中文翻譯...",
-                    label_visibility="collapsed",
-                    height=60
-                )
-                
-                # 答案放在折疊內
-                with st.expander("✅ 查看正確答案", expanded=False):
-                    st.markdown(f"🇨🇳 **{q['cn']}**")
+                with st.expander(f"🇬🇧 {q['en']}", expanded=False):
+                    st.markdown(f"**🇨🇳 {q['cn']}**")
                     st.caption(f"📖 {q['ref']}")
-                
-                st.markdown("---")
-            
-            # ===== 單字題 =====
+
+            # ===== 單字題：折疊標題=中文解釋，內容=英文單字 =====
             if selected_words:
-                st.subheader("📝 單字挑戰")
-                
+                st.markdown("---")
+                st.subheader("📝 單字挑戰（點開查看答案）")
+
                 for i, w in enumerate(selected_words, 7):
-                    # 題目直接顯示
-                    st.markdown(f"**題目 {i}：**")
-                    st.markdown(f"📝 {w['cn']}")
-                    
-                    # 輸入框
-                    user_answer = st.text_input(
-                        "英文單字", 
-                        key=f"q_{i}_{st.session_state.tab3_seed}",
-                        placeholder="English word...",
-                        label_visibility="collapsed"
-                    )
-                    
-                    # 答案放在折疊內
-                    with st.expander("✅ 查看正確答案", expanded=False):
+                    with st.expander(f"📝 {w['cn']}", expanded=False):
                         st.markdown(f"**{w['en']}**")
-                    
-                    st.markdown("---")
-            
-            # 換題
+
+            # 換題按鈕
+            st.markdown("---")
             if st.button("🔄 換一批題目", use_container_width=True, type="primary"):
                 st.session_state.tab3_seed = random.randint(1, 1000)
                 st.rerun()
