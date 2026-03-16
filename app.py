@@ -1388,34 +1388,32 @@ with tabs[2]:
             zh_to_en = selected[:3]   # 中→英
             en_to_zh = selected[3:6]  # 英→中
 
-            # ===== 中翻英（題目 1-3）：折疊標題=中文，內容=英文+輸入框 =====
+            # ===== 中翻英（題目 1-3）=====
             for i, q in enumerate(zh_to_en, 1):
-                # 輸入框（寫答案）
                 user_answer = st.text_area(
+                    "",
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入英文翻譯...",
-                    label_visibility="collapsed",  # ← 改這裡
+                    label_visibility="collapsed",
                     height=80
                 )
 
-                # 折疊內顯示正確答案
                 with st.expander(f"🇨🇳 {q['cn']}", expanded=False):
                     st.markdown(f"**🇬🇧 {q['en']}**")
                     st.caption(f"📖 {q['ref']}")
 
                 st.markdown("---")
 
-            # ===== 英翻中（題目 4-6）：折疊標題=英文，內容=中文+輸入框 =====
+            # ===== 英翻中（題目 4-6）=====
             for i, q in enumerate(en_to_zh, 4):
-                # 輸入框（寫答案）
                 user_answer = st.text_area(
+                    "",
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入中文翻譯...",
-                    label_visibility="collapsed",  # ← 改這裡
+                    label_visibility="collapsed",
                     height=80
                 )
 
-                # 折疊內顯示正確答案
                 with st.expander(f"🇬🇧 {q['en']}", expanded=False):
                     st.markdown(f"**🇨🇳 {q['cn']}**")
                     st.caption(f"📖 {q['ref']}")
