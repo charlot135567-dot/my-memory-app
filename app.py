@@ -1260,10 +1260,10 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-# ---------- 8句 Google Sheet 經文 + 7句手動金句（早中晚輪播）----------
-    st.markdown('<p style="font-size:14px;font-weight:bold;">💎 每日金句（8句經文 + 7句自訂）</p>', unsafe_allow_html=True)
+# ---------- 8句 Google Sheet 經文（一次顯示2節）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">📖 經文金句（Google Sheet）</p>', unsafe_allow_html=True)
 
-    # 從 Google Sheet 載入經文（8句）
+    # 從 Google Sheet 載入經文
     sentences = st.session_state.get('sentences', {})
     sheet_verses = []
 
@@ -1294,64 +1294,126 @@ with tabs[1]:
     # 只取前8句
     sheet_verses = sheet_verses[:8]
 
-    # 7句手動金句
+    if len(sheet_verses) >= 2:
+        # 雙索引輪播（一次顯示2節）
+        if 'sheet_verse_idx' not in st.session_state:
+            st.session_state.sheet_verse_idx = 0
+
+        total_pairs = len(sheet_verses) // 2
+        idx = st.session_state.sheet_verse_idx % total_pairs * 2
+
+        # 兩節經文並排
+        v1, v2 = sheet_verses[idx], sheet_verses[idx+1] if idx+1 < len(sheet_verses) else None
+
+        # 標題列：◀ 經文 ▶
+        title_col1, title_col2, title_col3 = st.columns([1, 6, 1])
+        with title_col1:
+            if st.button("《", key="sheet_prev"):
+                st.session_state.sheet_verse_idx = (st.session_state.sheet_verse_idx - 1) % total_pairs
+                st.rerun()
+        with title_col2:
+            st.markdown(f"<p style='text-align:center;font-weight:bold;'>經文 {idx//2 + 1} / {total_pairs}</p>", unsafe_allow_html=True)
+        with title_col3:
+            if st.button("》", key="sheet_next"):
+                st.session_state.sheet_verse_idx = (st.session_state.sheet_verse_idx + 1) % total_pairs
+                st.rerun()
+
+        # 兩節經文折疊
+        c1, c2 = st.columns(2)
+        with c1:
+            with st.expander(f"📖 {v1['ref']}", expanded=False):
+                st.markdown(f"🇬🇧 {v1['en']}")
+                st.markdown(f"🇨🇳 **{v1['cn']}**")
+                if st.button("⭐ 收藏", key=f"fav_s1_{idx}"):
+                    fav = f"{v1['ref']} {v1['en']}"
+                    if fav not in st.session_state.favorite_sentences:
+                        st.session_state.favorite_sentences.append(fav)
+                        save_favorites()
+                        st.toast("已收藏！")
+
+        with c2:
+            if v2:
+                with st.expander(f"📖 {v2['ref']}", expanded=False):
+                    st.markdown(f"🇬🇧 {v2['en']}")
+                    st.markdown(f"🇨🇳 **{v2['cn']}**")
+                    if st.button("⭐ 收藏", key=f"fav_s2_{idx}"):
+                        fav = f"{v2['ref']} {v2['en']}"
+                        if fav not in st.session_state.favorite_sentences:
+                            st.session_state.favorite_sentences.append(fav)
+                            save_favorites()
+                            st.toast("已收藏！")
+            else:
+                st.empty()
+    else:
+        st.caption("經文資料不足2節")
+
+    st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
+
+    # ---------- 7句自訂金句（一次顯示2節）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">✏️ 我的自訂金句</p>', unsafe_allow_html=True)
+
     if "custom_verses" not in st.session_state:
         st.session_state.custom_verses = [""] * 7
-    custom_verses = [v for v in st.session_state.custom_verses if v.strip()]
 
-    # 合併：8句 Sheet + 7句手動
-    all_verses = sheet_verses + [{'ref': f'自訂{i+1}', 'en': v, 'cn': v} for i, v in enumerate(custom_verses)]
+    # 過濾空白
+    custom_list = [(i, v) for i, v in enumerate(st.session_state.custom_verses) if v.strip()]
 
-    if all_verses:
-        total = len(all_verses)
-        start_idx = st.session_state.verse_start_idx % total
+    if len(custom_list) >= 2:
+        # 雙索引輪播
+        if 'custom_verse_idx' not in st.session_state:
+            st.session_state.custom_verse_idx = 0
 
-        # 顯示當前金句（展開式）
-        current_v = all_verses[start_idx]
+        total_pairs = (len(custom_list) + 1) // 2
+        pair_idx = st.session_state.custom_verse_idx % total_pairs
 
-        with st.expander(f"📖 **{current_v['ref']}**  {current_v['en']}", expanded=False):
-            st.markdown(f"🇨🇳 **{current_v['cn']}**")
+        # 取得當前2句
+        start = pair_idx * 2
+        c1_data = custom_list[start]
+        c2_data = custom_list[start + 1] if start + 1 < len(custom_list) else None
 
-            # 收藏按鈕
-            fav_text = f"{current_v['ref']} {current_v['en']}"
-            if st.button("⭐ 收藏", key="fav_current"):
-                if fav_text not in st.session_state.favorite_sentences:
-                    st.session_state.favorite_sentences.append(fav_text)
-                    save_favorites()
-                    st.toast("已收藏！")
-
-        st.caption(f"第 {start_idx + 1} / {total} 句（◀ ▶ 切換）")
-
-        # 切換按鈕
-        col1, col2, col3 = st.columns([1, 6, 1])
-        with col1:
-            if st.button("◀", key="prev_verse"):
-                st.session_state.verse_start_idx = (st.session_state.verse_start_idx - 1) % total
+        # 標題列：◀ 我的金句 ▶
+        title_col1, title_col2, title_col3 = st.columns([1, 6, 1])
+        with title_col1:
+            if st.button("《", key="custom_prev"):
+                st.session_state.custom_verse_idx = (st.session_state.custom_verse_idx - 1) % total_pairs
                 st.rerun()
-        with col3:
-            if st.button("▶", key="next_verse"):
-                st.session_state.verse_start_idx = (st.session_state.verse_start_idx + 1) % total
+        with title_col2:
+            st.markdown(f"<p style='text-align:center;font-weight:bold;'>我的金句 {pair_idx + 1} / {total_pairs}</p>", unsafe_allow_html=True)
+        with title_col3:
+            if st.button("》", key="custom_next"):
+                st.session_state.custom_verse_idx = (st.session_state.custom_verse_idx + 1) % total_pairs
                 st.rerun()
 
-        # 早中晚提示
-        hour = datetime.datetime.now().hour
-        if 5 <= hour < 11:
-            time_msg = "🌅 早安"
-        elif 11 <= hour < 17:
-            time_msg = "☀️ 午安"
-        else:
-            time_msg = "🌙 晚安"
-        st.caption(f"{time_msg}，按時段輪播金句")
+        # 兩節並排
+        c1, c2 = st.columns(2)
+        with c1:
+            with st.expander(f"💎 金句 {c1_data[0]+1}", expanded=False):
+                st.markdown(f"**{c1_data[1]}**")
+                if st.button("⭐ 收藏", key=f"fav_c1_{start}"):
+                    if c1_data[1] not in st.session_state.favorite_sentences:
+                        st.session_state.favorite_sentences.append(c1_data[1])
+                        save_favorites()
+                        st.toast("已收藏！")
 
+        with c2:
+            if c2_data:
+                with st.expander(f"💎 金句 {c2_data[0]+1}", expanded=False):
+                    st.markdown(f"**{c2_data[1]}**")
+                    if st.button("⭐ 收藏", key=f"fav_c2_{start}"):
+                        if c2_data[1] not in st.session_state.favorite_sentences:
+                            st.session_state.favorite_sentences.append(c2_data[1])
+                            save_favorites()
+                            st.toast("已收藏！")
+            else:
+                st.empty()
     else:
-        st.info("📖 尚無金句，請在下方新增自訂金句")
+        st.caption("請在下方新增至少2句自訂金句")
 
-    # 手動輸入金句區（7句空位）
-    with st.expander("✏️ 編輯我的7句金句", expanded=False):
+    # 編輯區
+    with st.expander("✏️ 編輯7句金句", expanded=False):
         for i in range(7):
             st.text_input(f"金句 {i+1}", value=st.session_state.custom_verses[i], key=f"custom_{i}")
-
-        if st.button("💾 儲存我的金句", key="save_custom"):
+        if st.button("💾 儲存", key="save_custom"):
             updated = [st.session_state[f"custom_{i}"] for i in range(7)]
             st.session_state.custom_verses = updated
             st.success("已儲存！")
