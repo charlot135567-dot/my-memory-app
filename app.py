@@ -614,15 +614,35 @@ with st.sidebar:
     st.image(IMG_URLS["M3"], width=250)
     st.divider()
 
-    # ===== 快速連結 =====
-    c1, c2 = st.columns(2)
-    c1.link_button("✨ Google AI", "https://gemini.google.com")
-    c2.link_button("🤖 Kimi K2", "https://kimi.moonshot.cn")
-    c3, c4 = st.columns(2)
-    c3.link_button("ESV Bible", "https://wd.bible/bible/gen.1.cunps?parallel=esv.klb.jcb")
-    c4.link_button("THSV11", "https://www.bible.com/zh-TW/bible/174/GEN.1.THSV11")
+    # 字體選擇器
+    font_option = st.selectbox(
+        "字體樣式",
+        ["系統預設", "圓體", "明體", "等寬"],
+        index=0,
+        key="font_selector"
+    )
     
-    st.divider()
+    # 頁碼顯示
+    idx = st.session_state.get('tab1_idx', 0)
+    st.markdown(f"<div style='text-align: center; padding: 4px 0; color: #666; font-size: 12px;'>"
+               f"目前: 第 {idx + 1} 組</div>", unsafe_allow_html=True)
+    
+    # 導航按鈕
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button(
+            "⬅️ 上頁", 
+            use_container_width=True, 
+            key="prev_btn_sidebar",
+            on_click=lambda: setattr(st.session_state, 'tab1_idx', max(0, st.session_state.get('tab1_idx', 0) - 1))
+        )
+    with col2:
+        st.button(
+            "下頁 ➡️", 
+            use_container_width=True, 
+            key="next_btn_sidebar",
+            on_click=lambda: setattr(st.session_state, 'tab1_idx', st.session_state.get('tab1_idx', 0) + 1)
+        )
     
     # ===== 底部背景設定 =====
     st.markdown("### 🖼️ 底部背景設定")
