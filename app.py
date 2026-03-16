@@ -1335,7 +1335,7 @@ with tabs[1]:
         st.caption("尚無收藏")
 
 # ===================================================================
-# 5. TAB3 ─ 挑戰（輸入框在外，答案在內版）
+# 5. TAB3 ─ 挑戰（題目顯示在外，答案在折疊內版）
 # ===================================================================
 with tabs[2]:
     
@@ -1413,9 +1413,11 @@ with tabs[2]:
             
             # ===== 中翻英（題目 1-3）=====
             for i, q in enumerate(zh_to_en, 1):
-                st.markdown(f"**題目 {i}：** {q['cn']}")
+                # 題目直接顯示（不再放在折疊標題）
+                st.markdown(f"**題目 {i}：**")
+                st.markdown(f"🇨🇳 {q['cn']}")
                 
-                # 輸入框（在折疊外面）
+                # 輸入框
                 user_answer = st.text_area(
                     "您的翻譯", 
                     key=f"q_{i}_{st.session_state.tab3_seed}",
@@ -1424,18 +1426,20 @@ with tabs[2]:
                     height=60
                 )
                 
-                # 答案（在折疊裡面）
+                # 答案放在折疊內（點擊後才顯示）
                 with st.expander("✅ 查看正確答案", expanded=False):
-                    st.markdown(f"**英文：** {q['en']}")
+                    st.markdown(f"🇬🇧 **{q['en']}**")
                     st.caption(f"📖 {q['ref']}")
                 
                 st.markdown("---")
             
             # ===== 英翻中（題目 4-6）=====
             for i, q in enumerate(en_to_zh, 4):
-                st.markdown(f"**題目 {i}：** {q['en']}")
+                # 題目直接顯示
+                st.markdown(f"**題目 {i}：**")
+                st.markdown(f"🇬🇧 {q['en']}")
                 
-                # 輸入框（在折疊外面）
+                # 輸入框
                 user_answer = st.text_area(
                     "您的翻譯", 
                     key=f"q_{i}_{st.session_state.tab3_seed}",
@@ -1444,9 +1448,9 @@ with tabs[2]:
                     height=60
                 )
                 
-                # 答案（在折疊裡面）
+                # 答案放在折疊內
                 with st.expander("✅ 查看正確答案", expanded=False):
-                    st.markdown(f"**中文：** {q['cn']}")
+                    st.markdown(f"🇨🇳 **{q['cn']}**")
                     st.caption(f"📖 {q['ref']}")
                 
                 st.markdown("---")
@@ -1456,9 +1460,11 @@ with tabs[2]:
                 st.subheader("📝 單字挑戰")
                 
                 for i, w in enumerate(selected_words, 7):
-                    st.markdown(f"**題目 {i}：** {w['cn']}")
+                    # 題目直接顯示
+                    st.markdown(f"**題目 {i}：**")
+                    st.markdown(f"📝 {w['cn']}")
                     
-                    # 輸入框（在折疊外面）
+                    # 輸入框
                     user_answer = st.text_input(
                         "英文單字", 
                         key=f"q_{i}_{st.session_state.tab3_seed}",
@@ -1466,7 +1472,7 @@ with tabs[2]:
                         label_visibility="collapsed"
                     )
                     
-                    # 答案（在折疊裡面）
+                    # 答案放在折疊內
                     with st.expander("✅ 查看正確答案", expanded=False):
                         st.markdown(f"**{w['en']}**")
                     
