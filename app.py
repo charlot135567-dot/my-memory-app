@@ -1148,6 +1148,7 @@ with tabs[1]:
             st.session_state.sel_date = state["dateClick"]["date"][:10]
             st.rerun()
 
+        # 處理 eventClick - 使用 callback 方式
         if state.get("eventClick"):
             event_info = state["eventClick"]["event"]
             event_id = event_info.get("id", "")
@@ -1157,14 +1158,17 @@ with tabs[1]:
                     idx = int(idx_str)
                     if date_str in st.session_state.todo and 0 <= idx < len(st.session_state.todo[date_str]):
                         item = st.session_state.todo[date_str][idx]
+                        # 直接設定要刪除的項目，顯示確認對話框
                         st.session_state.event_clicked = {
                             "date": date_str,
                             "idx": idx,
                             "title": item.get("title", "")
                         }
+                        st.rerun()
                 except:
                     pass
 
+        # 顯示刪除確認對話框
         if st.session_state.event_clicked:
             ev = st.session_state.event_clicked
             st.warning(f"確定要刪除 {ev['date']} 的「{ev['title'][:10]}...」嗎？")
@@ -1183,7 +1187,7 @@ with tabs[1]:
                     st.session_state.event_clicked = None
                     st.rerun()
 
-        st.caption(f"📍 當前選中：{st.session_state.sel_date}")
+        # 移除「當前選中」提示以節省空間
 
     # ---------- 待辦事項（只顯示超過5字的）----------
     st.markdown('<p style="font-size:14px;font-weight:bold;">📋 待辦事項（長內容）</p>', unsafe_allow_html=True)
@@ -1260,7 +1264,7 @@ with tabs[1]:
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-# ---------- 8句 Google Sheet 經文（一次顯示2節）----------
+    # ---------- 8句 Google Sheet 經文（一次顯示2節，按鍵在同一行）----------
     st.markdown('<p style="font-size:14px;font-weight:bold;">📖 經文金句（Google Sheet）</p>', unsafe_allow_html=True)
 
     # 從 Google Sheet 載入經文
@@ -1305,51 +1309,58 @@ with tabs[1]:
         # 兩節經文並排
         v1, v2 = sheet_verses[idx], sheet_verses[idx+1] if idx+1 < len(sheet_verses) else None
 
-        # 標題列：◀ 經文 ▶
-        title_col1, title_col2, title_col3 = st.columns([1, 6, 1])
-        with title_col1:
+        # ===== 第一節：按鍵在同一行，直接顯示內容 =====
+        col1, col2, col3 = st.columns([0.5, 6, 0.5])
+        with col1:
             if st.button("《", key="sheet_prev"):
                 st.session_state.sheet_verse_idx = (st.session_state.sheet_verse_idx - 1) % total_pairs
                 st.rerun()
-        with title_col2:
-            st.markdown(f"<p style='text-align:center;font-weight:bold;'>經文 {idx//2 + 1} / {total_pairs}</p>", unsafe_allow_html=True)
-        with title_col3:
+        with col2:
+            st.markdown(f"""
+            <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0;">
+                <p style="font-weight:bold; color:#333; margin-bottom:5px;">📖 {v1['ref']}</p>
+                <p style="font-size:13px; color:#666; margin-bottom:3px;">🇬🇧 {v1['en']}</p>
+                <p style="font-size:14px; color:#000; font-weight:500;">🇨🇳 {v1['cn']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("⭐ 收藏", key=f"fav_s1_{idx}"):
+                fav = f"{v1['ref']} {v1['en']}"
+                if fav not in st.session_state.favorite_sentences:
+                    st.session_state.favorite_sentences.append(fav)
+                    save_favorites()
+                    st.toast("已收藏！")
+        with col3:
             if st.button("》", key="sheet_next"):
                 st.session_state.sheet_verse_idx = (st.session_state.sheet_verse_idx + 1) % total_pairs
                 st.rerun()
 
-        # 兩節經文折疊
-        c1, c2 = st.columns(2)
-        with c1:
-            with st.expander(f"📖 {v1['ref']}", expanded=False):
-                st.markdown(f"🇬🇧 {v1['en']}")
-                st.markdown(f"🇨🇳 **{v1['cn']}**")
-                if st.button("⭐ 收藏", key=f"fav_s1_{idx}"):
-                    fav = f"{v1['ref']} {v1['en']}"
+        # ===== 第二節（如果有）：直接顯示內容 =====
+        if v2:
+            col1, col2, col3 = st.columns([0.5, 6, 0.5])
+            with col1:
+                st.empty()  # 左側留空對齊
+            with col2:
+                st.markdown(f"""
+                <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0;">
+                    <p style="font-weight:bold; color:#333; margin-bottom:5px;">📖 {v2['ref']}</p>
+                    <p style="font-size:13px; color:#666; margin-bottom:3px;">🇬🇧 {v2['en']}</p>
+                    <p style="font-size:14px; color:#000; font-weight:500;">🇨🇳 {v2['cn']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("⭐ 收藏", key=f"fav_s2_{idx}"):
+                    fav = f"{v2['ref']} {v2['en']}"
                     if fav not in st.session_state.favorite_sentences:
                         st.session_state.favorite_sentences.append(fav)
                         save_favorites()
                         st.toast("已收藏！")
-
-        with c2:
-            if v2:
-                with st.expander(f"📖 {v2['ref']}", expanded=False):
-                    st.markdown(f"🇬🇧 {v2['en']}")
-                    st.markdown(f"🇨🇳 **{v2['cn']}**")
-                    if st.button("⭐ 收藏", key=f"fav_s2_{idx}"):
-                        fav = f"{v2['ref']} {v2['en']}"
-                        if fav not in st.session_state.favorite_sentences:
-                            st.session_state.favorite_sentences.append(fav)
-                            save_favorites()
-                            st.toast("已收藏！")
-            else:
-                st.empty()
+            with col3:
+                st.empty()  # 右側留空對齊
     else:
         st.caption("經文資料不足2節")
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-    # ---------- 7句自訂金句（一次顯示2節）----------
+    # ---------- 7句自訂金句（一次顯示2節，按鍵在同一行）----------
     st.markdown('<p style="font-size:14px;font-weight:bold;">✏️ 我的自訂金句</p>', unsafe_allow_html=True)
 
     if "custom_verses" not in st.session_state:
@@ -1371,40 +1382,47 @@ with tabs[1]:
         c1_data = custom_list[start]
         c2_data = custom_list[start + 1] if start + 1 < len(custom_list) else None
 
-        # 標題列：◀ 我的金句 ▶
-        title_col1, title_col2, title_col3 = st.columns([1, 6, 1])
-        with title_col1:
+        # ===== 第一句：按鍵在同一行，直接顯示內容 =====
+        col1, col2, col3 = st.columns([0.5, 6, 0.5])
+        with col1:
             if st.button("《", key="custom_prev"):
                 st.session_state.custom_verse_idx = (st.session_state.custom_verse_idx - 1) % total_pairs
                 st.rerun()
-        with title_col2:
-            st.markdown(f"<p style='text-align:center;font-weight:bold;'>我的金句 {pair_idx + 1} / {total_pairs}</p>", unsafe_allow_html=True)
-        with title_col3:
+        with col2:
+            st.markdown(f"""
+            <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0; background:#f9f9f9;">
+                <p style="font-weight:bold; color:#333; margin-bottom:5px;">💎 金句 {c1_data[0]+1}</p>
+                <p style="font-size:14px; color:#000; font-weight:500;">{c1_data[1]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("⭐ 收藏", key=f"fav_c1_{start}"):
+                if c1_data[1] not in st.session_state.favorite_sentences:
+                    st.session_state.favorite_sentences.append(c1_data[1])
+                    save_favorites()
+                    st.toast("已收藏！")
+        with col3:
             if st.button("》", key="custom_next"):
                 st.session_state.custom_verse_idx = (st.session_state.custom_verse_idx + 1) % total_pairs
                 st.rerun()
 
-        # 兩節並排
-        c1, c2 = st.columns(2)
-        with c1:
-            with st.expander(f"💎 金句 {c1_data[0]+1}", expanded=False):
-                st.markdown(f"**{c1_data[1]}**")
-                if st.button("⭐ 收藏", key=f"fav_c1_{start}"):
-                    if c1_data[1] not in st.session_state.favorite_sentences:
-                        st.session_state.favorite_sentences.append(c1_data[1])
+        # ===== 第二句（如果有）：直接顯示內容 =====
+        if c2_data:
+            col1, col2, col3 = st.columns([0.5, 6, 0.5])
+            with col1:
+                st.empty()
+            with col2:
+                st.markdown(f"""
+                <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0; background:#f9f9f9;">
+                    <p style="font-weight:bold; color:#333; margin-bottom:5px;">💎 金句 {c2_data[0]+1}</p>
+                    <p style="font-size:14px; color:#000; font-weight:500;">{c2_data[1]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("⭐ 收藏", key=f"fav_c2_{start}"):
+                    if c2_data[1] not in st.session_state.favorite_sentences:
+                        st.session_state.favorite_sentences.append(c2_data[1])
                         save_favorites()
                         st.toast("已收藏！")
-
-        with c2:
-            if c2_data:
-                with st.expander(f"💎 金句 {c2_data[0]+1}", expanded=False):
-                    st.markdown(f"**{c2_data[1]}**")
-                    if st.button("⭐ 收藏", key=f"fav_c2_{start}"):
-                        if c2_data[1] not in st.session_state.favorite_sentences:
-                            st.session_state.favorite_sentences.append(c2_data[1])
-                            save_favorites()
-                            st.toast("已收藏！")
-            else:
+            with col3:
                 st.empty()
     else:
         st.caption("請在下方新增至少2句自訂金句")
@@ -1436,7 +1454,7 @@ with tabs[1]:
         st.caption("尚無收藏，點擊待辦事項的 ⭐ 加入")
 
 # ===================================================================
-# 5. TAB3 ─ 挑戰（折疊欄位標題=題目，展開=答案+輸入框）
+# 5. TAB3 ─ 挑戰（折疊欄位標題=題目，展開=答案+輸入框）- 縮小輸入框
 # ===================================================================
 with tabs[2]:
 
@@ -1489,35 +1507,39 @@ with tabs[2]:
             zh_to_en = selected[:3]   # 中→英
             en_to_zh = selected[3:6]  # 英→中
 
-            # ===== 中翻英（題目 1-3）=====
+            # ===== 中翻英（題目 1-3）- 縮小輸入框 =====
             for i, q in enumerate(zh_to_en, 1):
+                # 題目折疊欄
+                with st.expander(f"🇨🇳 {q['cn']}", expanded=False):
+                    st.markdown(f"**🇬🇧 {q['en']}**")
+                    st.caption(f"📖 {q['ref']}")
+                
+                # 縮小的輸入框 - 與題目同寬，高度減半
                 user_answer = st.text_area(
                     "",
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入英文翻譯...",
                     label_visibility="collapsed",
-                    height=80
+                    height=45  # 原本80，縮小為45
                 )
-
-                with st.expander(f"🇨🇳 {q['cn']}", expanded=False):
-                    st.markdown(f"**🇬🇧 {q['en']}**")
-                    st.caption(f"📖 {q['ref']}")
 
                 st.markdown("---")
 
-            # ===== 英翻中（題目 4-6）=====
+            # ===== 英翻中（題目 4-6）- 縮小輸入框 =====
             for i, q in enumerate(en_to_zh, 4):
+                # 題目折疊欄
+                with st.expander(f"🇬🇧 {q['en']}", expanded=False):
+                    st.markdown(f"**🇨🇳 {q['cn']}**")
+                    st.caption(f"📖 {q['ref']}")
+                
+                # 縮小的輸入框
                 user_answer = st.text_area(
                     "",
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入中文翻譯...",
                     label_visibility="collapsed",
-                    height=80
+                    height=45  # 原本80，縮小為45
                 )
-
-                with st.expander(f"🇬🇧 {q['en']}", expanded=False):
-                    st.markdown(f"**🇨🇳 {q['cn']}**")
-                    st.caption(f"📖 {q['ref']}")
 
                 st.markdown("---")
 
