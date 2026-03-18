@@ -20,6 +20,85 @@ from google.oauth2.service_account import Credentials
 import gspread
 import io
 
+# ✅ 放在這裡：套件匯入之後，st.set_page_config 之前
+# ===================================================================
+# 0.5 資料儲存函數（統一使用 bible_data.json）
+# ===================================================================
+
+DATA_FILE = "bible_data.json"
+
+def load_custom_verses():
+    """載入自訂金句"""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("custom_verses", [""] * 7)
+        except:
+            return [""] * 7
+    return [""] * 7
+
+def save_custom_verses(verses):
+    """儲存自訂金句"""
+    data = {}
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except:
+            pass
+    data["custom_verses"] = verses
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_todos():
+    """載入待辦事項"""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("todos", {})
+        except:
+            return {}
+    return {}
+
+def save_todos():
+    """儲存待辦事項"""
+    data = {}
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except:
+            pass
+    data["todos"] = st.session_state.todo
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_favorites():
+    """載入收藏"""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("favorites", [])
+        except:
+            return []
+    return []
+
+def save_favorites():
+    """儲存收藏"""
+    data = {}
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except:
+            pass
+    data["favorites"] = st.session_state.favorite_sentences
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 # ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
@@ -1084,7 +1163,7 @@ with tabs[0]:
 # 4. TAB2 ─ 月曆待辦 + 7句手動金句 + 我的收藏（無預設金句版）
 # ===================================================================
 with tabs[1]:
-    # CSS
+    # CSS - 修正月曆底部空白問題
     st.markdown("""
         <style>
         div[data-testid="stVerticalBlock"] > div {padding: 0px !important; margin: 0px !important;}
@@ -1092,6 +1171,10 @@ with tabs[1]:
         .stButton button {padding: 0px 4px !important; min-height: 24px !important; font-size: 12px !important;}
         hr {margin: 2px 0 !important;}
         div[data-testid="stExpander"] {margin: 2px 0 !important;}
+        /* 修正月曆底部空白 */
+        .fc {margin-bottom: 0 !important;}
+        .fc-scroller {overflow: hidden !important;}
+        iframe {height: auto !important; min-height: 400px !important;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -1100,18 +1183,19 @@ with tabs[1]:
         st.session_state.todo = load_todos()
     if "favorite_sentences" not in st.session_state:
         st.session_state.favorite_sentences = load_favorites()
+    # ✅ 新增：自訂金句持久化
+    if "custom_verses" not in st.session_state:
+        st.session_state.custom_verses = load_custom_verses()
     if "sel_date" not in st.session_state:
         st.session_state.sel_date = str(datetime.date.today())
     if "cal_key" not in st.session_state:
         st.session_state.cal_key = 0
     if "verse_start_idx" not in st.session_state:
         st.session_state.verse_start_idx = 0
-    if "event_clicked" not in st.session_state:
-        st.session_state.event_clicked = None
-    if "custom_verses" not in st.session_state:
-        st.session_state.custom_verses = [""] * 7
+    if "show_todo_panel" not in st.session_state:
+        st.session_state.show_todo_panel = False
 
-    # ---------- 月曆（支援 eventClick 點擊刪除）----------
+    # ---------- 月曆（點擊日期顯示當天待辦）----------
     def build_events():
         ev = []
         for d, items in st.session_state.todo.items():
@@ -1135,7 +1219,8 @@ with tabs[1]:
             "initialView": "dayGridMonth",
             "displayEventTime": False,
             "height": "auto",
-            "eventClick": True
+            "eventDisplay": "block",
+            "dayMaxEvents": 3
         }
 
         state = calendar(
@@ -1144,98 +1229,112 @@ with tabs[1]:
             key=f"cal_{st.session_state.cal_key}"
         )
 
+        # ✅ 修正：點擊日期 → 顯示當天待辦面板
         if state.get("dateClick"):
             st.session_state.sel_date = state["dateClick"]["date"][:10]
+            st.session_state.show_todo_panel = True
             st.rerun()
 
-        # 處理 eventClick - 使用 callback 方式
-        if state.get("eventClick"):
-            event_info = state["eventClick"]["event"]
-            event_id = event_info.get("id", "")
-            if "_" in event_id:
-                date_str, idx_str = event_id.rsplit("_", 1)
-                try:
-                    idx = int(idx_str)
-                    if date_str in st.session_state.todo and 0 <= idx < len(st.session_state.todo[date_str]):
-                        item = st.session_state.todo[date_str][idx]
-                        # 直接設定要刪除的項目，顯示確認對話框
-                        st.session_state.event_clicked = {
-                            "date": date_str,
-                            "idx": idx,
-                            "title": item.get("title", "")
-                        }
-                        st.rerun()
-                except:
-                    pass
-
-        # 顯示刪除確認對話框
-        if st.session_state.event_clicked:
-            ev = st.session_state.event_clicked
-            st.warning(f"確定要刪除 {ev['date']} 的「{ev['title'][:10]}...」嗎？")
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("✅ 確定刪除", key="confirm_del"):
-                    st.session_state.todo[ev["date"]].pop(ev["idx"])
-                    if not st.session_state.todo[ev["date"]]:
-                        del st.session_state.todo[ev["date"]]
-                    save_todos()
-                    st.session_state.cal_key += 1
-                    st.session_state.event_clicked = None
+    # ✅ 新增：當天待辦事項面板（點擊日期後顯示）
+    if st.session_state.show_todo_panel:
+        selected_date = st.session_state.sel_date
+        
+        with st.container():
+            col1, col2 = st.columns([6, 1])
+            with col1:
+                st.markdown(f'<p style="font-size:14px;font-weight:bold;">📋 {selected_date} 待辦事項</p>', 
+                           unsafe_allow_html=True)
+            with col2:
+                if st.button("❌ 關閉", key="close_panel"):
+                    st.session_state.show_todo_panel = False
                     st.rerun()
-            with c2:
-                if st.button("❌ 取消", key="cancel_del"):
-                    st.session_state.event_clicked = None
-                    st.rerun()
+            
+            # 顯示當天所有待辦（不限長度）
+            if selected_date in st.session_state.todo and st.session_state.todo[selected_date]:
+                for idx, item in enumerate(st.session_state.todo[selected_date]):
+                    item_id = f"{selected_date}_{idx}"
+                    title = item.get("title", "") if isinstance(item, dict) else str(item)
+                    time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
+                    
+                    c1, c2, c3, c4 = st.columns([0.5, 0.5, 6, 1])
+                    
+                    with c1:
+                        if st.button("⭐", key=f"fav_panel_{item_id}"):
+                            fav_text = f"{selected_date} {time_str} {title}"
+                            if fav_text not in st.session_state.favorite_sentences:
+                                st.session_state.favorite_sentences.append(fav_text)
+                                save_favorites()
+                                st.toast("已加入收藏！")
+                    
+                    with c2:
+                        # ✅ 刪除按鈕（直接刪除，無需二次確認）
+                        if st.button("🗑️", key=f"del_panel_{item_id}"):
+                            st.session_state.todo[selected_date].pop(idx)
+                            if not st.session_state.todo[selected_date]:
+                                del st.session_state.todo[selected_date]
+                            save_todos()
+                            st.session_state.cal_key += 1
+                            st.rerun()
+                    
+                    with c3:
+                        display_text = f"{time_str} {title}" if time_str else title
+                        st.markdown(f'<p style="line-height:1.2;font-size:13px;">{display_text}</p>', 
+                                   unsafe_allow_html=True)
+                    
+                    with c4:
+                        pass
+            else:
+                st.caption("該日期無待辦事項")
+            
+            st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-        # 移除「當前選中」提示以節省空間
+    # ---------- 長內容待辦事項（獨立顯示，超過5字）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">📋 長內容待辦（全日期，5字以上）</p>', 
+                unsafe_allow_html=True)
 
-    # ---------- 待辦事項（只顯示超過5字的）----------
-    st.markdown('<p style="font-size:14px;font-weight:bold;">📋 待辦事項（長內容）</p>', unsafe_allow_html=True)
+    long_todos_all = []
+    for date_str, items in st.session_state.todo.items():
+        if isinstance(items, list):
+            for idx, item in enumerate(items):
+                title = item.get("title", "") if isinstance(item, dict) else str(item)
+                if len(title) > 5:
+                    long_todos_all.append((date_str, idx, item, title))
 
-    selected_date = st.session_state.sel_date
-    long_todos = []
-
-    if selected_date in st.session_state.todo and st.session_state.todo[selected_date]:
-        for idx, item in enumerate(st.session_state.todo[selected_date]):
-            title = item.get("title", "") if isinstance(item, dict) else str(item)
-            if len(title) > 5:
-                long_todos.append((idx, item, title))
-
-    if long_todos:
-        for idx, item, title in long_todos:
-            item_id = f"{selected_date}_{idx}"
+    if long_todos_all:
+        # 按日期排序
+        long_todos_all.sort(key=lambda x: x[0])
+        for date_str, idx, item, title in long_todos_all[:10]:  # 只顯示前10筆
+            item_id = f"{date_str}_{idx}"
             time_str = item.get('time', '')[:5] if isinstance(item, dict) and item.get('time') else ""
-
-            c1, c2, c3, c4 = st.columns([0.5, 0.5, 7, 1.5])
-
+            
+            c1, c2, c3, c4 = st.columns([0.5, 0.5, 6, 1.5])
+            
             with c1:
-                if st.button("⭐", key=f"fav_{item_id}"):
-                    fav_text = f"{selected_date} {time_str} {title}"
+                if st.button("⭐", key=f"fav_long_{item_id}"):
+                    fav_text = f"{date_str} {time_str} {title}"
                     if fav_text not in st.session_state.favorite_sentences:
                         st.session_state.favorite_sentences.append(fav_text)
                         save_favorites()
                         st.toast("已加入收藏！")
-
+            
             with c2:
-                if st.button("💟", key=f"h_{item_id}"):
-                    st.session_state.active_del_id = None if st.session_state.active_del_id == item_id else item_id
+                if st.button("💟", key=f"del_long_{item_id}"):
+                    st.session_state.todo[date_str].pop(idx)
+                    if not st.session_state.todo[date_str]:
+                        del st.session_state.todo[date_str]
+                    save_todos()
+                    st.session_state.cal_key += 1
                     st.rerun()
-
+            
             with c3:
-                st.markdown(f'<p style="line-height:1.2;font-size:13px;">{time_str} {title}</p>', unsafe_allow_html=True)
-
+                display_text = f"{date_str} {time_str} {title}"
+                st.markdown(f'<p style="line-height:1.2;font-size:13px;">{display_text}</p>', 
+                           unsafe_allow_html=True)
+            
             with c4:
-                if st.session_state.get("active_del_id") == item_id:
-                    if st.button("🗑️", key=f"d_{item_id}"):
-                        st.session_state.todo[selected_date].pop(idx)
-                        if not st.session_state.todo[selected_date]:
-                            del st.session_state.todo[selected_date]
-                        save_todos()
-                        st.session_state.cal_key += 1
-                        st.session_state.active_del_id = None
-                        st.rerun()
+                pass
     else:
-        st.caption(f"{selected_date} 無長內容待辦（5字以上才顯示）")
+        st.caption("無長內容待辦（5字以上才顯示）")
 
     # 新增待辦
     with st.expander("➕ 新增待辦", expanded=False):
@@ -1243,7 +1342,7 @@ with tabs[1]:
             c1, c2 = st.columns(2)
             with c1:
                 try:
-                    default_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d").date()
+                    default_date = datetime.datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
                 except:
                     default_date = datetime.date.today()
                 in_date = st.date_input("日期", default_date)
@@ -1260,14 +1359,15 @@ with tabs[1]:
                     save_todos()
                     st.session_state.cal_key += 1
                     st.session_state.sel_date = k
+                    st.session_state.show_todo_panel = True  # 新增後顯示面板
                     st.rerun()
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-    # ---------- 8句 Google Sheet 經文（一次顯示2節，按鍵在同一行）----------
-    st.markdown('<p style="font-size:14px;font-weight:bold;">📖 經文金句（Google Sheet）</p>', unsafe_allow_html=True)
+    # ---------- 8句 Google Sheet 經文（一次顯示2節，排版修正）----------
+    st.markdown('<p style="font-size:14px;font-weight:bold;">📖 經文金句（Google Sheet）</p>', 
+                unsafe_allow_html=True)
 
-    # 從 Google Sheet 載入經文
     sentences = st.session_state.get('sentences', {})
     sheet_verses = []
 
@@ -1295,32 +1395,36 @@ with tabs[1]:
         except:
             pass
 
-    # 只取前8句
     sheet_verses = sheet_verses[:8]
 
     if len(sheet_verses) >= 2:
-        # 雙索引輪播（一次顯示2節）
         if 'sheet_verse_idx' not in st.session_state:
             st.session_state.sheet_verse_idx = 0
 
         total_pairs = len(sheet_verses) // 2
         idx = st.session_state.sheet_verse_idx % total_pairs * 2
 
-        # 兩節經文並排
         v1, v2 = sheet_verses[idx], sheet_verses[idx+1] if idx+1 < len(sheet_verses) else None
 
-        # ===== 第一節：按鍵在同一行，直接顯示內容 =====
+        # ✅ 修正排版：經節與經文同行，不脫節
         col1, col2, col3 = st.columns([0.5, 6, 0.5])
         with col1:
             if st.button("《", key="sheet_prev"):
                 st.session_state.sheet_verse_idx = (st.session_state.sheet_verse_idx - 1) % total_pairs
                 st.rerun()
         with col2:
+            # ✅ 修正：使用 <span> 讓經節與經文在同一行開始
             st.markdown(f"""
             <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0;">
-                <p style="font-weight:bold; color:#333; margin-bottom:5px;">📖 {v1['ref']}</p>
-                <p style="font-size:13px; color:#666; margin-bottom:3px;">🇬🇧 {v1['en']}</p>
-                <p style="font-size:14px; color:#000; font-weight:500;">🇨🇳 {v1['cn']}</p>
+                <div style="font-weight:bold; color:#333; margin-bottom:5px;">
+                    📖 {v1['ref']}
+                </div>
+                <div style="font-size:13px; color:#666; margin-bottom:3px;">
+                    🇬🇧 {v1['en']}
+                </div>
+                <div style="font-size:14px; color:#000; font-weight:500;">
+                    🇨🇳 {v1['cn']}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             if st.button("⭐ 收藏", key=f"fav_s1_{idx}"):
@@ -1334,17 +1438,22 @@ with tabs[1]:
                 st.session_state.sheet_verse_idx = (st.session_state.sheet_verse_idx + 1) % total_pairs
                 st.rerun()
 
-        # ===== 第二節（如果有）：直接顯示內容 =====
         if v2:
             col1, col2, col3 = st.columns([0.5, 6, 0.5])
             with col1:
-                st.empty()  # 左側留空對齊
+                st.empty()
             with col2:
                 st.markdown(f"""
                 <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0;">
-                    <p style="font-weight:bold; color:#333; margin-bottom:5px;">📖 {v2['ref']}</p>
-                    <p style="font-size:13px; color:#666; margin-bottom:3px;">🇬🇧 {v2['en']}</p>
-                    <p style="font-size:14px; color:#000; font-weight:500;">🇨🇳 {v2['cn']}</p>
+                    <div style="font-weight:bold; color:#333; margin-bottom:5px;">
+                        📖 {v2['ref']}
+                    </div>
+                    <div style="font-size:13px; color:#666; margin-bottom:3px;">
+                        🇬🇧 {v2['en']}
+                    </div>
+                    <div style="font-size:14px; color:#000; font-weight:500;">
+                        🇨🇳 {v2['cn']}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("⭐ 收藏", key=f"fav_s2_{idx}"):
@@ -1354,45 +1463,43 @@ with tabs[1]:
                         save_favorites()
                         st.toast("已收藏！")
             with col3:
-                st.empty()  # 右側留空對齊
+                st.empty()
     else:
         st.caption("經文資料不足2節")
 
     st.markdown('<hr style="margin:8px 0;">', unsafe_allow_html=True)
 
-    # ---------- 7句自訂金句（一次顯示2節，按鍵在同一行）----------
+    # ---------- 7句自訂金句（一次顯示2節，排版修正）----------
     st.markdown('<p style="font-size:14px;font-weight:bold;">✏️ 我的自訂金句</p>', unsafe_allow_html=True)
 
-    if "custom_verses" not in st.session_state:
-        st.session_state.custom_verses = [""] * 7
-
-    # 過濾空白
     custom_list = [(i, v) for i, v in enumerate(st.session_state.custom_verses) if v.strip()]
 
     if len(custom_list) >= 2:
-        # 雙索引輪播
         if 'custom_verse_idx' not in st.session_state:
             st.session_state.custom_verse_idx = 0
 
         total_pairs = (len(custom_list) + 1) // 2
         pair_idx = st.session_state.custom_verse_idx % total_pairs
 
-        # 取得當前2句
         start = pair_idx * 2
         c1_data = custom_list[start]
         c2_data = custom_list[start + 1] if start + 1 < len(custom_list) else None
 
-        # ===== 第一句：按鍵在同一行，直接顯示內容 =====
         col1, col2, col3 = st.columns([0.5, 6, 0.5])
         with col1:
             if st.button("《", key="custom_prev"):
                 st.session_state.custom_verse_idx = (st.session_state.custom_verse_idx - 1) % total_pairs
                 st.rerun()
         with col2:
+            # ✅ 修正排版
             st.markdown(f"""
             <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0; background:#f9f9f9;">
-                <p style="font-weight:bold; color:#333; margin-bottom:5px;">💎 金句 {c1_data[0]+1}</p>
-                <p style="font-size:14px; color:#000; font-weight:500;">{c1_data[1]}</p>
+                <div style="font-weight:bold; color:#333; margin-bottom:5px;">
+                    💎 金句 {c1_data[0]+1}
+                </div>
+                <div style="font-size:14px; color:#000; font-weight:500;">
+                    {c1_data[1]}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             if st.button("⭐ 收藏", key=f"fav_c1_{start}"):
@@ -1405,7 +1512,6 @@ with tabs[1]:
                 st.session_state.custom_verse_idx = (st.session_state.custom_verse_idx + 1) % total_pairs
                 st.rerun()
 
-        # ===== 第二句（如果有）：直接顯示內容 =====
         if c2_data:
             col1, col2, col3 = st.columns([0.5, 6, 0.5])
             with col1:
@@ -1413,8 +1519,12 @@ with tabs[1]:
             with col2:
                 st.markdown(f"""
                 <div style="border:1px solid #ddd; border-radius:8px; padding:10px; margin:4px 0; background:#f9f9f9;">
-                    <p style="font-weight:bold; color:#333; margin-bottom:5px;">💎 金句 {c2_data[0]+1}</p>
-                    <p style="font-size:14px; color:#000; font-weight:500;">{c2_data[1]}</p>
+                    <div style="font-weight:bold; color:#333; margin-bottom:5px;">
+                        💎 金句 {c2_data[0]+1}
+                    </div>
+                    <div style="font-size:14px; color:#000; font-weight:500;">
+                        {c2_data[1]}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("⭐ 收藏", key=f"fav_c2_{start}"):
@@ -1427,13 +1537,16 @@ with tabs[1]:
     else:
         st.caption("請在下方新增至少2句自訂金句")
 
-    # 編輯區
+    # ✅ 修正：編輯區包含儲存功能
     with st.expander("✏️ 編輯7句金句", expanded=False):
         for i in range(7):
-            st.text_input(f"金句 {i+1}", value=st.session_state.custom_verses[i], key=f"custom_{i}")
+            st.text_input(f"金句 {i+1}", 
+                         value=st.session_state.custom_verses[i], 
+                         key=f"custom_{i}")
         if st.button("💾 儲存", key="save_custom"):
             updated = [st.session_state[f"custom_{i}"] for i in range(7)]
             st.session_state.custom_verses = updated
+            save_custom_verses(updated)  # ✅ 持久化儲存
             st.success("已儲存！")
             st.rerun()
 
@@ -1454,7 +1567,7 @@ with tabs[1]:
         st.caption("尚無收藏，點擊待辦事項的 ⭐ 加入")
 
 # ===================================================================
-# 5. TAB3 ─ 挑戰（折疊欄位標題=題目，展開=答案+輸入框）- 縮小輸入框
+# 5. TAB3 ─ 挑戰（輸入框改為單行）
 # ===================================================================
 with tabs[2]:
 
@@ -1466,11 +1579,9 @@ with tabs[2]:
     if not sentences:
         st.warning("資料庫為空")
     else:
-        # 收集資料（保持原有邏輯）
         sorted_refs = sorted(sentences.keys(), key=lambda x: sentences[x].get('date_added', ''), reverse=True)
         total = len(sorted_refs)
 
-        # 加權池
         new_refs = sorted_refs[:int(total*0.6)] if total >= 5 else sorted_refs
         mid_refs = sorted_refs[int(total*0.6):int(total*0.9)] if total >= 10 else []
         old_refs = sorted_refs[int(total*0.9):] if total >= 10 else []
@@ -1480,7 +1591,6 @@ with tabs[2]:
 
         random.seed(st.session_state.tab3_seed)
 
-        # 收集經文
         all_verses = []
         for ref in weighted_pool[:15]:
             data = sentences[ref]
@@ -1502,48 +1612,41 @@ with tabs[2]:
         if len(all_verses) < 6:
             st.warning("經文資料不足")
         else:
-            # 選題
             selected = random.sample(all_verses, 6)
-            zh_to_en = selected[:3]   # 中→英
-            en_to_zh = selected[3:6]  # 英→中
+            zh_to_en = selected[:3]
+            en_to_zh = selected[3:6]
 
-            # ===== 中翻英（題目 1-3）- 縮小輸入框 =====
+            # ✅ 修正：改用 text_input（單行），高度自然縮小
             for i, q in enumerate(zh_to_en, 1):
-                # 題目折疊欄
                 with st.expander(f"🇨🇳 {q['cn']}", expanded=False):
                     st.markdown(f"**🇬🇧 {q['en']}**")
                     st.caption(f"📖 {q['ref']}")
                 
-                # 縮小的輸入框 - 與題目同寬，高度減半
-                user_answer = st.text_area(
+                # ✅ 改用單行輸入框
+                user_answer = st.text_input(
                     "",
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入英文翻譯...",
-                    label_visibility="collapsed",
-                    height=45  # 原本80，縮小為45
+                    label_visibility="collapsed"
                 )
 
                 st.markdown("---")
 
-            # ===== 英翻中（題目 4-6）- 縮小輸入框 =====
             for i, q in enumerate(en_to_zh, 4):
-                # 題目折疊欄
                 with st.expander(f"🇬🇧 {q['en']}", expanded=False):
                     st.markdown(f"**🇨🇳 {q['cn']}**")
                     st.caption(f"📖 {q['ref']}")
                 
-                # 縮小的輸入框
-                user_answer = st.text_area(
+                # ✅ 改用單行輸入框
+                user_answer = st.text_input(
                     "",
                     key=f"q_{i}_{st.session_state.tab3_seed}",
                     placeholder="請輸入中文翻譯...",
-                    label_visibility="collapsed",
-                    height=45  # 原本80，縮小為45
+                    label_visibility="collapsed"
                 )
 
                 st.markdown("---")
 
-            # 換題按鈕
             if st.button("🔄 換一批題目", use_container_width=True, type="primary"):
                 st.session_state.tab3_seed = random.randint(1, 1000)
                 st.rerun()
