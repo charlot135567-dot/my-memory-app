@@ -873,7 +873,7 @@ div[data-testid="stMarkdownContainer"] p {
 """, unsafe_allow_html=True)
 
 # 只定義一次 tabs
-tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "📂 資料庫"])
+tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
 # 3. TAB1 ─ 書桌（側邊欄導航版：左右配置 + 極致壓縮間距）
@@ -1643,10 +1643,185 @@ with tabs[2]:
                 st.rerun()
 
 # ===================================================================
-# 6. TAB4 ─ AI 控制台 + 資料庫管理（保留完整 UI）
+# 6. TAB4 ─🔮AI 自動解析經文 
 # ===================================================================
 with tabs[3]:
+    
+    # --- Input Section ---
+    st.subheader("📥 Input Method")
+    
+    input_method = st.radio(
+        "Choose how to provide the scripture:",
+        ["Give Reference", "Paste Content", "From Database"],
+        horizontal=True,
+        key="parser_input_method"
+    )
+    
+    input_text = ""
+    reference = ""
+    chinese_text = ""
+    
+    if input_method == "Give Reference":
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            ref_input = st.text_input(
+                "Bible Reference (e.g., Hebrews 10:35-39 or Heb 10:35)",
+                placeholder="Hebrews 10:35-39"
+            )
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            fetch_btn = st.button("🔍 Fetch from Database", use_container_width=True)
+        
+        # Range selector
+        st.markdown("**Or select range:**")
+        c1, c2, c3 = st.columns([2, 2, 1])
+        with c1:
+            start_ref = st.selectbox("From", [""] + list(st.session_state.get('sentences', {}).keys()), key="range_start")
+        with c2:
+            end_ref = st.selectbox("To", [""] + list(st.session_state.get('sentences', {}).keys()), key="range_end")
+        with c3:
+            st.markdown("<br>", unsafe_allow_html=True)
+            range_btn = st.button("✓ Confirm Range")
+        
+        if fetch_btn and ref_input:
+            # 嘗試從現有資料庫取得
+            sentences = st.session_state.get('sentences', {})
+            input_text, chinese_text, reference = fetch_verse_by_reference(ref_input, sentences)
+            if input_text:
+                st.success(f"✅ Found: {reference}")
+            else:
+                st.warning("⚠️ Not found in database. Try 'Paste Content' mode.")
+                
+    elif input_method == "Paste Content":
+        col1, col2 = st.columns(2)
+        with col1:
+            input_text = st.text_area(
+                "Paste English Scripture:",
+                height=150,
+                placeholder="Therefore do not throw away your confidence..."
+            )
+        with col2:
+            chinese_text = st.text_area(
+                "Chinese (Optional):",
+                height=150,
+                placeholder="所以你們不可丟棄勇敢的心..."
+            )
+        reference = st.text_input("Reference (optional):", placeholder="Hebrews 10:35")
+        
+    else:  # From Database
+        available_refs = list(st.session_state.get('sentences', {}).keys())
+        selected_refs = st.multiselect(
+            "Select verses from database:",
+            available_refs,
+            max_selections=10
+        )
+        if selected_refs:
+            sentences = st.session_state.get('sentences', {})
+            input_text = "\n\n".join([
+                extract_english(sentences[r].get('v1_content', '')) 
+                for r in selected_refs
+            ])
+            chinese_text = "\n\n".join([
+                extract_chinese(sentences[r].get('v1_content', '')) 
+                for r in selected_refs
+            ])
+            reference = f"{selected_refs[0]}-{selected_refs[-1]}" if len(selected_refs) > 1 else selected_refs[0]
+            st.info(f"Selected {len(selected_refs)} verses")
+    
+    # --- Parse Options ---
+    st.markdown("---")
+    st.subheader("⚙️ Parse Options")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        extract_words = st.checkbox("Extract Vocabulary", value=True)
+    with col2:
+        extract_phrases = st.checkbox("Extract Phrases", value=True)
+    with col3:
+        gen_examples = st.checkbox("Generate Examples", value=True)
+    with col4:
+        gen_podcast = st.checkbox("Generate Podcast Script", value=True)
+    
+    # --- Analysis Button ---
+    st.markdown("---")
+    analyze_btn = st.button("🚀 Start AI Analysis", type="primary", use_container_width=True)
+    
+    # --- Results Section ---
+    if analyze_btn and input_text:
+        with st.spinner("🤖 AI is analyzing the scripture..."):
+            # 呼叫 Gemini API 進行解析
+            analysis_result = analyze_scripture_with_ai(
+                text=input_text,
+                chinese=chinese_text,
+                reference=reference,
+                options={
+                    "words": extract_words,
+                    "phrases": extract_phrases,
+                    "examples": gen_examples,
+                    "podcast": gen_podcast
+                }
+            )
+            
+            # 儲存到 session state
+            st.session_state.last_analysis = analysis_result
+            st.rerun()
+    
+    # 顯示解析結果
+    if 'last_analysis' in st.session_state:
+        result = st.session_state.last_analysis
+        
+        st.markdown("---")
+        st.subheader("📊 Analysis Results")
+        
+        # 結果摘要
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Words", len(result.get('words', [])))
+        with c2:
+            st.metric("Phrases", len(result.get('phrases', [])))
+        with c3:
+            st.metric("Flashcards", len(result.get('flashcards', [])))
+        with c4:
+            st.metric("Podcast Lines", len(result.get('podcast_script', [])))
+        
+        # 操作按鈕
+        st.markdown("#### Quick Actions")
+        qa_col1, qa_col2, qa_col3 = st.columns(3)
+        with qa_col1:
+            if st.button("💾 Save All to Database", use_container_width=True):
+                save_analysis_to_database(result)
+                st.success("✅ Saved to database!")
+        with qa_col2:
+            if st.button("🎧 Generate Podcast Audio", use_container_width=True):
+                st.session_state.show_podcast_player = True
+        with qa_col3:
+            if st.button("📚 Send to TAB3 (Flashcards)", use_container_width=True):
+                send_to_tab3(result)
+                st.success("✅ Added to TAB3!")
+        
+        # 詳細結果分頁
+        detail_tabs = st.tabs(["📋 Words", "🔗 Phrases", "🎴 Flashcards", "🎧 Podcast Script"])
+        
+        # Words Tab
+        with detail_tabs[0]:
+            display_words_section(result.get('words', []))
+        
+        # Phrases Tab
+        with detail_tabs[1]:
+            display_phrases_section(result.get('phrases', []))
+        
+        # Flashcards Tab
+        with detail_tabs[2]:
+            display_flashcards_section(result.get('flashcards', []))
+        
+        # Podcast Tab
+        with detail_tabs[3]:
+            display_podcast_section(result.get('podcast_script', []), result.get('reference', ''))
 
+# ===================================================================
+# 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
+# ===================================================================
+with tabs[4]:
     # ═══════════════════════════════════════════════════════════════
     # 🔥 關鍵：確保資料已載入（只執行一次）
     # ═══════════════════════════════════════════════════════════════
