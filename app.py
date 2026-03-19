@@ -1797,11 +1797,11 @@ with tabs[2]:
 # 4. TAB4 ─ 🤖 AI Verse Parser (已串接 Secrets API)
 # ===================================================================
 with tabs[3]:
-    # --- 1. 輸入區：標籤直接放在欄框上，節省空間 ---
-    col_in_1, col_in_2 = st.columns(2)
+# --- 1. 輸入區：確保 col1 與 col2 名稱對應 ---
+    col_in_1, col_in_2 = st.columns(2) # 這裡定義為 col_in_1 和 col_in_2
     with col_in_1:
         u_input_en = st.text_area("English Scripture:", height=150, placeholder="Paste English here...", key="tab4_en_final")
-    with col_input_2:
+    with col_in_2: # 這裡也要改回 col_in_2
         u_input_cn = st.text_area("Chinese (Optional):", height=150, placeholder="Paste Chinese here...", key="tab4_cn_final")
     
     u_ref = st.text_input("Reference (e.g. Proverbs 1:7):", key="tab4_ref_final")
