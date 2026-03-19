@@ -482,8 +482,7 @@ def analyze_scripture_with_ai(text, chinese, reference):
             st.warning(f"⚠️ 自動選用相容模型: {target_model}")
 
         model = genai.GenerativeModel(target_model)
-
-        # 4. 定義 Prompt
+# 4. 定義 Prompt (確保這行前面有 8 個空格)
         prompt = f"""
         Act as a Bible linguist. Analyze this verse for flashcard learning.
         Verse: {text}
@@ -501,29 +500,25 @@ def analyze_scripture_with_ai(text, chinese, reference):
         Extract 2-3 words and 1-2 phrases.
         """
 
-       # 5. 執行生成
-       response = model.generate_content(prompt)
+        # 5. 執行生成 (這行必須跟上面的 prompt 對齊！)
+        response = model.generate_content(prompt)
 
-       if response and hasattr(response, 'text'):
-           # A. 移除 Markdown 的 JSON 標籤
-           clean_text = re.sub(r'```json|```', '', response.text).strip()
-    
-           try:
-               # B. 嘗試標準解析，strict=False 允許字串中的換行
-               return json.loads(clean_text, strict=False)
-           except json.JSONDecodeError as e:
-               # C. 二次修復：移除所有 ASCII 控制字元 (0-31)，但保留 \n \r \t
-               st.warning("⚠️ 偵測到格式異常，正在進行二次修復...")
-        
-               # 更精確的清理：只保留可見字元 + 白空格
-               fixed_text = "".join(ch for ch in clean_text if ord(ch) >= 32 or ch in "\n\r\t")
-        
-               try:
-                   return json.loads(fixed_text, strict=False)
-               except json.JSONDecodeError as e2:
-                   st.error(f"⚠️ 無法修復 JSON 格式: {e2}")
-                   st.code(fixed_text[:500])  # 顯示前 500 字方便除錯
-                   return None
+        if response and hasattr(response, 'text'):
+            # A. 移除 Markdown 的 JSON 標籤
+            clean_text = re.sub(r'```json|```', '', response.text).strip()
+
+            try:
+                # B. 嘗試標準解析
+                return json.loads(clean_text, strict=False)
+            except json.JSONDecodeError:
+                # C. 二次修復
+                st.warning("⚠️ 偵測到格式異常，正在進行二次修復...")
+                fixed_text = "".join(ch for ch in clean_text if ord(ch) >= 32 or ch in "\n\r\t")
+                try:
+                    return json.loads(fixed_text, strict=False)
+                except json.JSONDecodeError as e2:
+                    st.error(f"⚠️ 無法修復 JSON 格式: {e2}")
+                    return None
         else:
             st.error("AI 回傳內容為空")
             return None
