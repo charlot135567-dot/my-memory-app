@@ -1874,154 +1874,84 @@ def analyze_scripture_with_ai(text, chinese, reference, options):
     }
 
 # ===================================================================
-# 4. TAB4 ─ 🤖 AI 自動解析經文 (整合閃卡與 Podcast 功能)
+# 4. TAB4 ─ 🤖 AI 解析 (極簡 UI 版)
 # ===================================================================
-with tabs[3]: # 假設你在外部已定義 tabs
-    st.header("🤖 AI Verse Parser")
-    st.markdown("貼上聖經內容，AI 將自動拆解為單字、片語、段句與閃卡。")
-    
-    # --- Input Section ---
-    st.subheader("📥 Input Scripture")
-    
+with tabs[3]:
+    # --- 1. 輸入區：合併進欄框，刪除多餘標題 ---
     col1, col2 = st.columns(2)
     with col1:
-        input_text = st.text_area(
-            "English Scripture:",
-            height=150,
-            value="Therefore do not throw away your confidence, which has a great reward.",
-            placeholder="Therefore do not throw away your confidence..."
-        )
+        u_input_en = st.text_area("English Scripture:", height=120, placeholder="Paste English here...", key="t4_en")
     with col2:
-        chinese_text = st.text_area(
-            "Chinese (Optional):",
-            height=150,
-            value="所以你們不可丟棄勇敢的心．存這樣的心必得大賞賜。",
-            placeholder="所以你們不可丟棄勇敢的心..."
-        )
+        u_input_cn = st.text_area("Chinese (Optional):", height=120, placeholder="Paste Chinese here...", key="t4_cn")
     
-    reference = st.text_input(
-        "Reference (optional):", 
-        value="Hebrews 10:35",
-        placeholder="Hebrews 10:35"
-    )
-    
-    # --- Parse Options (保留原功能) ---
-    st.markdown("---")
-    st.subheader("⚙️ Parse Options")
-    
-    opt_col1, opt_col2, opt_col3, opt_col4 = st.columns(4)
-    with opt_col1:
-        extract_words = st.checkbox("Extract Vocabulary", value=True, key="tab4_words")
-    with opt_col2:
-        extract_phrases = st.checkbox("Extract Phrases", value=True, key="tab4_phrases")
-    with opt_col3:
-        gen_examples = st.checkbox("Generate Examples", value=True, key="tab4_examples")
-    with opt_col4:
-        gen_podcast = st.checkbox("Generate Podcast Script", value=True, key="tab4_podcast")
-    
-    # --- Analysis Button ---
-    analyze_btn = st.button(
-        "🚀 Start AI Analysis", 
-        type="primary", 
-        use_container_width=True,
-        key="tab4_analyze_btn"
-    )
-    
-    result_placeholder = st.empty()
-    
-    if analyze_btn and input_text.strip():
-        with result_placeholder.container():
-            with st.spinner("🤖 AI is analyzing and generating flashcards..."):
-                analysis_result = analyze_scripture_with_ai(
-                    text=input_text,
-                    chinese=chinese_text,
-                    reference=reference,
-                    options={
-                        "words": extract_words,
-                        "phrases": extract_phrases,
-                        "examples": gen_examples,
-                        "podcast": gen_podcast
-                    }
+    u_ref = st.text_input("Reference:", placeholder="e.g. Proverbs 1:7", key="t4_ref")
+
+    # --- 2. 執行按鈕 ---
+    if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
+        if u_input_en.strip():
+            with st.spinner("Analyzing..."):
+                # 注意：這裡呼叫時傳入使用者的輸入 (u_input_en, u_input_cn)
+                # 確保後端 analyze 函式使用的是這些變數，而不是預設值
+                st.session_state.last_analysis = analyze_scripture_with_ai(
+                    text=u_input_en, 
+                    chinese=u_input_cn, 
+                    reference=u_ref,
+                    options={} # 簡化選項
                 )
-                st.session_state.last_analysis = analysis_result
-        st.rerun()
-    
-    # --- Results Section ---
-    if 'last_analysis' in st.session_state and st.session_state.last_analysis:
+        else:
+            st.warning("Please paste some text first.")
+
+    # --- 3. 結果顯示區 ---
+    if 'last_analysis' in st.session_state:
         res = st.session_state.last_analysis
         
-        with result_placeholder.container():
-            st.markdown("---")
-            st.subheader("📊 Analysis Results")
-            
-            # 指標統計 (保留原功能)
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Words", len(res.get('vocabulary', [])))
-            c2.metric("Phrases", len(res.get('phrases', [])))
-            c3.metric("Segments", len(res.get('segments', [])))
-            c4.metric("Podcast Lines", len(res.get('podcast_script', [])))
-            
-            # --- 快速操作 ---
-            st.markdown("#### Quick Actions")
-            qa_col1, qa_col2, qa_col3 = st.columns(3)
-            with qa_col1:
-                if st.button("💾 Save All to Database", use_container_width=True):
-                    st.success("✅ Saved!")
-            with qa_col2:
-                if st.button("🎧 Generate Podcast Audio", use_container_width=True):
-                    st.session_state.show_podcast_player = True
-            with qa_col3:
-                if st.button("📚 Send to TAB3", use_container_width=True):
-                    st.success("✅ Added to Review List!")
+        st.divider()
+        
+        # 數據摘要：縮小字體並橫向顯示 (Words 2, Phrases 1...)
+        st.markdown(
+            f"<p style='font-size:14px; color:gray;'>"
+            f"<b>Words</b> {len(res.get('vocabulary', []))} | "
+            f"<b>Phrases</b> {len(res.get('phrases', []))} | "
+            f"<b>Segments</b> {len(res.get('segments', []))} | "
+            f"<b>Podcast</b> {len(res.get('podcast_script', []))}"
+            f"</p>", 
+            unsafe_allow_html=True
+        )
 
-            # --- 詳細分頁結果 (依照閃卡例子優化) ---
-            detail_tabs = st.tabs(["🔤 Vocabulary", "🔗 Phrases", "📑 Segments & Verse", "🎧 Podcast Script"])
+        # 功能分頁 (保持精簡)
+        res_tabs = st.tabs(["🔤 Vocab", "🔗 Phrase", "📑 Segment", "🎧 Podcast"])
+
+        # 1) 單字閃卡格式
+        with res_tabs[0]:
+            for v in res.get('vocabulary', []):
+                with st.container(border=True):
+                    st.markdown(f"**{v['meaning']}** : `{v['word']}`")
+                    st.caption(f"⬇️ {v['example']}")
+                    st.button("🔊", key=f"btn_v_{v['word']}", help="Play Sound")
+
+        # 2) 片語閃卡格式
+        with res_tabs[1]:
+            for p in res.get('phrases', []):
+                with st.container(border=True):
+                    st.markdown(f"**{p['meaning']}** : `{p['phrase']}`")
+                    st.caption(f"⬇️ {p['example']}")
+                    st.button("🔊", key=f"btn_p_{p['phrase']}")
+
+        # 3) 段句與整句對照
+        with res_tabs[2]:
+            st.caption("Segments (Double-click to expand)")
+            for seg in res.get('segments', []):
+                st.markdown(f"> {seg['cn']}\n> **{seg['en']}**")
+            st.divider()
+            st.success(f"**Full Verse:**\n{res['full_verse']['cn']}\n{res['full_verse']['en']}")
+
+        # 4) 雙人播客 (全英文)
+        with res_tabs[3]:
+            for line in res.get('podcast_script', []):
+                icon = "👤" if "A" in line['speaker'] else "👥"
+                st.write(f"{icon} **{line['speaker']}**: {line['text']}")
             
-            # 1) 單字分頁
-            with detail_tabs[0]:
-                for v in res.get('vocabulary', []):
-                    with st.expander(f"**{v['meaning']}**：{v['word']}", expanded=True):
-                        st.write(f"🔉 *{v.get('phonetic', '')}*")
-                        st.markdown(f"**生活應用例句：**\n{v['example']}")
-                        st.button("🔊 Play Audio", key=f"voc_{v['word']}")
-            
-            # 2) 片語分頁
-            with detail_tabs[1]:
-                for p in res.get('phrases', []):
-                    with st.expander(f"**{p['meaning']}**：{p['phrase']}", expanded=True):
-                        st.markdown(f"**生活應用例句：**\n{p['example']}")
-                        st.button("🔊 Play Audio", key=f"phrase_{p['phrase']}")
-            
-            # 3) 段句與整句
-            with detail_tabs[2]:
-                st.markdown("### 3）段句對照")
-                for seg in res.get('segments', []):
-                    col_seg_cn, col_seg_en = st.columns(2)
-                    col_seg_cn.markdown(f"> {seg['cn']}")
-                    col_seg_en.info(seg['en'])
-                
-                st.markdown("---")
-                st.markdown("### 4）整句對照")
-                fv = res.get('full_verse', {})
-                st.success(f"**{fv.get('ref', '')}**\n\n{fv.get('cn', '')}\n\n{fv.get('en', '')}")
-            
-            # 4) 雙人播客模式
-            with detail_tabs[3]:
-                st.info("🎙️ **Podcast Mode: All-English Discussion**")
-                
-                # 自選範圍功能 (模擬)
-                selected_scope = st.multiselect("Select Verse Scope:", [fv.get('ref', 'Current')], default=[fv.get('ref', 'Current')])
-                
-                for line in res.get('podcast_script', []):
-                    if line['speaker'] == "Host A":
-                        st.markdown(f"👤 **{line['speaker']}:** {line['text']}")
-                    else:
-                        st.markdown(f"👥 *{line['speaker']}:* {line['text']}")
-                
-                if st.session_state.get('show_podcast_player'):
-                    st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3") # 替換為實際 TTS 輸出
-            
-            if st.button("🗑️ Clear Results"):
+            if st.button("🗑️ Clear", use_container_width=True):
                 del st.session_state.last_analysis
                 st.rerun()
 
