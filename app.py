@@ -240,30 +240,22 @@ def analyze_scripture_with_ai(text, chinese, reference):
         st.warning(f"目前 Secrets 包含: {list(st.secrets.keys())}")
         return None
 
-# 3. 配置與模型初始化 (解決 404 專用版本)
+# 3. 配置與模型初始化 (解決 404 名稱與版本衝突)
     try:
         genai.configure(api_key=api_key)
         
-        # 🟢 修正重點：在某些 SDK 版本中，1.5-flash 必須直接寫名稱，不能帶 models/ 前綴
-        # 我們改用一個最簡單、最通用的方式來抓模型
-        model_name = 'gemini-1.5-flash' 
-        
-        try:
-            model = genai.GenerativeModel(model_name)
-            # 這裡不測試呼叫，直接進入生成階段
-        except Exception as e:
-            # 如果 1.5-flash 真的不行，備案改用最穩定的 gemini-pro
-            st.warning(f"嘗試 {model_name} 失敗，自動切換至備案模型...")
-            model = genai.GenerativeModel('gemini-pro')
+        # 🟢 修正：直接使用 'gemini-1.5-flash'，不帶任何前綴
+        # 如果你的 SDK 較舊，它會自動補上模型路徑
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
-        # 4. 定義 Prompt (這裡保持不變)
+        # 4. 定義 Prompt (這裡不變)
         prompt = f"""
-        Act as a Bible linguist. Analyze this verse for flashcard learning.
+        Analyze this Bible verse for language learning and return JSON.
         Verse: {text}
         Translation: {chinese}
         Ref: {reference}
 
-        Return a JSON object ONLY with this exact structure:
+        Return JSON ONLY:
         {{
           "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "sentence" }}],
           "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "sentence" }}],
@@ -271,28 +263,37 @@ def analyze_scripture_with_ai(text, chinese, reference):
           "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
           "podcast_script": [{{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }}]
         }}
-        Extract 2-3 words and 1-2 phrases.
         """
 
-        # 5. 執行生成
-        response = model.generate_content(prompt)
-        
-        # 💡 額外檢查：確保 response 有內容
-        if not response.text:
-            raise ValueError("AI 回傳內容為空")
-
-        clean_text = re.sub(r'```json|```', '', response.text).strip()
-        return json.loads(clean_text)
+        # 5. 執行生成 (加入安全檢查)
+        try:
+            response = model.generate_content(prompt)
+            # 如果 response 沒內容，嘗試強迫模型生成
+            if not response or not hasattr(response, 'text'):
+                raise ValueError("AI 回傳格式異常")
+                
+            clean_text = re.sub(r'```json|```', '', response.text).strip()
+            return json.loads(clean_text)
+            
+        except Exception as inner_e:
+            # 💡 最後大絕招：如果 1.5-flash 還是 404，自動降級到最穩定的 gemini-pro
+            if "404" in str(inner_e):
+                st.warning("🔄 正在切換至備用模型 (gemini-pro)...")
+                model_alt = genai.GenerativeModel('gemini-pro')
+                response = model_alt.generate_content(prompt)
+                clean_text = re.sub(r'```json|```', '', response.text).strip()
+                return json.loads(clean_text)
+            else:
+                raise inner_e
 
     except Exception as e:
         st.error(f"⚠️ AI 運算過程出錯: {e}")
-        # 如果還是 404，建議列出所有可用模型供偵錯
-        if "404" in str(e):
-            try:
-                available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                st.write("你的 API Key 目前可用的模型有:", available)
-            except:
-                pass
+        # 這裡會印出真正可用的模型列表，幫我們做最後確認
+        try:
+            available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            st.info(f"💡 你的 API Key 目前可用的模型有: {available}")
+        except:
+            pass
         return None
 # ===================================================================
 # ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
