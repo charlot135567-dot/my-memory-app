@@ -6,3 +6,6 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 streamlit-calendar
+google-generativeai>=0.3.0
+gTTS
+Pillow
