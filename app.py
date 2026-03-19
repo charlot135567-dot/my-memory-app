@@ -81,7 +81,188 @@ def save_todos():
     data["todos"] = st.session_state.todo
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+# ✅ 新增：AI 解析函數（放在這裡，在所有 with tabs 之前）
+def analyze_scripture_with_ai(text, chinese, reference, options):
+    """
+    使用 Gemini API 解析經文
+    """
+    if genai is None:
+        st.error("❌ google-generativeai 套件未安裝")
+        return {
+            "error": "Module not installed",
+            "words": [], "phrases": [], "flashcards": [], "podcast_script": []
+        }
+    
+    # 檢查 API Key
+    api_key = st.secrets.get("GEMINI_API_KEY", "")
+    if not api_key:
+        st.error("❌ 請在 Secrets 中設定 GEMINI_API_KEY")
+        return {
+            "error": "API Key not found",
+            "words": [], "phrases": [], "flashcards": [], "podcast_script": []
+        }
+    
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""
+        You are a Bible study assistant. Analyze this scripture and return JSON only.
+        
+        Reference: {reference}
+        English: {text}
+        Chinese: {chinese}
+        
+        Extract:
+        1. 5-10 key vocabulary words with phonetic, Chinese meaning, and Greek origin if applicable
+        2. 3-5 important phrases with meanings
+        3. A podcast script between Rachel (teacher) and Mike (learner) discussing this scripture
+        
+        Return valid JSON format:
+        {{
+            "words": [
+                {{
+                    "word": "confidence", 
+                    "phonetic": "/ˈkɒnfɪdəns/", 
+                    "meaning_cn": "勇敢的心/信心",
+                    "meaning_en": "boldness, assurance",
+                    "greek": "παρρησία",
+                    "example": "Throw away your confidence"
+                }}
+            ],
+            "phrases": [
+                {{
+                    "phrase": "throw away",
+                    "meaning": "discard, abandon",
+                    "example": "Do not throw away your confidence"
+                }}
+            ],
+            "flashcards": [
+                {{"front": "勇敢的心/信心", "back": "confidence", "phonetic": "/ˈkɒnfɪdəns/"}}
+            ],
+            "podcast_script": [
+                {{"speaker": "Rachel", "text": "Welcome to Bible Study...", "note": "opening"}},
+                {{"speaker": "Mike", "text": "Today we're looking at...", "note": "transition"}}
+            ]
+        }}
+        """
+        
+        response = model.generate_content(prompt)
+        
+        # 清理回應
+        clean_text = response.text.replace('```json', '').replace('```', '').strip()
+        result = json.loads(clean_text)
+        result['reference'] = reference
+        result['source_text'] = text
+        return result
+        
+    except Exception as e:
+        st.error(f"❌ AI 解析失敗: {str(e)}")
+        return {
+            "error": str(e),
+            "words": [], "phrases": [], "flashcards": [], "podcast_script": []
+        }
 
+# ✅ 輔助函數也要定義在前面
+def fetch_verse_by_reference(ref_input, sentences):
+    """根據出處取得經文"""
+    try:
+        # 直接比對
+        if ref_input in sentences:
+            data = sentences[ref_input]
+            content = data.get('v1_content', '')
+            return extract_english(content), extract_chinese(content), ref_input
+        
+        # 嘗試模糊比對
+        ref_lower = ref_input.lower().replace(' ', '')
+        for key in sentences.keys():
+            if ref_lower in key.lower().replace(' ', ''):
+                data = sentences[key]
+                content = data.get('v1_content', '')
+                return extract_english(content), extract_chinese(content), key
+        
+        return None, None, None
+    except:
+        return None, None, None
+
+def extract_english(content):
+    """從 Google Sheet 內容提取英文"""
+    try:
+        lines = content.strip().split('\n')
+        if len(lines) < 2:
+            return content
+        headers = lines[0].split('\t')
+        for i, h in enumerate(headers):
+            if 'english' in h.lower() or 'esv' in h.lower():
+                # 找第一行資料
+                data_lines = [l for l in lines[1:] if l.strip()]
+                if data_lines:
+                    cells = data_lines[0].split('\t')
+                    if i < len(cells):
+                        return cells[i]
+        return content
+    except:
+        return content
+
+def extract_chinese(content):
+    """從 Google Sheet 內容提取中文"""
+    try:
+        lines = content.strip().split('\n')
+        if len(lines) < 2:
+            return ""
+        headers = lines[0].split('\t')
+        for i, h in enumerate(headers):
+            if 'chinese' in h.lower() or '中文' in h:
+                data_lines = [l for l in lines[1:] if l.strip()]
+                if data_lines:
+                    cells = data_lines[0].split('\t')
+                    if i < len(cells):
+                        return cells[i]
+        return ""
+    except:
+        return ""
+
+def save_analysis_to_database(result):
+    """儲存分析結果到資料庫"""
+    try:
+        data = {}
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        
+        if 'ai_analysis' not in data:
+            data['ai_analysis'] = []
+        
+        analysis_entry = {
+            'reference': result.get('reference', ''),
+            'timestamp': datetime.datetime.now().isoformat(),
+            'words': result.get('words', []),
+            'phrases': result.get('phrases', []),
+            'flashcards': result.get('flashcards', []),
+            'podcast_script': result.get('podcast_script', [])
+        }
+        
+        data['ai_analysis'].append(analysis_entry)
+        
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        return True
+    except Exception as e:
+        st.error(f"儲存失敗: {e}")
+        return False
+
+def send_to_tab3(result):
+    """傳送到 TAB3（挑戰測驗）"""
+    if 'tab3_flashcards' not in st.session_state:
+        st.session_state.tab3_flashcards = []
+    
+    for card in result.get('flashcards', []):
+        st.session_state.tab3_flashcards.append({
+            'front': card.get('front', ''),
+            'back': card.get('back', ''),
+            'reference': result.get('reference', '')
+        })
 def load_favorites():
     """載入收藏"""
     if os.path.exists(DATA_FILE):
