@@ -230,8 +230,26 @@ def analyze_scripture_with_ai(text, chinese, reference):
         """)
         return None
     
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-pro')    
+    try:
+        genai.configure(api_key=api_key)
+        # ✅ 自動嘗試三種最可能的名稱格式
+        model_names = ['gemini-1.5-flash', 'models/gemini-1.5-flash', 'gemini-pro']
+        model = None
+        
+        for name in model_names:
+            try:
+                model = genai.GenerativeModel(name)
+                # 測試性呼叫 (選用，確保模型可用)
+                break 
+            except:
+                continue
+        
+        if model is None:
+            st.error("❌ 無法載入任何 Gemini 模型，請檢查 API Key 權限或更新 SDK。")
+            return None
+
+        # 剩下的 prompt 和 response 邏輯保持不變
+        response = model.generate_content(prompt)   
     
     # 核心 Prompt：定義閃卡格式
     prompt = f"""
