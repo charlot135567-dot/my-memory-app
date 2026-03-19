@@ -240,27 +240,23 @@ def analyze_scripture_with_ai(text, chinese, reference):
         st.warning(f"目前 Secrets 包含: {list(st.secrets.keys())}")
         return None
 
-    # 3. 配置與模型初始化
+# 3. 配置與模型初始化 (解決 404 專用版本)
     try:
         genai.configure(api_key=api_key)
         
-        # 嘗試清單
-        model_names = ['gemini-1.5-flash', 'models/gemini-1.5-flash', 'gemini-pro']
-        model = None
+        # 🟢 修正重點：在某些 SDK 版本中，1.5-flash 必須直接寫名稱，不能帶 models/ 前綴
+        # 我們改用一個最簡單、最通用的方式來抓模型
+        model_name = 'gemini-1.5-flash' 
         
-        for name in model_names:
-            try:
-                test_model = genai.GenerativeModel(name)
-                model = test_model
-                break
-            except:
-                continue
-        
-        if model is None:
-            st.error("❌ 無法初始化模型。請嘗試更新 SDK。")
-            return None
+        try:
+            model = genai.GenerativeModel(model_name)
+            # 這裡不測試呼叫，直接進入生成階段
+        except Exception as e:
+            # 如果 1.5-flash 真的不行，備案改用最穩定的 gemini-pro
+            st.warning(f"嘗試 {model_name} 失敗，自動切換至備案模型...")
+            model = genai.GenerativeModel('gemini-pro')
 
-        # 4. 定義 Prompt
+        # 4. 定義 Prompt (這裡保持不變)
         prompt = f"""
         Act as a Bible linguist. Analyze this verse for flashcard learning.
         Verse: {text}
@@ -280,11 +276,23 @@ def analyze_scripture_with_ai(text, chinese, reference):
 
         # 5. 執行生成
         response = model.generate_content(prompt)
+        
+        # 💡 額外檢查：確保 response 有內容
+        if not response.text:
+            raise ValueError("AI 回傳內容為空")
+
         clean_text = re.sub(r'```json|```', '', response.text).strip()
         return json.loads(clean_text)
 
     except Exception as e:
         st.error(f"⚠️ AI 運算過程出錯: {e}")
+        # 如果還是 404，建議列出所有可用模型供偵錯
+        if "404" in str(e):
+            try:
+                available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                st.write("你的 API Key 目前可用的模型有:", available)
+            except:
+                pass
         return None
 # ===================================================================
 # ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
