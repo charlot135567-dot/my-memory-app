@@ -1831,35 +1831,66 @@ with tabs[2]:
                 st.rerun()
 
 # ===================================================================
-# 4. TAB4 ─ 🔮 AI 自動解析經文（簡化版）
+# 4. TAB4 ─ 🔮 AI 自動解析經文（加回 Give Reference）
 # ===================================================================
 with tabs[3]:
     st.header("🤖 AI Verse Parser")
     
-    # 簡化：只用 Paste Content
-    input_text = st.text_area("Paste English Scripture:", height=150, 
-                              placeholder="Therefore do not throw away your confidence...")
-    chinese_text = st.text_area("Chinese (optional):", height=100,
-                               placeholder="所以你們不可丟棄勇敢的心...")
-    reference = st.text_input("Reference:", placeholder="Heb 10:35")
+    # 輸入方式選擇
+    input_method = st.radio(
+        "Input method:",
+        ["📋 Paste Content", "🔍 Give Reference"],
+        horizontal=True
+    )
     
+    input_text = ""
+    chinese_text = ""
+    reference = ""
+    
+    if input_method == "📋 Paste Content":
+        # 原有簡化版功能
+        input_text = st.text_area("English:", height=150)
+        chinese_text = st.text_area("Chinese:", height=100)
+        reference = st.text_input("Reference:", placeholder="Heb 10:35")
+        
+    else:  # 🔍 Give Reference
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            ref_input = st.text_input("Bible Reference:", placeholder="Hebrews 10:35-39")
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            fetch_btn = st.button("🔍 Fetch", use_container_width=True)
+        
+        if fetch_btn and ref_input:
+            sentences = st.session_state.get('sentences', {})
+            en, cn, ref = fetch_verse_by_reference(ref_input, sentences)
+            if en:
+                input_text = en
+                chinese_text = cn
+                reference = ref
+                st.success(f"✅ Found: {ref}")
+                st.text_area("English:", value=en, height=150, disabled=True)
+                st.text_area("Chinese:", value=cn, height=100, disabled=True)
+            else:
+                st.error("❌ Not found in database. Try 'Paste Content' mode.")
+    
+    # 分析按鈕
     if st.button("🚀 Analyze", type="primary") and input_text:
         with st.spinner("AI analyzing..."):
             result = analyze_scripture_with_ai(input_text, chinese_text, reference, {})
             st.session_state.last_analysis = result
             st.rerun()
     
-    # 顯示結果（簡化，不用額外函數）
+    # 顯示結果（保持簡化版）
     if 'last_analysis' in st.session_state:
         result = st.session_state.last_analysis
         
         st.markdown("---")
         st.subheader("📊 Results")
         
-        # 直接顯示，不用函數
         words = result.get('words', [])
         if words:
-            st.markdown("**📋 Words found:**")
+            st.markdown("**📋 Words:**")
             for w in words[:5]:
                 st.markdown(f"- **{w.get('word', '')}** `{w.get('phonetic', '')}` = {w.get('meaning_cn', '')}")
         
@@ -1868,16 +1899,6 @@ with tabs[3]:
             st.markdown("**🔗 Phrases:**")
             for p in phrases[:3]:
                 st.markdown(f"- **{p.get('phrase', '')}**: {p.get('meaning', '')}")
-        
-        # Podcast 腳本預覽
-        script = result.get('podcast_script', [])
-        if script:
-            st.markdown("**🎧 Podcast Script Preview:**")
-            for line in script[:3]:  # 只顯示前3句
-                speaker = line.get('speaker', '')
-                text = line.get('text', '')
-                icon = "🎙️" if 'Rachel' in speaker else "🎧"
-                st.markdown(f"{icon} **{speaker}**: {text[:80]}...")
         
         if st.button("💾 Save to Database"):
             if save_analysis_to_database(result):
