@@ -1794,82 +1794,92 @@ with tabs[2]:
                 st.rerun()
 
 # ===================================================================
-# 4. TAB4 ─ 🤖 AI 解析 (修正佈局與數據連動)
+# 4. TAB4 ─ 🤖 AI Verse Parser (已串接 Secrets API)
 # ===================================================================
 with tabs[3]:
-    # --- 1. 輸入區 (標籤就在欄框上) ---
-    col_input_1, col_input_2 = st.columns(2)
-    with col_input_1:
-        u_input_en = st.text_area("English Scripture:", height=150, placeholder="Paste English here...", key="t4_en_in")
+    # --- 1. 輸入區：標籤直接放在欄框上，節省空間 ---
+    col_in_1, col_in_2 = st.columns(2)
+    with col_in_1:
+        u_input_en = st.text_area("English Scripture:", height=150, placeholder="Paste English here...", key="tab4_en_final")
     with col_input_2:
-        u_input_cn = st.text_area("Chinese (Optional):", height=150, placeholder="Paste Chinese here...", key="t4_cn_in")
+        u_input_cn = st.text_area("Chinese (Optional):", height=150, placeholder="Paste Chinese here...", key="tab4_cn_final")
     
-    u_ref = st.text_input("Reference:", placeholder="e.g. Proverbs 1:7", key="t4_ref_in")
+    u_ref = st.text_input("Reference (e.g. Proverbs 1:7):", key="tab4_ref_final")
 
     # --- 2. 執行按鈕 ---
     if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
         if u_input_en.strip():
-            with st.spinner("🤖 AI is analyzing your specific text..."):
-                # 呼叫真正的 API
+            with st.spinner("🤖 AI 正在分析..."):
+                # 呼叫 0.6 區塊定義的函式 (會自動去讀 secrets.toml)
                 analysis_result = analyze_scripture_with_ai(u_input_en, u_input_cn, u_ref)
                 if analysis_result:
                     st.session_state.last_analysis = analysis_result
                     st.rerun()
         else:
-            st.warning("Please enter English scripture first.")
+            st.warning("請先輸入英文經文內容。")
 
     # --- 3. 數據摘要 (未分析前顯示 0) ---
     res = st.session_state.get('last_analysis', {})
     
+    # 動態計算數量
     v_count = len(res.get('vocabulary', []))
     p_count = len(res.get('phrases', []))
     s_count = len(res.get('segments', []))
     pod_count = len(res.get('podcast_script', []))
 
+    # 極簡橫向數據顯示
     st.markdown(
-        f"<p style='font-size:13px; color:#666; margin-top:10px;'>"
+        f"<p style='font-size:13px; color:#888; margin: 10px 0;'>"
         f"<b>Words</b> {v_count} | <b>Phrases</b> {p_count} | <b>Segments</b> {s_count} | <b>Podcast</b> {pod_count}"
         f"</p>", 
         unsafe_allow_html=True
     )
 
-    # --- 4. 結果分頁 (只有在有資料時才顯示內容) ---
+    # --- 4. 結果顯示區 (有資料才顯示分頁) ---
     if res:
         res_tabs = st.tabs(["🔤 Vocab", "🔗 Phrase", "📑 Segment", "🎧 Podcast"])
 
+        # 1) 單字分頁 (依照閃卡例子：意思 : 單字)
         with res_tabs[0]:
             for v in res.get('vocabulary', []):
                 with st.container(border=True):
                     st.markdown(f"**{v['meaning']}** : `{v['word']}`")
-                    st.caption(f"🔉 {v.get('phonetic', '')}")
+                    if v.get('phonetic'): st.caption(f"🔉 {v['phonetic']}")
                     st.write(f"⬇️ {v['example']}")
-                    st.button("🔊 Play", key=f"voc_audio_{v['word']}")
+                    st.button("🔊 Play", key=f"v_audio_{v['word']}")
 
+        # 2) 片語分頁
         with res_tabs[1]:
             for p in res.get('phrases', []):
                 with st.container(border=True):
                     st.markdown(f"**{p['meaning']}** : `{p['phrase']}`")
                     st.write(f"⬇️ {p['example']}")
-                    st.button("🔊 Play", key=f"phrase_audio_{p['phrase']}")
+                    st.button("🔊 Play", key=f"p_audio_{p['phrase']}")
 
+        # 3) 段句與整句 (中英對照)
         with res_tabs[2]:
+            st.markdown("##### 3）段句拆解")
             for seg in res.get('segments', []):
-                st.markdown(f"**{seg['en']}**")
-                st.caption(f"{seg['cn']}")
-            st.divider()
-            st.success(f"**Full Verse:**\n{res['full_verse'].get('cn', '')}\n{res['full_verse'].get('en', '')}")
-
-        with res_tabs[3]:
-            st.markdown("##### 🎙️ All-English Discussion")
-            for line in res.get('podcast_script', []):
-                speaker_fmt = f"**{line['speaker']}**"
-                st.markdown(f"{speaker_fmt}: {line['text']}")
+                st.markdown(f"> {seg['cn']}")
+                st.info(seg['en'])
             
-            if st.button("🗑️ Clear All", use_container_width=True):
+            st.divider()
+            st.markdown("##### 4）整句對照")
+            fv = res.get('full_verse', {})
+            st.success(f"**{fv.get('ref', '')}**\n\n{fv.get('cn', '')}\n\n{fv.get('en', '')}")
+
+        # 4) 雙人播客 (全英文)
+        with res_tabs[3]:
+            st.info("🎙️ **Podcast Mode: Rachel & Mike**")
+            for line in res.get('podcast_script', []):
+                st.markdown(f"**{line['speaker']}**: {line['text']}")
+            
+            st.divider()
+            if st.button("🗑️ Clear Analysis", use_container_width=True):
                 del st.session_state.last_analysis
                 st.rerun()
     else:
-        st.info("Waiting for analysis... Paste text and click 'Start'.")
+        st.info("尚未有分析資料。請在上方貼上經文並點擊「🚀 Start AI Analysis」。")
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
