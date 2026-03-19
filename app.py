@@ -1831,80 +1831,189 @@ with tabs[2]:
                 st.rerun()
 
 # ===================================================================
-# 4. TAB4 ─ 🔮 AI 自動解析經文（加回 Give Reference）
+# 4. TAB4 ─ 🔮 AI 自動解析經文（簡化版 - 僅保留 Paste Content）
 # ===================================================================
 with tabs[3]:
-    st.header("🤖 AI Verse Parser")
+    st.markdown("Paste scripture content for AI analysis and flashcard generation.")
     
-    # 輸入方式選擇
-    input_method = st.radio(
-        "Input method:",
-        ["📋 Paste Content", "🔍 Give Reference"],
-        horizontal=True
+    # --- Input Section ---
+    st.subheader("📥 Input Scripture")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        input_text = st.text_area(
+            "English Scripture:",
+            height=150,
+            placeholder="Therefore do not throw away your confidence..."
+        )
+    with col2:
+        chinese_text = st.text_area(
+            "Chinese (Optional):",
+            height=150,
+            placeholder="所以你們不可丟棄勇敢的心..."
+        )
+    
+    reference = st.text_input(
+        "Reference (optional):", 
+        placeholder="Hebrews 10:35",
+        help="Enter the Bible reference for this scripture"
     )
     
-    input_text = ""
-    chinese_text = ""
-    reference = ""
+    # --- Parse Options ---
+    st.markdown("---")
+    st.subheader("⚙️ Parse Options")
     
-    if input_method == "📋 Paste Content":
-        # 原有簡化版功能
-        input_text = st.text_area("English:", height=150)
-        chinese_text = st.text_area("Chinese:", height=100)
-        reference = st.text_input("Reference:", placeholder="Heb 10:35")
+    opt_col1, opt_col2, opt_col3, opt_col4 = st.columns(4)
+    with opt_col1:
+        extract_words = st.checkbox("Extract Vocabulary", value=True, key="tab4_words")
+    with opt_col2:
+        extract_phrases = st.checkbox("Extract Phrases", value=True, key="tab4_phrases")
+    with opt_col3:
+        gen_examples = st.checkbox("Generate Examples", value=True, key="tab4_examples")
+    with opt_col4:
+        gen_podcast = st.checkbox("Generate Podcast Script", value=True, key="tab4_podcast")
+    
+    # --- Analysis Button ---
+    st.markdown("---")
+    analyze_btn = st.button(
+        "🚀 Start AI Analysis", 
+        type="primary", 
+        use_container_width=True,
+        key="tab4_analyze_btn"
+    )
+    
+    # --- Results Section ---
+    # 使用 placeholder 來避免 spinner 後創建 tabs 的問題
+    result_placeholder = st.empty()
+    
+    if analyze_btn and input_text.strip():
+        # 在 placeholder 內部顯示 spinner，避免影響後續 UI
+        with result_placeholder.container():
+            with st.spinner("🤖 AI is analyzing the scripture..."):
+                # 呼叫 Gemini API 進行解析
+                analysis_result = analyze_scripture_with_ai(
+                    text=input_text,
+                    chinese=chinese_text,
+                    reference=reference,
+                    options={
+                        "words": extract_words,
+                        "phrases": extract_phrases,
+                        "examples": gen_examples,
+                        "podcast": gen_podcast
+                    }
+                )
+                
+                # 儲存到 session state
+                st.session_state.last_analysis = analysis_result
         
-    else:  # 🔍 Give Reference
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            ref_input = st.text_input("Bible Reference:", placeholder="Hebrews 10:35-39")
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            fetch_btn = st.button("🔍 Fetch", use_container_width=True)
-        
-        if fetch_btn and ref_input:
-            sentences = st.session_state.get('sentences', {})
-            en, cn, ref = fetch_verse_by_reference(ref_input, sentences)
-            if en:
-                input_text = en
-                chinese_text = cn
-                reference = ref
-                st.success(f"✅ Found: {ref}")
-                st.text_area("English:", value=en, height=150, disabled=True)
-                st.text_area("Chinese:", value=cn, height=100, disabled=True)
-            else:
-                st.error("❌ Not found in database. Try 'Paste Content' mode.")
+        # 重新載入以顯示結果（避免在 spinner 後直接創建 tabs）
+        st.rerun()
     
-    # 分析按鈕
-    if st.button("🚀 Analyze", type="primary") and input_text:
-        with st.spinner("AI analyzing..."):
-            result = analyze_scripture_with_ai(input_text, chinese_text, reference, {})
-            st.session_state.last_analysis = result
-            st.rerun()
-    
-    # 顯示結果（保持簡化版）
-    if 'last_analysis' in st.session_state:
+    # 顯示解析結果（這部分在 spinner 外部，不會受 spinner 影響）
+    if 'last_analysis' in st.session_state and st.session_state.last_analysis:
         result = st.session_state.last_analysis
         
-        st.markdown("---")
-        st.subheader("📊 Results")
-        
-        words = result.get('words', [])
-        if words:
-            st.markdown("**📋 Words:**")
-            for w in words[:5]:
-                st.markdown(f"- **{w.get('word', '')}** `{w.get('phonetic', '')}` = {w.get('meaning_cn', '')}")
-        
-        phrases = result.get('phrases', [])
-        if phrases:
-            st.markdown("**🔗 Phrases:**")
-            for p in phrases[:3]:
-                st.markdown(f"- **{p.get('phrase', '')}**: {p.get('meaning', '')}")
-        
-        if st.button("💾 Save to Database"):
-            if save_analysis_to_database(result):
-                st.success("✅ Saved!")
-            else:
-                st.error("❌ Save failed")
+        with result_placeholder.container():
+            st.markdown("---")
+            st.subheader("📊 Analysis Results")
+            
+            # 結果摘要
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.metric("Words", len(result.get('words', [])))
+            with c2:
+                st.metric("Phrases", len(result.get('phrases', [])))
+            with c3:
+                st.metric("Flashcards", len(result.get('flashcards', [])))
+            with c4:
+                st.metric("Podcast Lines", len(result.get('podcast_script', [])))
+            
+            # 操作按鈕
+            st.markdown("#### Quick Actions")
+            qa_col1, qa_col2, qa_col3 = st.columns(3)
+            with qa_col1:
+                if st.button("💾 Save All to Database", use_container_width=True, key="tab4_save_db"):
+                    if save_analysis_to_database(result):
+                        st.success("✅ Saved to database!")
+                    else:
+                        st.error("❌ Save failed")
+            with qa_col2:
+                if st.button("🎧 Generate Podcast Audio", use_container_width=True, key="tab4_gen_audio"):
+                    st.session_state.show_podcast_player = True
+                    st.info("🎧 Podcast generation started!")
+            with qa_col3:
+                if st.button("📚 Send to TAB3 (Flashcards)", use_container_width=True, key="tab4_send_tab3"):
+                    send_to_tab3(result)
+                    st.success("✅ Added to TAB3!")
+            
+            # 詳細結果分頁 - 使用 st.tabs（在 spinner 外部創建，避免 bug）
+            detail_tabs = st.tabs(["📋 Words", "🔗 Phrases", "🎴 Flashcards", "🎧 Podcast Script"])
+            
+            # Words Tab
+            with detail_tabs[0]:
+                words_list = result.get('words', [])
+                if words_list:
+                    for i, w in enumerate(words_list[:10]):  # 顯示前10個
+                        with st.expander(f"🔤 {w.get('word', '')} `{w.get('phonetic', '')}`", expanded=(i==0)):
+                            st.markdown(f"**Meaning:** {w.get('meaning_cn', '')}")
+                            if w.get('example'):
+                                st.markdown(f"**Example:** *{w.get('example')}*")
+                            if w.get('level'):
+                                st.badge(f"Level: {w.get('level')}")
+                else:
+                    st.info("No words extracted")
+            
+            # Phrases Tab
+            with detail_tabs[1]:
+                phrases_list = result.get('phrases', [])
+                if phrases_list:
+                    for i, p in enumerate(phrases_list[:8]):  # 顯示前8個
+                        with st.expander(f"🔗 {p.get('phrase', '')}", expanded=(i==0)):
+                            st.markdown(f"**Meaning:** {p.get('meaning', '')}")
+                            if p.get('context'):
+                                st.markdown(f"**Context:** {p.get('context')}")
+                else:
+                    st.info("No phrases extracted")
+            
+            # Flashcards Tab
+            with detail_tabs[2]:
+                flashcards_list = result.get('flashcards', [])
+                if flashcards_list:
+                    for i, f in enumerate(flashcards_list):
+                        col_front, col_back = st.columns([1, 1])
+                        with col_front:
+                            st.markdown(f"**🎴 Card {i+1} Front:**")
+                            st.info(f.get('front', ''))
+                        with col_back:
+                            st.markdown(f"**Back:**")
+                            st.success(f.get('back', ''))
+                        st.divider()
+                else:
+                    st.info("No flashcards generated")
+            
+            # Podcast Tab
+            with detail_tabs[3]:
+                podcast_script = result.get('podcast_script', [])
+                if podcast_script:
+                    st.markdown(f"**Reference:** {result.get('reference', 'N/A')}")
+                    for line in podcast_script:
+                        speaker = line.get('speaker', 'Host')
+                        text = line.get('text', '')
+                        if speaker.lower() in ['host', 'narrator']:
+                            st.markdown(f"🎙️ **{speaker}:** {text}")
+                        else:
+                            st.markdown(f"💬 *{speaker}:* {text}")
+                    
+                    if st.session_state.get('show_podcast_player'):
+                        st.audio("podcast_placeholder.mp3")  # 替換為實際音檔
+                else:
+                    st.info("No podcast script generated")
+            
+            # 清除結果按鈕
+            if st.button("🗑️ Clear Results", key="tab4_clear"):
+                del st.session_state.last_analysis
+                st.session_state.show_podcast_player = False
+                st.rerun()
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
