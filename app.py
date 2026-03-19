@@ -81,87 +81,6 @@ def save_todos():
     data["todos"] = st.session_state.todo
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-# ✅ 新增：AI 解析函數（放在這裡，在所有 with tabs 之前）
-def analyze_scripture_with_ai(text, chinese, reference, options):
-    """
-    使用 Gemini API 解析經文
-    """
-    if genai is None:
-        st.error("❌ google-generativeai 套件未安裝")
-        return {
-            "error": "Module not installed",
-            "words": [], "phrases": [], "flashcards": [], "podcast_script": []
-        }
-    
-    # 檢查 API Key
-    api_key = st.secrets.get("GEMINI_API_KEY", "")
-    if not api_key:
-        st.error("❌ 請在 Secrets 中設定 GEMINI_API_KEY")
-        return {
-            "error": "API Key not found",
-            "words": [], "phrases": [], "flashcards": [], "podcast_script": []
-        }
-    
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        prompt = f"""
-        You are a Bible study assistant. Analyze this scripture and return JSON only.
-        
-        Reference: {reference}
-        English: {text}
-        Chinese: {chinese}
-        
-        Extract:
-        1. 5-10 key vocabulary words with phonetic, Chinese meaning, and Greek origin if applicable
-        2. 3-5 important phrases with meanings
-        3. A podcast script between Rachel (teacher) and Mike (learner) discussing this scripture
-        
-        Return valid JSON format:
-        {{
-            "words": [
-                {{
-                    "word": "confidence", 
-                    "phonetic": "/ˈkɒnfɪdəns/", 
-                    "meaning_cn": "勇敢的心/信心",
-                    "meaning_en": "boldness, assurance",
-                    "greek": "παρρησία",
-                    "example": "Throw away your confidence"
-                }}
-            ],
-            "phrases": [
-                {{
-                    "phrase": "throw away",
-                    "meaning": "discard, abandon",
-                    "example": "Do not throw away your confidence"
-                }}
-            ],
-            "flashcards": [
-                {{"front": "勇敢的心/信心", "back": "confidence", "phonetic": "/ˈkɒnfɪdəns/"}}
-            ],
-            "podcast_script": [
-                {{"speaker": "Rachel", "text": "Welcome to Bible Study...", "note": "opening"}},
-                {{"speaker": "Mike", "text": "Today we're looking at...", "note": "transition"}}
-            ]
-        }}
-        """
-        
-        response = model.generate_content(prompt)
-        
-        # 清理回應
-        clean_text = response.text.replace('```json', '').replace('```', '').strip()
-        result = json.loads(clean_text)
-        result['reference'] = reference
-        result['source_text'] = text
-        return result
-        
-    except Exception as e:
-        st.error(f"❌ AI 解析失敗: {str(e)}")
-        return {
-            "error": str(e),
-            "words": [], "phrases": [], "flashcards": [], "podcast_script": []
-        }
 
 # ✅ 輔助函數也要定義在前面
 def fetch_verse_by_reference(ref_input, sentences):
@@ -287,6 +206,50 @@ def save_favorites():
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+# ===================================================================
+# 0.6 AI 解析核心函式 (真實串接 Gemini API)
+# ===================================================================
+def analyze_scripture_with_ai(text, chinese, reference):
+    # 檢查 API 套件是否載入成功
+    if genai is None:
+        st.error("Google Generative AI 套件未安裝")
+        return None
+    
+    # --- 請在此輸入你的 API KEY ---
+    # 建議放在 secrets.toml 或環境變數中，目前先直接填入進行測試
+    genai.configure(api_key="你的_GEMINI_API_KEY")
+    
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # 核心 Prompt：定義閃卡格式
+    prompt = f"""
+    Act as a Bible linguist. Analyze this verse for flashcard learning.
+    Verse: {text}
+    Translation: {chinese}
+    Ref: {reference}
+
+    Return a JSON object ONLY with this exact structure:
+    {{
+      "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "life example sentence" }}],
+      "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "life example sentence" }}],
+      "segments": [{{ "en": "Eng segment", "cn": "中文段句" }}],
+      "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
+      "podcast_script": [{{ "speaker": "Host A", "text": "English dialogue..." }}]
+    }}
+    Extract 2-3 words and 1-2 phrases. Podcast should be a 4-6 line English conversation.
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        # 清理 AI 回傳的 Markdown 標籤
+        clean_text = re.sub(r'```json|```', '', response.text).strip()
+        result = json.loads(clean_text)
+        
+        # 為了保持與 UI 統計數據的相容性，增加長度檢查
+        return result
+    except Exception as e:
+        st.error(f"AI 解析出錯: {e}")
+        return None
 # ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
@@ -1831,129 +1794,82 @@ with tabs[2]:
                 st.rerun()
 
 # ===================================================================
-# 輔助函式：模擬 AI 解析 (你需要將此邏輯放入你的後端 API 呼叫中)
-# ===================================================================
-def analyze_scripture_with_ai(text, chinese, reference, options):
-    """
-    這裡應呼叫 Gemini API。
-    Prompt 應要求 AI 嚴格輸出以下 JSON 格式：
-    {
-        "vocabulary": [{"word": "confidence", "meaning": "勇敢的心/信心", "example": "The pain was bad beyond endurance."}],
-        "phrases": [{"phrase": "throw away", "meaning": "丟棄/扔掉", "example": "When are you going to throw away those old magazines?"}],
-        "segments": [{"en": "For, 'Yet a little while,", "cn": "因為還有一點點時候，"}],
-        "full_verse": {"en": "...", "cn": "...", "ref": "..."},
-        "podcast_script": [{"speaker": "Host A", "text": "..."}, {"speaker": "Host B", "text": "..."}]
-    }
-    """
-    # 此處為模擬回傳資料，實際執行時請接上你的 API
-    return {
-        "vocabulary": [
-            {"word": "confidence", "meaning": "勇敢的心/信心", "example": "The pain was bad beyond endurance.", "phonetic": "/ˈkɒnfɪdəns/"},
-            {"word": "endurance", "meaning": "忍耐/耐用度/忍耐力", "example": "The pain was bad beyond endurance.", "phonetic": "/ɪnˈdjʊərəns/"}
-        ],
-        "phrases": [
-            {"phrase": "throw away", "meaning": "丟棄/扔掉", "example": "So when are you going to throw away those old magazines?"}
-        ],
-        "segments": [
-            {"en": "For, 'Yet a little while,", "cn": "因為還有一點點時候，"},
-            {"en": "and the coming one will come and will not delay;", "cn": "那要來的就來，並不遲延；"},
-            {"en": "For you have need of endurance,", "cn": "你們必須忍耐"}
-        ],
-        "full_verse": {
-            "ref": reference or "Hebrews 10:35",
-            "en": text,
-            "cn": chinese
-        },
-        "podcast_script": [
-            {"speaker": "Host A", "text": "Welcome back! Today's verse is powerful. It mentions 'confidence'."},
-            {"speaker": "Host B", "text": "Exactly. In Chinese, it's '勇敢的心'. Don't throw it away!"}
-        ],
-        "words": [1, 2], # 為了相容你原本的 metric 統計
-        "phrases_count": [1],
-        "flashcards": [1, 2, 3, 4]
-    }
-
-# ===================================================================
-# 4. TAB4 ─ 🤖 AI 解析 (極簡 UI 版)
+# 4. TAB4 ─ 🤖 AI 解析 (修正佈局與數據連動)
 # ===================================================================
 with tabs[3]:
-    # --- 1. 輸入區：合併進欄框，刪除多餘標題 ---
-    col1, col2 = st.columns(2)
-    with col1:
-        u_input_en = st.text_area("English Scripture:", height=120, placeholder="Paste English here...", key="t4_en")
-    with col2:
-        u_input_cn = st.text_area("Chinese (Optional):", height=120, placeholder="Paste Chinese here...", key="t4_cn")
+    # --- 1. 輸入區 (標籤就在欄框上) ---
+    col_input_1, col_input_2 = st.columns(2)
+    with col_input_1:
+        u_input_en = st.text_area("English Scripture:", height=150, placeholder="Paste English here...", key="t4_en_in")
+    with col_input_2:
+        u_input_cn = st.text_area("Chinese (Optional):", height=150, placeholder="Paste Chinese here...", key="t4_cn_in")
     
-    u_ref = st.text_input("Reference:", placeholder="e.g. Proverbs 1:7", key="t4_ref")
+    u_ref = st.text_input("Reference:", placeholder="e.g. Proverbs 1:7", key="t4_ref_in")
 
     # --- 2. 執行按鈕 ---
     if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
         if u_input_en.strip():
-            with st.spinner("Analyzing..."):
-                # 注意：這裡呼叫時傳入使用者的輸入 (u_input_en, u_input_cn)
-                # 確保後端 analyze 函式使用的是這些變數，而不是預設值
-                st.session_state.last_analysis = analyze_scripture_with_ai(
-                    text=u_input_en, 
-                    chinese=u_input_cn, 
-                    reference=u_ref,
-                    options={} # 簡化選項
-                )
+            with st.spinner("🤖 AI is analyzing your specific text..."):
+                # 呼叫真正的 API
+                analysis_result = analyze_scripture_with_ai(u_input_en, u_input_cn, u_ref)
+                if analysis_result:
+                    st.session_state.last_analysis = analysis_result
+                    st.rerun()
         else:
-            st.warning("Please paste some text first.")
+            st.warning("Please enter English scripture first.")
 
-    # --- 3. 結果顯示區 ---
-    if 'last_analysis' in st.session_state:
-        res = st.session_state.last_analysis
-        
-        st.divider()
-        
-        # 數據摘要：縮小字體並橫向顯示 (Words 2, Phrases 1...)
-        st.markdown(
-            f"<p style='font-size:14px; color:gray;'>"
-            f"<b>Words</b> {len(res.get('vocabulary', []))} | "
-            f"<b>Phrases</b> {len(res.get('phrases', []))} | "
-            f"<b>Segments</b> {len(res.get('segments', []))} | "
-            f"<b>Podcast</b> {len(res.get('podcast_script', []))}"
-            f"</p>", 
-            unsafe_allow_html=True
-        )
+    # --- 3. 數據摘要 (未分析前顯示 0) ---
+    res = st.session_state.get('last_analysis', {})
+    
+    v_count = len(res.get('vocabulary', []))
+    p_count = len(res.get('phrases', []))
+    s_count = len(res.get('segments', []))
+    pod_count = len(res.get('podcast_script', []))
 
-        # 功能分頁 (保持精簡)
+    st.markdown(
+        f"<p style='font-size:13px; color:#666; margin-top:10px;'>"
+        f"<b>Words</b> {v_count} | <b>Phrases</b> {p_count} | <b>Segments</b> {s_count} | <b>Podcast</b> {pod_count}"
+        f"</p>", 
+        unsafe_allow_html=True
+    )
+
+    # --- 4. 結果分頁 (只有在有資料時才顯示內容) ---
+    if res:
         res_tabs = st.tabs(["🔤 Vocab", "🔗 Phrase", "📑 Segment", "🎧 Podcast"])
 
-        # 1) 單字閃卡格式
         with res_tabs[0]:
             for v in res.get('vocabulary', []):
                 with st.container(border=True):
                     st.markdown(f"**{v['meaning']}** : `{v['word']}`")
-                    st.caption(f"⬇️ {v['example']}")
-                    st.button("🔊", key=f"btn_v_{v['word']}", help="Play Sound")
+                    st.caption(f"🔉 {v.get('phonetic', '')}")
+                    st.write(f"⬇️ {v['example']}")
+                    st.button("🔊 Play", key=f"voc_audio_{v['word']}")
 
-        # 2) 片語閃卡格式
         with res_tabs[1]:
             for p in res.get('phrases', []):
                 with st.container(border=True):
                     st.markdown(f"**{p['meaning']}** : `{p['phrase']}`")
-                    st.caption(f"⬇️ {p['example']}")
-                    st.button("🔊", key=f"btn_p_{p['phrase']}")
+                    st.write(f"⬇️ {p['example']}")
+                    st.button("🔊 Play", key=f"phrase_audio_{p['phrase']}")
 
-        # 3) 段句與整句對照
         with res_tabs[2]:
-            st.caption("Segments (Double-click to expand)")
             for seg in res.get('segments', []):
-                st.markdown(f"> {seg['cn']}\n> **{seg['en']}**")
+                st.markdown(f"**{seg['en']}**")
+                st.caption(f"{seg['cn']}")
             st.divider()
-            st.success(f"**Full Verse:**\n{res['full_verse']['cn']}\n{res['full_verse']['en']}")
+            st.success(f"**Full Verse:**\n{res['full_verse'].get('cn', '')}\n{res['full_verse'].get('en', '')}")
 
-        # 4) 雙人播客 (全英文)
         with res_tabs[3]:
+            st.markdown("##### 🎙️ All-English Discussion")
             for line in res.get('podcast_script', []):
-                icon = "👤" if "A" in line['speaker'] else "👥"
-                st.write(f"{icon} **{line['speaker']}**: {line['text']}")
+                speaker_fmt = f"**{line['speaker']}**"
+                st.markdown(f"{speaker_fmt}: {line['text']}")
             
-            if st.button("🗑️ Clear", use_container_width=True):
+            if st.button("🗑️ Clear All", use_container_width=True):
                 del st.session_state.last_analysis
                 st.rerun()
+    else:
+        st.info("Waiting for analysis... Paste text and click 'Start'.")
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
