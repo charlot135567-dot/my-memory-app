@@ -14,6 +14,8 @@ import datetime
 import requests
 import random
 import re
+import io
+from gtts import gTTS
 
 # ✅ 新增：AI 解析需要的套件
 try:
@@ -28,6 +30,216 @@ import io
 # --- Google Sheets 認證 ---
 from google.oauth2.service_account import Credentials
 import gspread
+
+# ===================================================================
+# 0.1 語音播放功能 (gTTS)
+# ===================================================================
+def text_to_speech(text, lang='en'):
+    """將文字轉換為語音並返回 base64 編碼"""
+    try:
+        tts = gTTS(text=text, lang=lang, slow=False)
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        audio_bytes = fp.read()
+        b64 = base64.b64encode(audio_bytes).decode()
+        return f'<audio controls autoplay><source src="data:audio/mp3;base64,{b64}" type="audio/mpeg"></audio>'
+    except Exception as e:
+        return f"<p>語音播放錯誤: {str(e)}</p>"
+
+def play_audio_html(text, lang='en'):
+    """生成音頻 HTML"""
+    audio_html = text_to_speech(text, lang)
+    st.markdown(audio_html, unsafe_allow_html=True)
+
+# ===================================================================
+# 0.2 AI 分析函式 (Gemini API)
+# ===================================================================
+def analyze_scripture_with_ai(en_text, cn_text, ref):
+    """呼叫 Gemini API 進行深度分析"""
+    api_key = st.secrets.get("GOOGLE_API_KEY", "")
+    
+    if not api_key:
+        st.error("請在 secrets.toml 設定 GOOGLE_API_KEY")
+        return None
+    
+    # 強化 Prompt 要求詳細分析
+    prompt = f"""
+    請深度分析以下聖經經文，並以 JSON 格式回傳。必須包含以下四個層級：
+    
+    經文參考: {ref}
+    中文經文: {cn_text}
+    英文經文: {en_text}
+    
+    請嚴格按照以下格式回傳 JSON：
+    {{
+        "vocabulary": [
+            {{
+                "word": "英文單字",
+                "meaning": "中文意思（其他意思）",
+                "phonetic": "音標",
+                "example": "生活應用例句（英文）",
+                "example_cn": "生活應用例句（中文翻譯）"
+            }}
+        ],
+        "phrases": [
+            {{
+                "phrase": "英文片語",
+                "meaning": "中文意思（其他意思）",
+                "example": "生活應用例句（英文）",
+                "example_cn": "生活應用例句（中文翻譯）"
+            }}
+        ],
+        "segments": [
+            {{
+                "cn": "中文段句",
+                "en": "英文段句"
+            }}
+        ],
+        "full_verse": {{
+            "ref": "經文參考",
+            "cn": "完整中文經文",
+            "en": "完整英文經文"
+        }},
+        "podcast_script": [
+            {{
+                "speaker": "Rachel",
+                "text": "對話內容"
+            }},
+            {{
+                "speaker": "Mike", 
+                "text": "對話內容"
+            }}
+        ]
+    }}
+    
+    要求：
+    1. 單字：每句經文至少提取 3-5 個重要單字，包含音標
+    2. 片語：每句經文至少提取 2-3 個常用片語
+    3. 段句：將每句經文拆解為 2-6 個對應的中英段句
+    4. 雙人對話：設計 Rachel（教導者）和 Mike（學習者）的對話，討論這段經文的意義和應用
+    """
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+        
+        # 解析回應
+        text_response = result['candidates'][0]['content']['parts'][0]['text']
+        
+        # 清理 JSON 字串
+        if '```json' in text_response:
+            text_response = text_response.split('```json')[1].split('```')[0]
+        elif '```' in text_response:
+            text_response = text_response.split('```')[1].split('```')[0]
+        
+        parsed = json.loads(text_response.strip())
+        
+        # 驗證資料完整性
+        if not parsed.get('vocabulary') or len(parsed.get('vocabulary', [])) < 3:
+            st.warning("AI 回傳的單字資料較少，建議重新分析")
+        
+        return parsed
+        
+    except Exception as e:
+        st.error(f"AI 分析錯誤: {str(e)}")
+        return None
+
+# ===================================================================
+# 0.3 閃卡資料準備
+# ===================================================================
+def prepare_flashcards(analysis_data):
+    """將分析資料轉換為閃卡格式"""
+    flashcards = []
+    
+    # 單字閃卡 (正面：中文意思，背面：英文單字+例句)
+    for v in analysis_data.get('vocabulary', []):
+        flashcards.append({
+            'type': 'vocab',
+            'front': f"**{v['meaning']}**",
+            'back': f"### {v['word']}\n\n🔉 {v.get('phonetic', '')}\n\n**例句：**\n{v['example']}\n\n{v.get('example_cn', '')}",
+            'audio': v['word'],
+            'data': v
+        })
+    
+    # 片語閃卡
+    for p in analysis_data.get('phrases', []):
+        flashcards.append({
+            'type': 'phrase',
+            'front': f"**{p['meaning']}**",
+            'back': f"### {p['phrase']}\n\n**例句：**\n{p['example']}\n\n{p.get('example_cn', '')}",
+            'audio': p['phrase'],
+            'data': p
+        })
+    
+    # 段句閃卡 (正面：中文，背面：英文)
+    for i, s in enumerate(analysis_data.get('segments', [])):
+        flashcards.append({
+            'type': 'segment',
+            'front': f"**段句 {i+1}**\n\n{s['cn']}",
+            'back': f"{s['en']}",
+            'audio': s['en'],
+            'data': s
+        })
+    
+    # 整句閃卡
+    fv = analysis_data.get('full_verse', {})
+    if fv:
+        flashcards.append({
+            'type': 'full',
+            'front': f"**{fv.get('ref', '')}**\n\n{fv.get('cn', '')}",
+            'back': f"{fv.get('en', '')}",
+            'audio': fv.get('en', ''),
+            'data': fv
+        })
+    
+    return flashcards
+
+# ===================================================================
+# 0.4 閃卡導航函式
+# ===================================================================
+def next_card():
+    """下一張閃卡"""
+    if st.session_state.flashcards_data:
+        st.session_state.flashcard_index = (st.session_state.flashcard_index + 1) % len(st.session_state.flashcards_data)
+        st.session_state.flashcard_flipped = False
+
+def prev_card():
+    """上一張閃卡"""
+    if st.session_state.flashcards_data:
+        st.session_state.flashcard_index = (st.session_state.flashcard_index - 1) % len(st.session_state.flashcards_data)
+        st.session_state.flashcard_flipped = False
+
+def flip_card():
+    """翻轉閃卡"""
+    st.session_state.flashcard_flipped = not st.session_state.flashcard_flipped
+
+# ===================================================================
+# 0.5 資料儲存函數（統一使用 bible_data.json）
+# ===================================================================
+
+DATA_FILE = "bible_data.json"
+
+def load_custom_verses():
+    """載入自訂金句"""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("custom_verses", [""] * 7)
+        except:
+            return [""] * 7
+    return [""] * 7
 # ===================================================================
 # 0.5 資料儲存函數（統一使用 bible_data.json）
 # ===================================================================
