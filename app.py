@@ -211,44 +211,56 @@ def save_favorites():
 # ===================================================================
 def analyze_scripture_with_ai(text, chinese, reference):
     """
-    呼叫 Gemini API 進行經文解析，支援自動模型偵測與錯誤處理。
+    呼叫 Gemini API 進行經文解析，支援自動模型偵測與「強效」Secrets 讀取。
     """
     # 1. 檢查套件載入
     if genai is None:
-        st.error("❌ Google Generative AI 套件未安裝，請執行 pip install google-generativeai")
+        st.error("❌ Google Generative AI 套件未安裝")
         return None
 
-    # 2. 讀取 API Key (從 Secrets 讀取多層級或扁平化結構)
+    # 2. 強效讀取 API Key (排除所有層級命名問題)
+    api_key = None
     try:
-        api_key = st.secrets.get("gemini", {}).get("api_key") or st.secrets.get("api_key")
+        # 優先權 1: [gemini] 下的 api_key (標準做法)
+        if "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
+            api_key = st.secrets["gemini"]["api_key"]
+        # 優先權 2: 扁平化的 gemini_api_key
+        elif "gemini_api_key" in st.secrets:
+            api_key = st.secrets["gemini_api_key"]
+        # 優先權 3: 最外層直接叫 api_key
+        elif "api_key" in st.secrets:
+            api_key = st.secrets["api_key"]
+            
         if not api_key:
             raise KeyError
-    except (KeyError, AttributeError):
-        st.error("❌ 找不到 API Key。請確保 .streamlit/secrets.toml 中有 [gemini] api_key")
+    except:
+        st.error("❌ 讀取 API Key 失敗。")
+        # 💡 偵錯工具：如果找不到，顯示現有的 Key 名稱幫我們除錯
+        st.warning(f"目前偵測到的 Secrets 包含: {list(st.secrets.keys())}")
+        st.info("請檢查 .streamlit/secrets.toml 格式是否為 [gemini] 底下縮排 api_key")
         return None
 
     # 3. 配置與模型初始化
     try:
         genai.configure(api_key=api_key)
         
-        # 嘗試清單，優先使用 1.5-flash，不帶 models/ 前綴通常在 SDK 0.5+ 最穩
+        # 嘗試清單
         model_names = ['gemini-1.5-flash', 'models/gemini-1.5-flash', 'gemini-pro']
         model = None
         
         for name in model_names:
             try:
                 test_model = genai.GenerativeModel(name)
-                # 這裡不實際 generate，只是確保名稱可被 SDK 接受
                 model = test_model
                 break
             except:
                 continue
         
         if model is None:
-            st.error("❌ 無法初始化模型。請更新 SDK: pip install -U google-generativeai")
+            st.error("❌ 無法初始化模型。請嘗試更新 SDK。")
             return None
 
-        # 4. 定義 Prompt (修正原本縮排導致 SyntaxError 的地方)
+        # 4. 定義 Prompt
         prompt = f"""
         Act as a Bible linguist. Analyze this verse for flashcard learning.
         Verse: {text}
@@ -257,32 +269,23 @@ def analyze_scripture_with_ai(text, chinese, reference):
 
         Return a JSON object ONLY with this exact structure:
         {{
-          "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "life example sentence" }}],
-          "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "life example sentence" }}],
+          "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "sentence" }}],
+          "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "sentence" }}],
           "segments": [{{ "en": "Eng segment", "cn": "中文段句" }}],
           "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
           "podcast_script": [{{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }}]
         }}
-        Extract 2-3 words and 1-2 phrases. Podcast should be a short natural English conversation.
+        Extract 2-3 words and 1-2 phrases.
         """
 
-        # 5. 執行 AI 生成
+        # 5. 執行生成
         response = model.generate_content(prompt)
-        
-        # 清理並轉換 JSON
         clean_text = re.sub(r'```json|```', '', response.text).strip()
-        result = json.loads(clean_text)
-        
-        # 確保回傳包含出處資訊
-        if 'full_verse' not in result:
-            result['full_verse'] = {"en": text, "cn": chinese, "ref": reference}
-            
-        return result
+        return json.loads(clean_text)
 
     except Exception as e:
-        st.error(f"⚠️ AI 解析過程出錯: {e}")
+        st.error(f"⚠️ AI 運算過程出錯: {e}")
         return None
-
 # ===================================================================
 # ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
