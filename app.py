@@ -231,8 +231,7 @@ def analyze_scripture_with_ai(text, chinese, reference):
         return None
     
     genai.configure(api_key=api_key)
-    # ✅ 修正這一行：加上 models/ 前綴
-    model = genai.GenerativeModel('models/gemini-1.5-flash')    
+    model = genai.GenerativeModel('gemini-pro')    
     
     # 核心 Prompt：定義閃卡格式
     prompt = f"""
