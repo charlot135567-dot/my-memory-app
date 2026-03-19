@@ -207,78 +207,83 @@ def save_favorites():
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 # ===================================================================
-# 0.6 AI 解析核心函式 (真實串接 Gemini API)
+# 0.6 AI 解析核心函式 (完整修正版：解決 404 與 語法錯誤)
 # ===================================================================
 def analyze_scripture_with_ai(text, chinese, reference):
-    # 檢查 API 套件是否載入成功
+    """
+    呼叫 Gemini API 進行經文解析，支援自動模型偵測與錯誤處理。
+    """
+    # 1. 檢查套件載入
     if genai is None:
-        st.error("Google Generative AI 套件未安裝")
+        st.error("❌ Google Generative AI 套件未安裝，請執行 pip install google-generativeai")
         return None
-    
-    # ✅ 修正：從 secrets.toml 讀取 API Key
+
+    # 2. 讀取 API Key (從 Secrets 讀取多層級或扁平化結構)
     try:
-        # 嘗試多種可能的讀取路徑
         api_key = st.secrets.get("gemini", {}).get("api_key") or st.secrets.get("api_key")
-    except KeyError:
-        st.error("❌ 找不到 gemini.api_key，請檢查 secrets.toml")
-        st.info("""
-        **請在 `.streamlit/secrets.toml` 加入：**
-        ```toml
-        [gemini]
-        api_key = "你的實際API金鑰"
-        ```
-        """)
+        if not api_key:
+            raise KeyError
+    except (KeyError, AttributeError):
+        st.error("❌ 找不到 API Key。請確保 .streamlit/secrets.toml 中有 [gemini] api_key")
         return None
-    
+
+    # 3. 配置與模型初始化
     try:
         genai.configure(api_key=api_key)
-        # ✅ 自動嘗試三種最可能的名稱格式
+        
+        # 嘗試清單，優先使用 1.5-flash，不帶 models/ 前綴通常在 SDK 0.5+ 最穩
         model_names = ['gemini-1.5-flash', 'models/gemini-1.5-flash', 'gemini-pro']
         model = None
         
         for name in model_names:
             try:
-                model = genai.GenerativeModel(name)
-                # 測試性呼叫 (選用，確保模型可用)
-                break 
+                test_model = genai.GenerativeModel(name)
+                # 這裡不實際 generate，只是確保名稱可被 SDK 接受
+                model = test_model
+                break
             except:
                 continue
         
         if model is None:
-            st.error("❌ 無法載入任何 Gemini 模型，請檢查 API Key 權限或更新 SDK。")
+            st.error("❌ 無法初始化模型。請更新 SDK: pip install -U google-generativeai")
             return None
 
-        # 剩下的 prompt 和 response 邏輯保持不變
-        response = model.generate_content(prompt)   
-    
-    # 核心 Prompt：定義閃卡格式
-    prompt = f"""
-    Act as a Bible linguist. Analyze this verse for flashcard learning.
-    Verse: {text}
-    Translation: {chinese}
-    Ref: {reference}
+        # 4. 定義 Prompt (修正原本縮排導致 SyntaxError 的地方)
+        prompt = f"""
+        Act as a Bible linguist. Analyze this verse for flashcard learning.
+        Verse: {text}
+        Translation: {chinese}
+        Ref: {reference}
 
-    Return a JSON object ONLY with this exact structure:
-    {{
-      "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "life example sentence" }}],
-      "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "life example sentence" }}],
-      "segments": [{{ "en": "Eng segment", "cn": "中文段句" }}],
-      "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
-      "podcast_script": [{{ "speaker": "Host A", "text": "English dialogue..." }}]
-    }}
-    Extract 2-3 words and 1-2 phrases. Podcast should be a 4-6 line English conversation.
-    """
-    
-    try:
+        Return a JSON object ONLY with this exact structure:
+        {{
+          "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "life example sentence" }}],
+          "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "life example sentence" }}],
+          "segments": [{{ "en": "Eng segment", "cn": "中文段句" }}],
+          "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
+          "podcast_script": [{{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }}]
+        }}
+        Extract 2-3 words and 1-2 phrases. Podcast should be a short natural English conversation.
+        """
+
+        # 5. 執行 AI 生成
         response = model.generate_content(prompt)
-        # 清理 AI 回傳的 Markdown 標籤
+        
+        # 清理並轉換 JSON
         clean_text = re.sub(r'```json|```', '', response.text).strip()
         result = json.loads(clean_text)
         
+        # 確保回傳包含出處資訊
+        if 'full_verse' not in result:
+            result['full_verse'] = {"en": text, "cn": chinese, "ref": reference}
+            
         return result
+
     except Exception as e:
-        st.error(f"AI 解析出錯: {e}")
+        st.error(f"⚠️ AI 解析過程出錯: {e}")
         return None
+
+# ===================================================================
 # ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
