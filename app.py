@@ -217,7 +217,8 @@ def analyze_scripture_with_ai(text, chinese, reference):
     
     # ✅ 修正：從 secrets.toml 讀取 API Key
     try:
-        api_key = st.secrets["gemini"]["api_key"]
+        # 嘗試多種可能的讀取路徑
+        api_key = st.secrets.get("gemini", {}).get("api_key") or st.secrets.get("api_key")
     except KeyError:
         st.error("❌ 找不到 gemini.api_key，請檢查 secrets.toml")
         st.info("""
