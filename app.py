@@ -217,8 +217,7 @@ def analyze_scripture_with_ai(text, chinese, reference):
     
     # --- 請在此輸入你的 API KEY ---
     # 建議放在 secrets.toml 或環境變數中，目前先直接填入進行測試
-    genai.configure(api_key="你的_GEMINI_API_KEY")
-    
+    genai.configure(api_key=st.secrets["gemini"]["api_key"])
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     # 核心 Prompt：定義閃卡格式
