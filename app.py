@@ -215,9 +215,22 @@ def analyze_scripture_with_ai(text, chinese, reference):
         st.error("Google Generative AI 套件未安裝")
         return None
     
-    # --- 請在此輸入你的 API KEY ---
-    # 建議放在 secrets.toml 或環境變數中，目前先直接填入進行測試
-    genai.configure(api_key=st.secrets["gemini"]["api_key"])
+    # ✅ 修正：從 secrets.toml 讀取 API Key
+    try:
+        api_key = st.secrets["gemini"]["api_key"]
+    except KeyError:
+        st.error("❌ 找不到 gemini.api_key，請檢查 secrets.toml")
+        st.info("""
+        **請在 `.streamlit/secrets.toml` 加入：**
+        ```toml
+        [gemini]
+        api_key = "你的實際API金鑰"
+        ```
+        """)
+        return None
+    
+    genai.configure(api_key=api_key)
+    
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     # 核心 Prompt：定義閃卡格式
@@ -244,7 +257,6 @@ def analyze_scripture_with_ai(text, chinese, reference):
         clean_text = re.sub(r'```json|```', '', response.text).strip()
         result = json.loads(clean_text)
         
-        # 為了保持與 UI 統計數據的相容性，增加長度檢查
         return result
     except Exception as e:
         st.error(f"AI 解析出錯: {e}")
