@@ -53,106 +53,106 @@ def play_audio_html(text, lang='en'):
     st.markdown(audio_html, unsafe_allow_html=True)
 
 # ===================================================================
-# 0.2 AI 分析函式 (Gemini API)
+# 0.2 AI 分析函式 (Gemini API) - 最終修正版
 # ===================================================================
-def analyze_scripture_with_ai(en_text, cn_text, ref):
-    """呼叫 Gemini API 進行深度分析"""
-    api_key = st.secrets.get("GOOGLE_API_KEY", "")
-    
-    if not api_key:
-        st.error("請在 secrets.toml 設定 GOOGLE_API_KEY")
-        return None
-    
-    # 強化 Prompt 要求詳細分析
-    prompt = f"""
-    請深度分析以下聖經經文，並以 JSON 格式回傳。必須包含以下四個層級：
-    
-    經文參考: {ref}
-    中文經文: {cn_text}
-    英文經文: {en_text}
-    
-    請嚴格按照以下格式回傳 JSON：
-    {{
-        "vocabulary": [
-            {{
-                "word": "英文單字",
-                "meaning": "中文意思（其他意思）",
-                "phonetic": "音標",
-                "example": "生活應用例句（英文）",
-                "example_cn": "生活應用例句（中文翻譯）"
-            }}
-        ],
-        "phrases": [
-            {{
-                "phrase": "英文片語",
-                "meaning": "中文意思（其他意思）",
-                "example": "生活應用例句（英文）",
-                "example_cn": "生活應用例句（中文翻譯）"
-            }}
-        ],
-        "segments": [
-            {{
-                "cn": "中文段句",
-                "en": "英文段句"
-            }}
-        ],
-        "full_verse": {{
-            "ref": "經文參考",
-            "cn": "完整中文經文",
-            "en": "完整英文經文"
-        }},
-        "podcast_script": [
-            {{
-                "speaker": "Rachel",
-                "text": "對話內容"
-            }},
-            {{
-                "speaker": "Mike", 
-                "text": "對話內容"
-            }}
-        ]
-    }}
-    
-    要求：
-    1. 單字：每一句英文經文至少提取 3-5 個重要單字，包含音標
-    2. 片語：每一句英文經文至少提取 2-3 個常用片語
-    3. 段句：將每一句英文經文至少拆解為 2-6 個對應的中英段句
-    4. 雙人對話：設計 Rachel（教導者）和 Mike（學習者）的對話，討論這段經文的意義和應用
+def analyze_scripture_with_ai(text, chinese, reference):
     """
-    
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
-    
+    呼叫 Gemini API 進行經文解析，支援自動模型偵測與「強效」Secrets 讀取。
+    """
+    # 1. 檢查套件載入
+    if genai is None:
+        st.error("❌ Google Generative AI 套件未安裝")
+        return None
+
+    # 2. 強效讀取 API Key
+    api_key = None
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        response.raise_for_status()
-        result = response.json()
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        elif "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
+            api_key = st.secrets["gemini"]["api_key"]
+        elif "gemini_api_key" in st.secrets:
+            api_key = st.secrets["gemini_api_key"]
+
+        if not api_key:
+            raise KeyError
+    except Exception:
+        st.error("❌ 讀取 API Key 失敗。")
+        st.warning(f"目前 Secrets 包含: {list(st.secrets.keys())}")
+        return None
+
+    # 3. 配置與自動偵測可用模型
+    try:
+        genai.configure(api_key=api_key)
         
-        # 解析回應
-        text_response = result['candidates'][0]['content']['parts'][0]['text']
+        available_models = []
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available_models.append(m.name)
+        except Exception as list_e:
+            st.error(f"無法取得模型清單: {list_e}")
+            return None
+
+        if not available_models:
+            st.error("❌ 你的 API Key 目前沒有任何可用的生成模型。")
+            return None
+
+        target_model = None
+        for m_name in available_models:
+            if "gemini-1.5-flash" in m_name:
+                target_model = m_name
+                break
         
-        # 清理 JSON 字串
-        if '```json' in text_response:
-            text_response = text_response.split('```json')[1].split('```')[0]
-        elif '```' in text_response:
-            text_response = text_response.split('```')[1].split('```')[0]
+        if not target_model:
+            target_model = available_models[0]
+            st.warning(f"⚠️ 自動選用相容模型: {target_model}")
+
+        model = genai.GenerativeModel(target_model)
         
-        parsed = json.loads(text_response.strip())
-        
-        # 驗證資料完整性
-        if not parsed.get('vocabulary') or len(parsed.get('vocabulary', [])) < 3:
-            st.warning("AI 回傳的單字資料較少，建議重新分析")
-        
-        return parsed
-        
+        # 4. 定義 Prompt
+        prompt = f"""
+        Act as a Bible linguist. Analyze this verse for flashcard learning.
+        Verse: {text}
+        Translation: {chinese}
+        Ref: {reference}
+
+        Return a JSON object ONLY with this exact structure:
+        {{
+          "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "sentence" }}],
+          "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "sentence" }}],
+          "segments": [{{ "en": "Eng segment", "cn": "中文段句" }}],
+          "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
+          "podcast_script": [{{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }}]
+        }}
+        Extract 2-3 words and 1-2 phrases.
+        """
+
+        # 5. 執行生成
+        response = model.generate_content(prompt)
+
+        if response and hasattr(response, 'text'):
+            # A. 移除 Markdown 的 JSON 標籤
+            clean_text = re.sub(r'```json|```', '', response.text).strip()
+
+            try:
+                # B. 嘗試標準解析
+                return json.loads(clean_text, strict=False)
+            except json.JSONDecodeError:
+                # C. 二次修復
+                st.warning("⚠️ 偵測到格式異常，正在進行二次修復...")
+                fixed_text = "".join(ch for ch in clean_text if ord(ch) >= 32 or ch in "\n\r\t")
+                try:
+                    return json.loads(fixed_text, strict=False)
+                except json.JSONDecodeError as e2:
+                    st.error(f"⚠️ 無法修復 JSON 格式: {e2}")
+                    return None
+        else:
+            st.error("AI 回傳內容為空")
+            return None
+            
     except Exception as e:
-        st.error(f"AI 分析錯誤: {str(e)}")
+        st.error(f"⚠️ AI 運算過程出錯: {e}")
         return None
 
 # ===================================================================
@@ -162,7 +162,6 @@ def prepare_flashcards(analysis_data):
     """將分析資料轉換為閃卡格式"""
     flashcards = []
     
-    # 單字閃卡 (正面：中文意思，背面：英文單字+例句)
     for v in analysis_data.get('vocabulary', []):
         flashcards.append({
             'type': 'vocab',
@@ -172,7 +171,6 @@ def prepare_flashcards(analysis_data):
             'data': v
         })
     
-    # 片語閃卡
     for p in analysis_data.get('phrases', []):
         flashcards.append({
             'type': 'phrase',
@@ -182,7 +180,6 @@ def prepare_flashcards(analysis_data):
             'data': p
         })
     
-    # 段句閃卡 (正面：中文，背面：英文)
     for i, s in enumerate(analysis_data.get('segments', [])):
         flashcards.append({
             'type': 'segment',
@@ -192,7 +189,6 @@ def prepare_flashcards(analysis_data):
             'data': s
         })
     
-    # 整句閃卡
     fv = analysis_data.get('full_verse', {})
     if fv:
         flashcards.append({
@@ -227,23 +223,6 @@ def flip_card():
 # ===================================================================
 # 0.5 資料儲存函數（統一使用 bible_data.json）
 # ===================================================================
-
-DATA_FILE = "bible_data.json"
-
-def load_custom_verses():
-    """載入自訂金句"""
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return data.get("custom_verses", [""] * 7)
-        except:
-            return [""] * 7
-    return [""] * 7
-# ===================================================================
-# 0.5 資料儲存函數（統一使用 bible_data.json）
-# ===================================================================
-
 DATA_FILE = "bible_data.json"
 
 def load_custom_verses():
@@ -294,17 +273,14 @@ def save_todos():
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# ✅ 輔助函數也要定義在前面
 def fetch_verse_by_reference(ref_input, sentences):
     """根據出處取得經文"""
     try:
-        # 直接比對
         if ref_input in sentences:
             data = sentences[ref_input]
             content = data.get('v1_content', '')
             return extract_english(content), extract_chinese(content), ref_input
         
-        # 嘗試模糊比對
         ref_lower = ref_input.lower().replace(' ', '')
         for key in sentences.keys():
             if ref_lower in key.lower().replace(' ', ''):
@@ -325,7 +301,6 @@ def extract_english(content):
         headers = lines[0].split('\t')
         for i, h in enumerate(headers):
             if 'english' in h.lower() or 'esv' in h.lower():
-                # 找第一行資料
                 data_lines = [l for l in lines[1:] if l.strip()]
                 if data_lines:
                     cells = data_lines[0].split('\t')
@@ -394,6 +369,7 @@ def send_to_tab3(result):
             'back': card.get('back', ''),
             'reference': result.get('reference', '')
         })
+
 def load_favorites():
     """載入收藏"""
     if os.path.exists(DATA_FILE):
@@ -419,114 +395,13 @@ def save_favorites():
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 # ===================================================================
-# 0.6 AI 解析核心函式 (完整修正版：解決 404 與 語法錯誤)
+# 頁面設定（必須是第一個 st. 指令！）
 # ===================================================================
-def analyze_scripture_with_ai(text, chinese, reference):
-    """
-    呼叫 Gemini API 進行經文解析，支援自動模型偵測與「強效」Secrets 讀取。
-    """
-    # 1. 檢查套件載入
-    if genai is None:
-        st.error("❌ Google Generative AI 套件未安裝")
-        return None
-
-    # 2. 強效讀取 API Key (針對偵測到的 GEMINI_API_KEY 進行修正)
-    api_key = None
-    try:
-        # 優先權 1: 你目前偵測到的名稱 (GEMINI_API_KEY)
-        if "GEMINI_API_KEY" in st.secrets:
-            api_key = st.secrets["GEMINI_API_KEY"]
-        
-        # 優先權 2: 如果未來改回 [gemini] api_key 也能通
-        elif "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
-            api_key = st.secrets["gemini"]["api_key"]
-            
-        # 優先權 3: 萬一被壓扁成小寫 gemini_api_key
-        elif "gemini_api_key" in st.secrets:
-            api_key = st.secrets["gemini_api_key"]
-
-        if not api_key:
-            raise KeyError
-    except Exception:
-        st.error("❌ 讀取 API Key 失敗。")
-        st.warning(f"目前 Secrets 包含: {list(st.secrets.keys())}")
-        return None
-
-# 3. 配置與自動偵測可用模型 (解決 404 終極方案)
-    try:
-        genai.configure(api_key=api_key)
-        
-        # 🟢 第一步：先列出這把 Key 真正支援的所有模型
-        available_models = []
-        try:
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available_models.append(m.name)
-        except Exception as list_e:
-            st.error(f"無法取得模型清單: {list_e}")
-            return None
-
-        if not available_models:
-            st.error("❌ 你的 API Key 目前沒有任何可用的生成模型。請檢查 Google AI Studio 權限。")
-            return None
-
-        # 🟢 第二步：從清單中挑選。優先用 1.5-flash，沒有就用清單第一個。
-        target_model = None
-        for m_name in available_models:
-            if "gemini-1.5-flash" in m_name:
-                target_model = m_name
-                break
-        
-        if not target_model:
-            target_model = available_models[0]
-            st.warning(f"⚠️ 自動選用相容模型: {target_model}")
-
-        model = genai.GenerativeModel(target_model)
-# 4. 定義 Prompt (確保這行前面有 8 個空格)
-        prompt = f"""
-        Act as a Bible linguist. Analyze this verse for flashcard learning.
-        Verse: {text}
-        Translation: {chinese}
-        Ref: {reference}
-
-        Return a JSON object ONLY with this exact structure:
-        {{
-          "vocabulary": [{{ "word": "word", "meaning": "意思", "phonetic": "/.../", "example": "sentence" }}],
-          "phrases": [{{ "phrase": "phrase", "meaning": "意思", "example": "sentence" }}],
-          "segments": [{{ "en": "Eng segment", "cn": "中文段句" }}],
-          "full_verse": {{ "en": "{text}", "cn": "{chinese}", "ref": "{reference}" }},
-          "podcast_script": [{{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }}]
-        }}
-        Extract 2-3 words and 1-2 phrases.
-        """
-
-        # 5. 執行生成 (這行必須跟上面的 prompt 對齊！)
-        response = model.generate_content(prompt)
-
-        if response and hasattr(response, 'text'):
-            # A. 移除 Markdown 的 JSON 標籤
-            clean_text = re.sub(r'```json|```', '', response.text).strip()
-
-            try:
-                # B. 嘗試標準解析
-                return json.loads(clean_text, strict=False)
-            except json.JSONDecodeError:
-                # C. 二次修復
-                st.warning("⚠️ 偵測到格式異常，正在進行二次修復...")
-                fixed_text = "".join(ch for ch in clean_text if ord(ch) >= 32 or ch in "\n\r\t")
-                try:
-                    return json.loads(fixed_text, strict=False)
-                except json.JSONDecodeError as e2:
-                    st.error(f"⚠️ 無法修復 JSON 格式: {e2}")
-                    return None
-        else:
-            st.error("AI 回傳內容為空")
-            return None
-# ===================================================================
-# ---------- 頁面設定（必須在第一個 st. 指令前，且只能呼叫一次）----------
 st.set_page_config(layout="wide", page_title="Bible Study AI App 2026")
 
-# ---------- 診斷：檢查 secrets ----------
+# ===================================================================
+# 診斷：檢查 secrets
+# ===================================================================
 if "gcp_service_account" not in st.secrets:
     st.error("❌ 找不到 gcp_service_account secrets！")
     st.info("""
@@ -534,36 +409,23 @@ if "gcp_service_account" not in st.secrets:
     
     1. 前往 https://share.streamlit.io/  
     2. 點擊你的 app → ⚙️ Settings → Secrets
-    3. 貼上 TOML 格式的 Google Sheets 憑證：
+    3. 貼上 TOML 格式的 Google Sheets 憑證
     
-    ```toml
     [gcp_service_account]
     type = "service_account"
-    project_id = "..."
-    private_key_id = "..."
-    private_key = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
-    client_email = "..."
-    client_id = "..."
-    auth_uri = "https://accounts.google.com/o/oauth2/auth"
-    token_uri = "https://oauth2.googleapis.com/token"
-    
-    [sheets]
-    spreadsheet_id = "你的試算表ID"
-    
-    [gemini]
-    api_key = "你的 Gemini API Key"
-    ```
+    ...
     """)
     st.stop()
 
 if "sheets" not in st.secrets or "spreadsheet_id" not in st.secrets["sheets"]:
     st.error("❌ 找不到 sheets.spreadsheet_id！")
-    st.info("請在 secrets 中加入 `[sheets]` 區塊和 `spreadsheet_id`")
     st.stop()
 
-# ---------- Google Sheets 連線（每次重新建立）----------
+# ===================================================================
+# Google Sheets 連線
+# ===================================================================
 def get_google_sheets_client():
-    """重新建立 Google Sheets 連線，回傳 (gc, sheet_id) 或 (None, None)"""
+    """重新建立 Google Sheets 連線"""
     try:
         if "gcp_service_account" not in st.secrets:
             return None, None
@@ -584,7 +446,9 @@ def get_google_sheets_client():
         st.sidebar.error(f"Google Sheets 連線失敗: {e}")
         return None, None
 
-# ---------- 資料庫設定 ----------
+# ===================================================================
+# 資料庫設定
+# ===================================================================
 DATA_DIR = "data"
 SENTENCES_FILE = os.path.join(DATA_DIR, "sentences.json")
 TODO_FILE = os.path.join(DATA_DIR, "todos.json")
@@ -592,14 +456,14 @@ FAVORITE_FILE = os.path.join(DATA_DIR, "favorite_sentences.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# ---------- 本地檔案操作（簡化版，無備份）----------
+# ===================================================================
+# 本地檔案操作
+# ===================================================================
 def load_sentences():
     """載入資料：優先從 Google Sheets，失敗時讀本地檔案"""
-    # 先嘗試從 Google Sheets 載入
     google_data = load_sentences_from_google_sheets()
     
     if google_data:
-        # 同時更新本地檔案作為快取
         try:
             with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
                 json.dump(google_data, f, ensure_ascii=False, indent=2)
@@ -609,7 +473,6 @@ def load_sentences():
         
         return google_data
     
-    # 如果 Google Sheets 失敗，讀取本地檔案
     st.sidebar.info("📁 從本地檔案載入...")
     
     if not os.path.exists(SENTENCES_FILE):
@@ -631,7 +494,7 @@ def load_sentences():
         return {}
 
 def save_sentences(data):
-    """簡化版：儲存本地快取（無備份）"""
+    """儲存本地快取"""
     if not isinstance(data, dict):
         st.error("儲存失敗：資料必須是字典格式")
         return False
@@ -644,7 +507,7 @@ def save_sentences(data):
         st.error(f"儲存本地資料庫失敗：{e}")
         return False
 
-def load_todos():
+def load_todos_local():
     if os.path.exists(TODO_FILE):
         try:
             with open(TODO_FILE, "r", encoding="utf-8") as f:
@@ -653,11 +516,11 @@ def load_todos():
             pass
     return {}
 
-def save_todos():
+def save_todos_local():
     with open(TODO_FILE, "w", encoding="utf-8") as f:
         json.dump(st.session_state.todo, f, ensure_ascii=False, indent=2)
 
-def load_favorites():
+def load_favorites_local():
     if os.path.exists(FAVORITE_FILE):
         try:
             with open(FAVORITE_FILE, "r", encoding="utf-8") as f:
@@ -666,11 +529,13 @@ def load_favorites():
             pass
     return []
 
-def save_favorites():
+def save_favorites_local():
     with open(FAVORITE_FILE, "w", encoding="utf-8") as f:
         json.dump(st.session_state.favorite_sentences, f, ensure_ascii=False, indent=2)
 
-# ---------- 解析內容（支援 \t 分隔 + 欄位對齊）----------
+# ===================================================================
+# 解析內容
+# ===================================================================
 def parse_content_to_rows(content, expected_cols=None):
     """解析 CSV 或 Markdown 表格為二維列表"""
     if not content:
@@ -708,9 +573,11 @@ def parse_content_to_rows(content, expected_cols=None):
     
     return rows
 
-# ---------- Google Sheets 儲存函式（欄位對齊版）----------
+# ===================================================================
+# Google Sheets 儲存函式
+# ===================================================================
 def save_v1_sheet(ref, content, gc, sheet_id):
-    """儲存到 V1_Sheet，第一欄為原始檔名，第二欄起為資料"""
+    """儲存到 V1_Sheet"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -733,7 +600,7 @@ def save_v1_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_v2_sheet(ref, content, gc, sheet_id):
-    """儲存到 V2_Sheet，第一欄為原始檔名，第二欄起為資料"""
+    """儲存到 V2_Sheet"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -756,7 +623,7 @@ def save_v2_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_w_sheet(ref, content, gc, sheet_id):
-    """儲存到 W_Sheet，第一欄為原始檔名"""
+    """儲存到 W_Sheet"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -779,7 +646,7 @@ def save_w_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_p_sheet(ref, content, gc, sheet_id):
-    """儲存到 P_Sheet，第一欄為原始檔名"""
+    """儲存到 P_Sheet"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -802,7 +669,7 @@ def save_p_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_grammar_sheet(ref, content, gc, sheet_id):
-    """儲存到 Grammar_List，第一欄為原始檔名"""
+    """儲存到 Grammar_List"""
     if not content or not content.strip() or not gc or not sheet_id:
         return True
     
@@ -812,7 +679,7 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
             ws = sh.worksheet("Grammar_List")
         except gspread.WorksheetNotFound:
             ws = sh.add_worksheet("Grammar_List", rows=1000, cols=5)
-            ws.append_row(["檔名_批次", "No經卷範圍", "Original Sentence＋中文翻譯", "Grammar Rule", "Analysis & Example (1️⃣2️⃣3️⃣4️⃣)"])
+            ws.append_row(["檔名_批次", "No經卷範圍", "Original Sentence＋中文翻譯", "Grammar Rule", "Analysis & Example"])
         
         rows = parse_content_to_rows(content, expected_cols=4)
         if rows:
@@ -825,7 +692,7 @@ def save_grammar_sheet(ref, content, gc, sheet_id):
         return False
 
 def save_to_google_sheets(data_dict):
-    """將資料分別存入對應的 5 個工作表，避免重複上傳"""
+    """將資料分別存入對應的 5 個工作表"""
     gc, sheet_id = get_google_sheets_client()
     
     if not gc or not sheet_id:
@@ -836,7 +703,6 @@ def save_to_google_sheets(data_dict):
         ref = data_dict.get('ref', 'N/A')
         mode = data_dict.get('mode', 'A')
         
-        # 檢查是否已存在相同的 ref
         sh = gc.open_by_key(sheet_id)
         existing_refs = set()
         
@@ -851,7 +717,7 @@ def save_to_google_sheets(data_dict):
             pass
         
         if ref in existing_refs:
-            st.sidebar.warning(f"⚠️ {ref} 已存在於 Google Sheets，跳過重複儲存")
+            st.sidebar.warning(f"⚠️ {ref} 已存在，跳過重複儲存")
             return False, f"重複資料：{ref} 已存在"
         
         st.sidebar.info(f"📝 開始儲存：{ref}（模式 {mode}）")
@@ -883,10 +749,7 @@ def save_to_google_sheets(data_dict):
         return False, str(e)
 
 def load_sentences_from_google_sheets():
-    """
-    從 Google Sheets 載入所有資料，按檔名分組整合
-    回傳格式：{ref: data_dict, ...}
-    """
+    """從 Google Sheets 載入所有資料"""
     gc, sheet_id = get_google_sheets_client()
     
     if not gc or not sheet_id:
@@ -896,14 +759,14 @@ def load_sentences_from_google_sheets():
     all_data = {}
     sh = gc.open_by_key(sheet_id)
     
-    # V1_Sheet - 按檔名分組
+    # V1_Sheet
     try:
         ws = sh.worksheet("V1_Sheet")
         rows = ws.get_all_values()
         st.sidebar.caption(f"📊 V1_Sheet：讀取 {len(rows)} 行")
         
         if len(rows) > 1:
-            for row in rows[1:]:  # 跳過標題
+            for row in rows[1:]:
                 if len(row) >= 6:
                     group_ref = row[0].strip()
                     
@@ -921,7 +784,6 @@ def load_sentences_from_google_sheets():
                             "saved_sheets": ["V1 Sheet"],
                             "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
-                    # 組合資料（第2欄開始是實際資料）
                     row_data = row[1:6] if len(row) >= 6 else row[1:] + [''] * (6 - len(row))
                     all_data[group_ref]["v1_content"] += "\t".join(row_data) + "\n"
     except gspread.WorksheetNotFound:
@@ -929,7 +791,7 @@ def load_sentences_from_google_sheets():
     except Exception as e:
         st.sidebar.error(f"V1_Sheet 讀取錯誤：{e}")
     
-    # V2_Sheet - 按檔名分組
+    # V2_Sheet
     try:
         ws = sh.worksheet("V2_Sheet")
         rows = ws.get_all_values()
@@ -950,7 +812,7 @@ def load_sentences_from_google_sheets():
     except Exception as e:
         st.sidebar.error(f"V2_Sheet 讀取錯誤：{e}")
     
-    # W_Sheet - 按檔名分組（Mode B）
+    # W_Sheet
     try:
         ws = sh.worksheet("W_Sheet")
         rows = ws.get_all_values()
@@ -982,7 +844,7 @@ def load_sentences_from_google_sheets():
     except Exception as e:
         st.sidebar.error(f"W_Sheet 讀取錯誤：{e}")
     
-    # P_Sheet - 按檔名分組
+    # P_Sheet
     try:
         ws = sh.worksheet("P_Sheet")
         rows = ws.get_all_values()
@@ -1003,7 +865,7 @@ def load_sentences_from_google_sheets():
     except Exception as e:
         st.sidebar.error(f"P_Sheet 讀取錯誤：{e}")
     
-    # Grammar_List - 按檔名分組
+    # Grammar_List
     try:
         ws = sh.worksheet("Grammar_List")
         rows = ws.get_all_values()
@@ -1027,7 +889,9 @@ def load_sentences_from_google_sheets():
     st.sidebar.success(f"✅ 共載入 {len(all_data)} 筆資料")
     return all_data
 
-# ---------- 全域工具函式 ----------
+# ===================================================================
+# 全域工具函式
+# ===================================================================
 def save_analysis_result(result, input_text):
     if "analysis_history" not in st.session_state:
         st.session_state.analysis_history = []
@@ -1058,7 +922,9 @@ def to_excel(result: dict) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
-# ---------- Session State 初始化 ----------
+# ===================================================================
+# Session State 初始化
+# ===================================================================
 if 'todo' not in st.session_state:
     st.session_state.todo = load_todos()
 if 'favorite_sentences' not in st.session_state:
