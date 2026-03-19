@@ -15,12 +15,19 @@ import requests
 import random
 import re
 
+# ✅ 新增：AI 解析需要的套件
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+    st.warning("⚠️ google-generativeai 未安裝，AI 功能將無法使用")
+
+# 標準庫
+import io
+
 # --- Google Sheets 認證 ---
 from google.oauth2.service_account import Credentials
 import gspread
-import io
-
-# ✅ 放在這裡：套件匯入之後，st.set_page_config 之前
 # ===================================================================
 # 0.5 資料儲存函數（統一使用 bible_data.json）
 # ===================================================================
