@@ -218,26 +218,26 @@ def analyze_scripture_with_ai(text, chinese, reference):
         st.error("❌ Google Generative AI 套件未安裝")
         return None
 
-    # 2. 強效讀取 API Key (排除所有層級命名問題)
+    # 2. 強效讀取 API Key (針對偵測到的 GEMINI_API_KEY 進行修正)
     api_key = None
     try:
-        # 優先權 1: [gemini] 下的 api_key (標準做法)
-        if "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
+        # 優先權 1: 你目前偵測到的名稱 (GEMINI_API_KEY)
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        
+        # 優先權 2: 如果未來改回 [gemini] api_key 也能通
+        elif "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
             api_key = st.secrets["gemini"]["api_key"]
-        # 優先權 2: 扁平化的 gemini_api_key
+            
+        # 優先權 3: 萬一被壓扁成小寫 gemini_api_key
         elif "gemini_api_key" in st.secrets:
             api_key = st.secrets["gemini_api_key"]
-        # 優先權 3: 最外層直接叫 api_key
-        elif "api_key" in st.secrets:
-            api_key = st.secrets["api_key"]
-            
+
         if not api_key:
             raise KeyError
-    except:
+    except Exception:
         st.error("❌ 讀取 API Key 失敗。")
-        # 💡 偵錯工具：如果找不到，顯示現有的 Key 名稱幫我們除錯
-        st.warning(f"目前偵測到的 Secrets 包含: {list(st.secrets.keys())}")
-        st.info("請檢查 .streamlit/secrets.toml 格式是否為 [gemini] 底下縮排 api_key")
+        st.warning(f"目前 Secrets 包含: {list(st.secrets.keys())}")
         return None
 
     # 3. 配置與模型初始化
