@@ -2063,87 +2063,198 @@ with tabs[2]:
 # 4. TAB4 ─ 🤖 AI Verse Parser (已串接 Secrets API)
 # ===================================================================
 with tabs[3]:
-# --- 1. 輸入區：確保 col1 與 col2 名稱對應 ---
-    col_in_1, col_in_2 = st.columns(2) # 這裡定義為 col_in_1 和 col_in_2
+    st.markdown("### 📖 經文輸入與 AI 分析")
+    
+    # --- 1. 輸入區 ---
+    col_in_1, col_in_2 = st.columns(2)
     with col_in_1:
-        u_input_en = st.text_area("English Scripture:", height=150, placeholder="Paste English here...", key="tab4_en_final")
-    with col_in_2: # 這裡也要改回 col_in_2
-        u_input_cn = st.text_area("Chinese (Optional):", height=150, placeholder="Paste Chinese here...", key="tab4_cn_final")
+        u_input_en = st.text_area("English Scripture:", height=150, 
+                                  placeholder="Paste English here...", 
+                                  key="tab4_en_final")
+    with col_in_2:
+        u_input_cn = st.text_area("Chinese (Optional):", height=150, 
+                                  placeholder="Paste Chinese here...", 
+                                  key="tab4_cn_final")
     
     u_ref = st.text_input("Reference (e.g. Proverbs 1:7):", key="tab4_ref_final")
 
     # --- 2. 執行按鈕 ---
     if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
         if u_input_en.strip():
-            with st.spinner("🤖 AI 正在分析..."):
-                # 呼叫 0.6 區塊定義的函式 (會自動去讀 secrets.toml)
+            with st.spinner("🤖 AI 正在深度分析...這可能需要幾秒鐘"):
                 analysis_result = analyze_scripture_with_ai(u_input_en, u_input_cn, u_ref)
                 if analysis_result:
                     st.session_state.last_analysis = analysis_result
+                    st.session_state.flashcards_data = prepare_flashcards(analysis_result)
+                    st.session_state.flashcard_index = 0
+                    st.session_state.flashcard_flipped = False
                     st.rerun()
         else:
             st.warning("請先輸入英文經文內容。")
 
-    # --- 3. 數據摘要 (未分析前顯示 0) ---
+    # --- 3. 數據摘要 ---
     res = st.session_state.get('last_analysis', {})
-    
-    # 動態計算數量
     v_count = len(res.get('vocabulary', []))
     p_count = len(res.get('phrases', []))
     s_count = len(res.get('segments', []))
-    pod_count = len(res.get('podcast_script', []))
-
-    # 極簡橫向數據顯示
-    st.markdown(
-        f"<p style='font-size:13px; color:#888; margin: 10px 0;'>"
-        f"<b>Words</b> {v_count} | <b>Phrases</b> {p_count} | <b>Segments</b> {s_count} | <b>Podcast</b> {pod_count}"
-        f"</p>", 
-        unsafe_allow_html=True
-    )
-
-    # --- 4. 結果顯示區 (有資料才顯示分頁) ---
+    
     if res:
-        res_tabs = st.tabs(["🔤 Vocab", "🔗 Phrase", "📑 Segment", "🎧 Podcast"])
-
-        # 1) 單字分頁 (依照閃卡例子：意思 : 單字)
+        st.success(f"✅ 分析完成！單字：{v_count} | 片語：{p_count} | 段句：{s_count}")
+    
+    # --- 4. 分頁顯示結果 ---
+    if res:
+        res_tabs = st.tabs(["🔤 單字", "🔗 片語", "📑 段句", "🎧 雙人對話", "🎴 閃卡模式"])
+        
+        # 1) 單字分頁
         with res_tabs[0]:
-            for v in res.get('vocabulary', []):
+            st.markdown("#### 🔤 單字學習")
+            for i, v in enumerate(res.get('vocabulary', [])):
                 with st.container(border=True):
-                    st.markdown(f"**{v['meaning']}** : `{v['word']}`")
-                    if v.get('phonetic'): st.caption(f"🔉 {v['phonetic']}")
-                    st.write(f"⬇️ {v['example']}")
-                    st.button("🔊 Play", key=f"v_audio_{v['word']}")
-
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.markdown(f"**{v['meaning']}** : `{v['word']}`")
+                        if v.get('phonetic'):
+                            st.caption(f"🔉 {v['phonetic']}")
+                        st.write(f"⬇️ {v['example']}")
+                        if v.get('example_cn'):
+                            st.caption(f"中文：{v['example_cn']}")
+                    with col2:
+                        if st.button("🔊 朗讀", key=f"vocab_audio_{i}"):
+                            play_audio_html(v['word'], 'en')
+                    with col3:
+                        if st.button("📋 例句", key=f"vocab_ex_{i}"):
+                            play_audio_html(v['example'], 'en')
+        
         # 2) 片語分頁
         with res_tabs[1]:
-            for p in res.get('phrases', []):
+            st.markdown("#### 🔗 片語學習")
+            for i, p in enumerate(res.get('phrases', [])):
                 with st.container(border=True):
-                    st.markdown(f"**{p['meaning']}** : `{p['phrase']}`")
-                    st.write(f"⬇️ {p['example']}")
-                    st.button("🔊 Play", key=f"p_audio_{p['phrase']}")
-
-        # 3) 段句與整句 (中英對照)
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"**{p['meaning']}** : `{p['phrase']}`")
+                        st.write(f"⬇️ {p['example']}")
+                        if p.get('example_cn'):
+                            st.caption(f"中文：{p['example_cn']}")
+                    with col2:
+                        if st.button("🔊 朗讀", key=f"phrase_audio_{i}"):
+                            play_audio_html(p['phrase'], 'en')
+        
+        # 3) 段句與整句分頁
         with res_tabs[2]:
-            st.markdown("##### 3）段句拆解")
-            for seg in res.get('segments', []):
-                st.markdown(f"> {seg['cn']}")
-                st.info(seg['en'])
+            st.markdown("#### 📑 段句拆解與整句對照")
+            col_seg, col_full = st.columns(2)
             
-            st.divider()
-            st.markdown("##### 4）整句對照")
-            fv = res.get('full_verse', {})
-            st.success(f"**{fv.get('ref', '')}**\n\n{fv.get('cn', '')}\n\n{fv.get('en', '')}")
-
-        # 4) 雙人播客 (全英文)
+            with col_seg:
+                st.markdown("**段句對照**")
+                for i, seg in enumerate(res.get('segments', [])):
+                    with st.container(border=True):
+                        st.markdown(f"**中文：** {seg['cn']}")
+                        st.info(f"**English：** {seg['en']}")
+                        if st.button("🔊 朗讀", key=f"seg_audio_{i}"):
+                            play_audio_html(seg['en'], 'en')
+            
+            with col_full:
+                st.markdown("**整句對照**")
+                fv = res.get('full_verse', {})
+                if fv:
+                    with st.container(border=True):
+                        st.success(f"**{fv.get('ref', '')}**")
+                        st.markdown(f"**中文：**\n{fv.get('cn', '')}")
+                        st.markdown(f"**English：**\n{fv.get('en', '')}")
+                        if st.button("🔊 朗讀整句", key="full_audio"):
+                            play_audio_html(fv.get('en', ''), 'en')
+        
+        # 4) 雙人對話分頁
         with res_tabs[3]:
-            st.info("🎙️ **Podcast Mode: Rachel & Mike**")
-            for line in res.get('podcast_script', []):
-                st.markdown(f"**{line['speaker']}**: {line['text']}")
+            st.markdown("#### 🎧 雙人對話模式 (Rachel & Mike)")
             
-            st.divider()
-            if st.button("🗑️ Clear Analysis", use_container_width=True):
-                del st.session_state.last_analysis
-                st.rerun()
+            if res.get('podcast_script'):
+                st.info("🎙️ 聆聽 Rachel 和 Mike 討論這段經文的意義與應用")
+                
+                # 播放完整對話
+                full_text = " ".join([line['text'] for line in res.get('podcast_script', [])])
+                if st.button("🔊 播放完整對話", use_container_width=True):
+                    play_audio_html(full_text, 'en')
+                
+                st.divider()
+                
+                # 對話內容
+                for i, line in enumerate(res.get('podcast_script', [])):
+                    speaker_icon = "👩" if line['speaker'] == 'Rachel' else "👨"
+                    with st.container(border=True):
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.markdown(f"**{speaker_icon} {line['speaker']}**: {line['text']}")
+                        with col2:
+                            if st.button("🔊", key=f"podcast_audio_{i}"):
+                                play_audio_html(line['text'], 'en')
+            else:
+                st.warning("尚無對話資料")
+        
+        # 5) 閃卡模式分頁
+        with res_tabs[4]:
+            st.markdown("#### 🎴 閃卡學習模式")
+            
+            flashcards = st.session_state.get('flashcards_data', [])
+            
+            if flashcards:
+                total = len(flashcards)
+                current = st.session_state.flashcard_index
+                current_card = flashcards[current]
+                
+                # 進度指示器
+                st.progress((current + 1) / total)
+                st.caption(f"卡片 {current + 1} / {total} | 類型：{current_card['type']}")
+                
+                # 閃卡顯示區
+                with st.container(border=True):
+                    if st.session_state.flashcard_flipped:
+                        # 背面 (英文)
+                        st.markdown("##### 🔄 背面（英文）")
+                        st.markdown(current_card['back'])
+                    else:
+                        # 正面 (中文)
+                        st.markdown("##### 📄 正面（中文）")
+                        st.markdown(current_card['front'])
+                
+                # 點擊翻轉按鈕
+                if st.button("🔄 點擊翻轉卡片", use_container_width=True, on_click=flip_card):
+                    pass
+                
+                # 語音播放區
+                st.divider()
+                col_audio1, col_audio2 = st.columns(2)
+                with col_audio1:
+                    if st.button("🔊 朗讀正面（中文）", use_container_width=True):
+                        cn_text = current_card['front'].replace('**', '').replace('#', '')
+                        play_audio_html(cn_text, 'zh')
+                with col_audio2:
+                    if st.button("🔊 朗讀背面（英文）", use_container_width=True):
+                        play_audio_html(current_card['audio'], 'en')
+                
+                # 導航按鈕區
+                st.divider()
+                col_prev, col_next = st.columns(2)
+                with col_prev:
+                    if st.button("⬅️ 上一頁", use_container_width=True, on_click=prev_card):
+                        pass
+                with col_next:
+                    if st.button("下一頁 ➡️", use_container_width=True, on_click=next_card):
+                        pass
+                
+            else:
+                st.info("尚未有閃卡資料。請先進行 AI 分析。")
+        
+        # 清除資料按鈕
+        st.divider()
+        if st.button("🗑️ 清除分析資料", use_container_width=True):
+            st.session_state.last_analysis = {}
+            st.session_state.flashcards_data = []
+            st.session_state.flashcard_index = 0
+            st.session_state.flashcard_flipped = False
+            st.rerun()
+            
     else:
         st.info("尚未有分析資料。請在上方貼上經文並點擊「🚀 Start AI Analysis」。")
 
