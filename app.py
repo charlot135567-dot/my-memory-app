@@ -1932,8 +1932,10 @@ with tabs[2]:
                 st.session_state.tab3_seed = random.randint(1, 1000)
                 st.rerun()
 
-# ===================================================================
-# 4. TAB4 ─ 🤖 AI Verse Parser (已串接 Secrets API)
+
+# 建立新的 TAB4 內容（AI 經文分析）
+new_tab4_content = '''# ===================================================================
+# 4. TAB4 ─ 🤖 AI Verse Parser (Gemini API 整合版)
 # ===================================================================
 with tabs[3]:
     st.markdown("### 📖 經文輸入與 AI 分析")
@@ -2033,8 +2035,8 @@ with tabs[3]:
                 if fv:
                     with st.container(border=True):
                         st.success(f"**{fv.get('ref', '')}**")
-                        st.markdown(f"**中文：**\n{fv.get('cn', '')}")
-                        st.markdown(f"**English：**\n{fv.get('en', '')}")
+                        st.markdown(f"**中文：**\\n{fv.get('cn', '')}")
+                        st.markdown(f"**English：**\\n{fv.get('en', '')}")
                         if st.button("🔊 朗讀整句", key="full_audio"):
                             play_audio_html(fv.get('en', ''), 'en')
         
@@ -2130,6 +2132,11 @@ with tabs[3]:
             
     else:
         st.info("尚未有分析資料。請在上方貼上經文並點擊「🚀 Start AI Analysis」。")
+
+'''
+
+print("新的 TAB4 內容已建立")
+print(f"長度: {len(new_tab4_content)} 字元")
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
