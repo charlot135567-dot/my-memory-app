@@ -1932,12 +1932,12 @@ with tabs[2]:
                 st.rerun()
         
 # ===================================================================
-# 4. TAB4 ─ 🤖 AI Verse Parser (NotebookLM CSV 匯入 + 閃卡 + 雙人對話)
+# 4. TAB4 ─ 🤖 AI Verse Parser (NotebookLM CSV 匯入 + 閃卡 + 雙人對話朗讀)
 # ===================================================================
 with tabs[3]:
     st.markdown("### 📖 NotebookLM CSV 匯入與閃卡學習")
     
-    # --- Session State 初始化 ---
+    # --- Session State 初始化（關鍵修正：加入 file_processed 標記）---
     if 'tab4_flashcards' not in st.session_state:
         st.session_state.tab4_flashcards = []
     if 'tab4_current_index' not in st.session_state:
@@ -1946,15 +1946,19 @@ with tabs[3]:
         st.session_state.tab4_is_flipped = False
     if 'tab4_podcast_script' not in st.session_state:
         st.session_state.tab4_podcast_script = []
+    if 'tab4_file_processed' not in st.session_state:
+        st.session_state.tab4_file_processed = False
+    if 'tab4_dialogue_file_processed' not in st.session_state:
+        st.session_state.tab4_dialogue_file_processed = False
     
     # --- 1. CSV 匯入區 ---
     col1, col2 = st.columns([3, 1])
     
     with col1:
         uploaded_file = st.file_uploader(
-            "📤 上傳 NotebookLM CSV 檔案",
+            "📤 上傳 NotebookLM CSV 檔案（閃卡格式）",
             type=['csv'],
-            help="支援從 NotebookLM 匯出的閃卡格式"
+            help="支援從 NotebookLM 匯出的閃卡格式：單字、片語、段句、聖經經文"
         )
     
     with col2:
@@ -1972,7 +1976,13 @@ with tabs[3]:
 日常用語 - 達成共識 / 意見一致：_____,on the same page (Example: We're on the same page.)"""
             
             from io import StringIO
-            uploaded_file = StringIO(sample_csv)
+            cards = parse_csv_data(StringIO(sample_csv))
+            if cards:
+                st.session_state.tab4_flashcards = cards
+                st.session_state.tab4_current_index = 0
+                st.session_state.tab4_is_flipped = False
+                st.success(f"✅ 成功載入 {len(cards)} 張範例閃卡！")
+                st.rerun()
     
     # --- 2. 解析 CSV ---
     def parse_csv_data(csv_content):
@@ -2018,8 +2028,6 @@ with tabs[3]:
                     'front': meaning,
                     'back': word,
                     'example': example,
-                    'audio_front': meaning,
-                    'audio_back': word,
                     'ref': ''
                 })
                 
@@ -2038,8 +2046,6 @@ with tabs[3]:
                     'front': meaning,
                     'back': phrase,
                     'example': example,
-                    'audio_front': meaning,
-                    'audio_back': phrase,
                     'ref': ''
                 })
                 
@@ -2052,8 +2058,6 @@ with tabs[3]:
                     'front': cn_text,
                     'back': en_text,
                     'example': '',
-                    'audio_front': cn_text,
-                    'audio_back': en_text,
                     'ref': ''
                 })
                 
@@ -2071,8 +2075,6 @@ with tabs[3]:
                     'front': cn_text,
                     'back': en_text,
                     'example': '',
-                    'audio_front': cn_text,
-                    'audio_back': en_text,
                     'ref': ref,
                     'is_verse': True
                 })
@@ -2087,8 +2089,6 @@ with tabs[3]:
                     'front': meaning,
                     'back': phrase,
                     'example': '',
-                    'audio_front': meaning,
-                    'audio_back': phrase,
                     'ref': ''
                 })
                 
@@ -2101,81 +2101,13 @@ with tabs[3]:
                     'front': meaning,
                     'back': back,
                     'example': '',
-                    'audio_front': meaning,
-                    'audio_back': back,
                     'ref': ''
                 })
         
         return flashcards
     
-    # --- 3. 生成雙人對話 ---
-    def generate_podcast(flashcards):
-        """基於閃卡內容生成雙人對話"""
-        
-        verses = [c for c in flashcards if c['type'] in ['整句', '段句']]
-        vocab = [c for c in flashcards if c['type'] in ['單字', '片語', '概念']]
-        
-        script = []
-        
-        # 開場（約100字）
-        script.append({
-            'speaker': 'Rachel',
-            'text': "嗨 Mike！今天我想跟你分享我從 NotebookLM 整理出來的聖經英文學習筆記。這裡面有好多精彩的詞彙和經文，我們一起來聊聊吧！"
-        })
-        
-        script.append({
-            'speaker': 'Mike',
-            'text': "太好了 Rachel！我也很期待。我發現透過這種中英對照的方式，能讓我們更深入理解聖經原文的精確含義。讓我們從哪裡開始呢？"
-        })
-        
-        # 討論詞彙（約300字）
-        if vocab:
-            for i, v in enumerate(vocab[:6]):
-                if i % 2 == 0:
-                    script.append({
-                        'speaker': 'Rachel',
-                        'text': f"我們先來看這個{v['type']}『{v['front']}』，英文是 '{v['back']}'。這個詞在聖經中出現的語境特別有意思，它不只是字面上的翻譯，還帶有很深的靈意。"
-                    })
-                else:
-                    script.append({
-                        'speaker': 'Mike',
-                        'text': f"沒錯！'{v['back']}' 這個詞在原文中有更豐富的層次。當我們理解它真正的意思是『{v['front']}』時，讀經文的感受就完全不一樣了。{v.get('example', '這讓我想到很多經文都用這個概念。')}" if v.get('example') else f"沒錯！'{v['back']}' 這個詞在原文中有更豐富的層次。當我們理解它真正的意思是『{v['front']}』時，讀經文的感受就完全不一樣了。"
-                    })
-        
-        # 討論經文（約300字）
-        if verses:
-            for i, v in enumerate(verses[:4]):
-                if i % 2 == 0:
-                    script.append({
-                        'speaker': 'Rachel',
-                        'text': f"說到這裡，讓我們來看{v['ref']}這節經文。中文說：『{v['front'][:50]}...』"
-                    })
-                else:
-                    script.append({
-                        'speaker': 'Mike',
-                        'text': f"英文是這樣表達的：'{v['back'][:60]}...' 你看這裡的用詞多麼精準，讓我們能夠抓住原文的細微差別。這種學習方式真的很棒！"
-                    })
-        
-        # 應用與總結（約100字）
-        script.append({
-            'speaker': 'Rachel',
-            'text': "透過這樣的學習，我們不只是在學英文單字，更是在深入神的話語。每一個詞彙背後都有神豐富的啟示。"
-        })
-        
-        script.append({
-            'speaker': 'Mike',
-            'text': "我完全同意！這種 NotebookLM 輔助的學習方式，讓我們能夠系統性地掌握聖經英文，同時加深對真理的理解。謝謝你的分享，Rachel！"
-        })
-        
-        script.append({
-            'speaker': 'Rachel',
-            'text': "不客氣！願神祝福大家的學習旅程，我們下次再見囉！"
-        })
-        
-        return script
-    
-    # --- 4. 語音播放函數 ---
-    def play_audio(text, lang='zh'):
+    # --- 3. 語音播放函數 ---
+    def play_audio(text, lang='en'):
         """使用 Web Speech API 播放語音"""
         clean_text = str(text).replace("'", "\\'").replace('"', '\\"').replace('\\n', ' ')
         
@@ -2207,7 +2139,7 @@ with tabs[3]:
             """
         components.html(js_code, height=0)
     
-    # --- 5. 回調函數 ---
+    # --- 4. 回調函數 ---
     def flip_card():
         st.session_state.tab4_is_flipped = not st.session_state.tab4_is_flipped
     
@@ -2221,20 +2153,33 @@ with tabs[3]:
             st.session_state.tab4_current_index -= 1
             st.session_state.tab4_is_flipped = False
     
-    # --- 6. 處理檔案上傳 ---
-    if uploaded_file is not None:
+    # --- 5. 處理檔案上傳（關鍵修正：立即讀取 bytes + rerun）---
+    if uploaded_file is not None and not st.session_state.tab4_file_processed:
         with st.spinner("🔄 正在解析 CSV..."):
-            cards = parse_csv_data(uploaded_file)
-            if cards:
-                st.session_state.tab4_flashcards = cards
-                st.session_state.tab4_current_index = 0
-                st.session_state.tab4_is_flipped = False
-                st.session_state.tab4_podcast_script = generate_podcast(cards)
-                st.success(f"✅ 成功匯入 {len(cards)} 張閃卡！")
-            else:
-                st.error("❌ 無法解析檔案，請確認格式正確")
+            try:
+                # 關鍵：立即讀取檔案內容，避免 file object 在 rerun 後消失
+                file_bytes = uploaded_file.read()
+                from io import BytesIO
+                
+                cards = parse_csv_data(BytesIO(file_bytes))
+                
+                if cards:
+                    st.session_state.tab4_flashcards = cards
+                    st.session_state.tab4_current_index = 0
+                    st.session_state.tab4_is_flipped = False
+                    st.session_state.tab4_file_processed = True  # 標記已處理
+                    st.success(f"✅ 成功匯入 {len(cards)} 張閃卡！")
+                    st.rerun()  # 重新載入以顯示閃卡
+                else:
+                    st.error("❌ 無法解析檔案，請確認格式正確")
+            except Exception as e:
+                st.error(f"❌ 解析錯誤: {e}")
     
-    # --- 7. 顯示閃卡介面 ---
+    # 重置處理標記（當沒有檔案時，允許下次重新上傳）
+    if uploaded_file is None:
+        st.session_state.tab4_file_processed = False
+    
+    # --- 6. 顯示閃卡介面（淺米黃色 + 縮小欄位）---
     if st.session_state.tab4_flashcards:
         cards = st.session_state.tab4_flashcards
         current = st.session_state.tab4_current_index
@@ -2248,16 +2193,16 @@ with tabs[3]:
             卡片 {current + 1} / {total} | {card['type']}
         </div>
         <div style="background: rgba(0,0,0,0.05); border-radius: 10px; height: 6px; margin: 10px 0 20px 0; overflow: hidden;">
-            <div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); height: 100%; border-radius: 10px; width: {progress_pct * 100}%;"></div>
+            <div style="background: linear-gradient(90deg, #d4c4a8 0%, #c9b896 100%); height: 100%; border-radius: 10px; width: {progress_pct * 100}%;"></div>
         </div>
         """, unsafe_allow_html=True)
         
-        # 主要布局：左右導航 + 中央閃卡
-        col_left, col_center, col_right = st.columns([1, 6, 1])
+        # 主要布局：左右導航 + 中央閃卡（閃卡寬度縮小）
+        col_left, col_spacer1, col_center, col_spacer2, col_right = st.columns([1, 0.5, 4, 0.5, 1])
         
         # 左側導航按鈕
         with col_left:
-            st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+            st.markdown("<br><br>", unsafe_allow_html=True)
             st.button(
                 "◀",
                 key="tab4_prev",
@@ -2267,74 +2212,104 @@ with tabs[3]:
                 use_container_width=True
             )
         
-        # 中央閃卡區域
+        # 中央閃卡區域（縮小欄位）
         with col_center:
             is_verse = card.get('is_verse', False)
             is_flipped = st.session_state.tab4_is_flipped
             
-            # 決定顯示內容
+            # 淺米黃色主題
             if is_flipped:
+                # 背面（英文）- 淺米黃
+                bg_color = '#faf8f3'  # 淺米黃
+                text_color = '#5d4e37'  # 深褐色文字
+                accent_color = '#8b7355'  # 咖啡色強調
                 display_text = card['back']
                 display_sub = "English"
-                bg_style = "background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
-                audio_text = card['audio_back']
-                audio_lang = 'en'
             else:
+                # 正面（中文）- 根據類型微調米黃色調
+                beige_tones = {
+                    '單字': '#fdf6e3',      # 淺米色
+                    '片語': '#f5f0e6',      # 淡米灰
+                    '段句': '#faf3e0',      # 奶油黃
+                    '整句': '#f9f6f0',      # 象牙白
+                    '日常用語': '#f5ebe0',  # 暖米黃
+                    '概念': '#f0ebe5',      # 灰米黃
+                }
+                bg_color = beige_tones.get(card['type'], '#faf8f3')
+                text_color = '#4a4035'  # 深褐灰
+                accent_color = '#a08060'  # 駝色
                 display_text = card['front']
                 display_sub = card.get('ref', '') if is_verse else "中文"
-                if is_verse:
-                    bg_style = "background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"
-                else:
-                    bg_style = "background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
-                audio_text = card['audio_front']
-                audio_lang = 'zh'
             
-            # 閃卡 HTML
+            # 縮小版淺米黃閃卡（高度 160px，更緊湊）
             card_html = f"""
-            <div style="perspective: 1000px; height: 380px; margin: 10px 0;" onclick="flipCard()">
+            <div style="perspective: 1000px; height: 160px; margin: 8px 0;">
                 <div style="position: relative; width: 100%; height: 100%; text-align: center; 
                             transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
-                            transform-style: preserve-3d; border-radius: 24px;
-                            box-shadow: 0 20px 60px rgba(0,0,0,0.15); cursor: pointer;
-                            {bg_style}
+                            transform-style: preserve-3d; border-radius: 14px;
+                            box-shadow: 0 3px 15px rgba(139,115,85,0.12); cursor: pointer;
+                            background: {bg_color};
+                            border: 2px solid {accent_color}25;
                             transform: {'rotateY(180deg)' if is_flipped else 'rotateY(0deg)'};">
+                    
+                    <!-- 正面 -->
                     <div style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
-                                border-radius: 24px; display: flex; flex-direction: column;
-                                justify-content: center; align-items: center; padding: 40px;
-                                color: white; border: 1px solid rgba(255,255,255,0.2);">
-                        <div style="position: absolute; top: 20px; right: 20px;
-                                    background: rgba(255,255,255,0.25); padding: 6px 16px;
-                                    border-radius: 20px; font-size: 0.85rem; font-weight: 600;">
+                                border-radius: 14px; display: flex; flex-direction: column;
+                                justify-content: center; align-items: center; padding: 16px;
+                                color: {text_color};">
+                        <div style="position: absolute; top: 10px; right: 10px;
+                                    background: {accent_color}18; color: {accent_color};
+                                    padding: 3px 10px; border-radius: 10px; 
+                                    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">
                             {card['type']}
                         </div>
-                        <div style="font-family: 'Noto Serif TC', 'Georgia', serif; font-size: 1.6rem;
-                                    line-height: 1.8; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                                    margin-bottom: 15px;">
+                        <div style="font-family: 'Noto Serif TC', 'Georgia', serif; font-size: 1.15rem;
+                                    line-height: 1.4; font-weight: 600; margin-bottom: 6px;
+                                    color: {text_color};">
                             {display_text}
                         </div>
-                        <div style="font-size: 1.1rem; opacity: 0.9; font-style: italic; margin-top: 10px;">
+                        <div style="font-size: 0.8rem; opacity: 0.75; font-style: italic; margin-top: 4px;
+                                    color: {accent_color};">
                             {display_sub}
                         </div>
-                        {f'<div style="position: absolute; bottom: 20px; font-size: 0.9rem; opacity: 0.85; background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px;">{card["ref"]}</div>' if card['ref'] and not is_flipped else ''}
+                        {f'<div style="position: absolute; bottom: 10px; font-size: 0.75rem; opacity: 0.6; color: {accent_color};">{card["ref"]}</div>' 
+                          if card.get('ref') and not is_flipped else ''}
+                    </div>
+                    
+                    <!-- 背面（翻轉 180 度） -->
+                    <div style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+                                border-radius: 14px; display: flex; flex-direction: column;
+                                justify-content: center; align-items: center; padding: 16px;
+                                color: {text_color}; background: {bg_color};
+                                transform: rotateY(180deg); border: 2px solid {accent_color}25;">
+                        <div style="position: absolute; top: 10px; right: 10px;
+                                    background: {accent_color}18; color: {accent_color};
+                                    padding: 3px 10px; border-radius: 10px; 
+                                    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">
+                            {card['type']}
+                        </div>
+                        <div style="font-size: 1.1rem; font-weight: 600; line-height: 1.3;
+                                    color: {text_color};">
+                            {display_text}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 6px;
+                                    color: {accent_color};">
+                            {display_sub}
+                        </div>
                     </div>
                 </div>
             </div>
-            <script>
-                function flipCard() {{
-                    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'flip'}}, '*');
-                }}
-            </script>
             """
             
-            components.html(card_html, height=420)
+            components.html(card_html, height=180)
             
-            # Streamlit 翻轉按鈕
-            st.button("🔄 點擊卡片翻轉", key="tab4_flip_btn", on_click=flip_card, 
-                     help="點擊翻轉卡片", use_container_width=True)
+            # 翻轉按鈕（縮小）
+            st.button("🔄 翻轉卡片", key="tab4_flip_btn", on_click=flip_card, 
+                     help="點擊翻轉", use_container_width=True)
         
         # 右側導航按鈕
         with col_right:
-            st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+            st.markdown("<br><br>", unsafe_allow_html=True)
             st.button(
                 "▶",
                 key="tab4_next",
@@ -2344,73 +2319,117 @@ with tabs[3]:
                 use_container_width=True
             )
         
-        # 語音播放區域
-        st.markdown("<div style='display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.02); border-radius: 16px;'>", unsafe_allow_html=True)
+        # 語音播放區域（縮小間距）
+        st.markdown("<div style='display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px; padding: 12px; background: rgba(139,115,85,0.04); border-radius: 12px;'>", unsafe_allow_html=True)
         
         col_audio1, col_audio2 = st.columns([1, 1])
         
         with col_audio1:
             if st.button("🔊 中文", key="tab4_audio_zh", help="播放中文", use_container_width=True):
-                play_audio(card['audio_front'], 'zh')
+                play_audio(card['front'], 'zh')
         
         with col_audio2:
             if st.button("🔊 English", key="tab4_audio_en", help="播放英文", use_container_width=True):
-                play_audio(card['audio_back'], 'en')
+                play_audio(card['back'], 'en')
         
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # 例句展開
+        # 例句展開（縮小字體）
         if card.get('example'):
             with st.expander("📝 查看例句"):
                 st.info(card['example'])
         
         st.divider()
         
-        # --- 8. 雙人對話模式 ---
-        st.markdown("### 🎧 雙人對話學習模式")
+        # --- 7. 雙人對話朗讀模式（從 CSV 讀取，不自動生成）---
+        st.markdown("### 🎧 雙人對話朗讀模式")
+        st.caption("上傳 NotebookLM 產生的對話 CSV（speaker, text 兩欄），APP 會朗讀播放")
         
+        # 對話檔案上傳
+        dialogue_file = st.file_uploader(
+            "📤 上傳對話 CSV（可選）",
+            type=['csv'],
+            key="dialogue_uploader",
+            help="格式：speaker, text（Rachel/Mike 交替）"
+        )
+        
+        # 處理對話檔案上傳（同樣修正：立即讀取 + rerun）
+        if dialogue_file is not None and not st.session_state.tab4_dialogue_file_processed:
+            try:
+                dialogue_bytes = dialogue_file.read()
+                from io import BytesIO
+                df_dialogue = pd.read_csv(BytesIO(dialogue_bytes))
+                
+                # 檢查必要欄位
+                if 'speaker' in df_dialogue.columns and 'text' in df_dialogue.columns:
+                    dialogue_list = df_dialogue.to_dict('records')
+                    st.session_state.tab4_podcast_script = dialogue_list
+                    st.session_state.tab4_dialogue_file_processed = True
+                    st.success(f"✅ 成功載入 {len(dialogue_list)} 句對話！")
+                    st.rerun()
+                else:
+                    st.error("❌ CSV 必須包含 'speaker' 和 'text' 兩欄")
+            except Exception as e:
+                st.error(f"❌ 對話檔案解析錯誤: {e}")
+        
+        # 重置對話檔案標記
+        if dialogue_file is None:
+            st.session_state.tab4_dialogue_file_processed = False
+        
+        # 顯示對話內容
         script = st.session_state.tab4_podcast_script
         
         if script:
-            # 計算總字數
+            # 計算統計
             full_text = " ".join([line['text'] for line in script])
-            word_count = len(full_text)
+            word_count = len(full_text.split())
             
             # 播放控制
             col_play, col_stats = st.columns([1, 3])
             
             with col_play:
                 if st.button("▶️ 播放完整對話", type="primary", use_container_width=True):
-                    play_audio(full_text, 'zh')
-                    st.toast("🔊 開始播放對話...")
+                    play_audio(full_text, 'en')
+                    st.toast("🔊 開始播放...")
             
             with col_stats:
-                st.caption(f"📊 對話統計：約 {word_count} 字 | {len(script)} 個回合 | 預計播放時間 {word_count//250} 分鐘")
+                st.caption(f"📊 {len(script)} 個回合 | {word_count} 字 | 預計 {word_count//130} 分鐘")
             
             st.divider()
             
-            # 對話內容
+            # 對話內容（淺米黃色氣泡）
             for i, line in enumerate(script):
-                icon = "👩" if line['speaker'] == 'Rachel' else "👨"
-                bubble_color = "rgba(255,182,193,0.25)" if line['speaker'] == 'Rachel' else "rgba(135,206,250,0.25)"
-                border_color = "#ffb6c1" if line['speaker'] == 'Rachel' else "#87cefa"
+                is_rachel = line.get('speaker', '') == 'Rachel'
+                icon = "👩" if is_rachel else "👨"
+                # 淺米黃配色
+                bubble_color = "#faf3e0" if is_rachel else "#f5ebe0"  # 淺米黃 / 淡米
+                border_color = "#c9b896" if is_rachel else "#b8a080"   # 米色 / 駝色
+                name_color = "#8b7355" if is_rachel else "#a08060"
                 
                 cols = st.columns([6, 1])
                 with cols[0]:
                     st.markdown(f"""
-                    <div style="background: {bubble_color}; border-left: 4px solid {border_color};
-                                padding: 18px; margin: 12px 0; border-radius: 0 18px 18px 0;">
-                        <div style="font-weight: 700; margin-bottom: 6px; font-size: 0.95rem;">
-                            {icon} {line['speaker']}
+                    <div style="background: {bubble_color}; border-left: 3px solid {border_color};
+                                padding: 14px; margin: 8px 0; border-radius: 0 14px 14px 0;">
+                        <div style="font-weight: 700; margin-bottom: 4px; font-size: 0.9rem; color: {name_color};">
+                            {icon} {line.get('speaker', 'Unknown')}
                         </div>
-                        <div>{line['text']}</div>
+                        <div style="color: #4a4035; line-height: 1.5; font-size: 0.95rem;">{line.get('text', '')}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 with cols[1]:
-                    if st.button("🔊", key=f"tab4_podcast_{i}", help=f"播放這句話"):
-                        play_audio(line['text'], 'zh')
+                    if st.button("🔊", key=f"tab4_podcast_{i}", help=f"播放這句"):
+                        play_audio(line.get('text', ''), 'en')
         else:
-            st.info("👆 請先匯入 CSV 資料以生成對話內容")
+            st.info("👆 上傳對話 CSV 檔案以啟用朗讀功能（或使用 NotebookLM 產生對話後匯出）")
+            
+            # 顯示範例格式
+            with st.expander("📝 查看 CSV 格式範例"):
+                st.code("""speaker,text
+Rachel,"Hey Mike! I was looking at 'confidence' in Hebrews 10:35..."
+Mike,"Great observation! The Greek word implies active trust..."
+Rachel,"So it's not just mental agreement?"
+Mike,"Exactly. It's covenantal faith that holds fast under pressure.""", language='csv')
     else:
         st.info("👆 請上傳 NotebookLM 匯出的 CSV 檔案，或點擊「載入範例資料」測試功能")
 
