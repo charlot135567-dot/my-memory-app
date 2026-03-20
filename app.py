@@ -2007,7 +2007,7 @@ with tabs[3]:
                 else:
                     meaning = front.replace('單字 - ', '').replace('：_____', '').replace(':_____', '').strip()
                 
-                word_match = re.search(r'^([a-zA-Z\\s\\-]+?)(?:\\s*\\(|Example:|$)', back, re.IGNORECASE)
+                word_match = re.search(r'^([a-zA-Z\s\-]+?)(?:\s*\(|Example:|$)', back, re.IGNORECASE)
                 word = word_match.group(1).strip() if word_match else back.split('(')[0].strip()
                 
                 example_match = re.search(r'Example:\\s*(.+?)(?:\\)|$)', back, re.IGNORECASE)
