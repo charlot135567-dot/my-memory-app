@@ -2027,7 +2027,7 @@ with tabs[3]:
                 meaning = re.sub(r'片語\\s*[-－]\\s*', '', front)
                 meaning = re.sub(r'[_：:].*$', '', meaning).strip()
                 
-                phrase_match = re.search(r'^([a-zA-Z\\s\\-]+?)(?:\\s*\\(|Example:|$)', back, re.IGNORECASE)
+                phrase_match = re.search(r'^([a-zA-Z\s\-]+?)(?:\s*\(|Example:|$)', back, re.IGNORECASE)
                 phrase = phrase_match.group(1).strip() if phrase_match else back.split('(')[0].strip()
                 
                 example_match = re.search(r'Example:\\s*(.+?)(?:\\)|$)', back, re.IGNORECASE)
