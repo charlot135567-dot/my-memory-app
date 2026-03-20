@@ -1930,10 +1930,6 @@ with tabs[2]:
             if st.button("🔄 換一批題目", use_container_width=True, type="primary"):
                 st.session_state.tab3_seed = random.randint(1, 1000)
                 st.rerun()
-
-
-# 建立新的 TAB4 內容（AI 經文分析）
-new_tab4_content = '''
         
 # ===================================================================
 # 4. TAB4 ─ 🤖 AI Verse Parser (Gemini API 整合版)
