@@ -154,7 +154,6 @@ def analyze_scripture_with_ai(text, chinese, reference):
     except Exception as e:
         st.error(f"⚠️ AI 運算過程出錯: {e}")
         return None
-
 # ===================================================================
 # 0.3 閃卡資料準備
 # ===================================================================
