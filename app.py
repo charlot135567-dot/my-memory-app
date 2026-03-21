@@ -1951,9 +1951,9 @@ with tabs[3]:
     if 'tab4_dialogue_file_processed' not in st.session_state:
         st.session_state.tab4_dialogue_file_processed = False
     
-    # --- 解析 CSV 函數 ---
+    # --- 解析 CSV 函數（支援你的格式：單字：『...』(Hint: ...), 英文）---
     def parse_csv_data(csv_content):
-        """解析 NotebookLM 格式的 CSV"""
+        """解析 NotebookLM 格式的 CSV（支援多種 2 欄格式含 Hint）"""
         flashcards = []
         
         try:
@@ -1976,19 +1976,60 @@ with tabs[3]:
             if not front or not back:
                 continue
             
-            # 解析類型
-            if front.startswith('單字'):
-                meaning_match = re.search(r'[：:](.+?)[_，,]', front)
+            # 移除 Hint 資訊 (Hint: ...) 和 多餘空白
+            front_clean = re.sub(r'\s*\(Hint:[^)]+\)', '', front)
+            front_clean = front_clean.strip()
+            
+            # 解析類型（支援多種格式）
+            if front_clean.startswith('單字') or '單字' in front_clean[:10]:
+                # 單字格式：單字：『被祝願、頌讚的』 或 單字 - xxx：_____
+                # 提取中文詞（在引號或冒號後）
+                meaning_match = re.search(r'[『「]([^』」]+)[』」]', front_clean)
+                if not meaning_match:
+                    meaning_match = re.search(r'[：:]\s*([^，,。]+?)(?:\s*$|\s*[_：:])', front_clean)
+                
                 if meaning_match:
                     meaning = meaning_match.group(1).strip()
                 else:
-                    meaning = front.replace('單字 - ', '').replace('：_____', '').replace(':_____', '').strip()
+                    # 備案：移除前綴
+                    meaning = re.sub(r'^單字[：:\s]*', '', front_clean)
+                    meaning = re.sub(r'[_：:].*$', '', meaning).strip()
                 
-                word_match = re.search(r'^([a-zA-Z\s\-]+?)(?:\s*\(|Example:|$)', back, re.IGNORECASE)
-                word = word_match.group(1).strip() if word_match else back.split('(')[0].strip()
+                # 提取英文單字（從 back 的第一個單字或主要詞）
+                word_match = re.search(r'^([a-zA-Z\-]+)', back, re.IGNORECASE)
+                if not word_match:
+                    word_match = re.search(r'([a-zA-Z\-]+)', back, re.IGNORECASE)
+                word = word_match.group(1).strip() if word_match else back.split()[0] if back.split() else back
                 
-                example_match = re.search(r'Example:\s*(.+?)(?:\)|$)', back, re.IGNORECASE)
-                example = example_match.group(1).strip() if example_match else ""
+                # 提取例句（括號內、引號內、或 / 後面）
+                example = ""
+                # 嘗試提取 ( ... ) 內的內容
+                paren_match = re.search(r'\(([^)]+)\)', back)
+                if paren_match:
+                    inner = paren_match.group(1).strip()
+                    # 如果內含中文，可能是例句
+                    if any('\u4e00' <= c <= '\u9fff' for c in inner):
+                        example = inner
+                    elif len(inner) > 20:  # 長英文也可能是例句
+                        example = inner
+                
+                # 嘗試 / 分隔的後半部
+                if not example and '/' in back:
+                    parts = back.split('/')
+                    if len(parts) >= 2:
+                        # 找包含中文的部分
+                        for part in parts[1:]:
+                            if any('\u4e00' <= c <= '\u9fff' for c in part):
+                                example = part.strip()
+                                break
+                        if not example:
+                            example = parts[-1].strip()
+                
+                # 嘗試「」或『』內的內容
+                if not example:
+                    quote_match = re.search(r'[「『]([^』」]+)[』」]', back)
+                    if quote_match:
+                        example = quote_match.group(1).strip()
                 
                 flashcards.append({
                     'type': '單字',
@@ -1998,26 +2039,27 @@ with tabs[3]:
                     'ref': ''
                 })
                 
-            elif front.startswith('片語'):
-                meaning = re.sub(r'片語\\s*[-－]\\s*', '', front)
-                meaning = re.sub(r'[_：:].*$', '', meaning).strip()
+            elif front_clean.startswith('片語') or '片語' in front_clean[:10]:
+                # 片語格式
+                meaning = re.sub(r'^片語[：:\s]*', '', front_clean)
+                # 移除引號
+                meaning = meaning.replace('『', '').replace('』', '').replace('「', '').replace('」', '').strip()
                 
-                phrase_match = re.search(r'^([a-zA-Z\s\-]+?)(?:\s*\(|Example:|$)', back, re.IGNORECASE)
-                phrase = phrase_match.group(1).strip() if phrase_match else back.split('(')[0].strip()
-                
-                example_match = re.search(r'Example:\s*(.+?)(?:\)|$)', back, re.IGNORECASE)
-                example = example_match.group(1).strip() if example_match else ""
+                # 英文片語
+                phrase = back.strip()
                 
                 flashcards.append({
                     'type': '片語',
                     'front': meaning,
                     'back': phrase,
-                    'example': example,
+                    'example': '',
                     'ref': ''
                 })
                 
-            elif front.startswith('段句'):
-                cn_text = re.sub(r'段句\\s*[-－]\\s*', '', front).strip()
+            elif front_clean.startswith('段句') or '段句' in front_clean[:10]:
+                # 段句格式
+                cn_text = re.sub(r'^段句[：:\s]*', '', front_clean)
+                cn_text = cn_text.replace('『', '').replace('』', '').replace('「', '').replace('」', '').strip()
                 en_text = back.strip()
                 
                 flashcards.append({
@@ -2028,14 +2070,21 @@ with tabs[3]:
                     'ref': ''
                 })
                 
-            elif '經文' in front or front.startswith('聖經'):
-                ref_match = re.search(r'([\\u4e00-\\u9fa5]*\\s*\\d+:\\d+)', front)
+            elif front_clean.startswith('整句') or '整句' in front_clean[:10] or re.search(r'[弗賽以]\s*\d+[:：]\d+', front_clean):
+                # 整句/經文格式
+                # 提取參考（如 弗 1:3、賽 5:20）
+                ref_match = re.search(r'([弗賽以]?\s*\d+[:：]\d+)', front_clean)
                 ref = ref_match.group(1) if ref_match else ''
                 
-                cn_match = re.search(r'[：:]\\s*(.+?)$', front)
-                cn_text = cn_match.group(1).strip() if cn_match else front
+                # 提取中文內容（移除前綴和引號）
+                cn_text = re.sub(r'^[整句弗賽以\s\d：:]+', '', front_clean)
+                cn_text = cn_text.replace('『', '').replace('』', '').replace('「', '').replace('」', '').strip()
                 
-                en_text = re.sub(r'^[A-Za-z0-9\\s:]+:', '', back).strip()
+                # 如果開頭還有冒號，再清理
+                cn_text = re.sub(r'^[：:]\s*', '', cn_text)
+                
+                # 英文內容
+                en_text = back.strip()
                 
                 flashcards.append({
                     'type': '整句',
@@ -2046,9 +2095,9 @@ with tabs[3]:
                     'is_verse': True
                 })
                 
-            elif front.startswith('日常用語'):
-                meaning = re.sub(r'日常用語\\s*[-－]\\s*', '', front)
-                meaning = re.sub(r'[_：:].*$', '', meaning).strip()
+            elif front_clean.startswith('日常用語'):
+                meaning = re.sub(r'^日常用語[：:\s]*', '', front_clean)
+                meaning = meaning.replace('『', '').replace('』', '').strip()
                 phrase = back.split('(')[0].strip()
                 
                 flashcards.append({
@@ -2059,13 +2108,11 @@ with tabs[3]:
                     'ref': ''
                 })
                 
-            elif front.startswith('概念'):
-                meaning = re.sub(r'概念\\s*[-－]\\s*', '', front)
-                meaning = re.sub(r'[_：:].*$', '', meaning).strip()
-                
+            elif front_clean.startswith('概念') or '?' in front_clean or front_clean.startswith('Which') or front_clean.startswith('Complete') or front_clean.startswith('What') or front_clean.startswith('The') or front_clean.startswith('Translate'):
+                # 測驗題/概念格式
                 flashcards.append({
                     'type': '概念',
-                    'front': meaning,
+                    'front': front_clean,
                     'back': back,
                     'example': '',
                     'ref': ''
@@ -2120,50 +2167,53 @@ with tabs[3]:
             st.session_state.tab4_current_index -= 1
             st.session_state.tab4_is_flipped = False
     
-    # --- 上方區域：閃卡 CSV 上傳 + 閃卡顯示 ---
+    # ========== UI 布局：左右兩欄 ==========
+    
+    # --- 上方區域：閃卡學習區 ---
     st.markdown("#### 🎯 閃卡學習區")
     
-    # ========== 手機備案上傳（放在這裡）==========
+    # 手機備案：手動貼上 CSV
     with st.expander("📱 手機無法上傳？點此貼上 CSV 內容"):
-        pasted_csv = st.text_area("貼上 CSV 內容", height=150, 
-                                  placeholder="單字 - 勇敢的心：_____,confidence...")
-        if st.button("📋 載入貼上的閃卡內容", use_container_width=True):
-            if pasted_csv.strip():
-                try:
-                    from io import StringIO
-                    cards = parse_csv_data(StringIO(pasted_csv))
-                    if cards:
-                        st.session_state.tab4_flashcards = cards
-                        st.session_state.tab4_current_index = 0
-                        st.session_state.tab4_is_flipped = False
-                        st.success(f"✅ 成功載入 {len(cards)} 張閃卡！")
-                        st.rerun()
-                    else:
-                        st.error("❌ 無法解析，請確認格式正確")
-                except Exception as e:
-                    st.error(f"❌ 錯誤: {e}")
-            else:
-                st.warning("⚠️ 請先貼上 CSV 內容")
+        pasted_csv = st.text_area("貼上 CSV 內容", height=120, 
+                                  placeholder="單字：『被祝願』,Blessed...")
+        col_paste_btn, col_paste_status = st.columns([1, 2])
+        with col_paste_btn:
+            if st.button("📋 載入", key="paste_flashcard", use_container_width=True):
+                if pasted_csv.strip():
+                    try:
+                        from io import StringIO
+                        cards = parse_csv_data(StringIO(pasted_csv))
+                        if cards:
+                            st.session_state.tab4_flashcards = cards
+                            st.session_state.tab4_current_index = 0
+                            st.session_state.tab4_is_flipped = False
+                            st.success(f"✅ {len(cards)} 張")
+                            st.rerun()
+                        else:
+                            st.error("❌ 格式錯誤")
+                    except Exception as e:
+                        st.error(f"❌ {str(e)[:20]}")
+                else:
+                    st.warning("⚠️ 空白")
+        with col_paste_status:
+            st.caption("支援：單字/片語/段句/整句")
     
-    # 原本的布局繼續...
-    col_left_top, col_right_top = st.columns([1, 3])
+    # 左右布局
     col_left_top, col_right_top = st.columns([1, 3])
     
-    # 左側上：閃卡 CSV 上傳（最小化欄位）
+    # 左側上：閃卡 CSV 上傳（最小化）
     with col_left_top:
-        # 使用 label_visibility="collapsed" 隱藏預設文字，自訂簡短標籤
-        st.markdown("<p style='font-size:0.85rem; margin-bottom:4px; color:#666;'>📤 閃卡 CSV</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.8rem; margin-bottom:2px; color:#666;'>📤 閃卡CSV</p>", unsafe_allow_html=True)
         
-        # 手機相容設定：明確指定 accept 格式，不顯示 dragdrop 區域
         uploaded_file = st.file_uploader(
             "閃卡",
             type=['csv'],
             label_visibility="collapsed",
             key="flashcard_uploader",
-            accept_multiple_files=False  # 手機相容
+            accept_multiple_files=False
         )
         
-        # 處理上傳（關鍵修正：立即讀取 + rerun）
+        # 處理上傳（立即讀取 bytes + rerun）
         if uploaded_file is not None and not st.session_state.tab4_file_processed:
             try:
                 file_bytes = uploaded_file.read()
@@ -2179,9 +2229,9 @@ with tabs[3]:
                     st.success(f"✅ {len(cards)} 張")
                     st.rerun()
                 else:
-                    st.error("❌ 格式錯誤")
+                    st.error("❌ 無法解析")
             except Exception as e:
-                st.error(f"❌ 錯誤: {str(e)[:30]}")
+                st.error(f"❌ {str(e)[:25]}")
         
         # 重置標記
         if uploaded_file is None:
@@ -2195,19 +2245,19 @@ with tabs[3]:
             total = len(cards)
             card = cards[current]
             
-            # 進度條（縮小）
+            # 進度條
             progress_pct = (current + 1) / total
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 0.75rem; color: #888;">{card['type']}</span>
-                <span style="font-size: 0.75rem; color: #888;">{current + 1}/{total}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 0.7rem; color: #888;">{card['type']}</span>
+                <span style="font-size: 0.7rem; color: #888;">{current + 1}/{total}</span>
             </div>
-            <div style="background: rgba(139,115,85,0.1); border-radius: 6px; height: 4px; margin-bottom: 12px; overflow: hidden;">
-                <div style="background: #c9b896; height: 100%; width: {progress_pct * 100}%; transition: width 0.3s;"></div>
+            <div style="background: rgba(139,115,85,0.08); border-radius: 4px; height: 3px; margin-bottom: 8px;">
+                <div style="background: #c9b896; height: 100%; width: {progress_pct * 100}%;"></div>
             </div>
             """, unsafe_allow_html=True)
             
-            # 閃卡導航 + 卡片（橫向布局）
+            # 閃卡導航
             card_cols = st.columns([1, 6, 1])
             
             with card_cols[0]:
@@ -2241,53 +2291,50 @@ with tabs[3]:
                     display_text = card['front']
                     display_sub = card.get('ref', '') if is_verse else "中文"
                 
-                # 縮小版閃卡（高度 140px）
+                # 縮小版閃卡（高度 120px）
                 card_html = f"""
-                <div style="perspective: 1000px; height: 140px;" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'flip'}}, '*')">
+                <div style="perspective: 1000px; height: 120px; cursor: pointer;" 
+                     onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'flip_flashcard'}}, '*')">
                     <div style="position: relative; width: 100%; height: 100%; text-align: center; 
-                                transition: transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
-                                transform-style: preserve-3d; border-radius: 12px;
-                                box-shadow: 0 2px 12px rgba(139,115,85,0.1); cursor: pointer;
-                                background: {bg_color};
-                                border: 1px solid {accent_color}20;
+                                transition: transform 0.5s; transform-style: preserve-3d; border-radius: 10px;
+                                box-shadow: 0 2px 8px rgba(139,115,85,0.1);
+                                background: {bg_color}; border: 1px solid {accent_color}25;
                                 transform: {'rotateY(180deg)' if is_flipped else 'rotateY(0deg)'};">
                         
                         <!-- 正面 -->
                         <div style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
-                                    border-radius: 12px; display: flex; flex-direction: column;
-                                    justify-content: center; align-items: center; padding: 12px;
+                                    border-radius: 10px; display: flex; flex-direction: column;
+                                    justify-content: center; align-items: center; padding: 10px;
                                     color: {text_color};">
-                            <div style="position: absolute; top: 8px; right: 8px;
+                            <div style="position: absolute; top: 6px; right: 6px;
                                         background: {accent_color}15; color: {accent_color};
-                                        padding: 2px 8px; border-radius: 8px; 
-                                        font-size: 0.65rem; font-weight: 600;">
+                                        padding: 2px 6px; border-radius: 6px; font-size: 0.6rem; font-weight: 600;">
                                 {card['type']}
                             </div>
-                            <div style="font-family: 'Noto Serif TC', 'Georgia', serif; font-size: 1.05rem;
-                                        line-height: 1.3; font-weight: 600; margin-bottom: 4px;">
-                                {display_text}
+                            <div style="font-family: 'Noto Serif TC', 'Georgia', serif; font-size: 0.95rem;
+                                        line-height: 1.2; font-weight: 600; margin-bottom: 2px;">
+                                {display_text[:50]}{'...' if len(display_text) > 50 else ''}
                             </div>
-                            <div style="font-size: 0.75rem; opacity: 0.7; font-style: italic;">
-                                {display_sub}
+                            <div style="font-size: 0.7rem; opacity: 0.7;">
+                                {display_sub[:30]}
                             </div>
                         </div>
                         
                         <!-- 背面 -->
                         <div style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
-                                    border-radius: 12px; display: flex; flex-direction: column;
-                                    justify-content: center; align-items: center; padding: 12px;
+                                    border-radius: 10px; display: flex; flex-direction: column;
+                                    justify-content: center; align-items: center; padding: 10px;
                                     color: {text_color}; background: {bg_color};
-                                    transform: rotateY(180deg); border: 1px solid {accent_color}20;">
-                            <div style="position: absolute; top: 8px; right: 8px;
+                                    transform: rotateY(180deg); border: 1px solid {accent_color}25;">
+                            <div style="position: absolute; top: 6px; right: 6px;
                                         background: {accent_color}15; color: {accent_color};
-                                        padding: 2px 8px; border-radius: 8px; 
-                                        font-size: 0.65rem; font-weight: 600;">
+                                        padding: 2px 6px; border-radius: 6px; font-size: 0.6rem; font-weight: 600;">
                                 {card['type']}
                             </div>
-                            <div style="font-size: 1rem; font-weight: 600; line-height: 1.2;">
-                                {display_text}
+                            <div style="font-size: 0.9rem; font-weight: 600; line-height: 1.1;">
+                                {display_text[:60]}{'...' if len(display_text) > 60 else ''}
                             </div>
-                            <div style="font-size: 0.7rem; opacity: 0.6; margin-top: 4px;">
+                            <div style="font-size: 0.65rem; opacity: 0.6; margin-top: 2px;">
                                 {display_sub}
                             </div>
                         </div>
@@ -2295,9 +2342,9 @@ with tabs[3]:
                 </div>
                 """
                 
-                components.html(card_html, height=150)
+                components.html(card_html, height=130)
                 
-                # 翻轉按鈕（隱藏式，點卡片即可翻轉，但保留按鈕作為備案）
+                # 翻轉按鈕
                 st.button("🔄", key="flip_card_btn", on_click=flip_card, 
                          help="翻轉", use_container_width=True)
             
@@ -2305,7 +2352,7 @@ with tabs[3]:
                 st.button("▶", key="next_card", disabled=(current == total - 1), 
                          on_click=next_card, use_container_width=True)
             
-            # 語音按鈕（縮小）
+            # 語音按鈕
             audio_cols = st.columns([1, 1, 4])
             with audio_cols[0]:
                 if st.button("🔊中", key="audio_zh", help="中文"):
@@ -2316,21 +2363,48 @@ with tabs[3]:
             
             # 例句
             if card.get('example'):
-                with st.expander("📝 例句", expanded=False):
-                    st.caption(card['example'])
+                with st.expander("📝 例句"):
+                    st.caption(card['example'][:200])
         else:
-            st.info("👆 左側上傳閃卡 CSV", icon="📤")
+            st.info("👆 左側上傳或貼上 CSV", icon="📤")
     
     st.divider()
     
-    # --- 下方區域：對話 CSV 上傳 + 對話顯示 ---
+    # --- 下方區域：雙人對話朗讀模式 ---
     st.markdown("#### 🎧 雙人對話朗讀模式")
     
+    # 手機備案：手動貼上對話 CSV
+    with st.expander("📱 手機無法上傳對話？點此貼上 CSV 內容"):
+        pasted_dialogue = st.text_area("貼上對話 CSV", height=120,
+                                       placeholder="speaker,text\nRachel,Hey Mike...\nMike,Great...")
+        col_paste_btn2, col_paste_status2 = st.columns([1, 2])
+        with col_paste_btn2:
+            if st.button("📋 載入對話", key="paste_dialogue", use_container_width=True):
+                if pasted_dialogue.strip():
+                    try:
+                        from io import StringIO
+                        import pandas as pd
+                        df = pd.read_csv(StringIO(pasted_dialogue))
+                        if 'speaker' in df.columns and 'text' in df.columns:
+                            dialogue_list = df.to_dict('records')
+                            st.session_state.tab4_podcast_script = dialogue_list
+                            st.success(f"✅ {len(dialogue_list)} 句")
+                            st.rerun()
+                        else:
+                            st.error("❌ 需 speaker,text 欄")
+                    except Exception as e:
+                        st.error(f"❌ {str(e)[:20]}")
+                else:
+                    st.warning("⚠️ 空白")
+        with col_paste_status2:
+            st.caption("格式：speaker, text")
+    
+    # 左右布局
     col_left_bottom, col_right_bottom = st.columns([1, 3])
     
-    # 左側下：對話 CSV 上傳（最小化欄位）
+    # 左側下：對話 CSV 上傳（最小化）
     with col_left_bottom:
-        st.markdown("<p style='font-size:0.85rem; margin-bottom:4px; color:#666;'>📤 對話 CSV</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.8rem; margin-bottom:2px; color:#666;'>📤 對話CSV</p>", unsafe_allow_html=True)
         
         dialogue_file = st.file_uploader(
             "對話",
@@ -2345,6 +2419,7 @@ with tabs[3]:
             try:
                 dialogue_bytes = dialogue_file.read()
                 from io import BytesIO
+                import pandas as pd
                 df_dialogue = pd.read_csv(BytesIO(dialogue_bytes))
                 
                 if 'speaker' in df_dialogue.columns and 'text' in df_dialogue.columns:
@@ -2356,7 +2431,7 @@ with tabs[3]:
                 else:
                     st.error("❌ 需 speaker,text 欄")
             except Exception as e:
-                st.error(f"❌ 錯誤: {str(e)[:30]}")
+                st.error(f"❌ {str(e)[:25]}")
         
         if dialogue_file is None:
             st.session_state.tab4_dialogue_file_processed = False
@@ -2366,7 +2441,7 @@ with tabs[3]:
         script = st.session_state.tab4_podcast_script
         
         if script:
-            # 播放控制（縮小）
+            # 播放控制
             ctrl_cols = st.columns([1, 2, 4])
             with ctrl_cols[0]:
                 if st.button("▶️ 播放", type="primary", use_container_width=True):
@@ -2376,36 +2451,31 @@ with tabs[3]:
                 word_count = sum(len(line.get('text', '').split()) for line in script)
                 st.caption(f"{len(script)}句｜{word_count}字")
             
-            # 對話內容（可滾動區域）
-            dialogue_container = st.container()
-            with dialogue_container:
-                for i, line in enumerate(script):
-                    is_rachel = line.get('speaker', '') == 'Rachel'
-                    icon = "👩" if is_rachel else "👨"
-                    bubble_color = "#faf3e0" if is_rachel else "#f5ebe0"
-                    border_color = "#c9b896" if is_rachel else "#b8a080"
-                    name_color = "#8b7355" if is_rachel else "#a08060"
-                    
-                    # 使用 columns 讓播放按鈕靠右
-                    msg_cols = st.columns([6, 1])
-                    with msg_cols[0]:
-                        st.markdown(f"""
-                        <div style="background: {bubble_color}; border-left: 3px solid {border_color};
-                                    padding: 10px 12px; margin: 6px 0; border-radius: 0 12px 12px 0;">
-                            <div style="font-weight: 600; margin-bottom: 2px; font-size: 0.8rem; color: {name_color};">
-                                {icon} {line.get('speaker', 'Unknown')}
-                            </div>
-                            <div style="color: #4a4035; line-height: 1.4; font-size: 0.9rem;">
-                                {line.get('text', '')}
-                            </div>
+            # 對話內容
+            for i, line in enumerate(script):
+                is_rachel = line.get('speaker', '') == 'Rachel'
+                icon = "👩" if is_rachel else "👨"
+                bubble_color = "#faf3e0" if is_rachel else "#f5ebe0"
+                border_color = "#c9b896" if is_rachel else "#b8a080"
+                name_color = "#8b7355" if is_rachel else "#a08060"
+                
+                msg_cols = st.columns([6, 1])
+                with msg_cols[0]:
+                    st.markdown(f"""
+                    <div style="background: {bubble_color}; border-left: 3px solid {border_color};
+                                padding: 8px 10px; margin: 4px 0; border-radius: 0 10px 10px 0;">
+                        <div style="font-weight: 600; margin-bottom: 2px; font-size: 0.75rem; color: {name_color};">
+                            {icon} {line.get('speaker', 'Unknown')}
                         </div>
-                        """, unsafe_allow_html=True)
-                    with msg_cols[1]:
-                        # 單句播放按鈕
-                        if st.button("🔊", key=f"dlg_{i}", help="播放"):
-                            play_audio(line.get('text', ''), 'en')
+                        <div style="color: #4a4035; line-height: 1.3; font-size: 0.85rem;">
+                            {line.get('text', '')}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with msg_cols[1]:
+                    if st.button("🔊", key=f"dlg_{i}", help="播放"):
+                        play_audio(line.get('text', ''), 'en')
         else:
-            # 空白狀態，不顯示提示文字
             st.empty()
 
 # ===================================================================
