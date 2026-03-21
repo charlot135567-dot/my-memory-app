@@ -2120,11 +2120,33 @@ with tabs[3]:
             st.session_state.tab4_current_index -= 1
             st.session_state.tab4_is_flipped = False
     
-    # ========== UI 布局：左右兩欄 ==========
-    
     # --- 上方區域：閃卡 CSV 上傳 + 閃卡顯示 ---
     st.markdown("#### 🎯 閃卡學習區")
     
+    # ========== 手機備案上傳（放在這裡）==========
+    with st.expander("📱 手機無法上傳？點此貼上 CSV 內容"):
+        pasted_csv = st.text_area("貼上 CSV 內容", height=150, 
+                                  placeholder="單字 - 勇敢的心：_____,confidence...")
+        if st.button("📋 載入貼上的閃卡內容", use_container_width=True):
+            if pasted_csv.strip():
+                try:
+                    from io import StringIO
+                    cards = parse_csv_data(StringIO(pasted_csv))
+                    if cards:
+                        st.session_state.tab4_flashcards = cards
+                        st.session_state.tab4_current_index = 0
+                        st.session_state.tab4_is_flipped = False
+                        st.success(f"✅ 成功載入 {len(cards)} 張閃卡！")
+                        st.rerun()
+                    else:
+                        st.error("❌ 無法解析，請確認格式正確")
+                except Exception as e:
+                    st.error(f"❌ 錯誤: {e}")
+            else:
+                st.warning("⚠️ 請先貼上 CSV 內容")
+    
+    # 原本的布局繼續...
+    col_left_top, col_right_top = st.columns([1, 3])
     col_left_top, col_right_top = st.columns([1, 3])
     
     # 左側上：閃卡 CSV 上傳（最小化欄位）
