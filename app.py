@@ -1952,43 +1952,53 @@ with tabs[3]:
     if "is_flipped" not in st.session_state:
         st.session_state.is_flipped = False
 
-    # 2. AI 生成邏輯
+# 2. AI 生成邏輯
     if generate_btn and verse_input:
         with st.spinner("AI 正在深度解析經文並製作閃卡..."):
-            # 建立針對性的 Prompt
-            ai_prompt = f"""
-            Act as a Bible English Teacher. Analyze the verse: "{verse_input}".
-            Create flashcards for learning. Each card must follow this rule:
-            1. Extract 2 high-level words, 1-2 phrases, 2-4 segments, and 1 full verse.
-            2. For each card:
-               - FRONT: Write a clear English explanation or hint. DO NOT mention labels like 'Word' or 'Phrase'.
-               - BACK: Show the [Chinese Meaning] : [English Text] + (English/Chinese Example).
-            
-            Return a JSON object ONLY:
-            {{
-              "cards": [
-                {{ "front": "English explanation for a word", "back": "中文意思 : English Word\\n(Example: ... / ...)" }},
-                {{ "front": "English explanation for a phrase", "back": "中文片語 : English Phrase\\n(Example: ... / ...)" }},
-                {{ "front": "English hint for a segment", "back": "中文段句 : English Segment" }},
-                {{ "front": "The full context of this verse", "back": "全句翻譯 : Full English Verse" }}
-              ]
-            }}
-            """
-            
-            # 呼叫您已有的 analyze_scripture_with_ai 的簡化逻辑
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(ai_prompt)
-            
             try:
-                # 解析回傳的 JSON
-                clean_json = re.sub(r'```json|```', '', response.text).strip()
-                data = json.loads(clean_json)
-                st.session_state.tab4_cards = data.get("cards", [])
-                st.session_state.current_card_idx = 0
-                st.session_state.is_flipped = False
-                st.success(f"成功為 {verse_input} 生成了 {len(st.session_state.tab4_cards)} 張閃卡！")
+                # --- [關鍵修復]：直接沿用 0.2 節的 API Key 與配置 ---
+                api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
+                genai.configure(api_key=api_key)
+                
+                # 自動抓取目前 API Key 支援的第一個可用模型 (避免 NotFound 錯誤)
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                if not available_models:
+                    st.error("此 API Key 無可用模型")
+                    st.stop()
+                
+                # 優先選擇 flash，沒有的話選第一個
+                use_model = next((m for m in available_models if "flash" in m), available_models[0])
+                model = genai.GenerativeModel(use_model)
+
+                # 建立針對性的 Prompt
+                ai_prompt = f"""
+                Act as a Bible English Teacher. Analyze the verse: "{verse_input}".
+                Return a JSON object ONLY with a 'cards' list. 
+                Each card rules:
+                - Extract 2 words, 1-2 phrases, 2-4 segments, and 1 full verse.
+                - FRONT: English explanation ONLY (no labels).
+                - BACK: [Chinese Meaning] : [English Text] + (English/Chinese Example).
+                
+                JSON Structure:
+                {{ "cards": [ {{ "front": "...", "back": "..." }} ] }}
+                """
+                
+                response = model.generate_content(ai_prompt)
+                
+                # 解析回傳內容
+                if response and response.text:
+                    clean_json = re.sub(r'```json|```', '', response.text).strip()
+                    data = json.loads(clean_json)
+                    st.session_state.tab4_cards = data.get("cards", [])
+                    st.session_state.current_card_idx = 0
+                    st.session_state.is_flipped = False
+                    st.success(f"成功！已生成 {len(st.session_state.tab4_cards)} 張閃卡")
+                    st.rerun()
+                else:
+                    st.error("AI 回傳內容為空")
+
             except Exception as e:
-                st.error("解析失敗，請再試一次。")
+                st.error(f"❌ AI 運算錯誤: {str(e)}")
 
     # 3. 極簡閃卡展示區
     if st.session_state.tab4_cards:
