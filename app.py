@@ -1935,7 +1935,7 @@ with tabs[2]:
 # TAB 4: AI 智慧學習 (極簡 UI + 快速操作版)
 # ===================================================================
 with tabs[3]:
-    # 1. & 2. 頂部輸入區（按鍵縮小放左側）
+# 1. & 2. 頂部輸入區（按鍵縮小放左側）
     c1, c2 = st.columns([1, 3])
     with c1:
         generate_all = st.button("✨ 生成內容", use_container_width=True)
@@ -1947,14 +1947,23 @@ with tabs[3]:
     if "card_idx" not in st.session_state: st.session_state.card_idx = 0
     if "flipped" not in st.session_state: st.session_state.flipped = False
 
-    # AI 生成邏輯 (包含版本指定與分段要求)
+    # AI 生成邏輯 (修正 404 錯誤：自動偵測可用模型名稱)
     if generate_all and verse_input:
-        with st.spinner("AI 製作中..."):
+        with st.spinner("AI 製作中 (ESV/和合本)..."):
             try:
                 # 取得配置 (沿用您 0.2 的邏輯)
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                # --- [修復關鍵] 自動偵測模型名稱 ---
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                if not available_models:
+                    st.error("❌ 找不到可用的 Gemini 模型")
+                    st.stop()
+                
+                # 優先選擇 flash 相關模型，沒有的話選第一個
+                target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
+                model = genai.GenerativeModel(target_model_name)
 
                 full_prompt = f"""
                 Analyze Bible verse: "{verse_input}". 
@@ -1974,15 +1983,20 @@ with tabs[3]:
                 Return JSON ONLY:
                 {{
                   "cards": [ {{ "front": "...", "hint": "...", "back": "..." }} ],
-                  "script": [ {{ "speaker": "Rachel", "text": "..." }} ]
+                  "script": [ {{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }} ]
                 }}
                 """
                 response = model.generate_content(full_prompt)
-                st.session_state.tab4_data = json.loads(re.sub(r'```json|```', '', response.text).strip())
+                
+                # 清理與解析回傳的 JSON
+                json_raw = re.sub(r'```json|```', '', response.text).strip()
+                st.session_state.tab4_data = json.loads(json_raw)
                 st.session_state.card_idx = 0
+                st.session_state.flipped = False
+                st.success(f"✅ 成功生成 {len(st.session_state.tab4_data['cards'])} 張卡片！")
                 st.rerun()
             except Exception as e:
-                st.error(f"生成失敗: {e}")
+                st.error(f"生成失敗: {str(e)}")
 
     # 3. & 4. 閃卡顯示區 (左右佈局)
     if st.session_state.tab4_data["cards"]:
