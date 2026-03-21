@@ -1932,116 +1932,85 @@ with tabs[2]:
                 st.rerun()
         
 # ===================================================================
-# TAB 4: AI 智慧閃卡生成器 (極簡優化版)
+# TAB 4: AI 智慧學習 (閃卡 + 雙人對話模式)
 # ===================================================================
 with tabs[3]:
-    st.header("🤖 AI 智慧閃卡生成")
+    st.header("🤖 AI 智慧經文學習")
     
-    # 1. 極簡輸入區
+    # 輸入與生成
     c1, c2 = st.columns([3, 1])
     with c1:
-        verse_input = st.text_input("輸入經文出處", placeholder="例如: Hebrews 10:35-36 或 來 10:35", label_visibility="collapsed")
+        verse_input = st.text_input("輸入經文出處", placeholder="例如: Hebrews 10:35", label_visibility="collapsed")
     with c2:
-        generate_btn = st.button("✨ 生成閃卡", use_container_width=True)
+        generate_all = st.button("✨ 生成全部內容", use_container_width=True)
 
-    # 初始化 Session State
-    if "tab4_cards" not in st.session_state:
-        st.session_state.tab4_cards = []
-    if "current_card_idx" not in st.session_state:
-        st.session_state.current_card_idx = 0
-    if "is_flipped" not in st.session_state:
-        st.session_state.is_flipped = False
+    # 初始化狀態
+    if "tab4_data" not in st.session_state:
+        st.session_state.tab4_data = {"cards": [], "script": []}
+    if "card_idx" not in st.session_state: st.session_state.card_idx = 0
+    if "flipped" not in st.session_state: st.session_state.flipped = False
 
-# 2. AI 生成邏輯
-    if generate_btn and verse_input:
-        with st.spinner("AI 正在深度解析經文並製作閃卡..."):
+    if generate_all and verse_input:
+        with st.spinner("AI 正在編寫對話與製作閃卡..."):
             try:
-                # --- [關鍵修復]：直接沿用 0.2 節的 API Key 與配置 ---
+                # 取得 API 配置
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
-                
-                # 自動抓取目前 API Key 支援的第一個可用模型 (避免 NotFound 錯誤)
                 available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                if not available_models:
-                    st.error("此 API Key 無可用模型")
-                    st.stop()
-                
-                # 優先選擇 flash，沒有的話選第一個
                 use_model = next((m for m in available_models if "flash" in m), available_models[0])
                 model = genai.GenerativeModel(use_model)
 
-                # 建立針對性的 Prompt
-                ai_prompt = f"""
-                Act as a Bible English Teacher. Analyze the verse: "{verse_input}".
-                Return a JSON object ONLY with a 'cards' list. 
-                Each card rules:
-                - Extract 2 words, 1-2 phrases, 2-4 segments, and 1 full verse.
-                - FRONT: English explanation ONLY (no labels).
-                - BACK: [Chinese Meaning] : [English Text] + (English/Chinese Example).
+                # 強大的 Prompt：要求閃卡 + 800字對話
+                full_prompt = f"""
+                Analyze the Bible verse: "{verse_input}".
+                Task 1: Create flashcards (2 words, 1 phrase, 2 segments, 1 full verse). 
+                   FRONT: English hint/explanation. BACK: Chinese: English + Example.
+                Task 2: Write a 800-word conversation between Rachel and Mike. 
+                   They discuss the meaning, grammar, and life application of this verse in English.
                 
-                JSON Structure:
-                {{ "cards": [ {{ "front": "...", "back": "..." }} ] }}
+                Return JSON ONLY:
+                {{
+                  "cards": [ {{ "front": "...", "back": "..." }} ],
+                  "script": [ {{ "speaker": "Rachel", "text": "..." }}, {{ "speaker": "Mike", "text": "..." }} ]
+                }}
                 """
-                
-                response = model.generate_content(ai_prompt)
-                
-                # 解析回傳內容
-                if response and response.text:
-                    clean_json = re.sub(r'```json|```', '', response.text).strip()
-                    data = json.loads(clean_json)
-                    st.session_state.tab4_cards = data.get("cards", [])
-                    st.session_state.current_card_idx = 0
-                    st.session_state.is_flipped = False
-                    st.success(f"成功！已生成 {len(st.session_state.tab4_cards)} 張閃卡")
-                    st.rerun()
-                else:
-                    st.error("AI 回傳內容為空")
-
+                response = model.generate_content(full_prompt)
+                clean_json = re.sub(r'```json|```', '', response.text).strip()
+                st.session_state.tab4_data = json.loads(clean_json)
+                st.session_state.card_idx = 0
+                st.success("內容已生成！")
             except Exception as e:
-                st.error(f"❌ AI 運算錯誤: {str(e)}")
+                st.error(f"生成失敗: {e}")
 
-    # 3. 極簡閃卡展示區
-    if st.session_state.tab4_cards:
-        card = st.session_state.tab4_cards[st.session_state.current_card_idx]
+    # 內容展示區：使用小型標籤切換
+    if st.session_state.tab4_data["cards"]:
+        sub_tab1, sub_tab2 = st.tabs(["🗂️ 閃卡練習", "🎧 雙人對話模式"])
         
-        # 顯示進度
-        st.caption(f"卡片 {st.session_state.current_card_idx + 1} / {len(st.session_state.tab4_cards)}")
-        
-        # 閃卡主體
-        card_content = card["back"] if st.session_state.is_flipped else card["front"]
-        st.markdown(f"""
-            <div style="height: 250px; background-color: {'#f0f8ff' if not st.session_state.is_flipped else '#fff4e6'}; 
-                        border-radius: 15px; border: 2px solid #ddd; padding: 25px; 
-                        display: flex; align-items: center; justify-content: center; text-align: center;
-                        font-size: 20px; font-weight: 500; cursor: pointer; color: #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.1);">
-                {card_content.replace('\\n', '<br>')}
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # 極簡控制按鈕
-        st.write("") # 間隔
-        col_prev, col_flip, col_next = st.columns([1, 2, 1])
-        with col_prev:
-            if st.button("⬅️", use_container_width=True):
-                st.session_state.current_card_idx = (st.session_state.current_card_idx - 1) % len(st.session_state.tab4_cards)
-                st.session_state.is_flipped = False
-                st.rerun()
-        with col_flip:
-            if st.button("翻轉 (Show Answer)", use_container_width=True):
-                st.session_state.is_flipped = not st.session_state.is_flipped
-                st.rerun()
-        with col_next:
-            if st.button("➡️", use_container_width=True):
-                st.session_state.current_card_idx = (st.session_state.current_card_idx + 1) % len(st.session_state.tab4_cards)
-                st.session_state.is_flipped = False
-                st.rerun()
+        with sub_tab1:
+            # 閃卡顯示邏輯 (同前次)
+            card = st.session_state.tab4_data["cards"][st.session_state.card_idx]
+            display_text = card["back"] if st.session_state.flipped else card["front"]
+            st.markdown(f'<div style="height:200px; background:#f9f9f9; border:1px solid #ddd; border-radius:10px; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; font-size:18px;">{display_text.replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
+            
+            # 語音播放：如果是答案面，自動朗讀英文部分
+            if st.session_state.flipped:
+                eng_text = card["back"].split(':')[-1]
+                play_audio_html(eng_text)
 
-        # 功能鏈結
-        if st.button("🗑 清除當前卡片", type="secondary"):
-            st.session_state.tab4_cards = []
-            st.rerun()
-    else:
-        st.info("請在上方輸入經文範圍（如：來 10:35）並點擊生成。")
+            c_prev, c_flip, c_next = st.columns(3)
+            if c_prev.button("⬅️"): st.session_state.card_idx = (st.session_state.card_idx - 1) % len(st.session_state.tab4_data["cards"]); st.session_state.flipped = False; st.rerun()
+            if c_flip.button("翻轉"): st.session_state.flipped = not st.session_state.flipped; st.rerun()
+            if c_next.button("➡️"): st.session_state.card_idx = (st.session_state.card_idx + 1) % len(st.session_state.tab4_data["cards"]); st.session_state.flipped = False; st.rerun()
+
+        with sub_tab2:
+            st.subheader("Podcast Learning Mode")
+            for msg in st.session_state.tab4_data["script"]:
+                with st.chat_message(msg["speaker"]):
+                    st.write(f"**{msg['speaker']}**: {msg['text']}")
+            
+            if st.button("🔊 播放完整對話朗讀"):
+                full_text = " ".join([f"{m['speaker']} says, {m['text']}" for m in st.session_state.tab4_data["script"]])
+                play_audio_html(full_text)
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
