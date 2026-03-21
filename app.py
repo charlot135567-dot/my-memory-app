@@ -108,7 +108,7 @@ def analyze_scripture_with_ai(text, chinese, reference):
             target_model = available_models[0]
             st.warning(f"⚠️ 自動選用相容模型: {target_model}")
 
-        model = genai.GenerativeModel(target_model)
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         
         # 4. 定義 Prompt
         prompt = f"""
