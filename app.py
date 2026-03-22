@@ -1932,24 +1932,24 @@ with tabs[2]:
                 st.rerun()
         
 # ===================================================================
-# TAB 4: AI 智慧學習 (精準拆解閃卡 + 雙人對話版)
+# TAB 4: AI 智慧學習 (精準階梯式拆解)
 # ===================================================================
 with tabs[3]:
-    # 1. 頂部輸入區（極簡操作）
+    # 1. & 2. 頂部輸入區
     c1, c2 = st.columns([1, 3])
     with c1:
         generate_all = st.button("✨ 生成內容", use_container_width=True)
     with c2:
-        verse_input = st.text_input("輸入經文 (ESV/和合本)", placeholder="例如: Ephesians 1:3-4", label_visibility="collapsed")
+        verse_input = st.text_input("輸入經文 (ESV/和合本)", placeholder="例如: Ephesians 1:3", label_visibility="collapsed")
 
     # 初始化狀態
     if "tab4_data" not in st.session_state: st.session_state.tab4_data = {"cards": [], "script": []}
     if "card_idx" not in st.session_state: st.session_state.card_idx = 0
     if "flipped" not in st.session_state: st.session_state.flipped = False
 
-    # AI 生成邏輯 (嚴格對齊您的拆解範例)
+    # AI 生成邏輯
     if generate_all and verse_input:
-        with st.spinner("AI 正在按層次拆解經文並編寫對話..."):
+        with st.spinner("AI 正在按層次拆解經文..."):
             try:
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
@@ -1959,93 +1959,90 @@ with tabs[3]:
                 target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
                 model = genai.GenerativeModel(target_model_name)
 
-                # 核心 Prompt：定義四層學習結構
+                # 核心 Prompt：嚴格規定顯示格式
                 full_prompt = f"""
-                You are a Bible Linguist. Analyze: "{verse_input}". 
-                English: ESV. Chinese: CUV (和合本).
+                Act as a Bible Teacher. Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
+                For each verse, you MUST generate at least 8-10 cards in total covering these 4 types:
+
+                1. WORD Type: 
+                   FRONT: "正面：[Chinese Meaning]\\n例：[Full Chinese Verse]"
+                   BACK: "反面：[English Word]\\n例：[Full English Verse]"
                 
-                For EACH verse, you MUST generate these 4 types of cards:
-                1. WORD: Front(Chin meaning + Chin example), Back(Eng word + Eng example).
-                2. PHRASE: Front(Eng phrase + Eng snippet), Back(Chin meaning + Chin snippet).
-                3. SEGMENT: Front(Chin segment), Back(Eng segment). Split by logical breath (at least 2 segments).
-                4. FULL: Front(Full Chin verse), Back(Full Eng verse).
+                2. PHRASE Type:
+                   FRONT: "正面：[English Phrase]\\n例：[Short English snippet]"
+                   BACK: "反面：[Chinese Meaning]\\n例：[Short Chinese snippet]"
+
+                3. SEGMENT Type:
+                   FRONT: "正面：[Chinese Segment]"
+                   BACK: "反面：[English Segment]"
                 
-                Task 2: Write a 800-word English dialogue (Rachel & Mike) about these verses.
-                
+                4. FULL Type:
+                   FRONT: "正面：[Full Chinese Verse]"
+                   BACK: "反面：[Full English Verse]"
+
+                Podcast: Write a 800-word dialogue between Rachel and Mike.
+
                 Return JSON ONLY:
                 {{
-                  "cards": [ 
-                    {{ "type": "Word", "front": "中文意思\\n例：中文例句", "back": "English Word\\nEx: English Example" }},
-                    {{ "type": "Phrase", "front": "English Phrase\\nEx: Eng snippet", "back": "中文意思\\n例：中文片段" }},
-                    {{ "type": "Segment", "front": "中文段句", "back": "English Segment" }},
-                    {{ "type": "Full", "front": "整句中文經文", "back": "Full English Verse" }}
-                  ],
+                  "cards": [ {{ "type": "...", "front": "...", "back": "..." }} ],
                   "script": [ {{ "speaker": "Rachel", "text": "..." }} ]
                 }}
                 """
                 response = model.generate_content(full_prompt)
-                st.session_state.tab4_data = json.loads(re.sub(r'```json|```', '', response.text).strip())
+                json_data = json.loads(re.sub(r'```json|```', '', response.text).strip())
+                st.session_state.tab4_data = json_data
                 st.session_state.card_idx = 0
                 st.session_state.flipped = False
                 st.rerun()
             except Exception as e:
                 st.error(f"生成失敗: {str(e)}")
 
-    # 顯示區
+    # 3. & 4. 閃卡顯示區 (左右佈局：左卡片，右按鈕)
     if st.session_state.tab4_data["cards"]:
-        sub_tab1, sub_tab2 = st.tabs(["🗂️ 階梯式閃卡練習", "🎧 雙人對話模式"])
+        sub_tab1, sub_tab2 = st.tabs(["🗂️ 閃卡練習", "🎧 雙人對話"])
         
         with sub_tab1:
             card_col, btn_col = st.columns([2, 1])
             card = st.session_state.tab4_data["cards"][st.session_state.card_idx]
             
             with card_col:
-                # 顯示當前類型與進度
+                # 4-C: 左上角進度與類型
                 st.caption(f"📍 {card['type']} | 📊 {st.session_state.card_idx + 1} / {len(st.session_state.tab4_data['cards'])}")
                 
-                # 閃卡主體 (高度縮減，適合快速閱讀)
-                content = card["back"] if st.session_state.flipped else card["front"]
+                # 4-A: 閃卡主體 (高度縮短至 180px)
+                display_text = card["back"] if st.session_state.flipped else card["front"]
                 st.markdown(f"""
-                    <div style="height:180px; background:#fcfcfc; border:2px solid #4A90E2; border-radius:12px; 
+                    <div style="height:180px; background:#fcfcfc; border:2px solid #333; border-radius:10px; 
                                 display:flex; align-items:center; justify-content:center; text-align:center; padding:15px; 
-                                font-size:18px; color:#333; line-height:1.4; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);">
-                        {content.replace('\\n', '<br>')}
+                                font-size:18px; line-height:1.5; color:#1a1a1a;">
+                        {display_text.replace('\\n', '<br>')}
                     </div>
                 """, unsafe_allow_html=True)
-                
-                # 彈窗提示 (Hint) - 如果 AI 有提供額外說明
-                if "hint" in card:
-                    with st.popover("💡 提示", use_container_width=True):
-                        st.write(card["hint"])
 
             with btn_col:
-                # 右側緊湊按鈕區
+                # 3: 右側緊湊按鈕區 (上下排列)
                 st.write("") 
                 if st.button("⬅️ 上一頁", use_container_width=True):
                     st.session_state.card_idx = (st.session_state.card_idx - 1) % len(st.session_state.tab4_data["cards"])
-                    st.session_state.flipped = False
-                    st.rerun()
+                    st.session_state.flipped = False; st.rerun()
                 if st.button("🔄 翻轉", use_container_width=True, type="primary"):
-                    st.session_state.flipped = not st.session_state.flipped
-                    st.rerun()
+                    st.session_state.flipped = not st.session_state.flipped; st.rerun()
                 if st.button("➡️ 下一頁", use_container_width=True):
                     st.session_state.card_idx = (st.session_state.card_idx + 1) % len(st.session_state.tab4_data["cards"])
-                    st.session_state.flipped = False
-                    st.rerun()
+                    st.session_state.flipped = False; st.rerun()
                 if st.button("🔊 語音", use_container_width=True):
-                    # 自動辨識朗讀哪一面
+                    # 朗讀時過濾中文，只讀英文部分
                     speech_text = card["back"] if st.session_state.flipped else card["front"]
-                    # 過濾掉中文，只讀英文部分
-                    clean_speech = re.sub(r'[\u4e00-\u9fa5]+', '', speech_text).replace('Ex:', '').replace('例：', '')
-                    play_audio_html(clean_speech)
+                    eng_only = re.sub(r'[\u4e00-\u9fa5]+', '', speech_text).replace('正面：', '').replace('反面：', '').replace('例：', '')
+                    play_audio_html(eng_only)
 
         with sub_tab2:
-            # 5: 雙人對話模式
-            h_col, a_col = st.columns([2, 1])
-            h_col.subheader("Podcast Mode")
-            if a_col.button("🔊 播放完整對話", use_container_width=True):
-                full_text = " ".join([m['text'] for m in st.session_state.tab4_data["script"]])
-                play_audio_html(full_text)
+            # 5: 雙人對話
+            h1, h2 = st.columns([2, 1])
+            h1.subheader("Rachel & Mike Podcast")
+            if h2.button("🔊 播放對話", use_container_width=True):
+                full_script = " ".join([f"{m['speaker']} says, {m['text']}" for m in st.session_state.tab4_data["script"]])
+                play_audio_html(full_script)
             
             for msg in st.session_state.tab4_data["script"]:
                 with st.chat_message(msg["speaker"]):
