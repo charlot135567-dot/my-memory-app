@@ -1932,7 +1932,7 @@ with tabs[2]:
                 st.rerun()
         
 # ===================================================================
-# TAB 4: AI 智慧學習 (精準階梯式拆解)
+# TAB 4: AI 智慧學習 (修復 KeyError 版本)
 # ===================================================================
 with tabs[3]:
     # 1. & 2. 頂部輸入區
@@ -1947,70 +1947,59 @@ with tabs[3]:
     if "card_idx" not in st.session_state: st.session_state.card_idx = 0
     if "flipped" not in st.session_state: st.session_state.flipped = False
 
-    # AI 生成邏輯
+    # AI 生成邏輯 (強化 JSON 結構要求)
     if generate_all and verse_input:
         with st.spinner("AI 正在按層次拆解經文..."):
             try:
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
                 
-                # 自動偵測模型
                 available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                 target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
                 model = genai.GenerativeModel(target_model_name)
 
-                # 核心 Prompt：嚴格規定顯示格式
                 full_prompt = f"""
-                Act as a Bible Teacher. Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
-                For each verse, you MUST generate at least 8-10 cards in total covering these 4 types:
-
-                1. WORD Type: 
-                   FRONT: "正面：[Chinese Meaning]\\n例：[Full Chinese Verse]"
-                   BACK: "反面：[English Word]\\n例：[Full English Verse]"
+                Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
+                Create a JSON object with 'cards' and 'script'.
+                Each card MUST have 'type', 'front', and 'back' keys.
+                Types: "Word", "Phrase", "Segment", "Full".
                 
-                2. PHRASE Type:
-                   FRONT: "正面：[English Phrase]\\n例：[Short English snippet]"
-                   BACK: "反面：[Chinese Meaning]\\n例：[Short Chinese snippet]"
-
-                3. SEGMENT Type:
-                   FRONT: "正面：[Chinese Segment]"
-                   BACK: "反面：[English Segment]"
+                [Formatting Rules]
+                - Word: Front: 中文意思+中文整句, Back: Eng Word+Eng整句
+                - Phrase: Front: Eng Phrase+Eng snippet, Back: 中文意思+中文snippet
+                - Segment: Front: 中文段句, Back: Eng Segment
+                - Full: Front: 整句中文, Back: 整句英文
                 
-                4. FULL Type:
-                   FRONT: "正面：[Full Chinese Verse]"
-                   BACK: "反面：[Full English Verse]"
-
-                Podcast: Write a 800-word dialogue between Rachel and Mike.
-
-                Return JSON ONLY:
-                {{
-                  "cards": [ {{ "type": "...", "front": "...", "back": "..." }} ],
-                  "script": [ {{ "speaker": "Rachel", "text": "..." }} ]
-                }}
+                [Podcast]
+                - 800-word dialogue between Rachel and Mike.
                 """
                 response = model.generate_content(full_prompt)
-                json_data = json.loads(re.sub(r'```json|```', '', response.text).strip())
-                st.session_state.tab4_data = json_data
+                res_text = re.sub(r'```json|```', '', response.text).strip()
+                st.session_state.tab4_data = json.loads(res_text)
                 st.session_state.card_idx = 0
                 st.session_state.flipped = False
                 st.rerun()
             except Exception as e:
                 st.error(f"生成失敗: {str(e)}")
 
-    # 3. & 4. 閃卡顯示區 (左右佈局：左卡片，右按鈕)
-    if st.session_state.tab4_data["cards"]:
+    # 顯示區 (加入防錯保護)
+    if st.session_state.tab4_data.get("cards"):
         sub_tab1, sub_tab2 = st.tabs(["🗂️ 閃卡練習", "🎧 雙人對話"])
         
         with sub_tab1:
             card_col, btn_col = st.columns([2, 1])
-            card = st.session_state.tab4_data["cards"][st.session_state.card_idx]
+            # 安全取得當前卡片
+            cards_list = st.session_state.tab4_data["cards"]
+            idx = st.session_state.card_idx
+            card = cards_list[idx] if idx < len(cards_list) else cards_list[0]
             
             with card_col:
-                # 4-C: 左上角進度與類型
-                st.caption(f"📍 {card['type']} | 📊 {st.session_state.card_idx + 1} / {len(st.session_state.tab4_data['cards'])}")
+                # 【關鍵修復】：使用 .get() 避免 KeyError
+                card_type = card.get("type", "Learning")
+                st.caption(f"📍 {card_type} | 📊 {idx + 1} / {len(cards_list)}")
                 
-                # 4-A: 閃卡主體 (高度縮短至 180px)
-                display_text = card["back"] if st.session_state.flipped else card["front"]
+                # 閃卡主體
+                display_text = card.get("back", "") if st.session_state.flipped else card.get("front", "")
                 st.markdown(f"""
                     <div style="height:180px; background:#fcfcfc; border:2px solid #333; border-radius:10px; 
                                 display:flex; align-items:center; justify-content:center; text-align:center; padding:15px; 
@@ -2020,33 +2009,33 @@ with tabs[3]:
                 """, unsafe_allow_html=True)
 
             with btn_col:
-                # 3: 右側緊湊按鈕區 (上下排列)
+                # 按鈕邏輯 (保持不變)
                 st.write("") 
                 if st.button("⬅️ 上一頁", use_container_width=True):
-                    st.session_state.card_idx = (st.session_state.card_idx - 1) % len(st.session_state.tab4_data["cards"])
+                    st.session_state.card_idx = (idx - 1) % len(cards_list)
                     st.session_state.flipped = False; st.rerun()
                 if st.button("🔄 翻轉", use_container_width=True, type="primary"):
                     st.session_state.flipped = not st.session_state.flipped; st.rerun()
                 if st.button("➡️ 下一頁", use_container_width=True):
-                    st.session_state.card_idx = (st.session_state.card_idx + 1) % len(st.session_state.tab4_data["cards"])
+                    st.session_state.card_idx = (idx + 1) % len(cards_list)
                     st.session_state.flipped = False; st.rerun()
                 if st.button("🔊 語音", use_container_width=True):
-                    # 朗讀時過濾中文，只讀英文部分
-                    speech_text = card["back"] if st.session_state.flipped else card["front"]
+                    speech_text = card.get("back", "") if st.session_state.flipped else card.get("front", "")
                     eng_only = re.sub(r'[\u4e00-\u9fa5]+', '', speech_text).replace('正面：', '').replace('反面：', '').replace('例：', '')
                     play_audio_html(eng_only)
 
         with sub_tab2:
             # 5: 雙人對話
             h1, h2 = st.columns([2, 1])
-            h1.subheader("Rachel & Mike Podcast")
+            h1.subheader("Podcast Mode")
             if h2.button("🔊 播放對話", use_container_width=True):
-                full_script = " ".join([f"{m['speaker']} says, {m['text']}" for m in st.session_state.tab4_data["script"]])
+                script = st.session_state.tab4_data.get("script", [])
+                full_script = " ".join([f"{m.get('speaker')} says, {m.get('text')}" for m in script])
                 play_audio_html(full_script)
             
-            for msg in st.session_state.tab4_data["script"]:
-                with st.chat_message(msg["speaker"]):
-                    st.write(f"**{msg['speaker']}**: {msg['text']}")
+            for msg in st.session_state.tab4_data.get("script", []):
+                with st.chat_message(msg.get("speaker", "Assistant")):
+                    st.write(f"**{msg.get('speaker')}**: {msg.get('text')}")
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
