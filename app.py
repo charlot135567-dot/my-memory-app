@@ -1932,26 +1932,29 @@ with tabs[2]:
                 st.rerun()
         
 # ===================================================================
-# TAB 4: AI 智慧學習 (修復 AttributeError & 強化顯示邏輯)
+# TAB 4: AI 智慧學習 (修復變數未定義錯誤)
 # ===================================================================
 with tabs[3]:
     # 1. & 2. 頂部輸入區
     c1, c2 = st.columns([1, 3])
+    
+    # --- 【關鍵：先定義變數】 ---
     with c1:
-        generate_all = st.button("✨ 生成內容", use_container_width=True)
+        generate_all = st.button("✨ 生成內容", key="tab4_gen_btn", use_container_width=True)
     with c2:
-        verse_input = st.text_input("輸入經文 (ESV/和合本)", placeholder="例如: Ephesians 1:3", label_visibility="collapsed")
+        verse_input = st.text_input("輸入經文 (ESV/和合本)", key="tab4_input", placeholder="例如: Ephesians 1:3", label_visibility="collapsed")
 
-    # 初始化狀態 (確保資料夾結構正確)
+    # 初始化 session_state
     if "tab4_data" not in st.session_state: 
         st.session_state.tab4_data = {"cards": [], "script": []}
     if "card_idx" not in st.session_state: st.session_state.card_idx = 0
     if "flipped" not in st.session_state: st.session_state.flipped = False
 
-    # AI 生成邏輯
+    # --- 【使用變數進行判斷】 ---
     if generate_all and verse_input:
-        with st.spinner("AI 正在按層次拆解經文並編寫對話..."):
+        with st.spinner("AI 正在深度拆解並編寫對話..."):
             try:
+                # API 配置
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
                 
@@ -1960,28 +1963,42 @@ with tabs[3]:
                 target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
                 model = genai.GenerativeModel(target_model_name)
 
+                # 強化版 Prompt
                 full_prompt = f"""
                 Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
-                Return JSON with 'cards' (list of dict) and 'script' (list of dict).
+                Return ONE JSON object with 'cards' and 'script'.
                 
-                [Flashcard Rules]
-                - WORD: Front(Chin meaning+Chin example), Back(Eng word+Eng example).
-                - PHRASE: Front(Eng phrase+Eng snippet), Back(Chin meaning+Chin snippet).
-                - SEGMENT: Front(Chin segment), Back(Eng segment).
-                - FULL: Front(Full Chin), Back(Full Eng).
+                [Flashcard Rules - strictly follow this format]
+                - WORD: Front("正面：[中意]\\n例：[中句]"), Back("反面：[Eng Word]\\n例：[Eng句]")
+                - PHRASE: Front("正面：[Eng Phrase]\\n例：[Eng snippet]"), Back("反面：[中意]\\n例：[中snippet]")
+                - SEGMENT: Front("正面：[中段]"), Back("反面：[Eng段]")
+                - FULL: Front("正面：[中全句]"), Back("反面：[Eng全句]")
                 
                 [Podcast Rules]
-                - 800-word Rachel & Mike dialogue. 
-                - Format: {{"speaker": "Rachel", "text": "..."}}
+                - 800-word Rachel & Mike dialogue.
                 """
+                
                 response = model.generate_content(full_prompt)
-                res_text = re.sub(r'```json|```', '', response.text).strip()
-                st.session_state.tab4_data = json.loads(res_text)
-                st.session_state.card_idx = 0
-                st.session_state.flipped = False
-                st.rerun()
+                
+                # 清理 JSON 並提取
+                raw_text = response.text.strip()
+                json_match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
+                
+                if json_match:
+                    st.session_state.tab4_data = json.loads(json_match.group(1))
+                    st.session_state.card_idx = 0
+                    st.session_state.flipped = False
+                    st.success("✅ 生成成功！")
+                    st.rerun()
+                else:
+                    st.error("AI 回傳格式錯誤。")
+
             except Exception as e:
-                st.error(f"生成失敗: {str(e)}")
+                st.error(f"❌ 生成失敗: {str(e)}")
+
+    # 3. 顯示區 (其餘代碼保持不變...)
+    if st.session_state.tab4_data.get("cards"):
+        # ... (後面的 sub_tab1, sub_tab2 代碼)
 
     # 顯示區
     data = st.session_state.tab4_data
