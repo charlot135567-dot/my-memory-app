@@ -1938,7 +1938,16 @@ with tabs[3]:
     # 1. & 2. 頂部輸入區 (高度對齊優化)
     c1, c2 = st.columns([1, 3])
     with c1:
-        # 使用 label_visibility="collapsed" 並包裹在容器內確保高度與 text_input 接近
+        # 使用 CSS 調整按鈕高度與輸入欄一致
+        st.markdown("""
+            <style>
+            div[data-testid="stButton"] > button {
+                height: 36px !important;
+                min-height: 36px !important;
+                padding: 0px 16px !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         generate_all = st.button("✨ 生成內容", key="tab4_gen_btn", use_container_width=True)
     with c2:
         verse_input = st.text_input("輸入經文 (ESV/和合本)", key="tab4_input", placeholder="例如: Ephesians 1:3", label_visibility="collapsed")
@@ -1964,20 +1973,54 @@ with tabs[3]:
                 Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
                 Return ONE JSON object with 'cards' and 'script'.
                 
-                [Flashcard Format]
-                - WORD: Front("正面：[中意]\\n例：[中句]"), Back("反面：[Eng Word]\\n例：[Eng句]")
-                - PHRASE: Front("正面：[Eng Phrase]\\n例：[Eng snippet]"), Back("反面：[中意]\\n例：[中snippet]")
-                - SEGMENT: Front("正面：[中段]"), Back("反面：[Eng段]")
-                - FULL: Front("正面：[中全句]"), Back("反面：[Eng全句]")
+                [Flashcard Format - 必須依以下規則產生]
+                每一句經文必須拆解為以下四個層級，依句子長度決定產生多少張卡：
                 
-                [Podcast Rules]
-                - Rachel & Mike dialogue.
-                - !!! IMPORTANT: The dialogue MUST BE 100% IN ENGLISH. NO CHINESE.
-                - Length: Long and detailed (approx 800 words).
+                1. 單字卡 (WORD):
+                   - 選擇 2-4 個重要單字
+                   Front: "正面：[中文詞義]\\n例：[中文例句片段]"
+                   Back: "反面：[Eng Word]\\n例：[Eng例句片段]"
+                   
+                2. 片語卡 (PHRASE):
+                   - 選擇 2-3 個重要片語
+                   Front: "正面：[Eng Phrase]\\n例：[Eng snippet]"
+                   Back: "反面：[中文片語]\\n例：[中文snippet]"
+                   
+                3. 段句卡 (SEGMENT):
+                   - 將經文分成 2-4 個語意段落
+                   Front: "正面：[中文段落]"
+                   Back: "反面：[Eng段落]"
+                   
+                4. 整句卡 (FULL):
+                   - 1 張完整經文卡
+                   Front: "正面：[中文全句]"
+                   Back: "反面：[Eng全句]"
+                
+                [Podcast Rules - 100% 純英文對話]
+                - 兩位主持人 Rachel (女性) 和 Mike (男性) 的對話
+                - 對話必須 100% 使用英文，絕對不能出現中文
+                - 內容：討論經文的意義、神學背景、實際應用
+                - 語氣：輕鬆、教育性、像朋友聊天
+                - 長度：約 600-800 字的詳細對話
+                - 格式：每句話包含 "speaker" (Rachel/Mike) 和 "text" (純英文內容)
+                
+                JSON 格式:
+                {{
+                    "cards": [
+                        {{"type": "WORD", "front": "...", "back": "..."}},
+                        {{"type": "PHRASE", "front": "...", "back": "..."}},
+                        {{"type": "SEGMENT", "front": "...", "back": "..."}},
+                        {{"type": "FULL", "front": "...", "back": "..."}}
+                    ],
+                    "script": [
+                        {{"speaker": "Rachel", "text": "..."}},
+                        {{"speaker": "Mike", "text": "..."}}
+                    ]
+                }}
                 """
                 
                 response = model.generate_content(full_prompt)
-                json_match = re.search(r'(\{.*\})', response.text.strip(), re.DOTALL)
+                json_match = re.search(r'(\{{.*\}})', response.text.strip(), re.DOTALL)
                 
                 if json_match:
                     st.session_state.tab4_data = json.loads(json_match.group(1))
@@ -2004,8 +2047,8 @@ with tabs[3]:
                 st.markdown(f"""
                     <div style="height:180px; background:#fcfcfc; border:2px solid #333; border-radius:10px; 
                                 display:flex; align-items:center; justify-content:center; text-align:center; padding:15px; 
-                                font-size:18px; line-height:1.5; color:#1a1a1a; overflow-y:auto;">
-                        {str(val).replace('\\n', '<br>')}
+                                font-size:18px; line-height:1.6; color:#1a1a1a; overflow-y:auto; white-space:pre-line;">
+                        {str(val).replace(chr(10), '<br>')}
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -2023,11 +2066,34 @@ with tabs[3]:
                     play_audio_html(eng_only)
 
         with sub_tab2:
-            # CSS 注入：縮減對話框間距
+            # CSS 注入：美化對話框、加大字體、縮減間距
             st.markdown("""
                 <style>
-                [data-testid="stChatMessage"] { padding: 0.5rem; margin-bottom: -1rem; }
-                [data-testid="stChatMessageContent"] p { font-size: 15px; line-height: 1.3; }
+                /* 整體對話容器 */
+                [data-testid="stChatMessage"] { 
+                    padding: 0.3rem 0.8rem !important; 
+                    margin-bottom: -0.5rem !important; 
+                }
+                /* 對話內容字體加大 */
+                [data-testid="stChatMessageContent"] p { 
+                    font-size: 17px !important; 
+                    line-height: 1.5 !important; 
+                    margin-bottom: 0.3rem !important;
+                }
+                /* 對話氣泡美化 */
+                [data-testid="stChatMessage"] > div {
+                    border-radius: 12px !important;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+                }
+                /* 減少對話之間的空白 */
+                .stChatMessage {
+                    margin-bottom: 0.2rem !important;
+                }
+                /* 發言者名稱樣式 */
+                [data-testid="stChatMessage"] .stChatMessageAvatar + div strong {
+                    font-size: 15px !important;
+                    color: #2c3e50 !important;
+                }
                 </style>
             """, unsafe_allow_html=True)
             
