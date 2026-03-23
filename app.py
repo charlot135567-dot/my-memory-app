@@ -1932,7 +1932,7 @@ with tabs[2]:
                 st.rerun()
         
 # ===================================================================
-# TAB 4: AI 智慧學習 (修復 KeyError 版本)
+# TAB 4: AI 智慧學習 (修復 AttributeError & 強化顯示邏輯)
 # ===================================================================
 with tabs[3]:
     # 1. & 2. 頂部輸入區
@@ -1942,36 +1942,37 @@ with tabs[3]:
     with c2:
         verse_input = st.text_input("輸入經文 (ESV/和合本)", placeholder="例如: Ephesians 1:3", label_visibility="collapsed")
 
-    # 初始化狀態
-    if "tab4_data" not in st.session_state: st.session_state.tab4_data = {"cards": [], "script": []}
+    # 初始化狀態 (確保資料夾結構正確)
+    if "tab4_data" not in st.session_state: 
+        st.session_state.tab4_data = {"cards": [], "script": []}
     if "card_idx" not in st.session_state: st.session_state.card_idx = 0
     if "flipped" not in st.session_state: st.session_state.flipped = False
 
-    # AI 生成邏輯 (強化 JSON 結構要求)
+    # AI 生成邏輯
     if generate_all and verse_input:
-        with st.spinner("AI 正在按層次拆解經文..."):
+        with st.spinner("AI 正在按層次拆解經文並編寫對話..."):
             try:
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
                 
+                # 自動偵測模型
                 available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                 target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
                 model = genai.GenerativeModel(target_model_name)
 
                 full_prompt = f"""
                 Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
-                Create a JSON object with 'cards' and 'script'.
-                Each card MUST have 'type', 'front', and 'back' keys.
-                Types: "Word", "Phrase", "Segment", "Full".
+                Return JSON with 'cards' (list of dict) and 'script' (list of dict).
                 
-                [Formatting Rules]
-                - Word: Front: 中文意思+中文整句, Back: Eng Word+Eng整句
-                - Phrase: Front: Eng Phrase+Eng snippet, Back: 中文意思+中文snippet
-                - Segment: Front: 中文段句, Back: Eng Segment
-                - Full: Front: 整句中文, Back: 整句英文
+                [Flashcard Rules]
+                - WORD: Front(Chin meaning+Chin example), Back(Eng word+Eng example).
+                - PHRASE: Front(Eng phrase+Eng snippet), Back(Chin meaning+Chin snippet).
+                - SEGMENT: Front(Chin segment), Back(Eng segment).
+                - FULL: Front(Full Chin), Back(Full Eng).
                 
-                [Podcast]
-                - 800-word dialogue between Rachel and Mike.
+                [Podcast Rules]
+                - 800-word Rachel & Mike dialogue. 
+                - Format: {{"speaker": "Rachel", "text": "..."}}
                 """
                 response = model.generate_content(full_prompt)
                 res_text = re.sub(r'```json|```', '', response.text).strip()
@@ -1982,60 +1983,77 @@ with tabs[3]:
             except Exception as e:
                 st.error(f"生成失敗: {str(e)}")
 
-    # 顯示區 (加入防錯保護)
-    if st.session_state.tab4_data.get("cards"):
-        sub_tab1, sub_tab2 = st.tabs(["🗂️ 閃卡練習", "🎧 雙人對話"])
+    # 顯示區
+    data = st.session_state.tab4_data
+    if data.get("cards"):
+        sub_tab1, sub_tab2 = st.tabs(["🗂️ 階梯式閃卡練習", "🎧 雙人對話模式"])
         
         with sub_tab1:
-            card_col, btn_col = st.columns([2, 1])
-            # 安全取得當前卡片
-            cards_list = st.session_state.tab4_data["cards"]
+            # --- 閃卡顯示 (安全取值) ---
+            cards = data["cards"]
             idx = st.session_state.card_idx
-            card = cards_list[idx] if idx < len(cards_list) else cards_list[0]
+            # 確保索引不越界
+            if idx >= len(cards): idx = 0
+            card = cards[idx]
             
+            card_col, btn_col = st.columns([2, 1])
             with card_col:
-                # 【關鍵修復】：使用 .get() 避免 KeyError
-                card_type = card.get("type", "Learning")
-                st.caption(f"📍 {card_type} | 📊 {idx + 1} / {len(cards_list)}")
+                # 取得卡片類型 (Word/Phrase/Segment/Full)
+                c_type = card.get("type", "Learning") if isinstance(card, dict) else "Card"
+                st.caption(f"📍 {c_type} | 📊 {idx + 1} / {len(cards)}")
                 
                 # 閃卡主體
-                display_text = card.get("back", "") if st.session_state.flipped else card.get("front", "")
+                val = card.get("back", "") if st.session_state.flipped else card.get("front", "")
                 st.markdown(f"""
                     <div style="height:180px; background:#fcfcfc; border:2px solid #333; border-radius:10px; 
                                 display:flex; align-items:center; justify-content:center; text-align:center; padding:15px; 
                                 font-size:18px; line-height:1.5; color:#1a1a1a;">
-                        {display_text.replace('\\n', '<br>')}
+                        {str(val).replace('\\n', '<br>')}
                     </div>
                 """, unsafe_allow_html=True)
 
             with btn_col:
-                # 按鈕邏輯 (保持不變)
+                # 右側按鈕區
                 st.write("") 
                 if st.button("⬅️ 上一頁", use_container_width=True):
-                    st.session_state.card_idx = (idx - 1) % len(cards_list)
-                    st.session_state.flipped = False; st.rerun()
+                    st.session_state.card_idx = (idx - 1) % len(cards); st.session_state.flipped = False; st.rerun()
                 if st.button("🔄 翻轉", use_container_width=True, type="primary"):
                     st.session_state.flipped = not st.session_state.flipped; st.rerun()
                 if st.button("➡️ 下一頁", use_container_width=True):
-                    st.session_state.card_idx = (idx + 1) % len(cards_list)
-                    st.session_state.flipped = False; st.rerun()
+                    st.session_state.card_idx = (idx + 1) % len(cards); st.session_state.flipped = False; st.rerun()
                 if st.button("🔊 語音", use_container_width=True):
-                    speech_text = card.get("back", "") if st.session_state.flipped else card.get("front", "")
+                    speech_text = str(val)
                     eng_only = re.sub(r'[\u4e00-\u9fa5]+', '', speech_text).replace('正面：', '').replace('反面：', '').replace('例：', '')
                     play_audio_html(eng_only)
 
         with sub_tab2:
-            # 5: 雙人對話
+            # --- 【重點修復：Podcast 容錯顯示】 ---
             h1, h2 = st.columns([2, 1])
-            h1.subheader("Podcast Mode")
-            if h2.button("🔊 播放對話", use_container_width=True):
-                script = st.session_state.tab4_data.get("script", [])
-                full_script = " ".join([f"{m.get('speaker')} says, {m.get('text')}" for m in script])
-                play_audio_html(full_script)
+            h1.subheader("Rachel & Mike Dialogue")
+            script_list = data.get("script", [])
             
-            for msg in st.session_state.tab4_data.get("script", []):
-                with st.chat_message(msg.get("speaker", "Assistant")):
-                    st.write(f"**{msg.get('speaker')}**: {msg.get('text')}")
+            if h2.button("🔊 播放完整對話", use_container_width=True):
+                full_audio_text = ""
+                for m in script_list:
+                    if isinstance(m, dict):
+                        full_audio_text += f"{m.get('speaker', '')} says, {m.get('text', '')} "
+                    else:
+                        full_audio_text += f"{str(m)} "
+                play_audio_html(full_audio_text)
+            
+            # 遍歷對話列表，增加類型判斷
+            for msg in script_list:
+                if isinstance(msg, dict):
+                    # 正常字典格式
+                    speaker = msg.get("speaker", "Rachel")
+                    content = msg.get("text", "")
+                else:
+                    # 如果 AI 回傳的是字串，則嘗試拆分或直接顯示
+                    speaker = "Podcast"
+                    content = str(msg)
+                
+                with st.chat_message(speaker):
+                    st.write(f"**{speaker}**: {content}")
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
