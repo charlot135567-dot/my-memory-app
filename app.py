@@ -1931,9 +1931,26 @@ with tabs[2]:
                 st.session_state.tab3_seed = random.randint(1, 1000)
                 st.rerun()
         
-# AI 生成邏輯
+# ===================================================================
+# TAB 4: AI 智慧學習 (修復 AttributeError & 強化顯示邏輯)
+# ===================================================================
+with tabs[3]:
+    # 1. & 2. 頂部輸入區
+    c1, c2 = st.columns([1, 3])
+    with c1:
+        generate_all = st.button("✨ 生成內容", use_container_width=True)
+    with c2:
+        verse_input = st.text_input("輸入經文 (ESV/和合本)", placeholder="例如: Ephesians 1:3", label_visibility="collapsed")
+
+    # 初始化狀態 (確保資料夾結構正確)
+    if "tab4_data" not in st.session_state: 
+        st.session_state.tab4_data = {"cards": [], "script": []}
+    if "card_idx" not in st.session_state: st.session_state.card_idx = 0
+    if "flipped" not in st.session_state: st.session_state.flipped = False
+
+    # AI 生成邏輯
     if generate_all and verse_input:
-        with st.spinner("AI 正在按層次拆解經文並編寫 800 字對話..."):
+        with st.spinner("AI 正在按層次拆解經文並編寫對話..."):
             try:
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
@@ -1945,37 +1962,98 @@ with tabs[2]:
 
                 full_prompt = f"""
                 Analyze "{verse_input}". Versions: English-ESV, Chinese-CUV (和合本).
-                Task:
-                1. Create Flashcards (Word, Phrase, Segment, Full). 
-                   Follow exactly the "正面/例" and "反面/例" format.
-                2. Write a LONG 800-word English dialogue (Rachel & Mike).
+                Return JSON with 'cards' (list of dict) and 'script' (list of dict).
                 
-                Important: Return a single JSON object ONLY. Do not add any text before or after the JSON.
-                JSON structure: {{ "cards": [...], "script": [...] }}
+                [Flashcard Rules]
+                - WORD: Front(Chin meaning+Chin example), Back(Eng word+Eng example).
+                - PHRASE: Front(Eng phrase+Eng snippet), Back(Chin meaning+Chin snippet).
+                - SEGMENT: Front(Chin segment), Back(Eng segment).
+                - FULL: Front(Full Chin), Back(Full Eng).
+                
+                [Podcast Rules]
+                - 800-word Rachel & Mike dialogue. 
+                - Format: {{"speaker": "Rachel", "text": "..."}}
                 """
-                
                 response = model.generate_content(full_prompt)
-                
-                # --- 【關鍵修正：更強大的 JSON 提取】 ---
-                raw_text = response.text.strip()
-                # 使用正則表達式尋找最外層的 { ... }
-                json_match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
-                
-                if json_match:
-                    clean_json = json_match.group(1)
-                    # 嘗試解析
-                    st.session_state.tab4_data = json.loads(clean_json)
-                    st.session_state.card_idx = 0
-                    st.session_state.flipped = False
-                    st.success(f"✅ 生成成功！共 {len(st.session_state.tab4_data.get('cards', []))} 張閃卡。")
-                    st.rerun()
-                else:
-                    st.error("AI 回傳格式不正確，無法提取 JSON。")
-
-            except json.JSONDecodeError as je:
-                st.error(f"JSON 解析錯誤 (可能字數太長截斷了): {str(je)}")
+                res_text = re.sub(r'```json|```', '', response.text).strip()
+                st.session_state.tab4_data = json.loads(res_text)
+                st.session_state.card_idx = 0
+                st.session_state.flipped = False
+                st.rerun()
             except Exception as e:
                 st.error(f"生成失敗: {str(e)}")
+
+    # 顯示區
+    data = st.session_state.tab4_data
+    if data.get("cards"):
+        sub_tab1, sub_tab2 = st.tabs(["🗂️ 階梯式閃卡練習", "🎧 雙人對話模式"])
+        
+        with sub_tab1:
+            # --- 閃卡顯示 (安全取值) ---
+            cards = data["cards"]
+            idx = st.session_state.card_idx
+            # 確保索引不越界
+            if idx >= len(cards): idx = 0
+            card = cards[idx]
+            
+            card_col, btn_col = st.columns([2, 1])
+            with card_col:
+                # 取得卡片類型 (Word/Phrase/Segment/Full)
+                c_type = card.get("type", "Learning") if isinstance(card, dict) else "Card"
+                st.caption(f"📍 {c_type} | 📊 {idx + 1} / {len(cards)}")
+                
+                # 閃卡主體
+                val = card.get("back", "") if st.session_state.flipped else card.get("front", "")
+                st.markdown(f"""
+                    <div style="height:180px; background:#fcfcfc; border:2px solid #333; border-radius:10px; 
+                                display:flex; align-items:center; justify-content:center; text-align:center; padding:15px; 
+                                font-size:18px; line-height:1.5; color:#1a1a1a;">
+                        {str(val).replace('\\n', '<br>')}
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with btn_col:
+                # 右側按鈕區
+                st.write("") 
+                if st.button("⬅️ 上一頁", use_container_width=True):
+                    st.session_state.card_idx = (idx - 1) % len(cards); st.session_state.flipped = False; st.rerun()
+                if st.button("🔄 翻轉", use_container_width=True, type="primary"):
+                    st.session_state.flipped = not st.session_state.flipped; st.rerun()
+                if st.button("➡️ 下一頁", use_container_width=True):
+                    st.session_state.card_idx = (idx + 1) % len(cards); st.session_state.flipped = False; st.rerun()
+                if st.button("🔊 語音", use_container_width=True):
+                    speech_text = str(val)
+                    eng_only = re.sub(r'[\u4e00-\u9fa5]+', '', speech_text).replace('正面：', '').replace('反面：', '').replace('例：', '')
+                    play_audio_html(eng_only)
+
+        with sub_tab2:
+            # --- 【重點修復：Podcast 容錯顯示】 ---
+            h1, h2 = st.columns([2, 1])
+            h1.subheader("Rachel & Mike Dialogue")
+            script_list = data.get("script", [])
+            
+            if h2.button("🔊 播放完整對話", use_container_width=True):
+                full_audio_text = ""
+                for m in script_list:
+                    if isinstance(m, dict):
+                        full_audio_text += f"{m.get('speaker', '')} says, {m.get('text', '')} "
+                    else:
+                        full_audio_text += f"{str(m)} "
+                play_audio_html(full_audio_text)
+            
+            # 遍歷對話列表，增加類型判斷
+            for msg in script_list:
+                if isinstance(msg, dict):
+                    # 正常字典格式
+                    speaker = msg.get("speaker", "Rachel")
+                    content = msg.get("text", "")
+                else:
+                    # 如果 AI 回傳的是字串，則嘗試拆分或直接顯示
+                    speaker = "Podcast"
+                    content = str(msg)
+                
+                with st.chat_message(speaker):
+                    st.write(f"**{speaker}**: {content}")
 
 # ===================================================================
 # 7. TAB5 ─ AI控制台-資料庫管理 (原 TAB4 功能)
