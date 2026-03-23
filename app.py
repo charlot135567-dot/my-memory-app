@@ -2020,18 +2020,48 @@ with tabs[3]:
                 """
                 
                 response = model.generate_content(full_prompt)
+                response_text = response.text.strip()
                 
-                # 修正：正確的正則表達式來提取 JSON
-                json_match = re.search(r'\\{.*\\}', response.text.strip(), re.DOTALL)
+                # 修正：多種方式嘗試提取 JSON
+                json_data = None
                 
+                # 方法 1: 嘗試從 markdown 代碼塊中提取
+                json_match = re.search(r'```(?:json)?\\s*\\n?(\\{.*?\\})\\s*\\n?```', response_text, re.DOTALL)
                 if json_match:
-                    st.session_state.tab4_data = json.loads(json_match.group(0))
+                    try:
+                        json_data = json.loads(json_match.group(1))
+                    except:
+                        pass
+                
+                # 方法 2: 直接尋找 JSON 物件（從第一個 { 到最後一個 }）
+                if not json_data:
+                    start_idx = response_text.find('{')
+                    end_idx = response_text.rfind('}')
+                    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                        try:
+                            json_str = response_text[start_idx:end_idx+1]
+                            json_data = json.loads(json_str)
+                        except:
+                            pass
+                
+                # 方法 3: 使用非貪婪正則匹配
+                if not json_data:
+                    json_match = re.search(r'\\{[\\s\\S]*?\"script\"\\s*:\\s*\\[[\\s\\S]*?\\]\\s*\\}', response_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            json_data = json.loads(json_match.group(0))
+                        except:
+                            pass
+                
+                if json_data:
+                    st.session_state.tab4_data = json_data
                     st.session_state.card_idx = 0
                     st.session_state.flipped = False
                     st.rerun()
                 else:
                     st.error("❌ 無法從 AI 回應中提取 JSON 格式資料")
-                    st.text(response.text)
+                    st.text(response_text)
+
             except Exception as e:
                 st.error(f"❌ 生成失敗: {str(e)}")
 
