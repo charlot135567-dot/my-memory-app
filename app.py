@@ -1996,10 +1996,6 @@ with tabs[3]:
             except Exception as e:
                 st.error(f"❌ 生成失敗: {str(e)}")
 
-    # 3. 顯示區 (其餘代碼保持不變...)
-    if st.session_state.tab4_data.get("cards"):
-        # ... (後面的 sub_tab1, sub_tab2 代碼)
-
     # 顯示區
     data = st.session_state.tab4_data
     if data.get("cards"):
