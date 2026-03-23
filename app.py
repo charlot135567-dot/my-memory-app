@@ -2020,13 +2020,18 @@ with tabs[3]:
                 """
                 
                 response = model.generate_content(full_prompt)
-                json_match = re.search(r'(\{{.*\}})', response.text.strip(), re.DOTALL)
+                
+                # 修正：正確的正則表達式來提取 JSON
+                json_match = re.search(r'\\{.*\\}', response.text.strip(), re.DOTALL)
                 
                 if json_match:
-                    st.session_state.tab4_data = json.loads(json_match.group(1))
+                    st.session_state.tab4_data = json.loads(json_match.group(0))
                     st.session_state.card_idx = 0
                     st.session_state.flipped = False
                     st.rerun()
+                else:
+                    st.error("❌ 無法從 AI 回應中提取 JSON 格式資料")
+                    st.text(response.text)
             except Exception as e:
                 st.error(f"❌ 生成失敗: {str(e)}")
 
