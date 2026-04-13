@@ -1165,278 +1165,182 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（多語言經文顯示優化版）
+# 3. TAB1 ─ 書桌（優化搜尋與四語網格對照版）
 # ===================================================================
 with tabs[0]:
     # ========== 初始化 Session State ==========
-    if "tab1_idx" not in st.session_state:
-        st.session_state.tab1_idx = 0
+    if "tab1_selected_ref" not in st.session_state:
+        st.session_state.tab1_selected_ref = "來6:3"
     if "tab1_search" not in st.session_state:
         st.session_state.tab1_search = ""
-    if "tab1_selected_ref" not in st.session_state:
-        st.session_state.tab1_selected_ref = None
     
     sentences = st.session_state.get('sentences', {})
     
-    # ========== 多語言經文資料結構 ==========
+    # ========== 多語言資料庫 (包含語法解析) ==========
+    # 這裡預設放入您提供的 來6:3 範例
     default_multilang_data = {
         "來6:3": {
-            "ref": "Heb 6:3",
+            "ref": "Hebrews 6:3",
             "chinese": "神若許我們、我們必如此行。",
             "english": "And this we will do if God permits.",
             "japanese": "神が許して下さるなら、わたしたちはこのようにします。",
             "korean": "하나님이 허락하시면 우리가 이것을 하리라",
             "thai": "ถ้าพระเจ้าทรงอนุญาต เราก็จะได้เดินหน้าต่อไป",
             "grammar": {
+                # 這裡存放來6:17的深度解析
+                "note": "來6:17 解析內容",
                 "english": {
                     "structure": [
-                        {"part": "When Clause", "en": "when + God + desired + to show + more convincingly", "cn": "當 + 神 + 想要 + 顯明 + 更有力地"},
-                        {"part": "Main Clause", "en": "he + guaranteed + it + with an oath", "cn": "祂 + 保證 + 這事 + 用 + 起誓"}
+                        {"part": "上半 (When Clause)", "en": "when + God + desired + to show + more convincingly", "cn": "當 + 神 + 想要 + 顯明 + 更有力地"},
+                        {"part": "下半 (Main Clause)", "en": "he + guaranteed + it + with an oath", "cn": "祂 + 保證 + 這事 + 用 + 起誓"}
                     ],
                     "points": [
-                        {"rule": "when-clause（時間副詞子句）", "pattern": "when + subject + verb", "example": "when God speaks, we listen", "trans": "當神說話時，我們聆聽。"},
-                        {"rule": "to show（不定詞表目的）", "pattern": "verb + to + verb", "example": "God desired to show", "trans": "神想要顯明"},
-                        {"rule": "with an oath（方式介系詞）", "pattern": "with + noun", "example": "with an oath", "trans": "用起誓"}
+                        {"rule": "when-clause", "pattern": "when + subject + verb", "example": "when God speaks, we listen", "trans": "當神說話時，我們聆聽。"},
+                        {"rule": "to show（不定詞表目的）", "pattern": "Infinitive of purpose", "example": "God desired to show", "trans": "神想要顯明"},
+                        {"rule": "with an oath（方式）", "pattern": "with + noun", "example": "with an oath", "trans": "用起誓"}
                     ]
                 },
                 "japanese": {
                     "structure": [
-                        {"part": "上半", "content": "約束の相続人たちに ご自分のご計画の変わらないことを いっそうはっきり示そうと望んで", "breakdown": "promise + heirs + to | his + plan + not-changing + thing | more + clearly + show + intent + desiring"},
+                        {"part": "上半", "content": "約束の相続人たちに...望んで", "breakdown": "promise + heirs + to | his + plan + not-changing + thing | more + clearly + show + intent + desiring"},
                         {"part": "下半", "content": "誓いによって保証された", "breakdown": "oath + by + guaranteed"}
                     ],
                     "points": [
-                        {"rule": "N1のN2（名詞修飾）", "desc": "N1 修飾 N2", "example": "約束の相続人", "trans": "應許的繼承人"},
-                        {"rule": "こと（名詞化）", "desc": "把動詞變名詞", "example": "変わらないこと", "trans": "不改變這件事"},
-                        {"rule": "N＋によって（方式）", "desc": "藉著…", "example": "誓いによって", "trans": "藉著誓言"}
+                        {"rule": "N1のN2", "desc": "名詞修飾", "example": "約束の相続人", "trans": "應許的繼承人"},
+                        {"rule": "こと", "desc": "名詞化 (Verb -> Noun)", "example": "変わらないこと", "trans": "不改變這件事"},
+                        {"rule": "によって", "desc": "方式（藉著）", "example": "誓いによって", "trans": "藉著誓言"}
                     ]
                 },
                 "korean": {
                     "structure": [
-                        {"part": "上半", "content": "약속의 상속자들에게 그 뜻이 변하지 아니함을 충분히 나타내시려고", "breakdown": "應許的 + 繼承人 + 對 | 那 + 旨意 + 主詞 | 不改變 + 這件事 + 受詞 | 充分地 + 為了顯明"},
+                        {"part": "上半", "content": "약속의 상속자들에게...나타내시려고", "breakdown": "應許的+繼承人+對 | 那+旨意+主詞 | 不改變+這件事+受詞 | 充分地+為了顯明"},
                         {"part": "下半", "content": "맹세로 보증하셨느니라", "breakdown": "藉著 + 起誓 + 保證"}
                     ],
                     "points": [
-                        {"rule": "Verb+려고（目的）", "desc": "為了…", "example": "나타내시려고", "trans": "為了顯明"},
-                        {"rule": "Verb+함（名詞化）", "desc": "把動詞變名詞", "example": "변하지 아니함", "trans": "不改變這件事"},
-                        {"rule": "N＋로（方式）", "desc": "用…", "example": "맹세로", "trans": "用誓言"}
+                        {"rule": "-려고", "desc": "目的（為了）", "example": "나타내시려고", "trans": "為了顯明"},
+                        {"rule": "-함", "desc": "名詞化", "example": "변하지 아니함", "trans": "不改變這件事"},
+                        {"rule": "-로", "desc": "方式（用）", "example": "맹세로", "trans": "用誓言"}
                     ]
                 },
                 "thai": {
                     "structure": [
-                        {"part": "上半", "content": "เมื่อพระเจ้าทรงประสงค์จะสำแดง พระประสงค์อันไม่เปลี่ยนแปลง แก่ผู้รับมรดกแห่งพระสัญญา ให้ชัดเจนยิ่งขึ้น", "breakdown": "當 + 神 + 想要 + 去 + 顯明 | 旨意 + 那 + 不改變 | 給 + 承受者 + 的 + 應許 | 使 + 清楚 + 更加"},
+                        {"part": "上半", "content": "เมื่อพระเจ้าทรงประสงค์จะสำแดง...ให้ชัดเจนยิ่งขึ้น", "breakdown": "當+神+想要+去+顯明 | 旨意+那+不改變 | 給+承受者+的+應許 | 使+清楚+更加"},
                         {"part": "下半", "content": "พระองค์จึงทรงรับรองด้วยคำปฏิญาณ", "breakdown": "祂 + 因此 + 保證 + 用 + 誓言"}
                     ],
                     "points": [
-                        {"rule": "Clause + จึง + Result", "desc": "Logical connector = 因此", "example": "พระเจ้าทรงรักเรา จึงทรงช่วยเรา", "trans": "神愛我們，因此幫助我們。"},
-                        {"rule": "N＋อัน＋描述詞", "desc": "Relative marker = which/that", "example": "พระประสงค์อันไม่เปลี่ยนแปลง", "trans": "不改變的旨意"},
-                        {"rule": "ทรง（Royal Verb Marker）", "desc": "尊敬神的動詞形式", "example": "พระเจ้าทรงรัก", "trans": "神愛"}
+                        {"rule": "จึง (Logical connector)", "desc": "因此，所以", "example": "พระเจ้าทรงรักเรา จึงทรงช่วยเรา", "trans": "神愛我們，因此幫助我們。"},
+                        {"rule": "อัน (Relative marker)", "desc": "which/that (正式用語)", "example": "พระประสงค์อันไม่เปลี่ยนแปลง", "trans": "不改變的旨意"},
+                        {"rule": "ทรง (Royal Verb Marker)", "desc": "尊敬神的動詞形式", "example": "พระเจ้าทรงรัก", "trans": "神愛"}
                     ]
                 }
             }
         }
     }
-    
-    # 資料解析函數
-    def parse_verse_data(data):
-        multilang_data = {}
-        for ref, content_data in data.items():
-            v1_content = content_data.get('v1_content', '')
-            v2_content = content_data.get('v2_content', '')
-            
-            v1_rows, v2_rows = [], []
-            
-            if v1_content:
-                lines = v1_content.strip().split('\n')
-                for line in lines[1:]:
-                    if '\t' in line:
-                        cols = line.split('\t')
-                        if len(cols) >= 3:
-                            v1_rows.append({'ref': cols[0], 'english': cols[1], 'chinese': cols[2]})
-            
-            if v2_content:
-                lines = v2_content.strip().split('\n')
-                for line in lines[1:]:
-                    if '\t' in line:
-                        cols = line.split('\t')
-                        if len(cols) >= 7:
-                            v2_rows.append({'ref': cols[0], 'japanese': cols[1], 'korean': cols[4], 'thai': cols[6]})
-            
-            for i, v1 in enumerate(v1_rows):
-                v2 = v2_rows[i] if i < len(v2_rows) else {}
-                key = v1.get('ref', ref)
-                multilang_data[key] = {
-                    'ref': key,
-                    'chinese': v1.get('chinese', ''),
-                    'english': v1.get('english', ''),
-                    'japanese': v2.get('japanese', '') if v2 else '',
-                    'korean': v2.get('korean', '') if v2 else '',
-                    'thai': v2.get('thai', '') if v2 else '',
-                    'grammar': default_multilang_data["來6:3"]['grammar']
-                }
-        return multilang_data
-    
-    multilang_db = parse_verse_data(sentences) if sentences else default_multilang_data
-    if not multilang_db:
-        multilang_db = default_multilang_data
-    
-    # ========== 搜尋欄 ==========
-    st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>🔍 經文檢索</h3>", unsafe_allow_html=True)
-    
-    sc1, sc2 = st.columns([3, 1])
-    with sc1:
-        search_input = st.text_input("輸入經文出處", value=st.session_state.tab1_search, 
-                                     placeholder="例：來6:3 或 Hebrews 6:3", 
-                                     label_visibility="collapsed", key="verse_search")
-    with sc2:
-        if st.button("🔍 搜尋", use_container_width=True):
-            st.session_state.tab1_search = search_input
-            for key in multilang_db.keys():
-                if search_input.lower() in key.lower():
-                    st.session_state.tab1_selected_ref = key
-                    break
-            st.rerun()
-    
-    # 決定顯示經文
-    if st.session_state.tab1_selected_ref in multilang_db:
-        current = multilang_db[st.session_state.tab1_selected_ref]
-    else:
-        current = list(multilang_db.values())[0]
-    
-    # ========== 主要內容 ==========
-    st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
-    st.markdown(f"<h2 style='text-align: center; color: #FF8C00; margin-bottom: 20px;'>📖 {current['ref']}</h2>", 
-                unsafe_allow_html=True)
-    
-    # 中英對照
+
+    # 搜尋欄優化 (仿 AI 解析欄位)
+    st.markdown("### 🔍 經文解析檢索")
+    c_search1, c_search2 = st.columns([4, 1])
+    with c_search1:
+        search_val = st.text_input("輸入經文", placeholder="例：來6:3", label_visibility="collapsed")
+    with c_search2:
+        if st.button("解析經文", use_container_width=True):
+            if search_val:
+                st.session_state.tab1_selected_ref = search_val
+                # 這裡可串接實際搜尋邏輯，目前以 default 示範
+                
+    # 決定顯示資料
+    current = default_multilang_data.get(st.session_state.tab1_selected_ref, default_multilang_data["來6:3"])
+
+    # 頂部中英對照總覽
     st.markdown(f"""
-        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 20px; border-radius: 15px; margin-bottom: 30px; text-align: center;'>
-            <div style='color: white; margin-bottom: 10px;'>
-                <span style='font-size: 14px; opacity: 0.9;'>🇨🇳 中文</span>
-                <h3 style='margin: 10px 0; font-size: 24px;'>{current['chinese']}</h3>
-            </div>
-            <div style='color: rgba(255,255,255,0.9);'>
-                <span style='font-size: 14px;'>🇬🇧 English</span>
-                <p style='margin: 5px 0; font-size: 18px; font-style: italic;'>{current['english']}</p>
-            </div>
+        <div style='background-color: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 5px solid #FF8C00; margin-bottom: 20px;'>
+            <h4 style='margin:0; color:#555;'>{current['ref']}</h4>
+            <p style='font-size: 20px; font-weight: bold; margin: 10px 0;'>中：{current['chinese']}</p>
+            <p style='font-size: 18px; color: #333; font-style: italic;'>英：{current['english']}</p>
         </div>
     """, unsafe_allow_html=True)
+
+    # 四語言網格 (上半左右，下半左右)
+    grid_top_c1, grid_top_c2 = st.columns(2)
+    with grid_top_c1:
+        st.markdown(f"""<div style='background:#fef2f2; padding:15px; border-radius:8px; min-height:100px;'>
+            <b style='color:#e53e3e;'>🇯🇵 日本語</b><br>{current['japanese']}</div>""", unsafe_allow_html=True)
+    with grid_top_c2:
+        st.markdown(f"""<div style='background:#f0f9ff; padding:15px; border-radius:8px; min-height:100px;'>
+            <b style='color:#0284c7;'>🇬🇧 English</b><br>{current['english']}</div>""", unsafe_allow_html=True)
+
+    st.write("") # 間隔
+
+    grid_btm_c1, grid_btm_c2 = st.columns(2)
+    with grid_btm_c1:
+        st.markdown(f"""<div style='background:#f0fdf4; padding:15px; border-radius:8px; min-height:100px;'>
+            <b style='color:#16a34a;'>🇰🇷 한국어</b><br>{current['korean']}</div>""", unsafe_allow_html=True)
+    with grid_btm_c2:
+        st.markdown(f"""<div style='background:#fffbeb; padding:15px; border-radius:8px; min-height:100px;'>
+            <b style='color:#d97706;'>🇹🇭 ภาษาไทย</b><br>{current['thai']}</div>""", unsafe_allow_html=True)
+
+    # ========== 文法解析區 ==========
+    st.divider()
+    st.subheader("📚 深度文法解析 (來6:17 範例)")
     
-    # 四語言網格
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(f"""
-            <div style='background: #fff5f5; border-left: 5px solid #e53e3e; padding: 20px; 
-                        border-radius: 10px; margin-bottom: 20px; min-height: 150px;'>
-                <h4 style='color: #e53e3e; margin-top: 0;'>🇯🇵 日本語</h4>
-                <p style='font-size: 18px; line-height: 1.6;'>{current['japanese']}</p>
-            </div>
-        """, unsafe_allow_html=True)
+    g_tab1, g_tab2, g_tab3, g_tab4 = st.tabs(["🇬🇧 英文", "🇯🇵 日文", "🇰🇷 韓文", "🇹🇭 泰文"])
     
-    with c2:
-        st.markdown(f"""
-            <div style='background: #f0fff4; border-left: 5px solid #38a169; padding: 20px; 
-                        border-radius: 10px; margin-bottom: 20px; min-height: 150px;'>
-                <h4 style='color: #38a169; margin-top: 0;'>🇬🇧 English (ESV)</h4>
-                <p style='font-size: 18px; line-height: 1.6; font-family: Georgia, serif;'>{current['english']}</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    c3, c4 = st.columns(2)
-    with c3:
-        st.markdown(f"""
-            <div style='background: #fffaf0; border-left: 5px solid #dd6b20; padding: 20px; 
-                        border-radius: 10px; margin-bottom: 20px; min-height: 150px;'>
-                <h4 style='color: #dd6b20; margin-top: 0;'>🇰🇷 한국어</h4>
-                <p style='font-size: 18px; line-height: 1.6;'>{current['korean']}</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with c4:
-        st.markdown(f"""
-            <div style='background: #f0f9ff; border-left: 5px solid #3182ce; padding: 20px; 
-                        border-radius: 10px; margin-bottom: 20px; min-height: 150px;'>
-                <h4 style='color: #3182ce; margin-top: 0;'>🇹🇭 ภาษาไทย</h4>
-                <p style='font-size: 18px; line-height: 1.6;'>{current['thai']}</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # ========== 文法解析 ==========
-    st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>📚 多語言文法解析</h3>", 
-                unsafe_allow_html=True)
-    
-    grammar = current.get('grammar', {})
-    
-    # 英文文法
-    with st.expander("🇬🇧 英文文法解析", expanded=True):
-        eng = grammar.get('english', {})
-        st.markdown("**句子結構**")
-        for s in eng.get('structure', []):
-            st.markdown(f"• **{s['part']}**: {s['en']} → {s['cn']}")
-        st.markdown("**重點文法**")
-        for p in eng.get('points', []):
-            st.markdown(f"1️⃣ **{p['rule']}** ({p['pattern']})")
-            st.markdown(f"   例: *{p['example']}* → {p['trans']}")
-    
-    # 日文文法
-    with st.expander("🇯🇵 日文文法解析", expanded=False):
-        jp = grammar.get('japanese', {})
-        for s in jp.get('structure', []):
-            st.markdown(f"**{s['part']}**: {s['content']}")
-            st.caption(s['breakdown'])
-        for p in jp.get('points', []):
-            st.markdown(f"**{p['rule']}** 👉 {p['desc']}")
-            st.markdown(f"例: {p['example']} ({p['trans']})")
-    
-    # 韓文文法
-    with st.expander("🇰🇷 韓文文法解析", expanded=False):
-        kr = grammar.get('korean', {})
-        for s in kr.get('structure', []):
-            st.markdown(f"**{s['part']}**: {s['content']}")
-        for p in kr.get('points', []):
-            st.markdown(f"**{p['rule']}** 👉 {p['desc']}")
-            st.markdown(f"例: {p['example']} ({p['trans']})")
-    
-    # 泰文文法
-    with st.expander("🇹🇭 泰文文法解析", expanded=False):
-        th = grammar.get('thai', {})
-        for s in th.get('structure', []):
-            st.markdown(f"**{s['part']}**: {s['content']}")
-        for p in th.get('points', []):
-            st.markdown(f"**{p['rule']}** 👉 {p['desc']}")
-            st.markdown(f"例: {p['example']} ({p['trans']})")
-    
+    with g_tab1:
+        eng_g = current['grammar']['english']
+        st.markdown("#### 1) 結構拆解 (Structure)")
+        for item in eng_g['structure']:
+            st.write(f"**{item['part']}**")
+            st.info(f"{item['en']}\n\n{item['cn']}")
+        st.markdown("#### 2) 重點文法")
+        for p in eng_g['points']:
+            st.markdown(f"**{p['rule']}** : `{p['pattern']}`")
+            st.caption(f"Ex: {p['example']} → {p['trans']}")
+
+    with g_tab2:
+        jp_g = current['grammar']['japanese']
+        for item in jp_g['structure']:
+            st.write(f"**{item['part']}**")
+            st.success(f"{item['content']}\n\n{item['breakdown']}")
+        st.markdown("---")
+        for p in jp_g['points']:
+            st.write(f"🔹 **{p['rule']}** ({p['desc']})")
+            st.caption(f"例：{p['example']} → {p['trans']}")
+
+    with g_tab3:
+        kr_g = current['grammar']['korean']
+        for item in kr_g['structure']:
+            st.write(f"**{item['part']}**")
+            st.warning(f"{item['content']}\n\n{item['breakdown']}")
+        st.markdown("---")
+        for p in kr_g['points']:
+            st.write(f"🔸 **{p['rule']}** ({p['desc']})")
+            st.caption(f"例：{p['example']} → {p['trans']}")
+
+    with g_tab4:
+        th_g = current['grammar']['thai']
+        for item in th_g['structure']:
+            st.write(f"**{item['part']}**")
+            st.help(f"{item['content']}\n\n{item['breakdown']}")
+        st.markdown("---")
+        for p in th_g['points']:
+            st.write(f"🐘 **{p['rule']}**")
+            st.write(f"↳ {p['desc']}")
+            st.caption(f"例：{p['example']} → {p['trans']}")
+
     # 骨架總結
     st.markdown("""
-        <div style='background: #1a202c; color: white; padding: 20px; border-radius: 10px; margin-top: 20px;'>
-            <h4 style='color: #ffd700;'>🦴 句子骨架 Skeleton</h4>
+        <div style='background: #1a202c; color: white; padding: 15px; border-radius: 10px; margin-top: 20px;'>
+            <h4 style='color: #ffd700; margin-top:0;'>🦴 句子骨架 Skeleton</h4>
             <p>「原因/時間子句（當神想要...）+ 主句（祂就保證...）」</p>
-            <table style='width: 100%; color: white; font-size: 13px;'>
-                <tr><td>English</td><td>When God desired | To show | With an oath</td></tr>
-                <tr><td>Japanese</td><td>...望んで | 示そうと | によって</td></tr>
-                <tr><td>Korean</td><td>...려고 | 나타내시려고 | 로</td></tr>
-                <tr><td>Thai</td><td>เมื่อ | จะสำแดง | ด้วย</td></tr>
+            <table style='width: 100%; color: white; border-collapse: collapse;'>
+                <tr style='border-bottom: 1px solid #444;'><th>語言</th><th>核心連結詞/動作</th></tr>
+                <tr><td>English</td><td>When... desired / To show / guaranteed</td></tr>
+                <tr><td>Japanese</td><td>...望んで / 示そうと / 保証された</td></tr>
+                <tr><td>Korean</td><td>...려고 / 나타내시려고 / 보증하셨느니라</td></tr>
+                <tr><td>Thai</td><td>เมื่อ... / จะสำแดง / จึงทรงรับรอง</td></tr>
             </table>
         </div>
     """, unsafe_allow_html=True)
-    
-    # 導航
-    nc1, nc2, nc3 = st.columns([1, 2, 1])
-    with nc1:
-        if st.button("⬅️ 上一筆", use_container_width=True):
-            keys = list(multilang_db.keys())
-            idx = keys.index(current['ref']) if current['ref'] in keys else 0
-            if idx > 0:
-                st.session_state.tab1_selected_ref = keys[idx - 1]
-                st.rerun()
-    with nc3:
-        if st.button("下一筆 ➡️", use_container_width=True):
-            keys = list(multilang_db.keys())
-            idx = keys.index(current['ref']) if current['ref'] in keys else 0
-            if idx < len(keys) - 1:
-                st.session_state.tab1_selected_ref = keys[idx + 1]
-                st.rerun()
 
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 7句手動金句 + 我的收藏（無預設金句版）
@@ -2999,6 +2903,5 @@ its part of speech and meaning in this sentence must be clearly identified...等
                     st.markdown(r)
             else:
                 st.info("無符合資料")
-
 
 
