@@ -1165,7 +1165,7 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（優化搜尋與四語網格對照版）
+# 3. TAB1 ─ 書桌（AI解析式交互版）
 # ===================================================================
 with tabs[0]:
     # ========== 初始化 Session State ==========
@@ -1173,171 +1173,234 @@ with tabs[0]:
         st.session_state.tab1_selected_ref = "來6:3"
     if "tab1_search" not in st.session_state:
         st.session_state.tab1_search = ""
+    if "tab1_display_mode" not in st.session_state:
+        st.session_state.tab1_display_mode = "en-th"  # 預設顯示英泰
     
     sentences = st.session_state.get('sentences', {})
     
-    # ========== 多語言資料庫 (包含語法解析) ==========
-    # 這裡預設放入您提供的 來6:3 範例
+    # ========== 多語言資料庫 ==========
     default_multilang_data = {
         "來6:3": {
-            "ref": "Hebrews 6:3",
+            "ref": "Heb 6:3",
             "chinese": "神若許我們、我們必如此行。",
             "english": "And this we will do if God permits.",
             "japanese": "神が許して下さるなら、わたしたちはこのようにします。",
             "korean": "하나님이 허락하시면 우리가 이것을 하리라",
             "thai": "ถ้าพระเจ้าทรงอนุญาต เราก็จะได้เดินหน้าต่อไป",
             "grammar": {
-                # 這裡存放來6:17的深度解析
-                "note": "來6:17 解析內容",
                 "english": {
-                    "structure": [
-                        {"part": "上半 (When Clause)", "en": "when + God + desired + to show + more convincingly", "cn": "當 + 神 + 想要 + 顯明 + 更有力地"},
-                        {"part": "下半 (Main Clause)", "en": "he + guaranteed + it + with an oath", "cn": "祂 + 保證 + 這事 + 用 + 起誓"}
-                    ],
+                    "full": "And this we will do if God permits.",
+                    "upper": {
+                        "title": "上半（When Clause）",
+                        "content": "when + God + desired + to show + more convincingly + to the heirs of the promise + the unchangeable character of his purpose",
+                        "breakdown": "當 + 神 + 想要 + 顯明 + 更有力地 + 給 + 應許的承受者 + 祂旨意不改變的本質"
+                    },
+                    "lower": {
+                        "title": "下半（Main Clause）",
+                        "content": "he + guaranteed + it + with an oath",
+                        "breakdown": "祂 + 保證 + 這事 + 用 + 起誓"
+                    },
                     "points": [
-                        {"rule": "when-clause", "pattern": "when + subject + verb", "example": "when God speaks, we listen", "trans": "當神說話時，我們聆聽。"},
-                        {"rule": "to show（不定詞表目的）", "pattern": "Infinitive of purpose", "example": "God desired to show", "trans": "神想要顯明"},
-                        {"rule": "with an oath（方式）", "pattern": "with + noun", "example": "with an oath", "trans": "用起誓"}
-                    ]
-                },
-                "japanese": {
-                    "structure": [
-                        {"part": "上半", "content": "約束の相続人たちに...望んで", "breakdown": "promise + heirs + to | his + plan + not-changing + thing | more + clearly + show + intent + desiring"},
-                        {"part": "下半", "content": "誓いによって保証された", "breakdown": "oath + by + guaranteed"}
-                    ],
-                    "points": [
-                        {"rule": "N1のN2", "desc": "名詞修飾", "example": "約束の相続人", "trans": "應許的繼承人"},
-                        {"rule": "こと", "desc": "名詞化 (Verb -> Noun)", "example": "変わらないこと", "trans": "不改變這件事"},
-                        {"rule": "によって", "desc": "方式（藉著）", "example": "誓いによって", "trans": "藉著誓言"}
-                    ]
-                },
-                "korean": {
-                    "structure": [
-                        {"part": "上半", "content": "약속의 상속자들에게...나타내시려고", "breakdown": "應許的+繼承人+對 | 那+旨意+主詞 | 不改變+這件事+受詞 | 充分地+為了顯明"},
-                        {"part": "下半", "content": "맹세로 보증하셨느니라", "breakdown": "藉著 + 起誓 + 保證"}
-                    ],
-                    "points": [
-                        {"rule": "-려고", "desc": "目的（為了）", "example": "나타내시려고", "trans": "為了顯明"},
-                        {"rule": "-함", "desc": "名詞化", "example": "변하지 아니함", "trans": "不改變這件事"},
-                        {"rule": "-로", "desc": "方式（用）", "example": "맹세로", "trans": "用誓言"}
+                        {"label": "A", "rule": "when-clause（時間副詞子句）", "pattern": "when + subject + verb 👉 當…時", "example": "when God speaks, we listen", "trans": "當神說話時，我們聆聽。"},
+                        {"label": "B", "rule": "to show（不定詞表目的）Type: Infinitive of purpose", "pattern": "verb + to + verb 👉 表目的 👉 為了…", "example": "God desired to show", "trans": "神想要顯明"},
+                        {"label": "C", "rule": "with an oath（方式介系詞）", "pattern": "with + noun 👉 用…方式", "example": "with an oath", "trans": "用起誓"}
                     ]
                 },
                 "thai": {
-                    "structure": [
-                        {"part": "上半", "content": "เมื่อพระเจ้าทรงประสงค์จะสำแดง...ให้ชัดเจนยิ่งขึ้น", "breakdown": "當+神+想要+去+顯明 | 旨意+那+不改變 | 給+承受者+的+應許 | 使+清楚+更加"},
-                        {"part": "下半", "content": "พระองค์จึงทรงรับรองด้วยคำปฏิญาณ", "breakdown": "祂 + 因此 + 保證 + 用 + 誓言"}
-                    ],
+                    "full": "ถ้าพระเจ้าทรงอนุญาต เราก็จะได้เดินหน้าต่อไป",
+                    "upper": {
+                        "title": "上半句",
+                        "content": "ถ้า + พระเจ้า + ทรงอนุญาต",
+                        "breakdown": "if + God + permits"
+                    },
+                    "lower": {
+                        "title": "下半句",
+                        "content": "เรา + ก็ + จะ + ได้ + เดินหน้า + ต่อไป",
+                        "breakdown": "we + then + will + be able to + move forward + continue"
+                    },
                     "points": [
-                        {"rule": "จึง (Logical connector)", "desc": "因此，所以", "example": "พระเจ้าทรงรักเรา จึงทรงช่วยเรา", "trans": "神愛我們，因此幫助我們。"},
-                        {"rule": "อัน (Relative marker)", "desc": "which/that (正式用語)", "example": "พระประสงค์อันไม่เปลี่ยนแปลง", "trans": "不改變的旨意"},
-                        {"rule": "ทรง (Royal Verb Marker)", "desc": "尊敬神的動詞形式", "example": "พระเจ้าทรงรัก", "trans": "神愛"}
+                        {"label": "A", "rule": "Clause + จึง + Result：จึง＝》 Logical connector（邏輯連接副詞）", "pattern": "👉 因此，所以，於是", "example": "เขาเหนื่อยมาก จึงไปนอน", "trans": "他很累，所以去睡覺。"},
+                        {"label": "B", "rule": "N＋อัน＋描述詞：อัน＝》 Relative marker（關係詞）", "pattern": "👉 用來修飾前面的名詞 👉 類似英文：which/that/who", "example": "พระประสงค์อันไม่เปลี่ยนแปลง", "trans": "不改變的旨意"},
+                        {"label": "C", "rule": "ทรง（Royal Verb Marker）👉 尊敬神的動詞形式", "pattern": "พระเจ้า + ทรง + verb", "example": "พระเจ้าทรงรัก", "trans": "神愛"}
+                    ]
+                },
+                "japanese": {
+                    "full": "神が許して下さるなら、わたしたちはこのようにします。",
+                    "upper": {
+                        "title": "上半",
+                        "content": "約束の + 相続人たち + に ご自分の + ご計画の + 変わらない + こと + を いっそう + はっきり + 示そう + と + 望んで",
+                        "breakdown": "promise + heirs + to | his + plan + not-changing + thing + object | more + clearly + show + intent + desiring"
+                    },
+                    "lower": {
+                        "title": "下半",
+                        "content": "誓い + によって + 保証された",
+                        "breakdown": "oath + by + guaranteed"
+                    },
+                    "points": [
+                        {"label": "A", "rule": "N 1の N2（名詞修飾）👉 N1 修飾 N2", "pattern": "", "example": "約束の相続人", "trans": "應許的繼承人"},
+                        {"label": "B", "rule": "こと（名詞化）👉 把動詞變名詞", "pattern": "Verb + こと", "example": "変わらないこと", "trans": "不改變這件事"},
+                        {"label": "C", "rule": "N＋によって（方式）👉 藉著…", "pattern": "", "example": "誓いによって", "trans": "藉著誓言"}
+                    ]
+                },
+                "korean": {
+                    "full": "하나님이 허락하시면 우리가 이것을 하리라",
+                    "upper": {
+                        "title": "上半",
+                        "content": "약속의 + 상속자들 + 에게 그 + 뜻 + 이 변하지 + 아니함 + 을 충분히 + 나타내시려고",
+                        "breakdown": "應許的 + 繼承人 + 對 | 那 + 旨意 + 主詞 | 不改變 + 這件事 + 受詞 | 充分地 + 為了顯明"
+                    },
+                    "lower": {
+                        "title": "下半",
+                        "content": "맹세 + 로 + 보증하셨느니라",
+                        "breakdown": "藉著 + 起誓 + 保證"
+                    },
+                    "points": [
+                        {"label": "A", "rule": "Verb+려고（目的）👉 為了…", "pattern": "", "example": "나타내시려고", "trans": "為了顯明"},
+                        {"label": "B", "rule": "Verb+함（名詞化）👉 把動詞變名詞", "pattern": "", "example": "변하지 아니함", "trans": "不改變這件事"},
+                        {"label": "C", "rule": "N＋로（方式）👉 用…", "pattern": "N + 로", "example": "맹세로", "trans": "用誓言"}
                     ]
                 }
             }
         }
     }
 
-    # 搜尋欄優化 (仿 AI 解析欄位)
-    st.markdown("### 🔍 經文解析檢索")
-    c_search1, c_search2 = st.columns([4, 1])
-    with c_search1:
-        search_val = st.text_input("輸入經文", placeholder="例：來6:3", label_visibility="collapsed")
-    with c_search2:
-        if st.button("解析經文", use_container_width=True):
-            if search_val:
-                st.session_state.tab1_selected_ref = search_val
-                # 這裡可串接實際搜尋邏輯，目前以 default 示範
-                
-    # 決定顯示資料
-    current = default_multilang_data.get(st.session_state.tab1_selected_ref, default_multilang_data["來6:3"])
+    # 資料解析函數
+    def parse_verse_data(data):
+        multilang_data = {}
+        for ref, content_data in data.items():
+            v1_content = content_data.get('v1_content', '')
+            v2_content = content_data.get('v2_content', '')
+            v1_rows, v2_rows = [], []
+            if v1_content:
+                lines = v1_content.strip().split('\n')
+                for line in lines[1:]:
+                    if '\t' in line:
+                        cols = line.split('\t')
+                        if len(cols) >= 3:
+                            v1_rows.append({'ref': cols[0], 'english': cols[1], 'chinese': cols[2]})
+            if v2_content:
+                lines = v2_content.strip().split('\n')
+                for line in lines[1:]:
+                    if '\t' in line:
+                        cols = line.split('\t')
+                        if len(cols) >= 7:
+                            v2_rows.append({'ref': cols[0], 'japanese': cols[1], 'korean': cols[4], 'thai': cols[6]})
+            for i, v1 in enumerate(v1_rows):
+                v2 = v2_rows[i] if i < len(v2_rows) else {}
+                key = v1.get('ref', ref)
+                multilang_data[key] = {
+                    'ref': key,
+                    'chinese': v1.get('chinese', ''),
+                    'english': v1.get('english', ''),
+                    'japanese': v2.get('japanese', '') if v2 else '',
+                    'korean': v2.get('korean', '') if v2 else '',
+                    'thai': v2.get('thai', '') if v2 else '',
+                    'grammar': default_multilang_data["來6:3"]['grammar']
+                }
+        return multilang_data
 
-    # 頂部中英對照總覽
-    st.markdown(f"""
-        <div style='background-color: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 5px solid #FF8C00; margin-bottom: 20px;'>
-            <h4 style='margin:0; color:#555;'>{current['ref']}</h4>
-            <p style='font-size: 20px; font-weight: bold; margin: 10px 0;'>中：{current['chinese']}</p>
-            <p style='font-size: 18px; color: #333; font-style: italic;'>英：{current['english']}</p>
-        </div>
-    """, unsafe_allow_html=True)
+    multilang_db = parse_verse_data(sentences) if sentences else default_multilang_data
+    if not multilang_db:
+        multilang_db = default_multilang_data
 
-    # 四語言網格 (上半左右，下半左右)
-    grid_top_c1, grid_top_c2 = st.columns(2)
-    with grid_top_c1:
-        st.markdown(f"""<div style='background:#fef2f2; padding:15px; border-radius:8px; min-height:100px;'>
-            <b style='color:#e53e3e;'>🇯🇵 日本語</b><br>{current['japanese']}</div>""", unsafe_allow_html=True)
-    with grid_top_c2:
-        st.markdown(f"""<div style='background:#f0f9ff; padding:15px; border-radius:8px; min-height:100px;'>
-            <b style='color:#0284c7;'>🇬🇧 English</b><br>{current['english']}</div>""", unsafe_allow_html=True)
+    # 決定顯示經文
+    if st.session_state.tab1_selected_ref in multilang_db:
+        current = multilang_db[st.session_state.tab1_selected_ref]
+    else:
+        current = list(multilang_db.values())[0]
 
-    st.write("") # 間隔
+    # ========== 控制列：魔菇 + 搜索框 + 語言切換按鈕 ==========
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    col_mushroom, col_search, col_en_th, col_jp_kr = st.columns([1, 2, 1, 1])
 
-    grid_btm_c1, grid_btm_c2 = st.columns(2)
-    with grid_btm_c1:
-        st.markdown(f"""<div style='background:#f0fdf4; padding:15px; border-radius:8px; min-height:100px;'>
-            <b style='color:#16a34a;'>🇰🇷 한국어</b><br>{current['korean']}</div>""", unsafe_allow_html=True)
-    with grid_btm_c2:
-        st.markdown(f"""<div style='background:#fffbeb; padding:15px; border-radius:8px; min-height:100px;'>
-            <b style='color:#d97706;'>🇹🇭 ภาษาไทย</b><br>{current['thai']}</div>""", unsafe_allow_html=True)
+    with col_mushroom:
+        if st.button("🍄", use_container_width=True, help="AI解析經文"):
+            st.info("🍄 魔菇AI解析功能開發中...")
 
-    # ========== 文法解析區 ==========
-    st.divider()
-    st.subheader("📚 深度文法解析 (來6:17 範例)")
-    
-    g_tab1, g_tab2, g_tab3, g_tab4 = st.tabs(["🇬🇧 英文", "🇯🇵 日文", "🇰🇷 韓文", "🇹🇭 泰文"])
-    
-    with g_tab1:
-        eng_g = current['grammar']['english']
-        st.markdown("#### 1) 結構拆解 (Structure)")
-        for item in eng_g['structure']:
-            st.write(f"**{item['part']}**")
-            st.info(f"{item['en']}\n\n{item['cn']}")
-        st.markdown("#### 2) 重點文法")
-        for p in eng_g['points']:
-            st.markdown(f"**{p['rule']}** : `{p['pattern']}`")
-            st.caption(f"Ex: {p['example']} → {p['trans']}")
+    with col_search:
+        search_val = st.text_input("", value=st.session_state.tab1_search, placeholder="例：來6:3", label_visibility="collapsed", key="verse_search_compact")
+        if search_val:
+            st.session_state.tab1_search = search_val
+            for key in multilang_db.keys():
+                if search_val.lower() in key.lower():
+                    st.session_state.tab1_selected_ref = key
+                    st.rerun()
 
-    with g_tab2:
-        jp_g = current['grammar']['japanese']
-        for item in jp_g['structure']:
-            st.write(f"**{item['part']}**")
-            st.success(f"{item['content']}\n\n{item['breakdown']}")
-        st.markdown("---")
-        for p in jp_g['points']:
-            st.write(f"🔹 **{p['rule']}** ({p['desc']})")
-            st.caption(f"例：{p['example']} → {p['trans']}")
+    with col_en_th:
+        btn_style_en_th = "primary" if st.session_state.tab1_display_mode == "en-th" else "secondary"
+        if st.button("🇬🇧🇹🇭", use_container_width=True, type=btn_style_en_th):
+            st.session_state.tab1_display_mode = "en-th"
+            st.rerun()
 
-    with g_tab3:
-        kr_g = current['grammar']['korean']
-        for item in kr_g['structure']:
-            st.write(f"**{item['part']}**")
-            st.warning(f"{item['content']}\n\n{item['breakdown']}")
-        st.markdown("---")
-        for p in kr_g['points']:
-            st.write(f"🔸 **{p['rule']}** ({p['desc']})")
-            st.caption(f"例：{p['example']} → {p['trans']}")
+    with col_jp_kr:
+        btn_style_jp_kr = "primary" if st.session_state.tab1_display_mode == "jp-kr" else "secondary"
+        if st.button("🇯🇵🇰🇷", use_container_width=True, type=btn_style_jp_kr):
+            st.session_state.tab1_display_mode = "jp-kr"
+            st.rerun()
 
-    with g_tab4:
-        th_g = current['grammar']['thai']
-        for item in th_g['structure']:
-            st.write(f"**{item['part']}**")
-            st.help(f"{item['content']}\n\n{item['breakdown']}")
-        st.markdown("---")
-        for p in th_g['points']:
-            st.write(f"🐘 **{p['rule']}**")
-            st.write(f"↳ {p['desc']}")
-            st.caption(f"例：{p['example']} → {p['trans']}")
+    st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
 
-    # 骨架總結
+    # ========== 經文標題（簡化格式） ==========
+    ref_short = current['ref'].replace(" ", "")  # Heb 6:3 -> Heb6:3
+    st.markdown(f"<h3 style='font-size: 22px; font-weight: bold; color: #333; margin: 10px 0; font-family: \"Noto Serif CJK TC\", serif;'>{ref_short}{current['chinese']}</h3>", unsafe_allow_html=True)
+
+    # ========== 根據模式顯示內容 ==========
+    if st.session_state.tab1_display_mode == "en-th":
+        # 🇬🇧 英文
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+        eng = current['grammar']['english']
+        st.markdown(f"<div style='font-size: 18px; line-height: 1.6; color: #2d3748; margin-bottom: 15px;'>🇬🇧 {eng['full']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #f7fafc; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #4299e1;'><div style='font-weight: bold; color: #2b6cb0; margin-bottom: 5px;'>{eng['upper']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px;'>{eng['upper']['content']}</div><div style='color: #718096; font-size: 13px;'>{eng['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #f7fafc; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #48bb78;'><div style='font-weight: bold; color: #276749; margin-bottom: 5px;'>{eng['lower']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px;'>{eng['lower']['content']}</div><div style='color: #718096; font-size: 13px;'>{eng['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight: bold; color: #333; margin: 15px 0 10px 0;'>重點文法：</div>", unsafe_allow_html=True)
+        for p in eng['points']:
+            st.markdown(f"<div style='margin-bottom: 12px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0;'><div style='font-weight: bold; color: #d69e2e; margin-bottom: 3px;'>{p['label']}) {p['rule']}</div><div style='color: #4a5568; font-size: 14px; margin-bottom: 3px;'>{p['pattern']}</div><div style='color: #2d3748; font-size: 14px;'>Ex：{p['example']} {p['trans']}</div></div>", unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 25px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+        
+        # 🇹🇭 泰文
+        th = current['grammar']['thai']
+        st.markdown(f"<div style='font-size: 18px; line-height: 1.6; color: #2d3748; margin-bottom: 15px;'>🇹🇭 {th['full']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #fffaf0; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ed8936;'><div style='font-weight: bold; color: #c05621; margin-bottom: 5px;'>{th['upper']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px;'>{th['upper']['content']}</div><div style='color: #718096; font-size: 13px;'>{th['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #fffaf0; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #38a169;'><div style='font-weight: bold; color: #276749; margin-bottom: 5px;'>{th['lower']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px;'>{th['lower']['content']}</div><div style='color: #718096; font-size: 13px;'>{th['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight: bold; color: #333; margin: 15px 0 10px 0;'>重要文法解說：</div>", unsafe_allow_html=True)
+        for p in th['points']:
+            st.markdown(f"<div style='margin-bottom: 12px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0;'><div style='font-weight: bold; color: #d69e2e; margin-bottom: 3px;'>{p['label']}) {p['rule']}</div><div style='color: #4a5568; font-size: 14px; margin-bottom: 3px;'>{p['pattern']}</div><div style='color: #2d3748; font-size: 14px;'>Ex：{p['example']} 👉 {p['trans']}</div></div>", unsafe_allow_html=True)
+
+    else:  # jp-kr 模式
+        # 🇯🇵 日文
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+        jp = current['grammar']['japanese']
+        st.markdown(f"<div style='font-size: 18px; line-height: 1.6; color: #2d3748; margin-bottom: 15px;'>🇯🇵 {jp['full']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #fef2f2; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #e53e3e;'><div style='font-weight: bold; color: #c53030; margin-bottom: 5px;'>{jp['upper']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px; line-height: 1.5;'>{jp['upper']['content']}</div><div style='color: #718096; font-size: 13px;'>{jp['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #fef2f2; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #38a169;'><div style='font-weight: bold; color: #276749; margin-bottom: 5px;'>{jp['lower']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px;'>{jp['lower']['content']}</div><div style='color: #718096; font-size: 13px;'>{jp['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight: bold; color: #333; margin: 15px 0 10px 0;'>文法解說：</div>", unsafe_allow_html=True)
+        for p in jp['points']:
+            pattern_display = f"<div style='color: #4a5568; font-size: 14px; margin-bottom: 3px;'>{p['pattern']}</div>" if p['pattern'] else ""
+            st.markdown(f"<div style='margin-bottom: 12px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0;'><div style='font-weight: bold; color: #d69e2e; margin-bottom: 3px;'>{p['label']}) {p['rule']}</div>{pattern_display}<div style='color: #2d3748; font-size: 14px;'>Ex：{p['example']} {p['trans']}</div></div>", unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 25px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+        
+        # 🇰🇷 韓文
+        kr = current['grammar']['korean']
+        st.markdown(f"<div style='font-size: 18px; line-height: 1.6; color: #2d3748; margin-bottom: 15px;'>🇰🇷 {kr['full']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #f0fff4; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #48bb78;'><div style='font-weight: bold; color: #276749; margin-bottom: 5px;'>{kr['upper']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px; line-height: 1.5;'>{kr['upper']['content']}</div><div style='color: #718096; font-size: 13px;'>{kr['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background: #f0fff4; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ed8936;'><div style='font-weight: bold; color: #c05621; margin-bottom: 5px;'>{kr['lower']['title']}</div><div style='color: #2d3748; font-size: 15px; margin-bottom: 5px;'>{kr['lower']['content']}</div><div style='color: #718096; font-size: 13px;'>{kr['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight: bold; color: #333; margin: 15px 0 10px 0;'>重要文法解說：</div>", unsafe_allow_html=True)
+        for p in kr['points']:
+            pattern_display = f"<div style='color: #4a5568; font-size: 14px; margin-bottom: 3px;'>{p['pattern']}</div>" if p['pattern'] else ""
+            st.markdown(f"<div style='margin-bottom: 12px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0;'><div style='font-weight: bold; color: #d69e2e; margin-bottom: 3px;'>{p['label']}) {p['rule']}</div>{pattern_display}<div style='color: #2d3748; font-size: 14px;'>Ex：{p['example']} {p['trans']}</div></div>", unsafe_allow_html=True)
+
+    # ========== 句子骨架 Skeleton ==========
     st.markdown("""
-        <div style='background: #1a202c; color: white; padding: 15px; border-radius: 10px; margin-top: 20px;'>
-            <h4 style='color: #ffd700; margin-top:0;'>🦴 句子骨架 Skeleton</h4>
-            <p>「原因/時間子句（當神想要...）+ 主句（祂就保證...）」</p>
-            <table style='width: 100%; color: white; border-collapse: collapse;'>
-                <tr style='border-bottom: 1px solid #444;'><th>語言</th><th>核心連結詞/動作</th></tr>
-                <tr><td>English</td><td>When... desired / To show / guaranteed</td></tr>
-                <tr><td>Japanese</td><td>...望んで / 示そうと / 保証された</td></tr>
-                <tr><td>Korean</td><td>...려고 / 나타내시려고 / 보증하셨느니라</td></tr>
-                <tr><td>Thai</td><td>เมื่อ... / จะสำแดง / จึงทรงรับรอง</td></tr>
+        <div style='background: #1a202c; color: white; padding: 15px; border-radius: 10px; margin-top: 25px;'>
+            <h4 style='color: #ffd700; margin-top:0; font-size: 18px;'>🦴 句子骨架 Skeleton</h4>
+            <p style='font-size: 15px; margin: 10px 0;'>「原因/時間子句（當神想要...）+ 主句（祂就保證...）」</p>
+            <table style='width: 100%; color: white; border-collapse: collapse; font-size: 14px; margin-top: 10px;'>
+                <tr style='border-bottom: 1px solid #444;'><td style='padding: 8px 0; width: 80px; color: #90cdf4;'>English</td><td style='padding: 8px 0;'>When... desired / To show / guaranteed</td></tr>
+                <tr style='border-bottom: 1px solid #444;'><td style='padding: 8px 0; color: #90cdf4;'>Japanese</td><td style='padding: 8px 0;'>...望んで / 示そうと / 保証された</td></tr>
+                <tr style='border-bottom: 1px solid #444;'><td style='padding: 8px 0; color: #90cdf4;'>Korean</td><td style='padding: 8px 0;'>...려고 / 나타내시려고 / 보증하셨느니라</td></tr>
+                <tr><td style='padding: 8px 0; color: #90cdf4;'>Thai</td><td style='padding: 8px 0;'>เมื่อ... / จะสำแดง / จึงทรงรับรอง</td></tr>
             </table>
         </div>
     """, unsafe_allow_html=True)
