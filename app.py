@@ -1337,36 +1337,98 @@ with tabs[0]:
             st.session_state.tab1_display_mode = "jp-kr"
             st.rerun()
     
-    # ========== AI 解析處理（修復版）==========
+    # ========== AI 解析處理（整合 Gemini API 版）==========
     if st.session_state.tab1_ai_loading:
         with st.spinner("🍄 魔菇AI正在解析經文..."):
             try:
+                # 取得當前經文資料
                 verse_text = current.get('english', '')
                 chinese_text = current.get('chinese', '')
                 ref_text = current.get('ref', '')
                 
-                if 'analyze_scripture_with_ai' in globals():
-                    ai_result = analyze_scripture_with_ai(verse_text, chinese_text, ref_text)
-                else:
-                    st.warning("⚠️ AI函數未找到，使用預設解析")
-                    ai_result = {
-                        "vocabulary": [{"word": "permit", "phonetic": "/pərˈmɪt/", "meaning": "允許"}],
-                        "phrases": [{"phrase": "if God permits", "meaning": "若神許可"}],
-                        "segments": [{"cn": "神若許我們", "en": "if God permits us"}, {"cn": "我們必如此行", "en": "we will do so"}]
-                    }
+                # 🔗 直接調用 Gemini API（與 TAB4 相同的邏輯）
+                import google.generativeai as genai
+                import json
+                import re
                 
-                if ai_result and isinstance(ai_result, dict):
+                # 設定 API Key
+                api_key = st.secrets.get("GEMINI_API_KEY")
+                if not api_key:
+                    st.error("❌ 請在 secrets.toml 中設定 GEMINI_API_KEY")
+                    st.stop()
+                
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                # 強化提示詞（與 TAB4 類似，但輸出 TAB1 需要的格式）
+                prompt = f"""
+                你是一位專業的聖經語言學分析師。請針對以下經文進行深度語法解析：
+
+                經文出處：{ref_text}
+                英文經文：{verse_text}
+                中文經文：{chinese_text}
+
+                請以 JSON 格式回傳以下分析結果：
+                {{
+                    "vocabulary": [
+                        {{"word": "單字1", "phonetic": "/音標/", "meaning": "中文意思"}},
+                        {{"word": "單字2", "phonetic": "/音標/", "meaning": "中文意思"}}
+                    ],
+                    "phrases": [
+                        {{"phrase": "片語1", "meaning": "中文解釋"}},
+                        {{"phrase": "片語2", "meaning": "中文解釋"}}
+                    ],
+                    "segments": [
+                        {{"cn": "中文分段1", "en": "English Segment 1"}},
+                        {{"cn": "中文分段2", "en": "English Segment 2"}}
+                    ]
+                }}
+
+                要求：
+                1. vocabulary 至少列出 3-5 個重點單字，包含音標和中文意思
+                2. phrases 列出重要的片語或慣用語
+                3. segments 將經文分成 2-4 個邏輯段落，中英文對照
+                4. 只回傳 JSON，不要其他說明文字
+                """
+                
+                # 呼叫 API
+                response = model.generate_content(prompt)
+                raw_text = response.text
+                
+                # 清理回應（移除可能的 markdown 代碼塊）
+                cleaned_text = re.sub(r'```json\\s*|\\s*```', '', raw_text).strip()
+                
+                # 解析 JSON
+                ai_result = json.loads(cleaned_text)
+                
+                # 驗證結果格式
+                if ai_result and isinstance(ai_result, dict) and 'vocabulary' in ai_result:
                     st.session_state.tab1_ai_result = ai_result
                     st.success("✅ AI解析完成！")
                 else:
-                    st.error("❌ AI解析返回空結果")
+                    st.error("❌ AI回傳格式不正確")
+                    st.code(cleaned_text)
                     
+            except json.JSONDecodeError as e:
+                st.error(f"❌ JSON 解析錯誤: {e}")
+                st.write("原始回應：")
+                st.code(raw_text if 'raw_text' in locals() else 'N/A')
+                # 使用預設資料
+                st.session_state.tab1_ai_result = {
+                    "vocabulary": [{"word": "解析失敗", "phonetic": "/.../", "meaning": "JSON錯誤"}],
+                    "phrases": [{"phrase": "error", "meaning": str(e)}],
+                    "segments": [{"cn": chinese_text or "中文", "en": verse_text or "English"}]
+                }
+                
             except Exception as e:
                 st.error(f"❌ AI解析錯誤: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+                # 使用預設資料
                 st.session_state.tab1_ai_result = {
-                    "vocabulary": [{"word": "permit", "meaning": "允許"}],
-                    "phrases": [{"phrase": "if God permits", "meaning": "若神許可"}],
-                    "segments": [{"cn": "神若許我們", "en": "if God permits us"}]
+                    "vocabulary": [{"word": "API錯誤", "phonetic": "/.../", "meaning": str(e)[:50]}],
+                    "phrases": [{"phrase": "請檢查", "meaning": "GEMINI_API_KEY設定"}],
+                    "segments": [{"cn": chinese_text or "中文", "en": verse_text or "English"}]
                 }
             
             st.session_state.tab1_ai_loading = False
