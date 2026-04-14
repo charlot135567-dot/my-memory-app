@@ -1279,59 +1279,72 @@ with tabs[0]:
     else:
         current = list(multilang_db.values())[0]
     
-    # ========== 隱藏魔菇按鈕邊框 + 垂直置中對齊的 CSS ==========
+        # ========== 隱藏魔菇按鈕邊框 + 垂直置中對齊的 CSS ==========
     st.markdown("""
         <style>
-        /* 魔菇按鈕容器 - 垂直置中對齊 */
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             height: 100% !important;
-            padding-top: 0px !important;
-            padding-bottom: 0px !important;
         }
-        
-        /* 魔菇按鈕樣式 - 無邊框 */
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0px !important;
-            margin: 0px !important;
             font-size: 28px !important;
-            cursor: pointer;
-            height: auto !important;
-            line-height: 1 !important;
-        }
-        
-        div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button:hover {
-            transform: scale(1.1);
-            background-color: #f0f0f0 !important;
-            border-radius: 8px;
-        }
-        
-        div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button:active {
-            background-color: #e0e0e0 !important;
-        }
-        
-        div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button:focus {
-            outline: none !important;
-            box-shadow: none !important;
         }
         </style>
     """, unsafe_allow_html=True)
-            
+    
+    # ========== 控制列：搜索框(縮小) + 魔菇 + 語言切換按鈕 ==========
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    
+    # 欄位比例：1.2(搜索-縮小) | 0.5(魔菇) | 1(英泰) | 1(日韓)
+    control_cols = st.columns([1.2, 0.5, 1, 1])
+    
+    with control_cols[0]:
+        search_val = st.text_input(
+            "",
+            value=st.session_state.tab1_search,
+            placeholder="例：來6:3",
+            label_visibility="collapsed",
+            key="verse_search_compact"
+        )
+        if search_val:
+            st.session_state.tab1_search = search_val
+            for key in multilang_db.keys():
+                if search_val.lower() in key.lower():
+                    st.session_state.tab1_selected_ref = key
+                    st.rerun()
+    
+    with control_cols[1]:
+        mushroom_clicked = st.button("🍄", key="mushroom_ai_btn", help="AI解析經文")
+        if mushroom_clicked:
+            st.session_state.tab1_ai_loading = True
+            st.rerun()
+    
+    with control_cols[2]:
+        btn_style_en_th = "primary" if st.session_state.tab1_display_mode == "en-th" else "secondary"
+        if st.button("🇬🇧🇹🇭", use_container_width=True, type=btn_style_en_th):
+            st.session_state.tab1_display_mode = "en-th"
+            st.rerun()
+    
+    with control_cols[3]:
+        btn_style_jp_kr = "primary" if st.session_state.tab1_display_mode == "jp-kr" else "secondary"
+        if st.button("🇯🇵🇰🇷", use_container_width=True, type=btn_style_jp_kr):
+            st.session_state.tab1_display_mode = "jp-kr"
+            st.rerun()
+    
     # ========== AI 解析處理（修復版）==========
     if st.session_state.tab1_ai_loading:
         with st.spinner("🍄 魔菇AI正在解析經文..."):
             try:
-                # 取得當前經文資料
                 verse_text = current.get('english', '')
                 chinese_text = current.get('chinese', '')
                 ref_text = current.get('ref', '')
                 
-                # 檢查是否有 AI 解析函數
                 if 'analyze_scripture_with_ai' in globals():
                     ai_result = analyze_scripture_with_ai(verse_text, chinese_text, ref_text)
                 else:
