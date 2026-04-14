@@ -19,16 +19,18 @@ from gtts import gTTS
 import google.generativeai as genai
 import time
 from google.api_core import exceptions
+
+# ==========================================
+# 核心函數：處理 AI 解析與錯誤重試
+# ==========================================
 def run_bible_ai_analysis(current_verse):
-    """
-    執行聖經經文 AI 解析，包含 404 與 429 錯誤處理機制。
-    """
+    """執行聖經解析，自動處理 404 與 429 錯誤"""
     # 1. 取得資料
     verse_text = current_verse.get('english', '')
     chinese_text = current_verse.get('chinese', '')
     ref_text = current_verse.get('ref', '')
 
-    # 2. API 金鑰檢查
+    # 2. API 設定
     api_key = st.secrets.get("GEMINI_API_KEY")
     if not api_key:
         st.error("❌ 請在 secrets.toml 中設定 GEMINI_API_KEY")
@@ -37,81 +39,37 @@ def run_bible_ai_analysis(current_verse):
     try:
         genai.configure(api_key=api_key)
 
-        # 3. 動態獲取可用模型（徹底解決 404 錯誤）
-        available_models = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        
-        # 優先順序：2.0-flash > 1.5-flash > 第一個可用模型
-        target_model = next((m for m in available_models if "2.0-flash" in m), 
-                       next((m for m in available_models if "1.5-flash" in m), 
-                       available_models[0] if available_models else "models/gemini-1.5-flash"))
-        
+        # 3. 解決 404：動態找模型
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        target_model = next((m for m in available_models if "1.5-flash" in m), "models/gemini-1.5-flash")
         model = genai.GenerativeModel(target_model)
 
-        # 4. 準備 Prompt
-        prompt = f"""
-        你是一位專業的聖經語言學分析師。請針對以下經文進行深度語法解析：
-        經文出處：{ref_text}
-        英文經文：{verse_text}
-        中文經文：{chinese_text}
+        prompt = f"請針對以下經文進行 JSON 語法解析：\n{ref_text}\n{verse_text}\n{chinese_text}"
 
-        請嚴格以 JSON 格式回傳（不要任何贅字或 markdown 標籤）：
-        {{
-            "vocabulary": [
-                {{"word": "單字", "phonetic": "/音標/", "meaning": "中文意思"}}
-            ],
-            "phrases": [
-                {{"phrase": "片語", "meaning": "中文解釋"}}
-            ],
-            "segments": [
-                {{"cn": "中文分段", "en": "English Segment"}}
-            ]
-        }}
-        """
-
-        # 5. 執行請求與自動重試機制（解決 429 流量限制錯誤）
+        # 4. 解決 429：自動重試機制 (重試 5 次)
         response = None
-        max_retries = 5
-        for i in range(max_retries):
+        for i in range(5):
             try:
                 response = model.generate_content(prompt)
                 break 
             except exceptions.ResourceExhausted:
-                # 指數退避延遲：1s, 3s, 7s...
-                wait_time = (2 ** i) + 1 
-                st.warning(f"⚠️ API 忙碌中，{wait_time} 秒後進行第 {i+1} 次重試...")
+                wait_time = (2 ** i) + 1
+                st.warning(f"⚠️ API 忙碌中，{wait_time} 秒後重試... ({i+1}/5)")
                 time.sleep(wait_time)
             except Exception as e:
-                # 其他錯誤（如網路中斷）直接拋出
                 raise e
 
-        if not response:
-            raise Exception("多次重試後仍無法取得 API 回應。")
-
-        # 6. 安全解析 JSON
+        # 5. 安全解析 JSON
         raw_text = response.text
-        # 使用 Regex 抓取第一個 { 到最後一個 } 之間的內容
         json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-        
         if json_match:
-            cleaned_text = json_match.group(0)
-            ai_result = json.loads(cleaned_text)
-            
-            # 更新 Session State
-            st.session_state.tab1_ai_result = ai_result
-            st.success(f"✅ AI 解析完成！ (使用模型: {target_model})")
+            st.session_state.tab1_ai_result = json.loads(json_match.group(0))
+            st.success("✅ AI 解析完成！")
         else:
-            raise ValueError("AI 回傳內容不包含有效的 JSON 格式")
+            raise ValueError("格式錯誤")
 
-    except exceptions.ResourceExhausted:
-        st.error("❌ 額度已用罄：您的 Gemini API 免費額度已達今日上限。")
-    except json.JSONDecodeError:
-        st.error("❌ 解析失敗：AI 回傳的 JSON 格式損壞。")
-        st.code(raw_text if 'raw_text' in locals() else 'N/A')
     except Exception as e:
-        st.error(f"❌ 系統錯誤: {str(e)}")
+        st.error(f"❌ 系統忙碌中: {str(e)}")
         # 降級處理：給予基礎結構避免頁面崩潰
         st.session_state.tab1_ai_result = {
             "vocabulary": [{"word": "解析錯誤", "phonetic": "/error/", "meaning": "請稍後再試"}],
@@ -1440,13 +1398,13 @@ with tabs[0]:
             st.rerun()
     
     # ========== AI 解析處理（呼叫全域函數）==========
-    if st.session_state.tab1_ai_loading:
+    if st.session_state.get('tab1_ai_loading', False):
         with st.spinner("🍄 魔菇AI正在解析經文..."):
-            # 呼叫已定義在頂部的全域函數
+            # 這裡會呼叫上面定義好的函數
+            # 請確認 'current' 是你當前經文的變數名稱
             run_bible_ai_analysis(current)
-        
-        # 函數內部已處理 session_state 和錯誤顯示
-        # 只需要關閉 loading 狀態並刷新頁面
+    
+        # 解析結束，關閉狀態並立即刷新畫面
         st.session_state.tab1_ai_loading = False
         st.rerun()
     
