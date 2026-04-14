@@ -69,8 +69,10 @@ def run_bible_ai_analysis(current_verse):
             raise ValueError("格式錯誤")
 
     except Exception as e:
-        st.error(f"❌ 系統忙碌中: {str(e)}")
-        # 降級處理：給予基礎結構避免頁面崩潰
+        # 加上這一行，讓我們看到底是哪裡錯了
+        st.error(f"⚠️ 偵測到錯誤原因: {str(e)}") 
+        
+        # 降級處理
         st.session_state.tab1_ai_result = {
             "vocabulary": [{"word": "解析錯誤", "phonetic": "/error/", "meaning": "請稍後再試"}],
             "phrases": [{"phrase": "System Busy", "meaning": "API 暫時無法連線"}],
