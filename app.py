@@ -1337,7 +1337,7 @@ with tabs[0]:
             st.session_state.tab1_display_mode = "jp-kr"
             st.rerun()
     
-    # ========== AI 解析處理（整合 Gemini API 版）==========
+    # ========== AI 解析處理（404 錯誤修復版）==========
     if st.session_state.tab1_ai_loading:
         with st.spinner("🍄 魔菇AI正在解析經文..."):
             try:
@@ -1346,7 +1346,7 @@ with tabs[0]:
                 chinese_text = current.get('chinese', '')
                 ref_text = current.get('ref', '')
                 
-                # 🔗 直接調用 Gemini API（與 TAB4 相同的邏輯）
+                # 🔗 直接調用 Gemini API（動態獲取可用模型）
                 import google.generativeai as genai
                 import json
                 import re
@@ -1358,9 +1358,28 @@ with tabs[0]:
                     st.stop()
                 
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
                 
-                # 強化提示詞（與 TAB4 類似，但輸出 TAB1 需要的格式）
+                # ✅ 動態獲取可用模型（避免 404 錯誤）
+                available_models = [m.name for m in genai.list_models() 
+                                   if 'generateContent' in m.supported_generation_methods]
+                
+                # 尋找包含 "flash" 的模型
+                target_model = None
+                for model_name in available_models:
+                    if "1.5-flash" in model_name or "2.0-flash" in model_name:
+                        target_model = model_name
+                        break
+                
+                # 如果找不到，使用第一個可用的 Gemini 模型
+                if not target_model:
+                    target_model = available_models[0] if available_models else "models/gemini-1.5-flash"
+                
+                st.write(f"🤖 使用模型: {target_model}")  # 除錯訊息
+                
+                # 初始化模型（使用正確的模型名稱格式）
+                model = genai.GenerativeModel(target_model)
+                
+                # 強化提示詞
                 prompt = f"""
                 你是一位專業的聖經語言學分析師。請針對以下經文進行深度語法解析：
 
@@ -1395,8 +1414,14 @@ with tabs[0]:
                 response = model.generate_content(prompt)
                 raw_text = response.text
                 
-                # 清理回應（移除可能的 markdown 代碼塊）
-                cleaned_text = re.sub(r'```json\\s*|\\s*```', '', raw_text).strip()
+                # ✅ 強化 JSON 清理（移除 markdown 代碼塊）
+                json_match = re.search(r'```json\s*(.*?)\s*```', raw_text, re.DOTALL)
+                if json_match:
+                    cleaned_text = json_match.group(1).strip()
+                else:
+                    # 嘗試直接找到 JSON 物件
+                    json_match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
+                    cleaned_text = json_match.group(1).strip() if json_match else raw_text.strip()
                 
                 # 解析 JSON
                 ai_result = json.loads(cleaned_text)
