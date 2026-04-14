@@ -1279,106 +1279,81 @@ with tabs[0]:
     else:
         current = list(multilang_db.values())[0]
     
-    # ========== 隱藏魔菇按鈕邊框的 CSS ==========
+    # ========== 隱藏魔菇按鈕邊框 + 垂直置中對齊的 CSS ==========
     st.markdown("""
         <style>
-        /* 隱藏特定 key 的按鈕邊框 */
+        /* 魔菇按鈕容器 - 垂直置中對齊 */
+        div[data-testid="stElementContainer"].st-key-mushroom_ai_btn {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 100% !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+        }
+        
+        /* 魔菇按鈕樣式 - 無邊框 */
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0px !important;
+            margin: 0px !important;
             font-size: 28px !important;
             cursor: pointer;
+            height: auto !important;
+            line-height: 1 !important;
         }
+        
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button:hover {
             transform: scale(1.1);
             background-color: #f0f0f0 !important;
             border-radius: 8px;
         }
+        
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button:active {
             background-color: #e0e0e0 !important;
         }
-        /* 移除按鈕點擊時的紅色邊框 */
+        
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button:focus {
             outline: none !important;
             box-shadow: none !important;
         }
         </style>
     """, unsafe_allow_html=True)
-    
-    # ========== 控制列：魔菇(無框) + 搜索框 + 語言切換按鈕 ==========
-    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
-    
-    control_cols = st.columns([0.5, 2, 1, 1])
-    
-    with control_cols[0]:
-        # 魔菇按鈕 - 使用 CSS 隱藏邊框
-        mushroom_clicked = st.button("🍄", key="mushroom_ai_btn", help="AI解析經文")
-        if mushroom_clicked:
-            st.session_state.tab1_ai_loading = True
-    
-    with control_cols[1]:
-        search_val = st.text_input(
-            "",
-            value=st.session_state.tab1_search,
-            placeholder="例：來6:3",
-            label_visibility="collapsed",
-            key="verse_search_compact"
-        )
-        if search_val:
-            st.session_state.tab1_search = search_val
-            for key in multilang_db.keys():
-                if search_val.lower() in key.lower():
-                    st.session_state.tab1_selected_ref = key
-                    st.rerun()
-    
-    with control_cols[2]:
-        btn_style_en_th = "primary" if st.session_state.tab1_display_mode == "en-th" else "secondary"
-        if st.button("🇬🇧🇹🇭", use_container_width=True, type=btn_style_en_th):
-            st.session_state.tab1_display_mode = "en-th"
-            st.rerun()
-    
-    with control_cols[3]:
-        btn_style_jp_kr = "primary" if st.session_state.tab1_display_mode == "jp-kr" else "secondary"
-        if st.button("🇯🇵🇰🇷", use_container_width=True, type=btn_style_jp_kr):
-            st.session_state.tab1_display_mode = "jp-kr"
-            st.rerun()
-    
-    # ========== AI 解析處理（串接現有 TAB4 功能）==========
+            
+    # ========== AI 解析處理（修復版）==========
     if st.session_state.tab1_ai_loading:
         with st.spinner("🍄 魔菇AI正在解析經文..."):
             try:
                 # 取得當前經文資料
-                verse_text = current['english']
-                chinese_text = current['chinese']
-                ref_text = current['ref']
+                verse_text = current.get('english', '')
+                chinese_text = current.get('chinese', '')
+                ref_text = current.get('ref', '')
                 
-                # 🔗 呼叫現有的 AI 解析函數（與 TAB4 共用）
-                # 請確保這個函數在您的代碼中已定義
-                ai_result = analyze_scripture_with_ai(verse_text, chinese_text, ref_text)
+                # 檢查是否有 AI 解析函數
+                if 'analyze_scripture_with_ai' in globals():
+                    ai_result = analyze_scripture_with_ai(verse_text, chinese_text, ref_text)
+                else:
+                    st.warning("⚠️ AI函數未找到，使用預設解析")
+                    ai_result = {
+                        "vocabulary": [{"word": "permit", "phonetic": "/pərˈmɪt/", "meaning": "允許"}],
+                        "phrases": [{"phrase": "if God permits", "meaning": "若神許可"}],
+                        "segments": [{"cn": "神若許我們", "en": "if God permits us"}, {"cn": "我們必如此行", "en": "we will do so"}]
+                    }
                 
-                if ai_result:
+                if ai_result and isinstance(ai_result, dict):
                     st.session_state.tab1_ai_result = ai_result
                     st.success("✅ AI解析完成！")
                 else:
-                    st.error("❌ AI解析失敗，請檢查 API 設定")
+                    st.error("❌ AI解析返回空結果")
                     
             except Exception as e:
-                st.error(f"❌ AI解析發生錯誤: {str(e)}")
-                # 如果函數不存在，顯示預設解析
+                st.error(f"❌ AI解析錯誤: {str(e)}")
                 st.session_state.tab1_ai_result = {
-                    "vocabulary": [
-                        {"word": "permit", "phonetic": "/pərˈmɪt/", "meaning": "允許、許可"},
-                        {"word": "oath", "phonetic": "/oʊθ/", "meaning": "誓言、誓約"}
-                    ],
-                    "phrases": [
-                        {"phrase": "if God permits", "meaning": "若神許可"}
-                    ],
-                    "segments": [
-                        {"cn": "神若許我們", "en": "if God permits us"},
-                        {"cn": "我們必如此行", "en": "we will do so"}
-                    ]
+                    "vocabulary": [{"word": "permit", "meaning": "允許"}],
+                    "phrases": [{"phrase": "if God permits", "meaning": "若神許可"}],
+                    "segments": [{"cn": "神若許我們", "en": "if God permits us"}]
                 }
             
             st.session_state.tab1_ai_loading = False
