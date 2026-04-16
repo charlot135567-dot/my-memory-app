@@ -1334,13 +1334,149 @@ with tabs[0]:
     if not multilang_db:
         multilang_db = default_multilang_data
     
-    # 決定顯示經文
-    if st.session_state.tab1_selected_ref in multilang_db:
-        current = multilang_db[st.session_state.tab1_selected_ref]
-    else:
-        current = list(multilang_db.values())[0]
+    # ========== 決定顯示經文（AI即時查詢 + 本地存檔混合模式）==========
+    selected_ref = st.session_state.get('tab1_selected_ref', '來6:3')
     
-        # ========== 隱藏魔菇按鈕邊框 + 垂直置中對齊的 CSS ==========
+    # 檢查是否為已存檔資料
+    if selected_ref in multilang_db:
+        # 使用本地存檔資料（優先）
+        current = multilang_db[selected_ref]
+        source = "local"
+        # 如果有 AI 解析結果也一併載入
+        if 'ai_analysis' in st.session_state.sentences.get(selected_ref, {}):
+            st.session_state.tab1_ai_result = st.session_state.sentences[selected_ref]['ai_analysis']
+    else:
+        # 本地沒有，需要 AI 即時查詢
+        current = None
+        source = "ai_needed"
+        
+        if not st.session_state.get('tab1_ai_loading', False):
+            st.session_state.tab1_ai_loading = True
+            st.session_state.tab1_ai_query_ref = selected_ref
+            st.rerun()
+    
+    # AI 即時查詢處理（當本地沒有時）
+    if source == "ai_needed" and st.session_state.get('tab1_ai_loading', False):
+        with st.spinner(f"🍄 AI 正在查詢 {selected_ref} 的各語言版本與文法解析..."):
+            try:
+                api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
+                if not api_key:
+                    st.error("❌ 請設定 GEMINI_API_KEY")
+                    current = default_multilang_data["來6:3"]
+                else:
+                    genai.configure(api_key=api_key)
+                    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
+                    model = genai.GenerativeModel(target_model_name)
+
+                    verse_query_prompt = f"""
+                    請查詢聖經經文「{selected_ref}」的完整資料。
+                    
+                    回傳 JSON 格式：
+                    {{
+                      "ref": "標準出處（如 Eph 1:3）",
+                      "chinese": "中文和合本",
+                      "english": "英文 ESV",
+                      "thai": "泰文譯文",
+                      "japanese": "日文口語譯", 
+                      "korean": "韓文譯文",
+                      "grammar": {{
+                        "english": {{
+                          "full": "完整句",
+                          "upper": {{"title": "上半句", "content": "英文結構", "breakdown": "中文拆解"}},
+                          "lower": {{"title": "下半句", "content": "英文結構", "breakdown": "中文拆解"}},
+                          "points": [
+                            {{"label": "A", "rule": "文法規則名稱", "pattern": "結構模式", "example": "例句", "trans": "中文解釋"}}
+                          ]
+                        }},
+                        "thai": {{ "full": "...", "upper": {{...}}, "lower": {{...}}, "points": [...] }},
+                        "japanese": {{ "full": "...", "upper": {{...}}, "lower": {{...}}, "points": [...] }},
+                        "korean": {{ "full": "...", "upper": {{...}}, "lower": {{...}}, "points": [...] }}
+                      }},
+                      "vocabulary": [{{"word": "單字", "phonetic": "音標", "meaning": "中文意思"}}],
+                      "phrases": [{{"phrase": "片語", "meaning": "中文意思"}}],
+                      "segments": [{{"en": "英文分段", "cn": "中文分段"}}]
+                    }}
+                    
+                    注意：
+                    1. grammar 內的每個語言都要有 upper/lower/points 結構
+                    2. points 至少提供 3 個文法重點
+                    3. 所有中文解釋使用繁體中文
+                    """
+
+                    response = model.generate_content(verse_query_prompt)
+                    response_text = response.text.strip()
+                    
+                    # 解析 JSON（TAB4同款邏輯）
+                    json_data = None
+                    json_match = re.search(r'```(?:json)?\s*\n?(\{{.*?\}})\s*\n?```', response_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            json_data = json.loads(json_match.group(1))
+                        except:
+                            pass
+                    
+                    if not json_data:
+                        start_idx = response_text.find('{')
+                        end_idx = response_text.rfind('}')
+                        if start_idx != -1 and end_idx != -1:
+                            try:
+                                json_str = response_text[start_idx:end_idx+1]
+                                json_data = json.loads(json_str)
+                            except:
+                                pass
+                    
+                    if json_data:
+                        current = {
+                            'ref': json_data.get('ref', selected_ref),
+                            'chinese': json_data.get('chinese', ''),
+                            'english': json_data.get('english', ''),
+                            'japanese': json_data.get('japanese', ''),
+                            'korean': json_data.get('korean', ''),
+                            'thai': json_data.get('thai', ''),
+                            'grammar': json_data.get('grammar', default_multilang_data["來6:3"]['grammar'])
+                        }
+                        st.session_state.tab1_ai_result = {
+                            'vocabulary': json_data.get('vocabulary', []),
+                            'phrases': json_data.get('phrases', []),
+                            'segments': json_data.get('segments', [])
+                        }
+                        st.session_state.tab1_current_is_ai_generated = True
+                    else:
+                        st.error("❌ AI 回傳格式錯誤")
+                        current = default_multilang_data["來6:3"]
+                        
+            except Exception as e:
+                st.error(f"❌ AI 查詢失敗：{str(e)}")
+                current = default_multilang_data["來6:3"]
+        
+        st.session_state.tab1_ai_loading = False
+    
+    # ========== 已存檔經文快速選單 ==========
+    saved_refs = list(st.session_state.get('sentences', {}).keys())
+    
+    if saved_refs:
+        col_saved, col_status = st.columns([2, 1])
+        with col_saved:
+            selected_saved = st.selectbox(
+                "📂 快速叫出已存檔經文",
+                [""] + saved_refs,
+                format_func=lambda x: "（選擇已存檔經文...）" if x == "" else x,
+                key="saved_verse_selector"
+            )
+            if selected_saved and selected_saved != st.session_state.get('tab1_selected_ref'):
+                st.session_state.tab1_selected_ref = selected_saved
+                st.session_state.tab1_search = selected_saved
+                st.rerun()
+        with col_status:
+            if st.session_state.tab1_selected_ref in saved_refs:
+                st.caption("✅ 目前顯示：已存檔資料")
+            else:
+                st.caption("🤖 目前顯示：AI即時查詢")
+        
+        st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
+    
+    # ========== 隱藏魔菇按鈕邊框 + 垂直置中對齊的 CSS ==========
     st.markdown("""
         <style>
         div[data-testid="stElementContainer"].st-key-mushroom_ai_btn {
@@ -1398,76 +1534,69 @@ with tabs[0]:
             st.session_state.tab1_display_mode = "jp-kr"
             st.rerun()
     
-       # ========== AI 解析處理（動態即時解析版 - 修正後）==========
-    if st.session_state.get('tab1_ai_loading', False):
-        with st.spinner("🍄 魔菇AI正在動態解析「" + current['ref'] + "」..."):
-            try:
-                # 1. 取得 API Key (沿用 TAB4 的設定)
-                api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
-                genai.configure(api_key=api_key)
+    # ========== 顯示 AI 解析結果 + 存檔功能 ==========
+    if 'tab1_ai_result' in st.session_state and st.session_state.tab1_ai_result:
+        with st.expander("🍄 AI解析結果", expanded=True):
+            # 存檔按鈕（只有在 AI 生成且未存檔時顯示）
+            if st.session_state.get('tab1_current_is_ai_generated', False) and \
+               current['ref'] not in st.session_state.get('sentences', {}):
+                col_save, col_close = st.columns([1, 4])
+                with col_save:
+                    if st.button("💾 存檔至資料庫", type="primary", key="save_ai_result"):
+                        verse_data = {
+                            "ref": current['ref'],
+                            "type": "Scripture",
+                            "mode": "A",
+                            "v1_content": f"Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n{current['ref']}\t{current['english']}\t{current['chinese']}\t\t",
+                            "v2_content": f"Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n{current['ref']}\t{current['japanese']}\t\t\t{current['korean']}\t\t{current['thai']}",
+                            "w_sheet": "",
+                            "p_sheet": "",
+                            "grammar_list": "",
+                            "other": json.dumps(current['grammar'], ensure_ascii=False),
+                            "saved_sheets": ["V1 Sheet", "V2 Sheet"],
+                            "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "ai_analysis": st.session_state.tab1_ai_result
+                        }
+                        
+                        if 'sentences' not in st.session_state:
+                            st.session_state.sentences = {}
+                        st.session_state.sentences[current['ref']] = verse_data
+                        save_sentences(st.session_state.sentences)
+                        
+                        st.success(f"✅ 已存檔：{current['ref']}")
+                        st.session_state.tab1_current_is_ai_generated = False
+                        st.balloons()
+                        st.rerun()
                 
-                # 2. 初始化模型 (動態選擇 flash 模型)
-                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
-                model = genai.GenerativeModel(target_model_name)
-
-                # 3. 針對 TAB1 設計的 Prompt
-                tab1_prompt = f"""
-                Analyze this Bible verse: "{current['ref']} {current['english']}" 
-                and its Chinese version: "{current['chinese']}".
-                Return a JSON object exactly with these keys: 
-                'vocabulary' (list of {{word, phonetic, meaning}}), 
-                'phrases' (list of {{phrase, meaning}}), 
-                'segments' (list of {{en, cn}}).
-                Language: Traditional Chinese explanations.
-                """
-                
-                response = model.generate_content(tab1_prompt)
-                response_text = response.text.strip()
-                
-                # 4. 提取 JSON (直接複製 TAB4 成功的邏輯)
-                json_data = None
-                
-                # 方法 1: 嘗試從 markdown 代碼塊中提取
-                json_match = re.search(r'```(?:json)?\s*\n?(\{.*?\})\s*\n?```', response_text, re.DOTALL)
-                if json_match:
-                    try:
-                        json_data = json.loads(json_match.group(1))
-                    except:
+                with col_close:
+                    if st.button("關閉", key="close_ai_without_save"):
                         pass
-                
-                # 方法 2: 直接尋找 JSON 物件（從第一個 {{ 到最後一個 }}）
-                if not json_data:
-                    start_idx = response_text.find('{')
-                    end_idx = response_text.rfind('}')
-                    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
-                        try:
-                            json_str = response_text[start_idx:end_idx+1]
-                            json_data = json.loads(json_str)
-                        except:
-                            pass
-                
-                # 方法 3: 使用非貪婪正則匹配 (備援)
-                if not json_data:
-                    json_match = re.search(r'\{[\s\S]*?"segments"\s*:\s*\[[\s\S]*?\]\s*\}', response_text, re.DOTALL)
-                    if json_match:
-                        try:
-                            json_data = json.loads(json_match.group(0))
-                        except:
-                            pass
-                
-                if json_data:
-                    st.session_state.tab1_ai_result = json_data
-                else:
-                    st.error("❌ 無法從 AI 回應中提取 JSON 格式資料")
-                    st.text(response_text)
-                    
-            except Exception as e:
-                st.error(f"❌ AI 解析失敗: {str(e)}")
+            
+            # 顯示解析內容
+            cols_ai = st.columns(2)
+            with cols_ai[0]:
+                if st.session_state.tab1_ai_result.get('vocabulary'):
+                    st.markdown("**📖 重點單字**")
+                    for vocab in st.session_state.tab1_ai_result['vocabulary']:
+                        st.markdown(f"• **{vocab['word']}** ({vocab.get('phonetic', '')}) - {vocab['meaning']}")
+            
+            with cols_ai[1]:
+                if st.session_state.tab1_ai_result.get('phrases'):
+                    st.markdown("**🔤 重點片語**")
+                    for phrase in st.session_state.tab1_ai_result['phrases']:
+                        st.markdown(f"• **{phrase['phrase']}** - {phrase['meaning']}")
+            
+            if st.session_state.tab1_ai_result.get('segments'):
+                st.markdown("**📝 經文分段**")
+                for i, seg in enumerate(st.session_state.tab1_ai_result['segments']):
+                    st.markdown(f"{i+1}. {seg.get('cn', '')} | {seg.get('en', '')}")
+            
+            if not st.session_state.get('tab1_current_is_ai_generated', False):
+                st.caption("✅ 此資料已存檔")
         
-        # 解析結束，關閉狀態並立即刷新畫面
-        st.session_state.tab1_ai_loading = False
-        st.rerun()
+        st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+    else:
+        st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
     
     # ========== 經文標題 ==========
     ref_short = current['ref'].replace(" ", "")
@@ -1521,7 +1650,6 @@ with tabs[0]:
             for p in kr['points']:
                 pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
                 st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
-
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 7句手動金句 + 我的收藏（無預設金句版）
 # ===================================================================
