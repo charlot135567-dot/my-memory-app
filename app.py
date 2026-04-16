@@ -1398,17 +1398,6 @@ with tabs[0]:
             st.session_state.tab1_display_mode = "jp-kr"
             st.rerun()
     
-    # ========== AI 解析處理（呼叫全域函數）==========
-    if st.session_state.get('tab1_ai_loading', False):
-        with st.spinner("🍄 魔菇AI正在解析經文..."):
-            # 這裡會呼叫上面定義好的函數
-            # 請確認 'current' 是你當前經文的變數名稱
-            run_bible_ai_analysis(current)
-    
-        # 解析結束，關閉狀態並立即刷新畫面
-        st.session_state.tab1_ai_loading = False
-        st.rerun()
-    
        # ========== AI 解析處理（動態即時解析版 - 修正後）==========
     if st.session_state.get('tab1_ai_loading', False):
         with st.spinner("🍄 魔菇AI正在動態解析「" + current['ref'] + "」..."):
