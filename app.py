@@ -1473,16 +1473,18 @@ with tabs[0]:
         search_val = st.text_input(
             "",
             value=st.session_state.tab1_search,
-            placeholder="例：來6:3",
+            placeholder="例：來6:3 或 弗1:3",
             label_visibility="collapsed",
             key="verse_search_compact"
         )
-        if search_val:
+        if search_val and search_val != st.session_state.get('tab1_search', ''):
             st.session_state.tab1_search = search_val
-            for key in multilang_db.keys():
-                if search_val.lower() in key.lower():
-                    st.session_state.tab1_selected_ref = key
-                    st.rerun()
+            st.session_state.tab1_selected_ref = search_val
+            st.session_state.tab1_use_local = False  # ★★★ 強制使用 AI 查詢
+            # 清空之前的 AI 結果，強制重新查詢
+            if 'tab1_ai_result' in st.session_state:
+                del st.session_state.tab1_ai_result
+            st.rerun()
     
     with control_cols[1]:
         mushroom_clicked = st.button("🍄", key="mushroom_ai_btn", help="AI解析經文")
