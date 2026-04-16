@@ -16,9 +16,15 @@ import random
 import re
 import io
 from gtts import gTTS
-import google.generativeai as genai
 import time
 from google.api_core import exceptions
+
+# Gemini API 匯入（含錯誤處理）
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+    st.warning("⚠️ google-generativeai 未安裝，AI 功能將無法使用")
 
 # ==========================================
 # 核心函數：處理 AI 解析與錯誤重試
@@ -78,13 +84,6 @@ def run_bible_ai_analysis(current_verse):
             "phrases": [{"phrase": "System Busy", "meaning": "API 暫時無法連線"}],
             "segments": [{"cn": chinese_text, "en": verse_text}]
         }
-
-# ✅ 新增：AI 解析需要的套件
-try:
-    import google.generativeai as genai
-except ImportError:
-    genai = None
-    st.warning("⚠️ google-generativeai 未安裝，AI 功能將無法使用")
 
 # 標準庫
 import io
@@ -1410,36 +1409,76 @@ with tabs[0]:
         st.session_state.tab1_ai_loading = False
         st.rerun()
     
-    # 顯示 AI 解析結果
-    if 'tab1_ai_result' in st.session_state and st.session_state.tab1_ai_result:
-        with st.expander("🍄 AI解析結果", expanded=True):
-            ai_data = st.session_state.tab1_ai_result
-            
-            cols_ai = st.columns(2)
-            with cols_ai[0]:
-                if 'vocabulary' in ai_data and ai_data['vocabulary']:
-                    st.markdown("**📖 重點單字**")
-                    for vocab in ai_data['vocabulary']:
-                        st.markdown(f"• **{vocab['word']}** ({vocab.get('phonetic', '')}) - {vocab['meaning']}")
-            
-            with cols_ai[1]:
-                if 'phrases' in ai_data and ai_data['phrases']:
-                    st.markdown("**🔤 重點片語**")
-                    for phrase in ai_data['phrases']:
-                        st.markdown(f"• **{phrase['phrase']}** - {phrase['meaning']}")
-            
-            if 'segments' in ai_data and ai_data['segments']:
-                st.markdown("**📝 經文分段**")
-                for i, seg in enumerate(ai_data['segments']):
-                    st.markdown(f"{i+1}. {seg['cn']} | {seg['en']}")
-            
-            if st.button("關閉 AI 結果", key="close_ai_result"):
-                del st.session_state.tab1_ai_result
-                st.rerun()
+       # ========== AI 解析處理（動態即時解析版 - 修正後）==========
+    if st.session_state.get('tab1_ai_loading', False):
+        with st.spinner("🍄 魔菇AI正在動態解析「" + current['ref'] + "」..."):
+            try:
+                # 1. 取得 API Key (沿用 TAB4 的設定)
+                api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
+                genai.configure(api_key=api_key)
+                
+                # 2. 初始化模型 (動態選擇 flash 模型)
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
+                model = genai.GenerativeModel(target_model_name)
+
+                # 3. 針對 TAB1 設計的 Prompt
+                tab1_prompt = f"""
+                Analyze this Bible verse: "{current['ref']} {current['english']}" 
+                and its Chinese version: "{current['chinese']}".
+                Return a JSON object exactly with these keys: 
+                'vocabulary' (list of {{word, phonetic, meaning}}), 
+                'phrases' (list of {{phrase, meaning}}), 
+                'segments' (list of {{en, cn}}).
+                Language: Traditional Chinese explanations.
+                """
+                
+                response = model.generate_content(tab1_prompt)
+                response_text = response.text.strip()
+                
+                # 4. 提取 JSON (直接複製 TAB4 成功的邏輯)
+                json_data = None
+                
+                # 方法 1: 嘗試從 markdown 代碼塊中提取
+                json_match = re.search(r'```(?:json)?\s*\n?(\{.*?\})\s*\n?```', response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        json_data = json.loads(json_match.group(1))
+                    except:
+                        pass
+                
+                # 方法 2: 直接尋找 JSON 物件（從第一個 {{ 到最後一個 }}）
+                if not json_data:
+                    start_idx = response_text.find('{')
+                    end_idx = response_text.rfind('}')
+                    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                        try:
+                            json_str = response_text[start_idx:end_idx+1]
+                            json_data = json.loads(json_str)
+                        except:
+                            pass
+                
+                # 方法 3: 使用非貪婪正則匹配 (備援)
+                if not json_data:
+                    json_match = re.search(r'\{[\s\S]*?"segments"\s*:\s*\[[\s\S]*?\]\s*\}', response_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            json_data = json.loads(json_match.group(0))
+                        except:
+                            pass
+                
+                if json_data:
+                    st.session_state.tab1_ai_result = json_data
+                else:
+                    st.error("❌ 無法從 AI 回應中提取 JSON 格式資料")
+                    st.text(response_text)
+                    
+            except Exception as e:
+                st.error(f"❌ AI 解析失敗: {str(e)}")
         
-        st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
-    else:
-        st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+        # 解析結束，關閉狀態並立即刷新畫面
+        st.session_state.tab1_ai_loading = False
+        st.rerun()
     
     # ========== 經文標題 ==========
     ref_short = current['ref'].replace(" ", "")
