@@ -1226,7 +1226,7 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（AI解析式交互版 - 分組查詢版 v4）
+# 3. TAB1 ─ 書桌（AI解析式交互版 - 合併存檔版 v5）
 # ===================================================================
 with tabs[0]:
     # ========== 初始化 Session State ==========
@@ -1246,10 +1246,8 @@ with tabs[0]:
         st.session_state.tab1_ai_result = None
     if "tab1_current_is_ai_generated" not in st.session_state:
         st.session_state.tab1_current_is_ai_generated = False
-    if "tab1_trigger_search" not in st.session_state:
-        st.session_state.tab1_trigger_search = False
     if "tab1_trigger_group" not in st.session_state:
-        st.session_state.tab1_trigger_group = None  # "en-th" or "jp-kr"
+        st.session_state.tab1_trigger_group = None
 
     sentences = st.session_state.get('sentences', {})
 
@@ -1265,8 +1263,8 @@ with tabs[0]:
             "grammar": {
                 "english": {
                     "full": "And this we will do if God permits.",
-                    "upper": {"title": "上半（When Clause）", "content": "when + God + desired + to show...", "breakdown": "當 + 神 + 想要 + 顯明..."},
-                    "lower": {"title": "下半（Main Clause）", "content": "he + guaranteed + it + with an oath", "breakdown": "祂 + 保證 + 這事 + 用 + 起誓"},
+                    "upper": {"title": "第一句 (When Clause)", "content": "when + God + desired + to show...", "breakdown": "當 + 神 + 想要 + 顯明..."},
+                    "lower": {"title": "第二句 (Main Clause)", "content": "he + guaranteed + it + with an oath", "breakdown": "祂 + 保證 + 這事 + 用 + 起誓"},
                     "points": [
                         {"label": "A", "rule": "when-clause（時間副詞子句）", "pattern": "when + S + V 👉 當…時", "example": "when God speaks", "trans": "當神說話時"},
                         {"label": "B", "rule": "to show（不定詞表目的）", "pattern": "verb + to + V 👉 為了…", "example": "desired to show", "trans": "想要顯明"},
@@ -1275,8 +1273,8 @@ with tabs[0]:
                 },
                 "thai": {
                     "full": "ถ้าพระเจ้าทรงอนุญาต เราก็จะได้เดินหน้าต่อไป",
-                    "upper": {"title": "上半句", "content": "ถ้า + พระเจ้า + ทรงอนุญาต", "breakdown": "if + God + permits"},
-                    "lower": {"title": "下半句", "content": "เรา + ก็ + จะ + ได้ + เดินหน้า + ต่อไป", "breakdown": "we + then + will + be able to + move forward"},
+                    "upper": {"title": "第一句", "content": "ถ้า + พระเจ้า + ทรงอนุญาต", "breakdown": "if + God + permits"},
+                    "lower": {"title": "第二句", "content": "เรา + ก็ + จะ + ได้ + เดินหน้า + ต่อไป", "breakdown": "we + then + will + be able to + move forward"},
                     "points": [
                         {"label": "A", "rule": "Clause + จึง + Result", "pattern": "👉 因此，所以", "example": "เหนื่อยมาก จึงไปนอน", "trans": "很累，所以去睡覺"},
                         {"label": "B", "rule": "N＋อัน＋描述詞", "pattern": "👉 which/that", "example": "พระประสงค์อันไม่เปลี่ยนแปลง", "trans": "不改變的旨意"},
@@ -1285,8 +1283,8 @@ with tabs[0]:
                 },
                 "japanese": {
                     "full": "神が許して下さるなら、わたしたちはこのようにします。",
-                    "upper": {"title": "上半", "content": "約束の相続人たちに...望んで", "breakdown": "promise + heirs + to | desiring"},
-                    "lower": {"title": "下半", "content": "誓いによって保証された", "breakdown": "oath + by + guaranteed"},
+                    "upper": {"title": "上半句", "content": "約束の相続人たちに...望んで", "breakdown": "promise + heirs + to | desiring"},
+                    "lower": {"title": "下半句", "content": "誓いによって保証された", "breakdown": "oath + by + guaranteed"},
                     "points": [
                         {"label": "A", "rule": "N1のN2（名詞修飾）", "pattern": "", "example": "約束の相続人", "trans": "應許的繼承人"},
                         {"label": "B", "rule": "こと（名詞化）", "pattern": "V + こと", "example": "変わらないこと", "trans": "不改變這件事"},
@@ -1295,8 +1293,8 @@ with tabs[0]:
                 },
                 "korean": {
                     "full": "하나님이 허락하시면 우리가 이것을 하리라",
-                    "upper": {"title": "上半", "content": "약속의 상속자들에게...나타내시려고", "breakdown": "應許的 + 繼承人 + 對 | 為了顯明"},
-                    "lower": {"title": "下半", "content": "맹세로 보증하셨느니라", "breakdown": "藉著 + 起誓 + 保證"},
+                    "upper": {"title": "上半句", "content": "약속의 상속자들에게...나타내시려고", "breakdown": "應許的 + 繼承人 + 對 | 為了顯明"},
+                    "lower": {"title": "下半句", "content": "맹세로 보증하셨느니라", "breakdown": "藉著 + 起誓 + 保證"},
                     "points": [
                         {"label": "A", "rule": "Verb+려고（目的）", "pattern": "", "example": "나타내시려고", "trans": "為了顯明"},
                         {"label": "B", "rule": "Verb+함（名詞化）", "pattern": "", "example": "변하지 아니함", "trans": "不改變這件事"},
@@ -1331,6 +1329,17 @@ with tabs[0]:
             for i, v1 in enumerate(v1_rows):
                 v2 = v2_rows[i] if i < len(v2_rows) else {}
                 key = v1.get('ref', ref)
+                # 從 other 欄位讀取 grammar
+                grammar_data = default_multilang_data["來6:3"]['grammar']
+                try:
+                    other_str = content_data.get('other', '')
+                    if other_str:
+                        loaded = json.loads(other_str)
+                        if isinstance(loaded, dict) and 'english' in loaded:
+                            grammar_data = loaded
+                except:
+                    pass
+                
                 multilang_data[key] = {
                     'ref': key,
                     'chinese': v1.get('chinese', ''),
@@ -1338,7 +1347,7 @@ with tabs[0]:
                     'japanese': v2.get('japanese', '') if v2 else '',
                     'korean': v2.get('korean', '') if v2 else '',
                     'thai': v2.get('thai', '') if v2 else '',
-                    'grammar': default_multilang_data["來6:3"]['grammar']
+                    'grammar': grammar_data
                 }
         return multilang_data
 
@@ -1347,7 +1356,7 @@ with tabs[0]:
     # ========== 搜索框 on_change 回調 ==========
     def on_search_change():
         search_val = st.session_state.get('verse_search_compact', '')
-        if search_val and search_val != st.session_state.get('tab1_selected_ref', ''):
+        if search_val != st.session_state.get('tab1_selected_ref', ''):
             st.session_state.tab1_selected_ref = search_val
             st.session_state.tab1_search = search_val
             st.session_state.tab1_use_local = False
@@ -1362,7 +1371,6 @@ with tabs[0]:
             st.session_state.tab1_selected_ref = selected
             st.session_state.tab1_search = selected
             st.session_state.tab1_use_local = True
-            # 直接載入已存檔資料到 current_data
             if selected in multilang_db:
                 st.session_state.tab1_current_data = multilang_db[selected].copy()
                 if 'ai_analysis' in st.session_state.sentences.get(selected, {}):
@@ -1372,10 +1380,10 @@ with tabs[0]:
                 st.session_state.tab1_ai_result = None
             st.session_state.tab1_current_is_ai_generated = False
 
-    # ========== CSS 樣式 ==========
+    # ========== CSS 樣式（史努比風格 + 紅色經文）==========
     st.markdown("""
         <style>
-        /* 隱藏按鈕邊框，放大圖示 */
+        /* 按鈕樣式 */
         div[data-testid="stElementContainer"].st-key-mushroom_btn,
         div[data-testid="stElementContainer"].st-key-sakura_btn,
         div[data-testid="stElementContainer"].st-key-call_btn {
@@ -1394,22 +1402,49 @@ with tabs[0]:
             font-size: 24px !important;
             min-height: 38px !important;
         }
-        /* 快速呼叫選單樣式 */
+        /* 快速呼叫選單 */
         div[data-testid="stSelectbox"] label {
             font-size: 12px !important;
             margin-bottom: 0px !important;
         }
+        /* 史努比風格框線 - 統一黑白 */
+        .snoopy-box {
+            background: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px solid #333;
+        }
+        .snoopy-box-dashed {
+            background: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px dashed #666;
+        }
+        /* 紅色經文 */
+        .verse-text-red {
+            color: #e53e3e;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        /* 黑色粗體標題 */
+        .title-black {
+            color: #000;
+            font-weight: bold;
+            font-size: 15px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # ========== 控制列：搜尋 + 🍄 + 🌸 + 快速呼叫 + 📞 ==========
+    # ========== 控制列：搜尋 + 🍄英 + 🌸韓 + 快速呼叫 + 📞 ==========
     st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
     saved_refs = list(st.session_state.get('sentences', {}).keys())
     has_saved = len(saved_refs) > 0
 
-    # 欄位比例：搜尋(2) | 🍄(0.4) | 🌸(0.4) | 快速呼叫(1.5) | 📞(0.5)
-    control_cols = st.columns([2, 0.4, 0.4, 1.5, 0.5])
+    # 欄位比例：搜尋(2) | 🍄英(0.6) | 🌸韓(0.6) | 快速呼叫(1.3) | 📞(0.5)
+    control_cols = st.columns([2, 0.6, 0.6, 1.3, 0.5])
 
     with control_cols[0]:
         st.text_input(
@@ -1422,6 +1457,7 @@ with tabs[0]:
         )
 
     with control_cols[1]:
+        st.markdown("<div style='text-align: center; font-size: 11px; color: #666; margin-bottom: -5px;'>英</div>", unsafe_allow_html=True)
         mushroom_clicked = st.button("🍄", key="mushroom_btn", help="查詢中英組（英文+中文+英文文法）")
         if mushroom_clicked:
             if not st.session_state.tab1_selected_ref:
@@ -1429,8 +1465,10 @@ with tabs[0]:
             else:
                 st.session_state.tab1_trigger_group = "en-th"
                 st.session_state.tab1_ai_loading = True
+                st.rerun()
 
     with control_cols[2]:
+        st.markdown("<div style='text-align: center; font-size: 11px; color: #666; margin-bottom: -5px;'>韓</div>", unsafe_allow_html=True)
         sakura_clicked = st.button("🌸", key="sakura_btn", help="查詢日韓泰組（日文+韓文+泰文+三國文法）")
         if sakura_clicked:
             if not st.session_state.tab1_selected_ref:
@@ -1438,6 +1476,7 @@ with tabs[0]:
             else:
                 st.session_state.tab1_trigger_group = "jp-kr"
                 st.session_state.tab1_ai_loading = True
+                st.rerun()
 
     with control_cols[3]:
         if has_saved:
@@ -1480,16 +1519,13 @@ with tabs[0]:
                 st.caption(f"🤖 {st.session_state.tab1_selected_ref} AI查詢模式")
         else:
             st.caption("⏳ 等待輸入經文")
-    with status_col2:
-        mode_text = "🇬🇧🇹🇭 英泰模式" if st.session_state.tab1_display_mode == "en-th" else "🇯🇵🇰🇷 日韓模式"
-        st.caption(mode_text)
 
     st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
 
-    # ========== AI 查詢處理（分組查詢）==========
+    # ========== AI 查詢處理（分組查詢 + 合併存檔）==========
     if st.session_state.get('tab1_ai_loading', False) and st.session_state.tab1_selected_ref:
         selected_ref = st.session_state.tab1_selected_ref
-        display_mode = st.session_state.tab1_trigger_group or st.session_state.tab1_display_mode
+        display_mode = st.session_state.tab1_trigger_group
 
         group_name = "中英組" if display_mode == "en-th" else "日韓泰組"
         with st.spinner(f"🍄 AI 查詢 {selected_ref}【{group_name}】..."):
@@ -1508,7 +1544,7 @@ with tabs[0]:
                     提供：
                     1. 中文經文（和合本）
                     2. 英文經文（ESV）
-                    3. 英文文法分析（分上下半句 + 3個重點文法點）
+                    3. 英文文法分析（分第一句和第二句，並提供3個重點文法點）
 
                     嚴格使用以下 JSON 格式（只回傳 JSON，不要其他文字）：
                     {{
@@ -1518,8 +1554,8 @@ with tabs[0]:
                         "grammar": {{
                             "english": {{
                                 "full": "完整英文句",
-                                "upper": {{"title": "上半（When Clause）", "content": "...", "breakdown": "..."}},
-                                "lower": {{"title": "下半（Main Clause）", "content": "...", "breakdown": "..."}},
+                                "upper": {{"title": "第一句 (When Clause)", "content": "...", "breakdown": "..."}},
+                                "lower": {{"title": "第二句 (Main Clause)", "content": "...", "breakdown": "..."}},
                                 "points": [
                                     {{"label": "A", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
                                     {{"label": "B", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
@@ -1547,9 +1583,9 @@ with tabs[0]:
                     1. 日文經文（口語訳）
                     2. 韓文經文（KRF）
                     3. 泰文經文（THSV11）
-                    4. 日文文法分析（分上下半句 + 3個重點文法點）
-                    5. 韓文文法分析（分上下半句 + 3個重點文法點）
-                    6. 泰文文法分析（分上下半句 + 3個重點文法點）
+                    4. 日文文法分析（分上半句和下半句 + 3個重點文法點）
+                    5. 韓文文法分析（分上半句和下半句 + 3個重點文法點）
+                    6. 泰文文法分析（分上半句和下半句 + 3個重點文法點）
 
                     嚴格使用以下 JSON 格式（只回傳 JSON，不要其他文字）：
                     {{
@@ -1560,8 +1596,8 @@ with tabs[0]:
                         "grammar": {{
                             "japanese": {{
                                 "full": "完整日文句",
-                                "upper": {{"title": "上半", "content": "...", "breakdown": "..."}},
-                                "lower": {{"title": "下半", "content": "...", "breakdown": "..."}},
+                                "upper": {{"title": "上半句", "content": "...", "breakdown": "..."}},
+                                "lower": {{"title": "下半句", "content": "...", "breakdown": "..."}},
                                 "points": [
                                     {{"label": "A", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
                                     {{"label": "B", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
@@ -1570,8 +1606,8 @@ with tabs[0]:
                             }},
                             "korean": {{
                                 "full": "完整韓文句",
-                                "upper": {{"title": "上半", "content": "...", "breakdown": "..."}},
-                                "lower": {{"title": "下半", "content": "...", "breakdown": "..."}},
+                                "upper": {{"title": "上半句", "content": "...", "breakdown": "..."}},
+                                "lower": {{"title": "下半句", "content": "...", "breakdown": "..."}},
                                 "points": [
                                     {{"label": "A", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
                                     {{"label": "B", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
@@ -1624,7 +1660,7 @@ with tabs[0]:
                             pass
 
                 if json_data:
-                    # 初始化或合併 current_data
+                    # 初始化或合併 current_data（★★★ 關鍵：合併而非覆蓋）
                     if st.session_state.tab1_current_data is None:
                         st.session_state.tab1_current_data = {
                             'ref': json_data.get('ref', selected_ref),
@@ -1645,11 +1681,13 @@ with tabs[0]:
                     current_data['ref'] = json_data.get('ref', selected_ref)
 
                     if display_mode == "en-th":
+                        # 合併中英資料
                         current_data['chinese'] = json_data.get('chinese', current_data.get('chinese', ''))
                         current_data['english'] = json_data.get('english', current_data.get('english', ''))
                         if 'grammar' in json_data and 'english' in json_data['grammar']:
                             current_data['grammar']['english'] = json_data['grammar']['english']
                     else:
+                        # 合併日韓泰資料（保留已有的中英資料）
                         current_data['japanese'] = json_data.get('japanese', current_data.get('japanese', ''))
                         current_data['korean'] = json_data.get('korean', current_data.get('korean', ''))
                         current_data['thai'] = json_data.get('thai', current_data.get('thai', ''))
@@ -1661,13 +1699,29 @@ with tabs[0]:
                             if 'thai' in json_data['grammar']:
                                 current_data['grammar']['thai'] = json_data['grammar']['thai']
 
-                    st.session_state.tab1_ai_result = {
+                    # 合併 AI 解析結果
+                    new_ai_result = {
                         'vocabulary': json_data.get('vocabulary', []),
                         'phrases': json_data.get('phrases', []),
                         'segments': json_data.get('segments', [])
                     }
+                    if st.session_state.tab1_ai_result is None:
+                        st.session_state.tab1_ai_result = new_ai_result
+                    else:
+                        # 合併單字和片語（去重複）
+                        existing_words = {v['word'] for v in st.session_state.tab1_ai_result.get('vocabulary', [])}
+                        for v in new_ai_result.get('vocabulary', []):
+                            if v['word'] not in existing_words:
+                                st.session_state.tab1_ai_result['vocabulary'].append(v)
+                        existing_phrases = {p['phrase'] for p in st.session_state.tab1_ai_result.get('phrases', [])}
+                        for p in new_ai_result.get('phrases', []):
+                            if p['phrase'] not in existing_phrases:
+                                st.session_state.tab1_ai_result['phrases'].append(p)
+                        # 分段直接覆蓋（通常相同）
+                        if new_ai_result.get('segments'):
+                            st.session_state.tab1_ai_result['segments'] = new_ai_result['segments']
+
                     st.session_state.tab1_current_is_ai_generated = True
-                    # 查詢成功後自動切換到對應模式
                     st.session_state.tab1_display_mode = display_mode
 
                 else:
@@ -1680,36 +1734,93 @@ with tabs[0]:
         st.session_state.tab1_trigger_group = None
         st.rerun()
 
-    # ========== 顯示 AI 解析結果 + 存檔功能 ==========
+    # ========== 顯示 AI 解析結果 + 存檔功能（★★★ 合併存檔）==========
     if st.session_state.get('tab1_ai_result') and st.session_state.get('tab1_current_is_ai_generated', False):
         current_data = st.session_state.tab1_current_data
 
         with st.expander("🍄 AI解析結果", expanded=True):
-            if current_data and current_data.get('ref') and current_data['ref'] not in st.session_state.get('sentences', {}):
+            # 存檔按鈕（合併存檔：檢查是否已有該經文，有則合併）
+            if current_data and current_data.get('ref'):
+                existing_ref = current_data['ref']
+                is_already_saved = existing_ref in st.session_state.get('sentences', {})
+                
+                save_label = "💾 更新存檔" if is_already_saved else "💾 存檔"
+                
                 col_save, col_close = st.columns([1, 4])
                 with col_save:
-                    if st.button("💾 存檔", type="primary", key="save_ai_result"):
+                    if st.button(save_label, type="primary", key="save_ai_result"):
+                        # ★★★ 合併存檔邏輯
+                        existing_data = st.session_state.sentences.get(existing_ref, {})
+                        
+                        # 合併 v1_content（中英）
+                        v1_lines = []
+                        if existing_data.get('v1_content'):
+                            v1_lines = existing_data['v1_content'].strip().split('\n')
+                        new_v1 = f"{current_data['ref']}\t{current_data['english']}\t{current_data['chinese']}\t\t"
+                        if not v1_lines or v1_lines[0].startswith('Ref.'):
+                            v1_content = f"Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n{new_v1}"
+                        else:
+                            v1_content = existing_data.get('v1_content', f"Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n{new_v1}")
+                        
+                        # 合併 v2_content（日韓泰）
+                        v2_lines = []
+                        if existing_data.get('v2_content'):
+                            v2_lines = existing_data['v2_content'].strip().split('\n')
+                        new_v2 = f"{current_data['ref']}\t{current_data['japanese']}\t\t\t{current_data['korean']}\t\t{current_data['thai']}"
+                        if not v2_lines or v2_lines[0].startswith('Ref.'):
+                            v2_content = f"Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n{new_v2}"
+                        else:
+                            v2_content = existing_data.get('v2_content', f"Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n{new_v2}")
+                        
+                        # 合併 grammar
+                        existing_grammar = {}
+                        try:
+                            if existing_data.get('other'):
+                                existing_grammar = json.loads(existing_data['other'])
+                        except:
+                            pass
+                        merged_grammar = {**existing_grammar, **current_data['grammar']}
+                        
+                        # 合併 AI 分析
+                        existing_ai = existing_data.get('ai_analysis', {})
+                        merged_ai = {
+                            'vocabulary': [],
+                            'phrases': [],
+                            'segments': []
+                        }
+                        if existing_ai:
+                            merged_ai['vocabulary'] = existing_ai.get('vocabulary', []) + [v for v in st.session_state.tab1_ai_result.get('vocabulary', []) 
+                                if v['word'] not in {x['word'] for x in existing_ai.get('vocabulary', [])}]
+                            merged_ai['phrases'] = existing_ai.get('phrases', []) + [p for p in st.session_state.tab1_ai_result.get('phrases', [])
+                                if p['phrase'] not in {x['phrase'] for x in existing_ai.get('phrases', [])}]
+                            merged_ai['segments'] = st.session_state.tab1_ai_result.get('segments', existing_ai.get('segments', []))
+                        else:
+                            merged_ai = st.session_state.tab1_ai_result
+
                         verse_data = {
-                            "ref": current_data['ref'],
+                            "ref": existing_ref,
                             "type": "Scripture",
                             "mode": "A",
-                            "v1_content": f"Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n{current_data['ref']}\t{current_data['english']}\t{current_data['chinese']}\t\t",
-                            "v2_content": f"Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n{current_data['ref']}\t{current_data['japanese']}\t\t\t{current_data['korean']}\t\t{current_data['thai']}",
-                            "w_sheet": "",
-                            "p_sheet": "",
-                            "grammar_list": "",
-                            "other": json.dumps(current_data['grammar'], ensure_ascii=False),
-                            "saved_sheets": ["V1 Sheet", "V2 Sheet"],
-                            "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                            "ai_analysis": st.session_state.tab1_ai_result
+                            "v1_content": v1_content,
+                            "v2_content": v2_content,
+                            "w_sheet": existing_data.get('w_sheet', ''),
+                            "p_sheet": existing_data.get('p_sheet', ''),
+                            "grammar_list": existing_data.get('grammar_list', ''),
+                            "other": json.dumps(merged_grammar, ensure_ascii=False),
+                            "saved_sheets": existing_data.get('saved_sheets', ["V1 Sheet", "V2 Sheet"]),
+                            "date_added": existing_data.get('date_added', datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
+                            "ai_analysis": merged_ai
                         }
 
                         if 'sentences' not in st.session_state:
                             st.session_state.sentences = {}
-                        st.session_state.sentences[current_data['ref']] = verse_data
+                        st.session_state.sentences[existing_ref] = verse_data
                         save_sentences(st.session_state.sentences)
 
-                        st.success(f"✅ 已存檔：{current_data['ref']}")
+                        # 更新 multilang_db
+                        multilang_db[existing_ref] = current_data.copy()
+
+                        st.success(f"✅ {'已更新' if is_already_saved else '已存檔'}：{existing_ref}")
                         st.session_state.tab1_current_is_ai_generated = False
                         st.balloons()
                         st.rerun()
@@ -1744,11 +1855,10 @@ with tabs[0]:
     else:
         st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
 
-    # ========== 經文顯示區域 ==========
+    # ========== 經文顯示區域（★★★ 史努比風格 + 紅色經文）==========
     current = st.session_state.tab1_current_data
 
     if current is None:
-        # 開啟時空白狀態
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
         if st.session_state.tab1_selected_ref:
             st.info(f"⏳ 已輸入「{st.session_state.tab1_selected_ref}」，請點擊 🍄 或 🌸 進行查詢")
@@ -1756,10 +1866,10 @@ with tabs[0]:
             st.info("📖 請輸入經文（如：來6:3）或選擇已存檔經文")
 
     else:
-        # 顯示經文標題
+        # 顯示經文標題（黑色粗體）
         ref_short = current.get('ref', '').replace(" ", "")
         chinese_text = current.get('chinese', '')
-        st.markdown(f"<h3 style='font-size: 22px; font-weight: bold; color: #333; margin: 10px 0;'>{ref_short}{chinese_text}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='font-size: 22px; font-weight: bold; color: #000; margin: 10px 0;'>{ref_short}{chinese_text}</h3>", unsafe_allow_html=True)
 
         # ========== 左右並排顯示雙語 ==========
         if st.session_state.tab1_display_mode == "en-th":
@@ -1770,11 +1880,28 @@ with tabs[0]:
                 if current.get('english'):
                     eng = current['grammar']['english']
                     st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px;'>🇬🇧 {eng['full']}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #f0f7ff; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #4299e1;'><div style='font-weight: bold; color: #2b6cb0; font-size: 13px;'>{eng['upper']['title']}</div><div style='font-size: 13px;'>{eng['upper']['content']}</div><div style='font-size: 11px; color: #666;'>{eng['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #f0fff4; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #48bb78;'><div style='font-weight: bold; color: #276749; font-size: 13px;'>{eng['lower']['title']}</div><div style='font-size: 13px;'>{eng['lower']['content']}</div><div style='font-size: 11px; color: #666;'>{eng['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0;'>重點文法：</div>", unsafe_allow_html=True)
+                    
+                    # 第一句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="title-black">{eng['upper']['title']}</div>
+                        <div class="verse-text-red">{eng['upper']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{eng['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 第二句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="title-black">{eng['lower']['title']}</div>
+                        <div class="verse-text-red">{eng['lower']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{eng['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>重點文法：</div>", unsafe_allow_html=True)
                     for p in eng['points']:
-                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}<br><span style='color: #666;'>{p['pattern']}</span><br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #333; font-size: 12px;'><span style='color: #000; font-weight: bold;'>{p['label']})</span> {p['rule']}<br><span style='color: #666;'>{p['pattern']}</span><br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
                 else:
                     st.info("🇬🇧 英文資料尚未查詢\n\n請點擊 🍄 查詢中英組資料")
 
@@ -1783,11 +1910,28 @@ with tabs[0]:
                 if current.get('thai'):
                     th = current['grammar']['thai']
                     st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px;'>🇹🇭 {th['full']}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #fffaf0; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #ed8936;'><div style='font-weight: bold; color: #c05621; font-size: 13px;'>{th['upper']['title']}</div><div style='font-size: 13px;'>{th['upper']['content']}</div><div style='font-size: 11px; color: #666;'>{th['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #fffaf0; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #38a169;'><div style='font-weight: bold; color: #276749; font-size: 13px;'>{th['lower']['title']}</div><div style='font-size: 13px;'>{th['lower']['content']}</div><div style='font-size: 11px; color: #666;'>{th['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0;'>重要文法：</div>", unsafe_allow_html=True)
+                    
+                    # 第一句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="title-black">{th['upper']['title']}</div>
+                        <div class="verse-text-red">{th['upper']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{th['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 第二句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="title-black">{th['lower']['title']}</div>
+                        <div class="verse-text-red">{th['lower']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{th['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>重要文法：</div>", unsafe_allow_html=True)
                     for p in th['points']:
-                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}<br><span style='color: #666;'>{p['pattern']}</span><br>Ex: {p['example']} 👉 {p['trans']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #333; font-size: 12px;'><span style='color: #000; font-weight: bold;'>{p['label']})</span> {p['rule']}<br><span style='color: #666;'>{p['pattern']}</span><br>Ex: {p['example']} 👉 {p['trans']}</div>", unsafe_allow_html=True)
                 else:
                     st.info("🇹🇭 泰文資料尚未查詢\n\n請點擊 🌸 查詢日韓泰組資料")
 
@@ -1799,12 +1943,29 @@ with tabs[0]:
                 if current.get('japanese'):
                     jp = current['grammar']['japanese']
                     st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px;'>🇯🇵 {jp['full']}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #fef2f2; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #e53e3e;'><div style='font-weight: bold; color: #c53030; font-size: 13px;'>{jp['upper']['title']}</div><div style='font-size: 13px;'>{jp['upper']['content']}</div><div style='font-size: 11px; color: #666;'>{jp['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #fef2f2; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #38a169;'><div style='font-weight: bold; color: #276749; font-size: 13px;'>{jp['lower']['title']}</div><div style='font-size: 13px;'>{jp['lower']['content']}</div><div style='font-size: 11px; color: #666;'>{jp['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0;'>文法解說：</div>", unsafe_allow_html=True)
+                    
+                    # 上半句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="title-black">{jp['upper']['title']}</div>
+                        <div class="verse-text-red">{jp['upper']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{jp['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 下半句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="title-black">{jp['lower']['title']}</div>
+                        <div class="verse-text-red">{jp['lower']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{jp['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>文法解說：</div>", unsafe_allow_html=True)
                     for p in jp['points']:
                         pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
-                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #333; font-size: 12px;'><span style='color: #000; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
                 else:
                     st.info("🇯🇵 日文資料尚未查詢\n\n請點擊 🌸 查詢日韓泰組資料")
 
@@ -1813,14 +1974,32 @@ with tabs[0]:
                 if current.get('korean'):
                     kr = current['grammar']['korean']
                     st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px;'>🇰🇷 {kr['full']}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #f0fff4; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #48bb78;'><div style='font-weight: bold; color: #276749; font-size: 13px;'>{kr['upper']['title']}</div><div style='font-size: 13px;'>{kr['upper']['content']}</div><div style='font-size: 11px; color: #666;'>{kr['upper']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background: #f0fff4; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #ed8936;'><div style='font-weight: bold; color: #c05621; font-size: 13px;'>{kr['lower']['title']}</div><div style='font-size: 13px;'>{kr['lower']['content']}</div><div style='font-size: 11px; color: #666;'>{kr['lower']['breakdown']}</div></div>", unsafe_allow_html=True)
-                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0;'>重要文法解說：</div>", unsafe_allow_html=True)
+                    
+                    # 上半句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="title-black">{kr['upper']['title']}</div>
+                        <div class="verse-text-red">{kr['upper']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{kr['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 下半句 - 紅色經文 + 黑色粗體標題
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="title-black">{kr['lower']['title']}</div>
+                        <div class="verse-text-red">{kr['lower']['content']}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 4px;">{kr['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>重要文法解說：</div>", unsafe_allow_html=True)
                     for p in kr['points']:
                         pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
-                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #333; font-size: 12px;'><span style='color: #000; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
                 else:
                     st.info("🇰🇷 韓文資料尚未查詢\n\n請點擊 🌸 查詢日韓泰組資料")
+# ===================================================================
 # ===================================================================
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 7句手動金句 + 我的收藏（無預設金句版）
