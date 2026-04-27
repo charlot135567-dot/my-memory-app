@@ -1226,12 +1226,12 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（AI解析式交互版 - 分組查詢版 v3）
+# 3. TAB1 ─ 書桌（AI解析式交互版 - 分組查詢版 v4）
 # ===================================================================
 with tabs[0]:
     # ========== 初始化 Session State ==========
     if "tab1_selected_ref" not in st.session_state:
-        st.session_state.tab1_selected_ref = ""          # ← 開啟時空白，不預設
+        st.session_state.tab1_selected_ref = ""
     if "tab1_search" not in st.session_state:
         st.session_state.tab1_search = ""
     if "tab1_display_mode" not in st.session_state:
@@ -1240,12 +1240,16 @@ with tabs[0]:
         st.session_state.tab1_ai_loading = False
     if "tab1_use_local" not in st.session_state:
         st.session_state.tab1_use_local = False
-    if "tab1_current_data" not in st.session_state:      # ← 新增：存放當前顯示資料
+    if "tab1_current_data" not in st.session_state:
         st.session_state.tab1_current_data = None
     if "tab1_ai_result" not in st.session_state:
         st.session_state.tab1_ai_result = None
     if "tab1_current_is_ai_generated" not in st.session_state:
         st.session_state.tab1_current_is_ai_generated = False
+    if "tab1_trigger_search" not in st.session_state:
+        st.session_state.tab1_trigger_search = False
+    if "tab1_trigger_group" not in st.session_state:
+        st.session_state.tab1_trigger_group = None  # "en-th" or "jp-kr"
 
     sentences = st.session_state.get('sentences', {})
 
@@ -1340,112 +1344,155 @@ with tabs[0]:
 
     multilang_db = parse_verse_data(sentences) if sentences else {}
 
-    # ========== 已存檔經文快速選單 ==========
-    saved_refs = list(st.session_state.get('sentences', {}).keys())
+    # ========== 搜索框 on_change 回調 ==========
+    def on_search_change():
+        search_val = st.session_state.get('verse_search_compact', '')
+        if search_val and search_val != st.session_state.get('tab1_selected_ref', ''):
+            st.session_state.tab1_selected_ref = search_val
+            st.session_state.tab1_search = search_val
+            st.session_state.tab1_use_local = False
+            st.session_state.tab1_current_data = None
+            st.session_state.tab1_ai_result = None
+            st.session_state.tab1_current_is_ai_generated = False
 
-    if saved_refs:
-        col_saved, col_status = st.columns([2, 1])
-        with col_saved:
-            selected_saved = st.selectbox(
-                "📂 快速叫出已存檔經文",
-                [""] + saved_refs,
-                format_func=lambda x: "（選擇已存檔經文...）" if x == "" else x,
-                key="saved_verse_selector"
-            )
-            if selected_saved and selected_saved != st.session_state.get('tab1_selected_ref'):
-                st.session_state.tab1_selected_ref = selected_saved
-                st.session_state.tab1_search = selected_saved
-                st.session_state.tab1_use_local = True
-                # 載入已存檔完整資料到 current_data
-                if selected_saved in multilang_db:
-                    st.session_state.tab1_current_data = multilang_db[selected_saved]
-                    if 'ai_analysis' in st.session_state.sentences.get(selected_saved, {}):
-                        st.session_state.tab1_ai_result = st.session_state.sentences[selected_saved]['ai_analysis']
-                else:
-                    st.session_state.tab1_current_data = None
-                    st.session_state.tab1_ai_result = None
-                st.session_state.tab1_current_is_ai_generated = False
-                st.rerun()
-        with col_status:
-            if st.session_state.tab1_selected_ref in saved_refs:
-                st.caption("✅ 已存檔可讀取")
-            elif st.session_state.tab1_selected_ref:
-                st.caption("🤖 AI即時查詢模式")
+    # ========== 已存檔經文 on_change 回調 ==========
+    def on_saved_change():
+        selected = st.session_state.get('saved_verse_selector', '')
+        if selected:
+            st.session_state.tab1_selected_ref = selected
+            st.session_state.tab1_search = selected
+            st.session_state.tab1_use_local = True
+            # 直接載入已存檔資料到 current_data
+            if selected in multilang_db:
+                st.session_state.tab1_current_data = multilang_db[selected].copy()
+                if 'ai_analysis' in st.session_state.sentences.get(selected, {}):
+                    st.session_state.tab1_ai_result = st.session_state.sentences[selected]['ai_analysis']
             else:
-                st.caption("⏳ 等待輸入")
+                st.session_state.tab1_current_data = None
+                st.session_state.tab1_ai_result = None
+            st.session_state.tab1_current_is_ai_generated = False
 
-        st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
-
-    # ========== 隱藏魔菇按鈕邊框 + 垂直置中對齊的 CSS ==========
+    # ========== CSS 樣式 ==========
     st.markdown("""
         <style>
-        div[data-testid="stElementContainer"].st-key-mushroom_ai_btn {
+        /* 隱藏按鈕邊框，放大圖示 */
+        div[data-testid="stElementContainer"].st-key-mushroom_btn,
+        div[data-testid="stElementContainer"].st-key-sakura_btn,
+        div[data-testid="stElementContainer"].st-key-call_btn {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             height: 100% !important;
         }
-        div[data-testid="stElementContainer"].st-key-mushroom_ai_btn button {
+        div[data-testid="stElementContainer"].st-key-mushroom_btn button,
+        div[data-testid="stElementContainer"].st-key-sakura_btn button,
+        div[data-testid="stElementContainer"].st-key-call_btn button {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 0px !important;
-            font-size: 28px !important;
+            padding: 0px 4px !important;
+            font-size: 24px !important;
+            min-height: 38px !important;
+        }
+        /* 快速呼叫選單樣式 */
+        div[data-testid="stSelectbox"] label {
+            font-size: 12px !important;
+            margin-bottom: 0px !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # ========== 控制列：搜索框 + 魔菇 + 語言切換按鈕 ==========
-    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    # ========== 控制列：搜尋 + 🍄 + 🌸 + 快速呼叫 + 📞 ==========
+    st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    control_cols = st.columns([1.2, 0.5, 1, 1])
+    saved_refs = list(st.session_state.get('sentences', {}).keys())
+    has_saved = len(saved_refs) > 0
+
+    # 欄位比例：搜尋(2) | 🍄(0.4) | 🌸(0.4) | 快速呼叫(1.5) | 📞(0.5)
+    control_cols = st.columns([2, 0.4, 0.4, 1.5, 0.5])
 
     with control_cols[0]:
-        search_val = st.text_input(
+        st.text_input(
             "",
             value=st.session_state.tab1_search,
             placeholder="例：來6:3 或 弗1:3",
             label_visibility="collapsed",
-            key="verse_search_compact"
+            key="verse_search_compact",
+            on_change=on_search_change
         )
-        if search_val != st.session_state.get('tab1_search', ''):
-            st.session_state.tab1_search = search_val
-            st.session_state.tab1_selected_ref = search_val
-            st.session_state.tab1_use_local = False
-            # 輸入新經文時清空舊資料，避免顯示錯誤經文
-            st.session_state.tab1_current_data = None
-            st.session_state.tab1_ai_result = None
-            st.session_state.tab1_current_is_ai_generated = False
-            st.rerun()
 
     with control_cols[1]:
-        mushroom_clicked = st.button("🍄", key="mushroom_ai_btn", help="AI解析當前語言組")
+        mushroom_clicked = st.button("🍄", key="mushroom_btn", help="查詢中英組（英文+中文+英文文法）")
         if mushroom_clicked:
             if not st.session_state.tab1_selected_ref:
-                st.warning("⚠️ 請先輸入經文參考（如：來6:3）")
+                st.warning("⚠️ 請先輸入經文")
             else:
+                st.session_state.tab1_trigger_group = "en-th"
                 st.session_state.tab1_ai_loading = True
-                st.rerun()
 
     with control_cols[2]:
-        btn_style_en_th = "primary" if st.session_state.tab1_display_mode == "en-th" else "secondary"
-        if st.button("🇬🇧🇹🇭", use_container_width=True, type=btn_style_en_th):
-            st.session_state.tab1_display_mode = "en-th"
-            st.rerun()
+        sakura_clicked = st.button("🌸", key="sakura_btn", help="查詢日韓泰組（日文+韓文+泰文+三國文法）")
+        if sakura_clicked:
+            if not st.session_state.tab1_selected_ref:
+                st.warning("⚠️ 請先輸入經文")
+            else:
+                st.session_state.tab1_trigger_group = "jp-kr"
+                st.session_state.tab1_ai_loading = True
 
     with control_cols[3]:
-        btn_style_jp_kr = "primary" if st.session_state.tab1_display_mode == "jp-kr" else "secondary"
-        if st.button("🇯🇵🇰🇷", use_container_width=True, type=btn_style_jp_kr):
-            st.session_state.tab1_display_mode = "jp-kr"
-            st.rerun()
+        if has_saved:
+            st.selectbox(
+                "📂",
+                [""] + saved_refs,
+                format_func=lambda x: "已存檔經文..." if x == "" else x,
+                label_visibility="collapsed",
+                key="saved_verse_selector",
+                on_change=on_saved_change
+            )
+        else:
+            st.caption("📂 無存檔")
+
+    with control_cols[4]:
+        call_clicked = st.button("📞", key="call_btn", help="叫出已選擇的存檔經文")
+        if call_clicked:
+            selected_saved = st.session_state.get('saved_verse_selector', '')
+            if selected_saved and selected_saved in multilang_db:
+                st.session_state.tab1_selected_ref = selected_saved
+                st.session_state.tab1_search = selected_saved
+                st.session_state.tab1_use_local = True
+                st.session_state.tab1_current_data = multilang_db[selected_saved].copy()
+                if 'ai_analysis' in st.session_state.sentences.get(selected_saved, {}):
+                    st.session_state.tab1_ai_result = st.session_state.sentences[selected_saved]['ai_analysis']
+                st.session_state.tab1_current_is_ai_generated = False
+                st.rerun()
+            elif not selected_saved:
+                st.warning("⚠️ 請先從選單選擇經文")
+            else:
+                st.error("❌ 找不到該經文資料")
+
+    # 狀態提示
+    status_col1, status_col2 = st.columns([1, 1])
+    with status_col1:
+        if st.session_state.tab1_selected_ref:
+            if st.session_state.tab1_selected_ref in saved_refs:
+                st.caption(f"✅ {st.session_state.tab1_selected_ref} 已存檔")
+            else:
+                st.caption(f"🤖 {st.session_state.tab1_selected_ref} AI查詢模式")
+        else:
+            st.caption("⏳ 等待輸入經文")
+    with status_col2:
+        mode_text = "🇬🇧🇹🇭 英泰模式" if st.session_state.tab1_display_mode == "en-th" else "🇯🇵🇰🇷 日韓模式"
+        st.caption(mode_text)
+
+    st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
 
     # ========== AI 查詢處理（分組查詢）==========
     if st.session_state.get('tab1_ai_loading', False) and st.session_state.tab1_selected_ref:
         selected_ref = st.session_state.tab1_selected_ref
-        display_mode = st.session_state.tab1_display_mode
+        display_mode = st.session_state.tab1_trigger_group or st.session_state.tab1_display_mode
 
-        group_name = "中英組（英文+中文+英文文法）" if display_mode == "en-th" else "日韓泰組（日文+韓文+泰文+三國文法）"
-        with st.spinner(f"🍄 AI 正在查詢 {selected_ref}【{group_name}】..."):
+        group_name = "中英組" if display_mode == "en-th" else "日韓泰組"
+        with st.spinner(f"🍄 AI 查詢 {selected_ref}【{group_name}】..."):
             try:
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 genai.configure(api_key=api_key)
@@ -1454,17 +1501,16 @@ with tabs[0]:
                 model = genai.GenerativeModel(target_model_name)
 
                 if display_mode == "en-th":
-                    # ===== 組別 A：中英查詢（Token 較小）=====
                     verse_query_prompt = f"""
-                    請查詢聖經經文「{selected_ref}」的以下資料，並以 JSON 格式回傳。
-                    注意：只需要英文和中文資料，不需要日文、韓文、泰文。
+                    請查詢聖經經文「{selected_ref}」的以下資料，以 JSON 格式回傳。
+                    只需要英文和中文，不需要日文、韓文、泰文。
 
-                    請提供：
+                    提供：
                     1. 中文經文（和合本）
                     2. 英文經文（ESV）
-                    3. 英文文法分析（將句子分為上半句和下半句，並提供3個重點文法點）
+                    3. 英文文法分析（分上下半句 + 3個重點文法點）
 
-                    請嚴格使用以下 JSON 格式（不要加入任何其他文字，只回傳 JSON）：
+                    嚴格使用以下 JSON 格式（只回傳 JSON，不要其他文字）：
                     {{
                         "ref": "{selected_ref}",
                         "chinese": "中文經文",
@@ -1493,12 +1539,11 @@ with tabs[0]:
                     }}
                     """
                 else:
-                    # ===== 組別 B：日韓泰查詢 =====
                     verse_query_prompt = f"""
-                    請查詢聖經經文「{selected_ref}」的以下資料，並以 JSON 格式回傳。
-                    注意：只需要日文、韓文、泰文資料，不需要英文、中文。
+                    請查詢聖經經文「{selected_ref}」的以下資料，以 JSON 格式回傳。
+                    只需要日文、韓文、泰文，不需要英文、中文。
 
-                    請提供：
+                    提供：
                     1. 日文經文（口語訳）
                     2. 韓文經文（KRF）
                     3. 泰文經文（THSV11）
@@ -1506,7 +1551,7 @@ with tabs[0]:
                     5. 韓文文法分析（分上下半句 + 3個重點文法點）
                     6. 泰文文法分析（分上下半句 + 3個重點文法點）
 
-                    請嚴格使用以下 JSON 格式（不要加入任何其他文字，只回傳 JSON）：
+                    嚴格使用以下 JSON 格式（只回傳 JSON，不要其他文字）：
                     {{
                         "ref": "{selected_ref}",
                         "japanese": "日文經文",
@@ -1579,7 +1624,7 @@ with tabs[0]:
                             pass
 
                 if json_data:
-                    # 初始化 current_data（若為空）
+                    # 初始化或合併 current_data
                     if st.session_state.tab1_current_data is None:
                         st.session_state.tab1_current_data = {
                             'ref': json_data.get('ref', selected_ref),
@@ -1600,13 +1645,11 @@ with tabs[0]:
                     current_data['ref'] = json_data.get('ref', selected_ref)
 
                     if display_mode == "en-th":
-                        # 合併中英資料
                         current_data['chinese'] = json_data.get('chinese', current_data.get('chinese', ''))
                         current_data['english'] = json_data.get('english', current_data.get('english', ''))
                         if 'grammar' in json_data and 'english' in json_data['grammar']:
                             current_data['grammar']['english'] = json_data['grammar']['english']
                     else:
-                        # 合併日韓泰資料
                         current_data['japanese'] = json_data.get('japanese', current_data.get('japanese', ''))
                         current_data['korean'] = json_data.get('korean', current_data.get('korean', ''))
                         current_data['thai'] = json_data.get('thai', current_data.get('thai', ''))
@@ -1618,21 +1661,23 @@ with tabs[0]:
                             if 'thai' in json_data['grammar']:
                                 current_data['grammar']['thai'] = json_data['grammar']['thai']
 
-                    # 儲存 AI 解析結果
                     st.session_state.tab1_ai_result = {
                         'vocabulary': json_data.get('vocabulary', []),
                         'phrases': json_data.get('phrases', []),
                         'segments': json_data.get('segments', [])
                     }
                     st.session_state.tab1_current_is_ai_generated = True
+                    # 查詢成功後自動切換到對應模式
+                    st.session_state.tab1_display_mode = display_mode
 
                 else:
-                    st.error("❌ AI 回傳格式錯誤，無法解析 JSON。請再點一次 🍄 重試。")
+                    st.error("❌ AI 回傳格式錯誤，請再點一次 🍄 或 🌸 重試")
 
             except Exception as e:
                 st.error(f"❌ AI 查詢失敗：{str(e)}")
 
         st.session_state.tab1_ai_loading = False
+        st.session_state.tab1_trigger_group = None
         st.rerun()
 
     # ========== 顯示 AI 解析結果 + 存檔功能 ==========
@@ -1640,11 +1685,10 @@ with tabs[0]:
         current_data = st.session_state.tab1_current_data
 
         with st.expander("🍄 AI解析結果", expanded=True):
-            # 存檔按鈕（只有在未存檔時顯示）
             if current_data and current_data.get('ref') and current_data['ref'] not in st.session_state.get('sentences', {}):
                 col_save, col_close = st.columns([1, 4])
                 with col_save:
-                    if st.button("💾 存檔至資料庫", type="primary", key="save_ai_result"):
+                    if st.button("💾 存檔", type="primary", key="save_ai_result"):
                         verse_data = {
                             "ref": current_data['ref'],
                             "type": "Scripture",
@@ -1694,7 +1738,7 @@ with tabs[0]:
                     st.markdown(f"{i+1}. {seg.get('cn', '')} | {seg.get('en', '')}")
 
             if not st.session_state.get('tab1_current_is_ai_generated', False):
-                st.caption("✅ 此資料已存檔")
+                st.caption("✅ 已存檔")
 
         st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
     else:
@@ -1706,17 +1750,10 @@ with tabs[0]:
     if current is None:
         # 開啟時空白狀態
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        st.info("""
-        📖 **歡迎使用書桌功能**
-
-        請輸入經文（如：**來6:3**）並點擊 🍄 進行 AI 查詢，或從上方選單選擇已存檔經文。
-
-        💡 **查詢分組說明（減少 Token 避免 Error）：**
-        - 🇬🇧🇹🇭 模式點 🍄 → 查詢 **中英組**（英文經文 + 中文經文 + 英文文法）
-        - 🇯🇵🇰🇷 模式點 🍄 → 查詢 **日韓泰組**（日文 + 韓文 + 泰文 + 三國文法）
-
-        建議：先查一組，確認成功後再切換模式查另一組。
-        """)
+        if st.session_state.tab1_selected_ref:
+            st.info(f"⏳ 已輸入「{st.session_state.tab1_selected_ref}」，請點擊 🍄 或 🌸 進行查詢")
+        else:
+            st.info("📖 請輸入經文（如：來6:3）或選擇已存檔經文")
 
     else:
         # 顯示經文標題
@@ -1739,7 +1776,7 @@ with tabs[0]:
                     for p in eng['points']:
                         st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}<br><span style='color: #666;'>{p['pattern']}</span><br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
                 else:
-                    st.warning("🇬🇧 英文資料尚未查詢\n\n請在 **🇬🇧🇹🇭 模式** 下點擊 🍄 查詢中英組資料")
+                    st.info("🇬🇧 英文資料尚未查詢\n\n請點擊 🍄 查詢中英組資料")
 
             # 🇹🇭 泰文（右）
             with col_right:
@@ -1752,7 +1789,7 @@ with tabs[0]:
                     for p in th['points']:
                         st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}<br><span style='color: #666;'>{p['pattern']}</span><br>Ex: {p['example']} 👉 {p['trans']}</div>", unsafe_allow_html=True)
                 else:
-                    st.warning("🇹🇭 泰文資料尚未查詢\n\n請切換至 **🇯🇵🇰🇷 模式** 點擊 🍄 查詢日韓泰組資料")
+                    st.info("🇹🇭 泰文資料尚未查詢\n\n請點擊 🌸 查詢日韓泰組資料")
 
         else:  # jp-kr 模式
             col_left, col_right = st.columns(2)
@@ -1769,7 +1806,7 @@ with tabs[0]:
                         pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
                         st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
                 else:
-                    st.warning("🇯🇵 日文資料尚未查詢\n\n請在 **🇯🇵🇰🇷 模式** 下點擊 🍄 查詢日韓泰組資料")
+                    st.info("🇯🇵 日文資料尚未查詢\n\n請點擊 🌸 查詢日韓泰組資料")
 
             # 🇰🇷 韓文（右）
             with col_right:
@@ -1783,7 +1820,8 @@ with tabs[0]:
                         pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
                         st.markdown(f"<div style='margin-bottom: 6px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 12px;'><span style='color: #d69e2e; font-weight: bold;'>{p['label']})</span> {p['rule']}{pat}<br>Ex: {p['example']} {p['trans']}</div>", unsafe_allow_html=True)
                 else:
-                    st.warning("🇰🇷 韓文資料尚未查詢\n\n請在 **🇯🇵🇰🇷 模式** 下點擊 🍄 查詢日韓泰組資料")
+                    st.info("🇰🇷 韓文資料尚未查詢\n\n請點擊 🌸 查詢日韓泰組資料")
+# ===================================================================
 # ===================================================================
 # 4. TAB2 ─ 月曆待辦 + 7句手動金句 + 我的收藏（無預設金句版）
 # ===================================================================
