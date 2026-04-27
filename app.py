@@ -1226,7 +1226,7 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（AI解析式交互版 - 史努比風格 v6）
+# 3. TAB1 ─ 書桌（AI解析式交互版 - 完整存檔修復版 v7）
 # ===================================================================
 with tabs[0]:
     # ========== 初始化 Session State ==========
@@ -1248,8 +1248,6 @@ with tabs[0]:
         st.session_state.tab1_current_is_ai_generated = False
     if "tab1_trigger_group" not in st.session_state:
         st.session_state.tab1_trigger_group = None
-    if "tab1_call_group" not in st.session_state:
-        st.session_state.tab1_call_group = None  # "en-th" or "jp-kr" for calling saved data
 
     sentences = st.session_state.get('sentences', {})
 
@@ -1374,14 +1372,17 @@ with tabs[0]:
             st.session_state.tab1_use_local = True
             if selected in multilang_db:
                 st.session_state.tab1_current_data = multilang_db[selected].copy()
+                # ★★★ 修復：正確載入 ai_analysis
                 if 'ai_analysis' in st.session_state.sentences.get(selected, {}):
                     st.session_state.tab1_ai_result = st.session_state.sentences[selected]['ai_analysis']
+                else:
+                    st.session_state.tab1_ai_result = None
             else:
                 st.session_state.tab1_current_data = None
                 st.session_state.tab1_ai_result = None
             st.session_state.tab1_current_is_ai_generated = False
 
-    # ========== CSS 樣式（史努比透明風格 + 柔和字體）==========
+    # ========== CSS 樣式（史努比透明風格 + 柔和字體 + 文字置前）==========
     st.markdown("""
         <style>
         /* 全局柔和字體 */
@@ -1413,13 +1414,15 @@ with tabs[0]:
             min-height: 38px !important;
         }
         
-        /* 史努比透明框線 - 無背景色 */
+        /* 史努比透明框線 - 無背景色，文字置前 */
         .snoopy-box {
             background: transparent !important;
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 8px;
             border: 2px solid #333;
+            position: relative;
+            z-index: 10;
         }
         .snoopy-box-dashed {
             background: transparent !important;
@@ -1427,6 +1430,8 @@ with tabs[0]:
             border-radius: 8px;
             margin-bottom: 8px;
             border: 2px dashed #999;
+            position: relative;
+            z-index: 10;
         }
         
         /* 紅色經文 - 加大 */
@@ -1435,6 +1440,8 @@ with tabs[0]:
             font-size: 20px;
             font-weight: bold;
             line-height: 1.6;
+            position: relative;
+            z-index: 10;
         }
         
         /* 序號標記 */
@@ -1451,6 +1458,8 @@ with tabs[0]:
             color: #666;
             margin-top: 6px;
             font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+            position: relative;
+            z-index: 10;
         }
         
         /* 文法區塊 */
@@ -1461,6 +1470,14 @@ with tabs[0]:
             margin-bottom: 6px;
             border: 1px solid #ccc;
             font-size: 13px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* 確保所有文字內容置前 */
+        .stMarkdown, .stText, p, div {
+            position: relative;
+            z-index: 5;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -1513,7 +1530,6 @@ with tabs[0]:
             elif selected_saved not in multilang_db:
                 st.error(f"❌ {selected_saved} 無存檔資料")
             else:
-                # 叫出中英組資料
                 data = multilang_db[selected_saved].copy()
                 st.session_state.tab1_current_data = {
                     'ref': data['ref'],
@@ -1531,8 +1547,11 @@ with tabs[0]:
                 }
                 st.session_state.tab1_display_mode = "en-th"
                 st.session_state.tab1_use_local = True
+                # ★★★ 修復：正確載入 ai_analysis
                 if 'ai_analysis' in st.session_state.sentences.get(selected_saved, {}):
                     st.session_state.tab1_ai_result = st.session_state.sentences[selected_saved]['ai_analysis']
+                else:
+                    st.session_state.tab1_ai_result = None
                 st.rerun()
 
     with control_cols[4]:
@@ -1544,7 +1563,6 @@ with tabs[0]:
             elif selected_saved not in multilang_db:
                 st.error(f"❌ {selected_saved} 無存檔資料")
             else:
-                # 叫出日韓泰組資料
                 data = multilang_db[selected_saved].copy()
                 st.session_state.tab1_current_data = {
                     'ref': data['ref'],
@@ -1562,8 +1580,11 @@ with tabs[0]:
                 }
                 st.session_state.tab1_display_mode = "jp-kr"
                 st.session_state.tab1_use_local = True
+                # ★★★ 修復：正確載入 ai_analysis
                 if 'ai_analysis' in st.session_state.sentences.get(selected_saved, {}):
                     st.session_state.tab1_ai_result = st.session_state.sentences[selected_saved]['ai_analysis']
+                else:
+                    st.session_state.tab1_ai_result = None
                 st.rerun()
 
     with control_cols[5]:
@@ -1588,8 +1609,11 @@ with tabs[0]:
                 st.session_state.tab1_search = selected_saved
                 st.session_state.tab1_use_local = True
                 st.session_state.tab1_current_data = multilang_db[selected_saved].copy()
+                # ★★★ 修復：正確載入 ai_analysis
                 if 'ai_analysis' in st.session_state.sentences.get(selected_saved, {}):
                     st.session_state.tab1_ai_result = st.session_state.sentences[selected_saved]['ai_analysis']
+                else:
+                    st.session_state.tab1_ai_result = None
                 st.session_state.tab1_current_is_ai_generated = False
                 st.rerun()
             elif not selected_saved:
@@ -1816,11 +1840,13 @@ with tabs[0]:
         st.session_state.tab1_trigger_group = None
         st.rerun()
 
-    # ========== 顯示 AI 解析結果 + 存檔功能 ==========
-    if st.session_state.get('tab1_ai_result') and st.session_state.get('tab1_current_is_ai_generated', False):
+    # ========== 顯示 AI 解析結果 + 存檔功能（★★★ 完整存檔修復）==========
+    # ★★★ 修復：只要有 ai_result 就顯示，不管是否為 AI 生成
+    if st.session_state.get('tab1_ai_result'):
         current_data = st.session_state.tab1_current_data
 
         with st.expander("🍄 AI解析結果", expanded=True):
+            # 存檔按鈕（檢查是否已存檔）
             if current_data and current_data.get('ref'):
                 existing_ref = current_data['ref']
                 is_already_saved = existing_ref in st.session_state.get('sentences', {})
@@ -1860,21 +1886,32 @@ with tabs[0]:
                             pass
                         merged_grammar = {**existing_grammar, **current_data['grammar']}
                         
-                        # 合併 AI 分析
+                        # ★★★ 修復：完整合併 AI 分析，不遺漏任何資料
                         existing_ai = existing_data.get('ai_analysis', {})
                         merged_ai = {
                             'vocabulary': [],
                             'phrases': [],
                             'segments': []
                         }
-                        if existing_ai:
-                            merged_ai['vocabulary'] = existing_ai.get('vocabulary', []) + [v for v in st.session_state.tab1_ai_result.get('vocabulary', []) 
-                                if v['word'] not in {x['word'] for x in existing_ai.get('vocabulary', [])}]
-                            merged_ai['phrases'] = existing_ai.get('phrases', []) + [p for p in st.session_state.tab1_ai_result.get('phrases', [])
-                                if p['phrase'] not in {x['phrase'] for x in existing_ai.get('phrases', [])}]
-                            merged_ai['segments'] = st.session_state.tab1_ai_result.get('segments', existing_ai.get('segments', []))
-                        else:
-                            merged_ai = st.session_state.tab1_ai_result
+                        
+                        # 合併單字（去重複）
+                        all_vocab = {}
+                        for v in existing_ai.get('vocabulary', []):
+                            all_vocab[v['word']] = v
+                        for v in st.session_state.tab1_ai_result.get('vocabulary', []):
+                            all_vocab[v['word']] = v
+                        merged_ai['vocabulary'] = list(all_vocab.values())
+                        
+                        # 合併片語（去重複）
+                        all_phrases = {}
+                        for p in existing_ai.get('phrases', []):
+                            all_phrases[p['phrase']] = p
+                        for p in st.session_state.tab1_ai_result.get('phrases', []):
+                            all_phrases[p['phrase']] = p
+                        merged_ai['phrases'] = list(all_phrases.values())
+                        
+                        # 分段（優先使用新的）
+                        merged_ai['segments'] = st.session_state.tab1_ai_result.get('segments', existing_ai.get('segments', []))
 
                         verse_data = {
                             "ref": existing_ref,
@@ -1888,7 +1925,7 @@ with tabs[0]:
                             "other": json.dumps(merged_grammar, ensure_ascii=False),
                             "saved_sheets": existing_data.get('saved_sheets', ["V1 Sheet", "V2 Sheet"]),
                             "date_added": existing_data.get('date_added', datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
-                            "ai_analysis": merged_ai
+                            "ai_analysis": merged_ai  # ★★★ 完整保存
                         }
 
                         if 'sentences' not in st.session_state:
@@ -1907,27 +1944,31 @@ with tabs[0]:
                     if st.button("關閉", key="close_ai_without_save"):
                         pass
 
-            # 顯示解析內容
+            # 顯示解析內容（★★★ 確保完整顯示）
             cols_ai = st.columns(2)
             with cols_ai[0]:
-                if st.session_state.tab1_ai_result.get('vocabulary'):
+                vocab_list = st.session_state.tab1_ai_result.get('vocabulary', [])
+                if vocab_list:
                     st.markdown("**📖 重點單字**")
-                    for vocab in st.session_state.tab1_ai_result['vocabulary']:
+                    for vocab in vocab_list:
                         st.markdown(f"• **{vocab['word']}** ({vocab.get('phonetic', '')}) - {vocab['meaning']}")
 
             with cols_ai[1]:
-                if st.session_state.tab1_ai_result.get('phrases'):
+                phrase_list = st.session_state.tab1_ai_result.get('phrases', [])
+                if phrase_list:
                     st.markdown("**🔤 重點片語**")
-                    for phrase in st.session_state.tab1_ai_result['phrases']:
+                    for phrase in phrase_list:
                         st.markdown(f"• **{phrase['phrase']}** - {phrase['meaning']}")
 
-            if st.session_state.tab1_ai_result.get('segments'):
+            seg_list = st.session_state.tab1_ai_result.get('segments', [])
+            if seg_list:
                 st.markdown("**📝 經文分段**")
-                for i, seg in enumerate(st.session_state.tab1_ai_result['segments']):
+                for i, seg in enumerate(seg_list):
                     st.markdown(f"{i+1}. {seg.get('cn', '')} | {seg.get('en', '')}")
 
+            # 顯示存檔狀態
             if not st.session_state.get('tab1_current_is_ai_generated', False):
-                st.caption("✅ 已存檔")
+                st.caption("✅ 此資料已存檔")
 
         st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
     else:
@@ -1944,7 +1985,7 @@ with tabs[0]:
             st.info("📖 請輸入經文（如：來6:3）或選擇已存檔經文")
 
     else:
-        # 顯示經文標題（黑色粗體 + 柔和字體）
+        # 顯示經文標題
         ref_short = current.get('ref', '').replace(" ", "")
         chinese_text = current.get('chinese', '')
         st.markdown(f"<h3 style='font-size: 22px; font-weight: bold; color: #000; margin: 10px 0; font-family: \"Microsoft JhengHei\", \"PingFang TC\", sans-serif;'>{ref_short}{chinese_text}</h3>", unsafe_allow_html=True)
@@ -1959,7 +2000,6 @@ with tabs[0]:
                     eng = current['grammar']['english']
                     st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px; font-family: \"Microsoft JhengHei\", sans-serif;'>🇬🇧 {eng['full']}</div>", unsafe_allow_html=True)
                     
-                    # ① 第一句 - 透明底 + 紅色經文
                     st.markdown(f"""
                     <div class="snoopy-box">
                         <div class="verse-num">①</div>
@@ -1968,7 +2008,6 @@ with tabs[0]:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # ② 第二句 - 透明底虛線 + 紅色經文
                     st.markdown(f"""
                     <div class="snoopy-box-dashed">
                         <div class="verse-num">②</div>
