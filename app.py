@@ -1010,6 +1010,7 @@ IMG_URLS = {
     "A": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/183ebb183330643.Y3JvcCw4MDgsNjMyLDAsMA.jpg",
     "B": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/f364bd220887627.67cae1bd07457.jpg",
     "C": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/68254faebaafed9dafb41918f74c202e.jpg",
+    "D": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Snoopy 1.jpg",
     "M1": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro1.jpg",
     "M2": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro2.jpg",
     "M3": "https://raw.githubusercontent.com/charlot135567-dot/my-memory-app/main/Mashimaro3.jpg",
@@ -1083,6 +1084,7 @@ with st.sidebar:
     
     bg_options = {
         "🐶 Snoopy": "Snoopy.jpg",
+        "🐶 Snoopy 1": "Snoopy 1.jpg",
         "🐰 Mashimaro 1": "Mashimaro1.jpg",
         "🐰 Mashimaro 2": "Mashimaro2.jpg",
         "🐰 Mashimaro 3": "Mashimaro3.jpg",
