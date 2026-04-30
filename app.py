@@ -1228,11 +1228,10 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（AI解析式交互版 - 完整修復版 v8）
+# 3. TAB1 ─ 書桌（AI解析式交互版 - 完整修復版 v9）
 # ===================================================================
 with tabs[0]:
     # ========== 強制清除舊版本衝突的 Session State ==========
-    # 如果之前跑過舊版本，清除可能衝突的 key
     for key in list(st.session_state.keys()):
         if key.startswith('tab1_') and key not in [
             'tab1_selected_ref', 'tab1_search', 'tab1_display_mode',
@@ -1344,12 +1343,12 @@ with tabs[0]:
                 grammar_data = default_multilang_data["來6:3"]['grammar']
                 try:
                     other_str = content_data.get('other', '')
-                    if other_str and other_str.strip():  # ★★★ 修復：檢查非空
+                    if other_str and other_str.strip():
                         loaded = json.loads(other_str)
                         if isinstance(loaded, dict) and 'english' in loaded:
                             grammar_data = loaded
-                except Exception as e:
-                    pass  # 解析失敗就用預設
+                except Exception:
+                    pass
                 
                 multilang_data[key] = {
                     'ref': key,
@@ -1469,9 +1468,44 @@ with tabs[0]:
     saved_refs = list(st.session_state.get('sentences', {}).keys())
     has_saved = len(saved_refs) > 0
 
-    control_cols = st.columns([1.8, 0.4, 0.4, 0.4, 0.4, 1.2, 0.4])
+    # ✅ 修正1：🍄 和 🌸 移到輸入欄前面
+    control_cols = st.columns([0.4, 0.4, 1.8, 0.4, 0.4, 1.2, 0.4])
 
     with control_cols[0]:
+        mushroom_clicked = st.button("🍄", key="mushroom_btn", help="AI查詢中英組")
+        if mushroom_clicked:
+            search_val = st.session_state.get('verse_search_compact', '')
+            if not search_val:
+                st.warning("⚠️ 請先輸入經文")
+            else:
+                st.session_state.tab1_selected_ref = search_val
+                st.session_state.tab1_search = search_val
+                st.session_state.tab1_use_local = False
+                st.session_state.tab1_current_data = None
+                st.session_state.tab1_ai_result = None
+                st.session_state.tab1_current_is_ai_generated = False
+                st.session_state.tab1_trigger_group = "en-th"
+                st.session_state.tab1_ai_loading = True
+                st.rerun()
+
+    with control_cols[1]:
+        sakura_clicked = st.button("🌸", key="sakura_btn", help="AI查詢日韓泰組")
+        if sakura_clicked:
+            search_val = st.session_state.get('verse_search_compact', '')
+            if not search_val:
+                st.warning("⚠️ 請先輸入經文")
+            else:
+                st.session_state.tab1_selected_ref = search_val
+                st.session_state.tab1_search = search_val
+                st.session_state.tab1_use_local = False
+                st.session_state.tab1_current_data = None
+                st.session_state.tab1_ai_result = None
+                st.session_state.tab1_current_is_ai_generated = False
+                st.session_state.tab1_trigger_group = "jp-kr"
+                st.session_state.tab1_ai_loading = True
+                st.rerun()
+
+    with control_cols[2]:
         st.text_input(
             "",
             value=st.session_state.tab1_search,
@@ -1481,30 +1515,10 @@ with tabs[0]:
             on_change=on_search_change
         )
 
-    with control_cols[1]:
-        mushroom_clicked = st.button("🍄", key="mushroom_btn", help="AI查詢中英組")
-        if mushroom_clicked:
-            if not st.session_state.tab1_selected_ref:
-                st.warning("⚠️ 請先輸入經文")
-            else:
-                st.session_state.tab1_trigger_group = "en-th"
-                st.session_state.tab1_ai_loading = True
-                st.rerun()
-
-    with control_cols[2]:
-        sakura_clicked = st.button("🌸", key="sakura_btn", help="AI查詢日韓泰組")
-        if sakura_clicked:
-            if not st.session_state.tab1_selected_ref:
-                st.warning("⚠️ 請先輸入經文")
-            else:
-                st.session_state.tab1_trigger_group = "jp-kr"
-                st.session_state.tab1_ai_loading = True
-                st.rerun()
-
     with control_cols[3]:
         mushroom_call = st.button("🍄📂", key="mushroom_call_btn", help="叫出中英組存檔")
         if mushroom_call:
-            selected_saved = st.session_state.get('saved_verse_selector', '') or st.session_state.tab1_selected_ref
+            selected_saved = st.session_state.get('verse_search_compact', '') or st.session_state.get('saved_verse_selector', '')
             if not selected_saved:
                 st.warning("⚠️ 請先輸入或選擇經文")
             elif selected_saved not in multilang_db:
@@ -1536,7 +1550,7 @@ with tabs[0]:
     with control_cols[4]:
         sakura_call = st.button("🌸📂", key="sakura_call_btn", help="叫出日韓泰組存檔")
         if sakura_call:
-            selected_saved = st.session_state.get('saved_verse_selector', '') or st.session_state.tab1_selected_ref
+            selected_saved = st.session_state.get('verse_search_compact', '') or st.session_state.get('saved_verse_selector', '')
             if not selected_saved:
                 st.warning("⚠️ 請先輸入或選擇經文")
             elif selected_saved not in multilang_db:
@@ -1598,35 +1612,28 @@ with tabs[0]:
             else:
                 st.error("❌ 找不到該經文資料")
 
-    # 狀態提示
-    if st.session_state.tab1_selected_ref:
-        if st.session_state.tab1_selected_ref in saved_refs:
-            st.caption(f"✅ {st.session_state.tab1_selected_ref} 已存檔")
-        else:
-            st.caption(f"🤖 {st.session_state.tab1_selected_ref} AI查詢模式")
-    else:
-        st.caption("⏳ 等待輸入經文")
+    # ✅ 修正2：移除灰色狀態提示（已刪除 st.caption 區塊）
 
     st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
 
-    # ========== AI 查詢處理 ==========
+    # ========== AI 查詢處理（修正4：強化錯誤處理與狀態重置）==========
     if st.session_state.get('tab1_ai_loading', False) and st.session_state.tab1_selected_ref:
         selected_ref = st.session_state.tab1_selected_ref
         display_mode = st.session_state.tab1_trigger_group
+        error_msg = None
 
         group_name = "中英組" if display_mode == "en-th" else "日韓泰組"
-        with st.spinner(f"🍄 AI 查詢 {selected_ref}【{group_name}】..."):
-            try:
+        
+        try:
+            with st.spinner(f"🍄 AI 查詢 {selected_ref}【{group_name}】..."):
                 api_key = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("gemini", {}).get("api_key")
                 if not api_key:
-                    st.error("❌ 請設定 GEMINI_API_KEY")
-                    st.stop()
+                    raise ValueError("請在 Secrets 中設定 GEMINI_API_KEY")
                 
                 genai.configure(api_key=api_key)
                 available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                 if not available_models:
-                    st.error("❌ 無可用的 Gemini 模型")
-                    st.stop()
+                    raise ValueError("無可用的 Gemini 模型，請檢查 API Key 權限")
                     
                 target_model_name = next((m for m in available_models if "flash" in m), available_models[0])
                 model = genai.GenerativeModel(target_model_name)
@@ -1733,99 +1740,111 @@ with tabs[0]:
                     """
 
                 response = model.generate_content(verse_query_prompt)
+                if not response or not hasattr(response, 'text'):
+                    raise ValueError("AI 回傳內容為空")
+                    
                 response_text = response.text.strip()
+                if not response_text:
+                    raise ValueError("AI 回傳內容為空白")
 
-                # 解析 JSON
+                # 解析 JSON（多種嘗試）
                 json_data = None
-                json_match = re.search(r'```(?:json)?\s*\n?(\{{.*?\}})\s*\n?```', response_text, re.DOTALL)
+                
+                # 方法 1: markdown 代碼塊
+                json_match = re.search(r'```(?:json)?\s*\n?(\{.*?\})\s*\n?```', response_text, re.DOTALL)
                 if json_match:
                     try:
                         json_data = json.loads(json_match.group(1))
                     except:
                         pass
-
+                
+                # 方法 2: 直接尋找 JSON 物件
                 if not json_data:
                     start_idx = response_text.find('{')
                     end_idx = response_text.rfind('}')
-                    if start_idx != -1 and end_idx != -1:
+                    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
                         try:
                             json_str = response_text[start_idx:end_idx+1]
                             json_data = json.loads(json_str)
                         except:
                             pass
 
-                if json_data:
-                    # 初始化或合併 current_data
-                    if st.session_state.tab1_current_data is None:
-                        st.session_state.tab1_current_data = {
-                            'ref': json_data.get('ref', selected_ref),
-                            'chinese': '',
-                            'english': '',
-                            'japanese': '',
-                            'korean': '',
-                            'thai': '',
-                            'grammar': {
-                                'english': default_multilang_data["來6:3"]['grammar']['english'],
-                                'thai': default_multilang_data["來6:3"]['grammar']['thai'],
-                                'japanese': default_multilang_data["來6:3"]['grammar']['japanese'],
-                                'korean': default_multilang_data["來6:3"]['grammar']['korean']
-                            }
+                if not json_data:
+                    raise ValueError("AI 回傳格式錯誤，無法解析 JSON。請再點一次 🍄 或 🌸 重試")
+
+                # 初始化或合併 current_data
+                if st.session_state.tab1_current_data is None:
+                    st.session_state.tab1_current_data = {
+                        'ref': json_data.get('ref', selected_ref),
+                        'chinese': '',
+                        'english': '',
+                        'japanese': '',
+                        'korean': '',
+                        'thai': '',
+                        'grammar': {
+                            'english': default_multilang_data["來6:3"]['grammar']['english'],
+                            'thai': default_multilang_data["來6:3"]['grammar']['thai'],
+                            'japanese': default_multilang_data["來6:3"]['grammar']['japanese'],
+                            'korean': default_multilang_data["來6:3"]['grammar']['korean']
                         }
-
-                    current_data = st.session_state.tab1_current_data
-                    current_data['ref'] = json_data.get('ref', selected_ref)
-
-                    if display_mode == "en-th":
-                        current_data['chinese'] = json_data.get('chinese', current_data.get('chinese', ''))
-                        current_data['english'] = json_data.get('english', current_data.get('english', ''))
-                        if 'grammar' in json_data and 'english' in json_data['grammar']:
-                            current_data['grammar']['english'] = json_data['grammar']['english']
-                    else:
-                        current_data['japanese'] = json_data.get('japanese', current_data.get('japanese', ''))
-                        current_data['korean'] = json_data.get('korean', current_data.get('korean', ''))
-                        current_data['thai'] = json_data.get('thai', current_data.get('thai', ''))
-                        if 'grammar' in json_data:
-                            if 'japanese' in json_data['grammar']:
-                                current_data['grammar']['japanese'] = json_data['grammar']['japanese']
-                            if 'korean' in json_data['grammar']:
-                                current_data['grammar']['korean'] = json_data['grammar']['korean']
-                            if 'thai' in json_data['grammar']:
-                                current_data['grammar']['thai'] = json_data['grammar']['thai']
-
-                    # 合併 AI 解析結果
-                    new_ai_result = {
-                        'vocabulary': json_data.get('vocabulary', []),
-                        'phrases': json_data.get('phrases', []),
-                        'segments': json_data.get('segments', [])
                     }
-                    if st.session_state.tab1_ai_result is None:
-                        st.session_state.tab1_ai_result = new_ai_result
-                    else:
-                        existing_words = {v['word'] for v in st.session_state.tab1_ai_result.get('vocabulary', [])}
-                        for v in new_ai_result.get('vocabulary', []):
-                            if v['word'] not in existing_words:
-                                st.session_state.tab1_ai_result['vocabulary'].append(v)
-                        existing_phrases = {p['phrase'] for p in st.session_state.tab1_ai_result.get('phrases', [])}
-                        for p in new_ai_result.get('phrases', []):
-                            if p['phrase'] not in existing_phrases:
-                                st.session_state.tab1_ai_result['phrases'].append(p)
-                        if new_ai_result.get('segments'):
-                            st.session_state.tab1_ai_result['segments'] = new_ai_result['segments']
 
-                    st.session_state.tab1_current_is_ai_generated = True
-                    st.session_state.tab1_display_mode = display_mode
+                current_data = st.session_state.tab1_current_data
+                current_data['ref'] = json_data.get('ref', selected_ref)
 
+                if display_mode == "en-th":
+                    current_data['chinese'] = json_data.get('chinese', current_data.get('chinese', ''))
+                    current_data['english'] = json_data.get('english', current_data.get('english', ''))
+                    if 'grammar' in json_data and 'english' in json_data['grammar']:
+                        current_data['grammar']['english'] = json_data['grammar']['english']
                 else:
-                    st.error("❌ AI 回傳格式錯誤，請再點一次 🍄 或 🌸 重試")
+                    current_data['japanese'] = json_data.get('japanese', current_data.get('japanese', ''))
+                    current_data['korean'] = json_data.get('korean', current_data.get('korean', ''))
+                    current_data['thai'] = json_data.get('thai', current_data.get('thai', ''))
+                    if 'grammar' in json_data:
+                        if 'japanese' in json_data['grammar']:
+                            current_data['grammar']['japanese'] = json_data['grammar']['japanese']
+                        if 'korean' in json_data['grammar']:
+                            current_data['grammar']['korean'] = json_data['grammar']['korean']
+                        if 'thai' in json_data['grammar']:
+                            current_data['grammar']['thai'] = json_data['grammar']['thai']
 
-            except Exception as e:
-                st.error(f"❌ AI 查詢失敗：{str(e)}")
+                # 合併 AI 解析結果
+                new_ai_result = {
+                    'vocabulary': json_data.get('vocabulary', []),
+                    'phrases': json_data.get('phrases', []),
+                    'segments': json_data.get('segments', [])
+                }
+                if st.session_state.tab1_ai_result is None:
+                    st.session_state.tab1_ai_result = new_ai_result
+                else:
+                    existing_words = {v['word'] for v in st.session_state.tab1_ai_result.get('vocabulary', [])}
+                    for v in new_ai_result.get('vocabulary', []):
+                        if v['word'] not in existing_words:
+                            st.session_state.tab1_ai_result['vocabulary'].append(v)
+                    existing_phrases = {p['phrase'] for p in st.session_state.tab1_ai_result.get('phrases', [])}
+                    for p in new_ai_result.get('phrases', []):
+                        if p['phrase'] not in existing_phrases:
+                            st.session_state.tab1_ai_result['phrases'].append(p)
+                    if new_ai_result.get('segments'):
+                        st.session_state.tab1_ai_result['segments'] = new_ai_result['segments']
 
-        st.session_state.tab1_ai_loading = False
-        st.session_state.tab1_trigger_group = None
-        st.rerun()
+                st.session_state.tab1_current_is_ai_generated = True
+                st.session_state.tab1_display_mode = display_mode
 
-    # ========== 顯示 AI 解析結果 + 存檔功能 ==========
+        except Exception as e:
+            error_msg = str(e)
+        finally:
+            # 確保狀態一定重置，避免卡住
+            st.session_state.tab1_ai_loading = False
+            st.session_state.tab1_trigger_group = None
+
+        if error_msg:
+            st.error(f"❌ AI 查詢失敗：{error_msg}")
+        else:
+            st.rerun()
+
+    # ========== 顯示 AI 解析結果 + 存檔功能（修正5,6,7：加入 Google Sheets 同步）==========
     if st.session_state.get('tab1_ai_result'):
         current_data = st.session_state.tab1_current_data
 
@@ -1840,27 +1859,37 @@ with tabs[0]:
                     if st.button(save_label, type="primary", key="save_ai_result"):
                         existing_data = st.session_state.sentences.get(existing_ref, {})
                         
-                        # 合併 v1_content
-                        v1_lines = []
-                        if existing_data.get('v1_content'):
-                            v1_lines = existing_data['v1_content'].strip().split('\n')
-                        new_v1 = f"{current_data['ref']}\t{current_data['english']}\t{current_data['chinese']}\t\t"
-                        if not v1_lines or v1_lines[0].startswith('Ref.'):
-                            v1_content = f"Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n{new_v1}"
-                        else:
-                            v1_content = existing_data.get('v1_content', f"Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar\n{new_v1}")
+                        # --- 合併 v1_content（中英組）---
+                        header_v1 = "Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar"
+                        new_v1_line = f"{current_data['ref']}\t{current_data.get('english','')}\t{current_data.get('chinese','')}\t\t"
                         
-                        # 合併 v2_content
-                        v2_lines = []
-                        if existing_data.get('v2_content'):
-                            v2_lines = existing_data['v2_content'].strip().split('\n')
-                        new_v2 = f"{current_data['ref']}\t{current_data['japanese']}\t\t\t{current_data['korean']}\t\t{current_data['thai']}"
-                        if not v2_lines or v2_lines[0].startswith('Ref.'):
-                            v2_content = f"Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n{new_v2}"
+                        if existing_data.get('v1_content', '').strip():
+                            v1_content = existing_data['v1_content'].strip()
+                            if not v1_content.startswith('Ref.'):
+                                v1_content = header_v1 + '\n' + v1_content
+                            lines = v1_content.split('\n')
+                            has_ref = any(line.startswith(current_data['ref'] + '\t') for line in lines[1:] if line.strip())
+                            if not has_ref:
+                                v1_content += '\n' + new_v1_line
                         else:
-                            v2_content = existing_data.get('v2_content', f"Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語\n{new_v2}")
+                            v1_content = header_v1 + '\n' + new_v1_line
                         
-                        # 合併 grammar
+                        # --- 合併 v2_content（日韓泰組）---
+                        header_v2 = "Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語"
+                        new_v2_line = f"{current_data['ref']}\t{current_data.get('japanese','')}\t\t\t{current_data.get('korean','')}\t\t{current_data.get('thai','')}"
+                        
+                        if existing_data.get('v2_content', '').strip():
+                            v2_content = existing_data['v2_content'].strip()
+                            if not v2_content.startswith('Ref.'):
+                                v2_content = header_v2 + '\n' + v2_content
+                            lines = v2_content.split('\n')
+                            has_ref = any(line.startswith(current_data['ref'] + '\t') for line in lines[1:] if line.strip())
+                            if not has_ref:
+                                v2_content += '\n' + new_v2_line
+                        else:
+                            v2_content = header_v2 + '\n' + new_v2_line
+                        
+                        # 合併 grammar JSON
                         existing_grammar = {}
                         try:
                             other_str = existing_data.get('other', '')
@@ -1868,17 +1897,12 @@ with tabs[0]:
                                 existing_grammar = json.loads(other_str)
                         except:
                             pass
-                        merged_grammar = {**existing_grammar, **current_data['grammar']}
+                        merged_grammar = {**existing_grammar, **current_data.get('grammar', {})}
                         
                         # 合併 AI 分析
                         existing_ai = existing_data.get('ai_analysis', {})
-                        merged_ai = {
-                            'vocabulary': [],
-                            'phrases': [],
-                            'segments': []
-                        }
+                        merged_ai = {'vocabulary': [], 'phrases': [], 'segments': []}
                         
-                        # 合併單字（去重複）
                         all_vocab = {}
                         for v in existing_ai.get('vocabulary', []):
                             all_vocab[v['word']] = v
@@ -1886,7 +1910,6 @@ with tabs[0]:
                             all_vocab[v['word']] = v
                         merged_ai['vocabulary'] = list(all_vocab.values())
                         
-                        # 合併片語（去重複）
                         all_phrases = {}
                         for p in existing_ai.get('phrases', []):
                             all_phrases[p['phrase']] = p
@@ -1894,7 +1917,6 @@ with tabs[0]:
                             all_phrases[p['phrase']] = p
                         merged_ai['phrases'] = list(all_phrases.values())
                         
-                        # 分段
                         merged_ai['segments'] = st.session_state.tab1_ai_result.get('segments', existing_ai.get('segments', []))
 
                         verse_data = {
@@ -1912,14 +1934,29 @@ with tabs[0]:
                             "ai_analysis": merged_ai
                         }
 
+                        # 1. 存到 session_state
                         if 'sentences' not in st.session_state:
                             st.session_state.sentences = {}
                         st.session_state.sentences[existing_ref] = verse_data
+                        
+                        # 2. 存到本地 JSON
                         save_sentences(st.session_state.sentences)
+                        
+                        # 3. 同步到 Google Sheets
+                        gs_msg = ""
+                        try:
+                            success, msg = save_to_google_sheets(verse_data)
+                            if success:
+                                gs_msg = "（含 Google Sheets）"
+                            else:
+                                if "已存在" in msg:
+                                    gs_msg = "（Google Sheets 已有此資料，僅更新本地）"
+                                else:
+                                    gs_msg = f"（Google Sheets 失敗：{msg}）"
+                        except Exception as e:
+                            gs_msg = f"（Google Sheets 異常：{e}）"
 
-                        multilang_db[existing_ref] = current_data.copy()
-
-                        st.success(f"✅ {'已更新' if is_already_saved else '已存檔'}：{existing_ref}")
+                        st.success(f"✅ {'已更新' if is_already_saved else '已存檔'}：{existing_ref} {gs_msg}")
                         st.session_state.tab1_current_is_ai_generated = False
                         st.balloons()
                         st.rerun()
@@ -1962,10 +1999,9 @@ with tabs[0]:
 
     if current is None:
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        if st.session_state.tab1_selected_ref:
-            st.info(f"⏳ 已輸入「{st.session_state.tab1_selected_ref}」，請點擊 🍄 或 🌸 進行查詢")
-        else:
-            st.info("📖 請輸入經文（如：來6:3）或選擇已存檔經文")
+        # ✅ 修正3：移除藍框提示，改為空白或極簡提示
+        if not st.session_state.tab1_selected_ref:
+            st.markdown("<div style='color:#999; font-size:13px; text-align:center; padding:20px;'>請輸入經文後點擊 🍄 或 🌸</div>", unsafe_allow_html=True)
 
     else:
         # 顯示經文標題
