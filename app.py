@@ -1,4 +1,4 @@
-# ===================================================================
+===================================================================
 # 0. 套件（統一最頂）
 # ===================================================================
 import streamlit as st
@@ -453,6 +453,20 @@ def save_favorites():
     data["favorites"] = st.session_state.favorite_sentences
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def save_sentences(data):
+    """儲存 sentences 到本地 JSON 檔案"""
+    if not isinstance(data, dict):
+        st.error("儲存失敗：資料必須是字典格式")
+        return False
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(SENTENCES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"儲存本地資料庫失敗：{e}")
+        return False
 
 # ===================================================================
 # 頁面設定（必須是第一個 st. 指令！）
@@ -1228,7 +1242,7 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（AI解析式交互版 - 完整修復版 v9）
+# 3. TAB1 ─ 書桌（AI解析式交互版 - 完整修復版 v10）
 # ===================================================================
 with tabs[0]:
     # ========== 強制清除舊版本衝突的 Session State ==========
@@ -1444,7 +1458,9 @@ with tabs[0]:
             color: #000;
             font-weight: bold;
             font-size: 16px;
-            margin-bottom: 4px;
+            margin-bottom: 0px !important;
+            padding-bottom: 0px !important;
+            line-height: 1.0 !important;
         }
         .breakdown-text {
             font-size: 12px;
@@ -1468,11 +1484,10 @@ with tabs[0]:
     saved_refs = list(st.session_state.get('sentences', {}).keys())
     has_saved = len(saved_refs) > 0
 
-    # ✅ 修正1：🍄 和 🌸 移到輸入欄前面
     control_cols = st.columns([0.4, 0.4, 1.8, 0.4, 0.4, 1.2, 0.4])
 
     with control_cols[0]:
-        mushroom_clicked = st.button("🍄", key="mushroom_btn", help="AI查詢中英組")
+        mushroom_clicked = st.button("🍄", key="mushroom_btn", help="AI查詢中英泰組")
         if mushroom_clicked:
             search_val = st.session_state.get('verse_search_compact', '')
             if not search_val:
@@ -1489,7 +1504,7 @@ with tabs[0]:
                 st.rerun()
 
     with control_cols[1]:
-        sakura_clicked = st.button("🌸", key="sakura_btn", help="AI查詢日韓泰組")
+        sakura_clicked = st.button("🌸", key="sakura_btn", help="AI查詢日韓組")
         if sakura_clicked:
             search_val = st.session_state.get('verse_search_compact', '')
             if not search_val:
@@ -1516,7 +1531,7 @@ with tabs[0]:
         )
 
     with control_cols[3]:
-        mushroom_call = st.button("🍄📂", key="mushroom_call_btn", help="叫出中英組存檔")
+        mushroom_call = st.button("🍄📂", key="mushroom_call_btn", help="叫出中英泰組存檔")
         if mushroom_call:
             selected_saved = st.session_state.get('verse_search_compact', '') or st.session_state.get('saved_verse_selector', '')
             if not selected_saved:
@@ -1531,10 +1546,10 @@ with tabs[0]:
                     'english': data.get('english', ''),
                     'japanese': '',
                     'korean': '',
-                    'thai': '',
+                    'thai': data.get('thai', ''),
                     'grammar': {
                         'english': data['grammar'].get('english', default_multilang_data["來6:3"]['grammar']['english']),
-                        'thai': default_multilang_data["來6:3"]['grammar']['thai'],
+                        'thai': data['grammar'].get('thai', default_multilang_data["來6:3"]['grammar']['thai']),
                         'japanese': default_multilang_data["來6:3"]['grammar']['japanese'],
                         'korean': default_multilang_data["來6:3"]['grammar']['korean']
                     }
@@ -1548,7 +1563,7 @@ with tabs[0]:
                 st.rerun()
 
     with control_cols[4]:
-        sakura_call = st.button("🌸📂", key="sakura_call_btn", help="叫出日韓泰組存檔")
+        sakura_call = st.button("🌸📂", key="sakura_call_btn", help="叫出日韓組存檔")
         if sakura_call:
             selected_saved = st.session_state.get('verse_search_compact', '') or st.session_state.get('saved_verse_selector', '')
             if not selected_saved:
@@ -1563,10 +1578,10 @@ with tabs[0]:
                     'english': data.get('english', ''),
                     'japanese': data.get('japanese', ''),
                     'korean': data.get('korean', ''),
-                    'thai': data.get('thai', ''),
+                    'thai': '',
                     'grammar': {
                         'english': data['grammar'].get('english', default_multilang_data["來6:3"]['grammar']['english']),
-                        'thai': data['grammar'].get('thai', default_multilang_data["來6:3"]['grammar']['thai']),
+                        'thai': default_multilang_data["來6:3"]['grammar']['thai'],
                         'japanese': data['grammar'].get('japanese', default_multilang_data["來6:3"]['grammar']['japanese']),
                         'korean': data['grammar'].get('korean', default_multilang_data["來6:3"]['grammar']['korean'])
                     }
@@ -1612,17 +1627,15 @@ with tabs[0]:
             else:
                 st.error("❌ 找不到該經文資料")
 
-    # ✅ 修正2：移除灰色狀態提示（已刪除 st.caption 區塊）
-
     st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
 
-    # ========== AI 查詢處理（修正4：強化錯誤處理與狀態重置）==========
+    # ========== AI 查詢處理 ==========
     if st.session_state.get('tab1_ai_loading', False) and st.session_state.tab1_selected_ref:
         selected_ref = st.session_state.tab1_selected_ref
         display_mode = st.session_state.tab1_trigger_group
         error_msg = None
 
-        group_name = "中英組" if display_mode == "en-th" else "日韓泰組"
+        group_name = "中英泰組" if display_mode == "en-th" else "日韓組"
         
         try:
             with st.spinner(f"🍄 AI 查詢 {selected_ref}【{group_name}】..."):
@@ -1639,23 +1652,37 @@ with tabs[0]:
                 model = genai.GenerativeModel(target_model_name)
 
                 if display_mode == "en-th":
+                    # 🍄組：中英泰 + 英文文法 + 泰文文法
                     verse_query_prompt = f"""
                     請查詢聖經經文「{selected_ref}」的以下資料，以 JSON 格式回傳。
-                    只需要英文和中文，不需要日文、韓文、泰文。
+                    需要英文、中文、泰文，不需要日文、韓文。
 
                     提供：
                     1. 中文經文（和合本）
                     2. 英文經文（ESV）
-                    3. 英文文法分析（分①和②兩句，並提供3個重點文法點）
+                    3. 泰文經文（THSV11）
+                    4. 英文文法分析（分①和②兩句，並提供3個重點文法點）
+                    5. 泰文文法分析（分①②兩句 + 3個重點文法點）
 
                     嚴格使用以下 JSON 格式（只回傳 JSON，不要其他文字）：
                     {{
                         "ref": "{selected_ref}",
                         "chinese": "中文經文",
                         "english": "英文經文",
+                        "thai": "泰文經文",
                         "grammar": {{
                             "english": {{
                                 "full": "完整英文句",
+                                "upper": {{"title": "①", "content": "...", "breakdown": "..."}},
+                                "lower": {{"title": "②", "content": "...", "breakdown": "..."}},
+                                "points": [
+                                    {{"label": "A", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
+                                    {{"label": "B", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
+                                    {{"label": "C", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}}
+                                ]
+                            }},
+                            "thai": {{
+                                "full": "完整泰文句",
                                 "upper": {{"title": "①", "content": "...", "breakdown": "..."}},
                                 "lower": {{"title": "②", "content": "...", "breakdown": "..."}},
                                 "points": [
@@ -1677,24 +1704,22 @@ with tabs[0]:
                     }}
                     """
                 else:
+                    # 🌸組：日韓 + 日文文法 + 韓文文法（不含泰文）
                     verse_query_prompt = f"""
                     請查詢聖經經文「{selected_ref}」的以下資料，以 JSON 格式回傳。
-                    只需要日文、韓文、泰文，不需要英文、中文。
+                    只需要日文、韓文，不需要英文、中文、泰文。
 
                     提供：
                     1. 日文經文（口語訳）
                     2. 韓文經文（KRF）
-                    3. 泰文經文（THSV11）
-                    4. 日文文法分析（分①②兩句 + 3個重點文法點）
-                    5. 韓文文法分析（分①②兩句 + 3個重點文法點）
-                    6. 泰文文法分析（分①②兩句 + 3個重點文法點）
+                    3. 日文文法分析（分①②兩句 + 3個重點文法點）
+                    4. 韓文文法分析（分①②兩句 + 3個重點文法點）
 
                     嚴格使用以下 JSON 格式（只回傳 JSON，不要其他文字）：
                     {{
                         "ref": "{selected_ref}",
                         "japanese": "日文經文",
                         "korean": "韓文經文",
-                        "thai": "泰文經文",
                         "grammar": {{
                             "japanese": {{
                                 "full": "完整日文句",
@@ -1708,16 +1733,6 @@ with tabs[0]:
                             }},
                             "korean": {{
                                 "full": "完整韓文句",
-                                "upper": {{"title": "①", "content": "...", "breakdown": "..."}},
-                                "lower": {{"title": "②", "content": "...", "breakdown": "..."}},
-                                "points": [
-                                    {{"label": "A", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
-                                    {{"label": "B", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}},
-                                    {{"label": "C", "rule": "...", "pattern": "...", "example": "...", "trans": "..."}}
-                                ]
-                            }},
-                            "thai": {{
-                                "full": "完整泰文句",
                                 "upper": {{"title": "①", "content": "...", "breakdown": "..."}},
                                 "lower": {{"title": "②", "content": "...", "breakdown": "..."}},
                                 "points": [
@@ -1750,7 +1765,6 @@ with tabs[0]:
                 # 解析 JSON（多種嘗試）
                 json_data = None
                 
-                # 方法 1: markdown 代碼塊
                 json_match = re.search(r'```(?:json)?\s*\n?(\{.*?\})\s*\n?```', response_text, re.DOTALL)
                 if json_match:
                     try:
@@ -1758,7 +1772,6 @@ with tabs[0]:
                     except:
                         pass
                 
-                # 方法 2: 直接尋找 JSON 物件
                 if not json_data:
                     start_idx = response_text.find('{')
                     end_idx = response_text.rfind('}')
@@ -1795,19 +1808,20 @@ with tabs[0]:
                 if display_mode == "en-th":
                     current_data['chinese'] = json_data.get('chinese', current_data.get('chinese', ''))
                     current_data['english'] = json_data.get('english', current_data.get('english', ''))
-                    if 'grammar' in json_data and 'english' in json_data['grammar']:
-                        current_data['grammar']['english'] = json_data['grammar']['english']
+                    current_data['thai'] = json_data.get('thai', current_data.get('thai', ''))
+                    if 'grammar' in json_data:
+                        if 'english' in json_data['grammar']:
+                            current_data['grammar']['english'] = json_data['grammar']['english']
+                        if 'thai' in json_data['grammar']:
+                            current_data['grammar']['thai'] = json_data['grammar']['thai']
                 else:
                     current_data['japanese'] = json_data.get('japanese', current_data.get('japanese', ''))
                     current_data['korean'] = json_data.get('korean', current_data.get('korean', ''))
-                    current_data['thai'] = json_data.get('thai', current_data.get('thai', ''))
                     if 'grammar' in json_data:
                         if 'japanese' in json_data['grammar']:
                             current_data['grammar']['japanese'] = json_data['grammar']['japanese']
                         if 'korean' in json_data['grammar']:
                             current_data['grammar']['korean'] = json_data['grammar']['korean']
-                        if 'thai' in json_data['grammar']:
-                            current_data['grammar']['thai'] = json_data['grammar']['thai']
 
                 # 合併 AI 解析結果
                 new_ai_result = {
@@ -1835,7 +1849,6 @@ with tabs[0]:
         except Exception as e:
             error_msg = str(e)
         finally:
-            # 確保狀態一定重置，避免卡住
             st.session_state.tab1_ai_loading = False
             st.session_state.tab1_trigger_group = None
 
@@ -1844,7 +1857,7 @@ with tabs[0]:
         else:
             st.rerun()
 
-    # ========== 顯示 AI 解析結果 + 存檔功能（修正5,6,7：加入 Google Sheets 同步）==========
+    # ========== 顯示 AI 解析結果 + 存檔功能 ==========
     if st.session_state.get('tab1_ai_result'):
         current_data = st.session_state.tab1_current_data
 
@@ -1859,7 +1872,7 @@ with tabs[0]:
                     if st.button(save_label, type="primary", key="save_ai_result"):
                         existing_data = st.session_state.sentences.get(existing_ref, {})
                         
-                        # --- 合併 v1_content（中英組）---
+                        # --- 合併 v1_content（中英）---
                         header_v1 = "Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar"
                         new_v1_line = f"{current_data['ref']}\t{current_data.get('english','')}\t{current_data.get('chinese','')}\t\t"
                         
@@ -1874,7 +1887,7 @@ with tabs[0]:
                         else:
                             v1_content = header_v1 + '\n' + new_v1_line
                         
-                        # --- 合併 v2_content（日韓泰組）---
+                        # --- 合併 v2_content（日韓泰）---
                         header_v2 = "Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語"
                         new_v2_line = f"{current_data['ref']}\t{current_data.get('japanese','')}\t\t\t{current_data.get('korean','')}\t\t{current_data.get('thai','')}"
                         
@@ -1939,7 +1952,7 @@ with tabs[0]:
                             st.session_state.sentences = {}
                         st.session_state.sentences[existing_ref] = verse_data
                         
-                        # 2. 存到本地 JSON
+                        # 2. 存到本地 JSON（★★★ 務必確認 save_sentences 函數已存在）
                         save_sentences(st.session_state.sentences)
                         
                         # 3. 同步到 Google Sheets
@@ -1999,7 +2012,6 @@ with tabs[0]:
 
     if current is None:
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        # ✅ 修正3：移除藍框提示，改為空白或極簡提示
         if not st.session_state.tab1_selected_ref:
             st.markdown("<div style='color:#999; font-size:13px; text-align:center; padding:20px;'>請輸入經文後點擊 🍄 或 🌸</div>", unsafe_allow_html=True)
 
@@ -2009,6 +2021,141 @@ with tabs[0]:
         chinese_text = current.get('chinese', '')
         st.markdown(f"<h3 style='font-size: 22px; font-weight: bold; color: #000; margin: 10px 0; font-family: \"Microsoft JhengHei\", \"PingFang TC\", sans-serif;'>{ref_short}{chinese_text}</h3>", unsafe_allow_html=True)
 
+        # ========== 左右並排顯示雙語 ==========
+        if st.session_state.tab1_display_mode == "en-th":
+            col_left, col_right = st.columns(2)
+
+            # 🇬🇧 英文（左）
+            with col_left:
+                if current.get('english'):
+                    eng = current['grammar']['english']
+                    st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px; font-family: \"Microsoft JhengHei\", sans-serif;'>🇬🇧 {eng['full']}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="verse-num">①{eng['upper']['content']}</div>
+                        <div class="breakdown-text">{eng['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="verse-num">②{eng['lower']['content']}</div>
+                        <div class="breakdown-text">{eng['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>重點文法：</div>", unsafe_allow_html=True)
+                    for p in eng['points']:
+                        st.markdown(f"""
+                        <div class="grammar-box">
+                            <span style="font-weight: bold; color: #000;">{p['label']})</span> {p['rule']}<br>
+                            <span style="color: #666;">{p['pattern']}</span><br>
+                            <span style="color: #333;">Ex: {p['example']} {p['trans']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+
+            # 🇹🇭 泰文（右）— 與中英同一組
+            with col_right:
+                if current.get('thai'):
+                    th = current['grammar']['thai']
+                    st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px; font-family: \"Microsoft JhengHei\", sans-serif;'>🇹🇭 {th['full']}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="verse-num">①{th['upper']['content']}</div>
+                        <div class="breakdown-text">{th['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="verse-num">②{th['lower']['content']}</div>
+                        <div class="breakdown-text">{th['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>重要文法：</div>", unsafe_allow_html=True)
+                    for p in th['points']:
+                        st.markdown(f"""
+                        <div class="grammar-box">
+                            <span style="font-weight: bold; color: #000;">{p['label']})</span> {p['rule']}<br>
+                            <span style="color: #666;">{p['pattern']}</span><br>
+                            <span style="color: #333;">Ex: {p['example']} 👉 {p['trans']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    # ✅ 修正1：刪除「泰文資料尚未查詢」提示，改為空白
+                    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+
+        else:  # jp-kr 模式（🌸組：日韓，無泰文）
+            col_left, col_right = st.columns(2)
+
+            # 🇯🇵 日文（左）
+            with col_left:
+                if current.get('japanese'):
+                    jp = current['grammar']['japanese']
+                    st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px; font-family: \"Microsoft JhengHei\", sans-serif;'>🇯🇵 {jp['full']}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="verse-num">①{jp['upper']['content']}</div>
+                        <div class="breakdown-text">{jp['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="verse-num">②{jp['lower']['content']}</div>
+                        <div class="breakdown-text">{jp['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>文法解說：</div>", unsafe_allow_html=True)
+                    for p in jp['points']:
+                        pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
+                        st.markdown(f"""
+                        <div class="grammar-box">
+                            <span style="font-weight: bold; color: #000;">{p['label']})</span> {p['rule']}{pat}<br>
+                            <span style="color: #333;">Ex: {p['example']} {p['trans']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+
+            # 🇰🇷 韓文（右）
+            with col_right:
+                if current.get('korean'):
+                    kr = current['grammar']['korean']
+                    st.markdown(f"<div style='font-size: 17px; margin-bottom: 12px; font-family: \"Microsoft JhengHei\", sans-serif;'>🇰🇷 {kr['full']}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box">
+                        <div class="verse-num">①{kr['upper']['content']}</div>
+                        <div class="breakdown-text">{kr['upper']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="snoopy-box-dashed">
+                        <div class="verse-num">②{kr['lower']['content']}</div>
+                        <div class="breakdown-text">{kr['lower']['breakdown']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0; color: #000;'>重要文法解說：</div>", unsafe_allow_html=True)
+                    for p in kr['points']:
+                        pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
+                        st.markdown(f"""
+                        <div class="grammar-box">
+                            <span style="font-weight: bold; color: #000;">{p['label']})</span> {p['rule']}{pat}<br>
+                            <span style="color: #333;">Ex: {p['example']} {p['trans']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
         # ========== 左右並排顯示雙語 ==========
         if st.session_state.tab1_display_mode == "en-th":
             col_left, col_right = st.columns(2)
