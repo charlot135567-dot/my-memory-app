@@ -1242,22 +1242,16 @@ div[data-testid="stMarkdownContainer"] p {
 tabs = st.tabs(["🏠 書桌", "📓 筆記", "✍️ 挑戰", "🔮 AI解析", "📂 資料庫"])
 
 # ===================================================================
-# 3. TAB1 ─ 書桌（手動貼上版 v12 - 極簡介面）
+# 3. TAB1 ─ 書桌（極簡版 v14 - 資料與同步分離）
 # ===================================================================
 with tabs[0]:
     # ========== 初始化 Session State ==========
-    if "tab1_selected_ref" not in st.session_state:
-        st.session_state.tab1_selected_ref = ""
-    if "tab1_search" not in st.session_state:
-        st.session_state.tab1_search = ""
     if "tab1_current_data" not in st.session_state:
         st.session_state.tab1_current_data = None
-    if "tab1_use_local" not in st.session_state:
-        st.session_state.tab1_use_local = False
 
     sentences = st.session_state.get('sentences', {})
 
-    # ========== 多語言資料庫（結構模板）==========
+    # ========== 多語言預設資料庫（結構模板）==========
     default_multilang_data = {
         "來6:3": {
             "ref": "Heb 6:3",
@@ -1311,52 +1305,52 @@ with tabs[0]:
         }
     }
 
-    # 資料解析函數
-    def parse_verse_data(data):
-        multilang_data = {}
-        for ref, content_data in data.items():
-            v1_content = content_data.get('v1_content', '')
-            v2_content = content_data.get('v2_content', '')
-            v1_rows, v2_rows = [], []
-            if v1_content:
-                lines = v1_content.strip().split('\n')
-                for line in lines[1:]:
-                    if '\t' in line:
-                        cols = line.split('\t')
-                        if len(cols) >= 3:
-                            v1_rows.append({'ref': cols[0], 'english': cols[1], 'chinese': cols[2]})
-            if v2_content:
-                lines = v2_content.strip().split('\n')
-                for line in lines[1:]:
-                    if '\t' in line:
-                        cols = line.split('\t')
-                        if len(cols) >= 7:
-                            v2_rows.append({'ref': cols[0], 'japanese': cols[1], 'korean': cols[4], 'thai': cols[6]})
-            for i, v1 in enumerate(v1_rows):
-                v2 = v2_rows[i] if i < len(v2_rows) else {}
-                key = v1.get('ref', ref)
-                grammar_data = default_multilang_data["來6:3"]['grammar']
-                try:
-                    other_str = content_data.get('other', '')
-                    if other_str and other_str.strip():
-                        loaded = json.loads(other_str)
-                        if isinstance(loaded, dict) and 'english' in loaded:
-                            grammar_data = loaded
-                except Exception:
-                    pass
-                
-                multilang_data[key] = {
-                    'ref': key,
-                    'chinese': v1.get('chinese', ''),
-                    'english': v1.get('english', ''),
-                    'japanese': v2.get('japanese', '') if v2 else '',
-                    'korean': v2.get('korean', '') if v2 else '',
-                    'thai': v2.get('thai', '') if v2 else '',
-                    'grammar': grammar_data
-                }
-        return multilang_data
+    # ========== 資料轉換函數（Sheets 專用，與 TAB1 顯示邏輯分離）==========
+    def build_sheet_payload(clean_data: dict) -> dict:
+        """將乾淨資料組裝成 Google Sheets 所需的 v1/v2 格式"""
+        ref = clean_data['ref']
+        chinese = clean_data.get('chinese', '')
+        english = clean_data.get('english', '')
+        japanese = clean_data.get('japanese', '')
+        korean = clean_data.get('korean', '')
+        thai = clean_data.get('thai', '')
+        grammar = clean_data.get('grammar', {})
 
-    multilang_db = parse_verse_data(sentences) if sentences else {}
+        header_v1 = "Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar"
+        v1_content = header_v1 + f"\n{ref}\t{english}\t{chinese}\t\t"
+
+        header_v2 = "Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語"
+        v2_content = header_v2 + f"\n{ref}\t{japanese}\t\t\t{korean}\t\t{thai}"
+
+        return {
+            "ref": ref,
+            "type": "Scripture",
+            "mode": "A",
+            "v1_content": v1_content,
+            "v2_content": v2_content,
+            "w_sheet": "",
+            "p_sheet": "",
+            "grammar_list": "",
+            "other": json.dumps(grammar, ensure_ascii=False),
+            "saved_sheets": ["V1 Sheet", "V2 Sheet"],
+            "date_added": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "ai_analysis": {
+                'vocabulary': clean_data.get('vocabulary', []),
+                'phrases': clean_data.get('phrases', []),
+                'segments': clean_data.get('segments', [])
+            }
+        }
+
+    def sync_verse_to_sheets(ref: str):
+        """同步指定經文到 Google Sheets（獨立呼叫）"""
+        if ref not in sentences:
+            return False, "找不到該經文"
+        payload = build_sheet_payload(sentences[ref])
+        try:
+            success, msg = save_to_google_sheets(payload)
+            return success, msg
+        except Exception as e:
+            return False, str(e)
 
     # ========== CSS 樣式 ==========
     st.markdown("""
@@ -1377,12 +1371,6 @@ with tabs[0]:
             border-radius: 8px;
             margin-bottom: 8px;
             border: 2px dashed #999;
-        }
-        .verse-text-red {
-            color: #c53030;
-            font-size: 20px;
-            font-weight: bold;
-            line-height: 1.6;
         }
         .verse-num {
             color: #000;
@@ -1405,83 +1393,31 @@ with tabs[0]:
             border: 1px solid #ccc;
             font-size: 13px;
         }
+        .analysis-box {
+            background: #fafafa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #666;
+            margin-bottom: 8px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # ========== 控制列（無 Title）==========
-    st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
-
-    saved_refs = list(st.session_state.get('sentences', {}).keys())
+    # ========== 呼叫控制列 ==========
+    saved_refs = list(sentences.keys())
     has_saved = len(saved_refs) > 0
 
-    control_cols = st.columns([2.5, 0.8, 0.8, 1.2, 0.6])
+    call_cols = st.columns([1, 1, 2, 1])
 
-    with control_cols[0]:
-        st.text_input(
-            "",
-            value=st.session_state.tab1_search,
-            placeholder="例：弗1:5 或 來6:3",
-            label_visibility="collapsed",
-            key="verse_search_compact"
-        )
+    with call_cols[0]:
+        if st.button("🍄📂 中英泰", key="mushroom_call_btn", use_container_width=True):
+            st.session_state.call_mode = "en-th"
 
-    with control_cols[1]:
-        if st.button("🍄📂", key="mushroom_call_btn", help="叫出中英泰存檔"):
-            selected = st.session_state.get('verse_search_compact', '')
-            if not selected:
-                st.warning("⚠️ 請先輸入經文出處")
-            elif selected not in multilang_db:
-                st.error(f"❌ {selected} 無存檔資料")
-            else:
-                data = multilang_db[selected].copy()
-                st.session_state.tab1_current_data = {
-                    'ref': data['ref'],
-                    'chinese': data.get('chinese', ''),
-                    'english': data.get('english', ''),
-                    'japanese': '',
-                    'korean': '',
-                    'thai': data.get('thai', ''),
-                    'grammar': {
-                        'english': data['grammar'].get('english', default_multilang_data["來6:3"]['grammar']['english']),
-                        'thai': data['grammar'].get('thai', default_multilang_data["來6:3"]['grammar']['thai']),
-                        'japanese': default_multilang_data["來6:3"]['grammar']['japanese'],
-                        'korean': default_multilang_data["來6:3"]['grammar']['korean']
-                    }
-                }
-                st.session_state.tab1_use_local = True
-                st.session_state.tab1_selected_ref = selected
-                st.session_state.tab1_search = selected
-                st.rerun()
+    with call_cols[1]:
+        if st.button("🌸📂 日韓", key="sakura_call_btn", use_container_width=True):
+            st.session_state.call_mode = "jp-kr"
 
-    with control_cols[2]:
-        if st.button("🌸📂", key="sakura_call_btn", help="叫出日韓存檔"):
-            selected = st.session_state.get('verse_search_compact', '')
-            if not selected:
-                st.warning("⚠️ 請先輸入經文出處")
-            elif selected not in multilang_db:
-                st.error(f"❌ {selected} 無存檔資料")
-            else:
-                data = multilang_db[selected].copy()
-                st.session_state.tab1_current_data = {
-                    'ref': data['ref'],
-                    'chinese': data.get('chinese', ''),
-                    'english': data.get('english', ''),
-                    'japanese': data.get('japanese', ''),
-                    'korean': data.get('korean', ''),
-                    'thai': '',
-                    'grammar': {
-                        'english': data['grammar'].get('english', default_multilang_data["來6:3"]['grammar']['english']),
-                        'thai': default_multilang_data["來6:3"]['grammar']['thai'],
-                        'japanese': data['grammar'].get('japanese', default_multilang_data["來6:3"]['grammar']['japanese']),
-                        'korean': data['grammar'].get('korean', default_multilang_data["來6:3"]['grammar']['korean'])
-                    }
-                }
-                st.session_state.tab1_use_local = True
-                st.session_state.tab1_selected_ref = selected
-                st.session_state.tab1_search = selected
-                st.rerun()
-
-    with control_cols[3]:
+    with call_cols[2]:
         if has_saved:
             selected_saved = st.selectbox(
                 "",
@@ -1490,51 +1426,84 @@ with tabs[0]:
                 label_visibility="collapsed",
                 key="saved_verse_selector"
             )
-            if selected_saved:
-                st.session_state.tab1_selected_ref = selected_saved
-                st.session_state.tab1_search = selected_saved
-                st.session_state.tab1_use_local = True
-                if selected_saved in multilang_db:
-                    st.session_state.tab1_current_data = multilang_db[selected_saved].copy()
-                st.rerun()
         else:
             st.caption("📂 無存檔")
 
-    with control_cols[4]:
-        if st.button("📞", key="call_btn", help="叫出完整存檔"):
-            selected = st.session_state.get('saved_verse_selector', '') or st.session_state.get('verse_search_compact', '')
-            if selected and selected in multilang_db:
-                st.session_state.tab1_selected_ref = selected
-                st.session_state.tab1_search = selected
-                st.session_state.tab1_use_local = True
-                st.session_state.tab1_current_data = multilang_db[selected].copy()
+    with call_cols[3]:
+        if st.button("📞 叫出", key="call_btn", use_container_width=True):
+            selected = st.session_state.get('saved_verse_selector', '')
+            if selected and selected in sentences:
+                data = sentences[selected].copy()
+                call_mode = st.session_state.get('call_mode', 'en-th')
+
+                # 確保 grammar 結構完整
+                grammar = data.get('grammar', {})
+                for lang in ['english', 'thai', 'japanese', 'korean']:
+                    if lang not in grammar:
+                        grammar[lang] = default_multilang_data["來6:3"]['grammar'][lang]
+
+                if call_mode == "en-th":
+                    st.session_state.tab1_current_data = {
+                        'ref': data['ref'],
+                        'chinese': data.get('chinese', ''),
+                        'english': data.get('english', ''),
+                        'japanese': '',
+                        'korean': '',
+                        'thai': data.get('thai', ''),
+                        'grammar': {
+                            'english': grammar.get('english', {}),
+                            'thai': grammar.get('thai', {}),
+                            'japanese': default_multilang_data["來6:3"]['grammar']['japanese'],
+                            'korean': default_multilang_data["來6:3"]['grammar']['korean']
+                        },
+                        'vocabulary': data.get('vocabulary', []),
+                        'phrases': data.get('phrases', []),
+                        'segments': data.get('segments', [])
+                    }
+                else:
+                    st.session_state.tab1_current_data = {
+                        'ref': data['ref'],
+                        'chinese': data.get('chinese', ''),
+                        'english': data.get('english', ''),
+                        'japanese': data.get('japanese', ''),
+                        'korean': data.get('korean', ''),
+                        'thai': '',
+                        'grammar': {
+                            'english': grammar.get('english', {}),
+                            'thai': default_multilang_data["來6:3"]['grammar']['thai'],
+                            'japanese': grammar.get('japanese', {}),
+                            'korean': grammar.get('korean', {})
+                        },
+                        'vocabulary': data.get('vocabulary', []),
+                        'phrases': data.get('phrases', []),
+                        'segments': data.get('segments', [])
+                    }
                 st.rerun()
             elif not selected:
-                st.warning("⚠️ 請先輸入或選擇經文")
+                st.warning("⚠️ 請先選擇經文")
             else:
                 st.error("❌ 找不到該經文資料")
 
     st.markdown("<hr style='margin: 5px 0; border-color: #eee;'>", unsafe_allow_html=True)
 
-    # ========== 手動貼上區（極簡版）==========
-    with st.form("manual_json_form"):
+    # ========== 貼上存檔區（純本地，不組裝 v1/v2，不自動同步 Sheets）==========
+    with st.form("paste_form"):
         st.text_area(
             "貼上AI解析資料📃",
-            height=300,
-            placeholder='在此貼上 Google AI 生成的完整 JSON 分析結果...\n\n格式範例：\n{"ref":"弗1:5","chinese":"...","english":"...","thai":"...","japanese":"...","korean":"...","grammar":{...},"vocabulary":[...],"phrases":[...],"segments":[...]}',
+            height=250,
+            placeholder='在此貼上 Google AI 生成的完整 JSON...\n\n{"ref":"弗1:5","chinese":"...","english":"...","thai":"...","japanese":"...","korean":"...","grammar":{...},"vocabulary":[...],"phrases":[...],"segments":[...]}',
             key="json_input"
         )
-        
-        # 選擇存入哪個 Sheet（無 Title，只有按鈕說明）
-        save_mode = st.radio(
-            "",
-            ["🍄 中英泰組", "🌸 日韓組"],
-            horizontal=True,
-            label_visibility="collapsed",
-            help="選擇資料存入 Google Sheets 的哪個工作表"
-        )
-        
-        submitted = st.form_submit_button("💾 存檔", type="primary")
+
+        save_cols = st.columns([1, 1, 2])
+
+        with save_cols[0]:
+            save_en_th = st.form_submit_button("💾 存至🍄中英泰", use_container_width=True)
+        with save_cols[1]:
+            save_jp_kr = st.form_submit_button("💾 存至🌸日韓", use_container_width=True)
+
+        submitted = save_en_th or save_jp_kr
+
         if submitted:
             json_input = st.session_state.get('json_input', '').strip()
             if not json_input:
@@ -1544,84 +1513,87 @@ with tabs[0]:
                     data = json.loads(json_input)
                     ref_input = data.get('ref', '')
                     if not ref_input:
-                        st.error("JSON 中缺少 ref 欄位（經文出處）")
+                        st.error("JSON 中缺少 ref 欄位")
                         st.stop()
-                    
-                    # 提取各語言
+
+                    # 提取全部資料
                     chinese = data.get('chinese', '')
                     english = data.get('english', '')
                     japanese = data.get('japanese', '')
                     korean = data.get('korean', '')
                     thai = data.get('thai', '')
-                    
-                    # 建立 grammar（不分組，全部存入）
+
+                    # 建立完整 grammar（五語全存）
                     grammar_data = data.get('grammar', {})
                     for lang in ['english', 'thai', 'japanese', 'korean']:
                         if lang not in grammar_data:
                             grammar_data[lang] = default_multilang_data["來6:3"]['grammar'][lang]
-                    
-                    # 根據選擇決定 v1/v2 內容（但 grammar 全部存）
-                    if "🍄" in save_mode:
-                        # 中英泰組：v1 有中英文，v2 有泰文
-                        header_v1 = "Ref.\tEnglish（ESV經文）\tChinese經文\tSyn/Ant\tGrammar"
-                        v1_content = header_v1 + f"\n{ref_input}\t{english}\t{chinese}\t\t"
-                        
-                        header_v2 = "Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語"
-                        v2_content = header_v2 + f"\n{ref_input}\t\t\t\t\t\t{thai}"
-                    else:
-                        # 日韓組：v1 保留原有（或空白），v2 有日韓文
-                        existing_data = st.session_state.sentences.get(ref_input, {})
-                        v1_content = existing_data.get('v1_content', '')
-                        
-                        header_v2 = "Ref.\t口語訳\tGrammar\tNote\tKRF\tKorean Syn/Ant\tTHSV11 泰文重要片語"
-                        v2_content = header_v2 + f"\n{ref_input}\t{japanese}\t\t\t{korean}\t\t"
-                    
-                    # 合併存檔（全部資料都存，不區分內容）
-                    existing_data = st.session_state.sentences.get(ref_input, {})
-                    
-                    verse_data = {
-                        "ref": ref_input,
-                        "type": "Scripture",
-                        "mode": "A",
-                        "v1_content": v1_content,
-                        "v2_content": v2_content,
-                        "w_sheet": existing_data.get('w_sheet', ''),
-                        "p_sheet": existing_data.get('p_sheet', ''),
-                        "grammar_list": existing_data.get('grammar_list', ''),
-                        "other": json.dumps(grammar_data, ensure_ascii=False),
-                        "saved_sheets": ["V1 Sheet", "V2 Sheet"],
-                        "date_added": existing_data.get('date_added', datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
-                        "ai_analysis": {
-                            'vocabulary': data.get('vocabulary', []),
-                            'phrases': data.get('phrases', []),
-                            'segments': data.get('segments', [])
+
+                    # 合併既有資料（若已存在）
+                    existing = sentences.get(ref_input, {})
+                    if save_en_th:
+                        verse_data = {
+                            "ref": ref_input,
+                            "chinese": chinese or existing.get('chinese', ''),
+                            "english": english or existing.get('english', ''),
+                            "japanese": existing.get('japanese', ''),
+                            "korean": existing.get('korean', ''),
+                            "thai": thai or existing.get('thai', ''),
+                            "grammar": grammar_data,
+                            "vocabulary": data.get('vocabulary', existing.get('vocabulary', [])),
+                            "phrases": data.get('phrases', existing.get('phrases', [])),
+                            "segments": data.get('segments', existing.get('segments', []))
                         }
-                    }
-                    
+                    else:  # save_jp_kr
+                        verse_data = {
+                            "ref": ref_input,
+                            "chinese": chinese or existing.get('chinese', ''),
+                            "english": english or existing.get('english', ''),
+                            "japanese": japanese or existing.get('japanese', ''),
+                            "korean": korean or existing.get('korean', ''),
+                            "thai": existing.get('thai', ''),
+                            "grammar": grammar_data,
+                            "vocabulary": data.get('vocabulary', existing.get('vocabulary', [])),
+                            "phrases": data.get('phrases', existing.get('phrases', [])),
+                            "segments": data.get('segments', existing.get('segments', []))
+                        }
+
                     if 'sentences' not in st.session_state:
                         st.session_state.sentences = {}
                     st.session_state.sentences[ref_input] = verse_data
                     save_sentences(st.session_state.sentences)
-                    
-                    # 同步 Google Sheets
-                    gs_msg = ""
-                    try:
-                        success, msg = save_to_google_sheets(verse_data)
-                        if success:
-                            gs_msg = "（含 Google Sheets）"
-                        else:
-                            gs_msg = f"（Google Sheets：{msg}）"
-                    except Exception as e:
-                        gs_msg = f"（Google Sheets 異常：{e}）"
-                    
-                    st.success(f"✅ 已存檔：{ref_input} {gs_msg}")
+
+                    st.success(f"✅ 已存檔：{ref_input}（純本地，未同步 Sheets）")
                     st.balloons()
                     st.rerun()
-                    
+
                 except json.JSONDecodeError:
-                    st.error("❌ JSON 格式錯誤，請檢查內容")
+                    st.error("❌ JSON 格式錯誤")
                 except Exception as e:
                     st.error(f"❌ 存檔失敗：{e}")
+
+    # ========== Google Sheets 同步區（獨立於存檔流程）==========
+    with st.expander("☁️ Google Sheets 同步（手動）"):
+        st.caption("將已存檔的經文資料組裝為 v1/v2 格式後上傳")
+        sync_cols = st.columns([3, 1])
+        with sync_cols[0]:
+            sync_ref = st.selectbox(
+                "選擇經文",
+                [""] + saved_refs if saved_refs else [""],
+                format_func=lambda x: "請選擇..." if x == "" else x,
+                key="sync_selector",
+                label_visibility="collapsed"
+            )
+        with sync_cols[1]:
+            if st.button("📤 同步", use_container_width=True, key="sync_btn"):
+                if sync_ref:
+                    success, msg = sync_verse_to_sheets(sync_ref)
+                    if success:
+                        st.success(f"✅ 已同步至 Google Sheets")
+                    else:
+                        st.error(f"❌ 同步失敗：{msg}")
+                else:
+                    st.warning("請先選擇經文")
 
     st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
 
@@ -1630,18 +1602,46 @@ with tabs[0]:
 
     if current is None:
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        if not st.session_state.tab1_selected_ref:
-            st.markdown("<div style='color:#999; font-size:13px; text-align:center; padding:20px;'>請輸入經文後點擊 🍄📂 或 🌸📂 叫出存檔</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:#999; font-size:13px; text-align:center; padding:20px;'>請選擇經文後點擊 📞 叫出</div>", unsafe_allow_html=True)
 
     else:
-        # 顯示經文標題
+        # --- 經文標題 ---
         ref_short = current.get('ref', '').replace(" ", "")
         chinese_text = current.get('chinese', '')
         st.markdown(f"<h3 style='font-size: 22px; font-weight: bold; color: #000; margin: 10px 0; font-family: \"Microsoft JhengHei\", \"PingFang TC\", sans-serif;'>{ref_short}{chinese_text}</h3>", unsafe_allow_html=True)
 
-        # 顯示模式切換
+        # --- 單字 / 片語 / 分段（上半資料）---
+        vocab = current.get('vocabulary', [])
+        phrases = current.get('phrases', [])
+        segments = current.get('segments', [])
+
+        if vocab or phrases or segments:
+            with st.expander("📚 單字 / 片語 / 分段", expanded=True):
+                if vocab:
+                    st.markdown("<div style='font-weight:bold; font-size:14px; margin-bottom:6px;'>📝 單字 Vocabulary</div>", unsafe_allow_html=True)
+                    for item in vocab:
+                        word = item.get('word', '') if isinstance(item, dict) else str(item)
+                        meaning = item.get('meaning', '') if isinstance(item, dict) else ''
+                        st.markdown(f'<div class="analysis-box"><b>{word}</b> {meaning}</div>', unsafe_allow_html=True)
+
+                if phrases:
+                    st.markdown("<div style='font-weight:bold; font-size:14px; margin:10px 0 6px;'>🔑 片語 Phrases</div>", unsafe_allow_html=True)
+                    for item in phrases:
+                        phr = item.get('phrase', '') if isinstance(item, dict) else str(item)
+                        note = item.get('note', '') if isinstance(item, dict) else ''
+                        st.markdown(f'<div class="analysis-box"><b>{phr}</b> {note}</div>', unsafe_allow_html=True)
+
+                if segments:
+                    st.markdown("<div style='font-weight:bold; font-size:14px; margin:10px 0 6px;'>✂️ 分段 Segments</div>", unsafe_allow_html=True)
+                    for item in segments:
+                        seg = item.get('segment', '') if isinstance(item, dict) else str(item)
+                        st.markdown(f'<div class="analysis-box">{seg}</div>', unsafe_allow_html=True)
+
+            st.markdown("<hr style='margin: 15px 0; border-color: #e0e0e0;'>", unsafe_allow_html=True)
+
+        # --- 五語經文與文法 ---
         display_tabs = st.tabs(["🍄 中英泰", "🌸 日韓"])
-        
+
         with display_tabs[0]:
             col_left, col_right = st.columns(2)
             with col_left:
@@ -1669,7 +1669,7 @@ with tabs[0]:
                         """, unsafe_allow_html=True)
                 else:
                     st.info("🇬🇧 英文資料尚未輸入")
-            
+
             with col_right:
                 if current.get('thai'):
                     th = current['grammar']['thai']
@@ -1714,7 +1714,7 @@ with tabs[0]:
                     """, unsafe_allow_html=True)
                     st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0;'>文法解說：</div>", unsafe_allow_html=True)
                     for p in jp['points']:
-                        pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
+                        pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p.get('pattern') else ""
                         st.markdown(f"""
                         <div class="grammar-box">
                             <span style="font-weight: bold;">{p['label']})</span> {p['rule']}{pat}<br>
@@ -1723,7 +1723,7 @@ with tabs[0]:
                         """, unsafe_allow_html=True)
                 else:
                     st.info("🇯🇵 日文資料尚未輸入")
-            
+
             with col_right:
                 if current.get('korean'):
                     kr = current['grammar']['korean']
@@ -1740,7 +1740,7 @@ with tabs[0]:
                     """, unsafe_allow_html=True)
                     st.markdown("<div style='font-weight: bold; font-size: 13px; margin: 8px 0;'>重要文法解說：</div>", unsafe_allow_html=True)
                     for p in kr['points']:
-                        pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p['pattern'] else ""
+                        pat = f"<br><span style='color: #666;'>{p['pattern']}</span>" if p.get('pattern') else ""
                         st.markdown(f"""
                         <div class="grammar-box">
                             <span style="font-weight: bold;">{p['label']})</span> {p['rule']}{pat}<br>
